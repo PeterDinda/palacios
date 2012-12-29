@@ -38,13 +38,13 @@ static int v3_env_inject_handler (struct guest_info * core, void * priv_data) {
     struct v3_env_inject_info * inject = (struct v3_env_inject_info*)priv_data;
 
     for (; i < inject->num_env_vars; i++) {
-        PrintDebug("Envvar[%d]: %s\n", i, inject->env_vars[i]);
+        PrintDebug(core->vm_info, core, "Envvar[%d]: %s\n", i, inject->env_vars[i]);
     }
 
     int ret = v3_inject_strings(core, (const char**)NULL, 
                                 (const char**)inject->env_vars, 0, inject->num_env_vars);
     if (ret == -1) {
-        PrintDebug("Error injecting strings in v3_env_inject_handler\n");
+        PrintDebug(core->vm_info, core, "Error injecting strings in v3_env_inject_handler\n");
         return -1;
     }
 
@@ -76,7 +76,7 @@ int v3_insert_env_inject (void * ginfo, char ** strings, int num_strings, char *
     struct v3_env_inject_info * inject = V3_Malloc(sizeof(struct v3_env_inject_info));
 
     if (!inject) {
-	PrintError("Cannot allocate in inserting environment inject\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in inserting environment inject\n");
 	return -1;
     }
 
@@ -98,7 +98,7 @@ int v3_insert_env_inject (void * ginfo, char ** strings, int num_strings, char *
 int v3_remove_env_inject (struct v3_vm_info * vm, struct v3_env_inject_info * inject) {
 
     if (v3_unhook_executable(vm, inject->bin_name) < 0) {
-        PrintError("Problem unhooking executable in v3_remove_env_inject\n");
+        PrintError(vm, VCORE_NONE, "Problem unhooking executable in v3_remove_env_inject\n");
         return -1;
     }
 

@@ -47,11 +47,11 @@ static struct {} null_store __attribute__((__used__))			\
 static void * debug_open_chkpt(char * url, chkpt_mode_t mode) {
    
     if (mode == LOAD) {
-	V3_Print("Cannot load from debug store\n");
+	V3_Print(VM_NONE, VCORE_NONE, "Cannot load from debug store\n");
 	return NULL;
     }
 
-    V3_Print("Opening Checkpoint: %s\n", url);
+    V3_Print(VM_NONE, VCORE_NONE, "Opening Checkpoint: %s\n", url);
 
     return (void *)1;
 }
@@ -59,24 +59,24 @@ static void * debug_open_chkpt(char * url, chkpt_mode_t mode) {
 
 
 static int debug_close_chkpt(void * store_data) {
-    V3_Print("Closing Checkpoint\n");
+    V3_Print(VM_NONE, VCORE_NONE, "Closing Checkpoint\n");
     return 0;
 }
 
 static void * debug_open_ctx(void * store_data, 
 			     char * name) {
-    V3_Print("[%s]\n", name);
+    V3_Print(VM_NONE, VCORE_NONE, "[%s]\n", name);
     return (void *)1;
 }
 
 static int debug_close_ctx(void * store_data, void * ctx) {
-    V3_Print("[CLOSE]\n"); 
+    V3_Print(VM_NONE, VCORE_NONE, "[CLOSE]\n"); 
     return 0;
 }
 
 static int debug_save(void * store_data, void * ctx, 
 		      char * tag, uint64_t len, void * buf) {
-    V3_Print("%s:\n", tag);
+    V3_Print(VM_NONE, VCORE_NONE, "%s:\n", tag);
 
     if (len > 100) {
 	len = 100;
@@ -89,7 +89,7 @@ static int debug_save(void * store_data, void * ctx,
 
 static int debug_load(void * store_data, void * ctx, 
 				  char * tag, uint64_t len, void * buf) {
-    V3_Print("Loading not supported !!!\n");
+    V3_Print(VM_NONE, VCORE_NONE, "Loading not supported !!!\n");
     return 0;
 }
 
@@ -221,7 +221,7 @@ static void * dir_open_ctx(void * store_data,
     ctx = V3_Malloc(sizeof(struct file_ctx));
 
     if (!ctx) {
-	PrintError("Cannot allocate\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate\n");
 	return NULL;
     }
 
@@ -230,7 +230,7 @@ static void * dir_open_ctx(void * store_data,
     ctx->filename = V3_Malloc(strlen(url) + strlen(name) + 5);
 
     if (!ctx->filename) {
-	PrintError("Cannot allocate\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate\n");
 	V3_Free(ctx);
 	return NULL;
     }

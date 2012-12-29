@@ -85,11 +85,11 @@ static int v3_copy_chunk_guest32(struct guest_info * core, addr_t gva, uint_t ar
     uint32_t tmp_args[var_dump.argc];
     uint32_t tmp_envs[var_dump.envc];
 
-    PrintDebug("Initiating copy into guest (32bit)\n");
+    PrintDebug(core->vm_info, core, "Initiating copy into guest (32bit)\n");
     
     ret = v3_gva_to_hva(core, get_addr_linear(core, gva, &(core->segments.ds)), &hva);
     if (ret == -1) {
-        PrintDebug("Error translating gva in v3_copy_chunk_2guest\n");
+        PrintDebug(core->vm_info, core, "Error translating gva in v3_copy_chunk_2guest\n");
         return -1;
     }
     
@@ -99,7 +99,7 @@ static int v3_copy_chunk_guest32(struct guest_info * core, addr_t gva, uint_t ar
     host_cursor -= strlen(var_dump.envp[i]) + 1;
     guest_cursor -= strlen(var_dump.envp[i]) + 1;
     while (i < var_dump.envc) {
-        //PrintDebug("Copying envvar#%d: %s\n", i, var_dump.envp[i]);
+        //PrintDebug(core->vm_info, core, "Copying envvar#%d: %s\n", i, var_dump.envp[i]);
         strcpy(host_cursor, var_dump.envp[i]);
         tmp_envs[i] = guest_cursor;
         i++;
@@ -114,7 +114,7 @@ static int v3_copy_chunk_guest32(struct guest_info * core, addr_t gva, uint_t ar
     host_cursor -= strlen(var_dump.argv[i]) + 1;
     guest_cursor -= strlen(var_dump.argv[i]) + 1;
     while (i < var_dump.argc) {
-        //PrintDebug("Copying arg #%d: %s\n", i, var_dump.argv[i]);
+        //PrintDebug(core->vm_info, core, "Copying arg #%d: %s\n", i, var_dump.argv[i]);
         strcpy(host_cursor, var_dump.argv[i]);
         tmp_args[i] = guest_cursor;
         i++;
@@ -180,17 +180,17 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     uint_t argc = 0, envc = 0, bytes = 0;
     char * cursor;
 
-    PrintDebug("Initiating copy into vmm\n");
+    PrintDebug(core->vm_info, core, "Initiating copy into vmm\n");
 
     int ret = v3_gva_to_hva(core, get_addr_linear(core, core->vm_regs.rdx, &(core->segments.ds)), &envp);
     if (ret == -1) {
-        PrintDebug("Error translating address in rdx\n");
+        PrintDebug(core->vm_info, core, "Error translating address in rdx\n");
         return 0;
     }
 
     ret = v3_gva_to_hva(core, get_addr_linear(core, core->vm_regs.rcx, &(core->segments.ds)), &argv);
     if (ret == -1) {
-        PrintDebug("Error translating address in rcx\n");
+        PrintDebug(core->vm_info, core, "Error translating address in rcx\n");
         return 0;
     }
     
@@ -199,7 +199,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         addr_t argvn;
         ret = v3_gva_to_hva(core, get_addr_linear(core, (addr_t)*((uint32_t*)cursor), &(core->segments.ds)), &argvn);
         if (ret == -1) {
-            PrintDebug("Error translating address for argvn\n");
+            PrintDebug(core->vm_info, core, "Error translating address for argvn\n");
         }
         argc++;
         cursor += 4;
@@ -210,7 +210,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     var_dump.argv = (char**)V3_Malloc(sizeof(char*)*argc);
 
     if (!var_dump.argv) {
-	PrintError("Cannot allocate in copying\n");
+	PrintError(core->vm_info, core, "Cannot allocate in copying\n");
 	return -1;
     }
 
@@ -223,14 +223,14 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         addr_t argvn;
         ret = v3_gva_to_hva(core, get_addr_linear(core, (addr_t)*((uint32_t*)cursor), &(core->segments.ds)), &argvn);
         if (ret == -1) {
-            PrintDebug("Error translating argvn address\n");
+            PrintDebug(core->vm_info, core, "Error translating argvn address\n");
         }
     
         /* malloc room for the string */
         char * tmpstr = (char*)V3_Malloc(strlen((char*)argvn) + 1);
 
 	if (!tmpstr) {
-	    PrintError("Cannot allocate temporary\n");
+	    PrintError(core->vm_info, core, "Cannot allocate temporary\n");
 	    return -1;
 	}
 
@@ -250,7 +250,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         char * tmpstr = (char*)V3_Malloc(strlen(argstrs[j]) + 1);
 
 	if (!tmpstr) {
-	    PrintError("Cannot allocate temp string\n");
+	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
 
@@ -266,7 +266,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         addr_t envpn;
         ret = v3_gva_to_hva(core, get_addr_linear(core, (addr_t)*((uint32_t*)cursor), &(core->segments.ds)), &envpn);
         if (ret == -1) {
-            PrintDebug("Error translating address for envpn\n");
+            PrintDebug(core->vm_info, core, "Error translating address for envpn\n");
         }
         envc++;
         cursor += 4;
@@ -276,7 +276,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
     var_dump.envp = (char**)V3_Malloc(sizeof(char*)*envc);
 
     if (!var_dump.envp) {
-	PrintError("Cannot allocate var dump\n");
+	PrintError(core->vm_info, core, "Cannot allocate var dump\n");
 	return -1;
     }
 
@@ -289,14 +289,14 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         addr_t envpn;
         ret = v3_gva_to_hva(core, get_addr_linear(core, (addr_t)*((uint32_t*)cursor), &(core->segments.ds)), &envpn);
         if (ret == -1) {
-            PrintDebug("Error translating address for envpn\n");
+            PrintDebug(core->vm_info, core, "Error translating address for envpn\n");
         }
         
         /* malloc room for the string */
         char * tmpstr = (char*)V3_Malloc(strlen((char*)envpn) + 1);
 
 	if (!tmpstr) {
-	    PrintError("Cannot allocate temp string\n");
+	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
         
@@ -316,7 +316,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         char * tmpstr = (char*)V3_Malloc(strlen(envstrs[j]) + 1);
 
 	if (!tmpstr) {
-	    PrintError("Cannot allocate temp string\n");
+	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
 
@@ -342,15 +342,15 @@ static int v3_inject_strings32 (struct guest_info * core, const char ** argstrs,
 
     /* copy out all of the arguments and the environment to the VMM */
     if ((bytes_needed = v3_copy_chunk_vmm32(core, argstrs, envstrs, argcnt, envcnt)) == -1) {
-        PrintDebug("Error copying out environment and arguments\n");
+        PrintDebug(core->vm_info, core, "Error copying out environment and arguments\n");
         return -1;
     }
 
-    PrintDebug("environment successfully copied into VMM\n");
+    PrintDebug(core->vm_info, core, "environment successfully copied into VMM\n");
     
     inject_gva = v3_prepare_guest_stack(core, bytes_needed);
     if (!inject_gva) {
-        PrintDebug("Not enough space on user stack\n");
+        PrintDebug(core->vm_info, core, "Not enough space on user stack\n");
         return -1;
     }
 
@@ -367,11 +367,11 @@ static int v3_copy_chunk_guest64(struct guest_info * core, addr_t gva, uint_t ar
     uint64_t tmp_args[var_dump.argc];
     uint64_t tmp_envs[var_dump.envc];
 
-    PrintDebug("Initiating copy into guest (64bit)\n");
+    PrintDebug(core->vm_info, core, "Initiating copy into guest (64bit)\n");
     
     ret = v3_gva_to_hva(core, get_addr_linear(core, gva, &(core->segments.ds)), &hva);
     if (ret == -1) {
-        PrintDebug("Error translating gva in v3_copy_chunk_2guest64\n");
+        PrintDebug(core->vm_info, core, "Error translating gva in v3_copy_chunk_2guest64\n");
         return -1;
     }
     
@@ -380,7 +380,7 @@ static int v3_copy_chunk_guest64(struct guest_info * core, addr_t gva, uint_t ar
     host_cursor -= strlen(var_dump.envp[i]) + 1;
     guest_cursor -= strlen(var_dump.envp[i]) + 1;
     while (i < var_dump.envc) {
-        //PrintDebug("Copying envvar#%d: %s\n", i, var_dump.envp[i]);
+        //PrintDebug(core->vm_info, core, "Copying envvar#%d: %s\n", i, var_dump.envp[i]);
         strcpy(host_cursor, var_dump.envp[i]);
         tmp_envs[i] = guest_cursor;
         i++;
@@ -394,7 +394,7 @@ static int v3_copy_chunk_guest64(struct guest_info * core, addr_t gva, uint_t ar
     host_cursor -= strlen(var_dump.argv[i]) + 1;
     guest_cursor -= strlen(var_dump.argv[i]) + 1;
     while (i < var_dump.argc) {
-        //PrintDebug("Copying arg #%d: %s\n", i, var_dump.argv[i]);
+        //PrintDebug(core->vm_info, core, "Copying arg #%d: %s\n", i, var_dump.argv[i]);
         strcpy(host_cursor, var_dump.argv[i]);
         tmp_args[i] = guest_cursor;
         i++;
@@ -458,17 +458,17 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     uint_t argc = 0, envc = 0, bytes = 0;
     char * cursor;
 
-    PrintDebug("Initiating copy into vmm\n");
+    PrintDebug(core->vm_info, core, "Initiating copy into vmm\n");
 
     int ret = v3_gva_to_hva(core, get_addr_linear(core, core->vm_regs.rdx, &(core->segments.ds)), &envp);
     if (ret == -1) {
-        PrintDebug("Error translating address in rdx\n");
+        PrintDebug(core->vm_info, core, "Error translating address in rdx\n");
         return 0;
     }
 
     ret = v3_gva_to_hva(core, get_addr_linear(core, core->vm_regs.rcx, &(core->segments.ds)), &argv);
     if (ret == -1) {
-        PrintDebug("Error translating address in rcx\n");
+        PrintDebug(core->vm_info, core, "Error translating address in rcx\n");
         return 0;
     }
     
@@ -477,7 +477,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         addr_t argvn;
         ret = v3_gva_to_hva(core, get_addr_linear(core, (addr_t)*((uint64_t*)cursor), &(core->segments.ds)), &argvn);
         if (ret == -1) {
-            PrintDebug("Error translating address for argvn\n");
+            PrintDebug(core->vm_info, core, "Error translating address for argvn\n");
         }
         argc++;
         cursor += 8;
@@ -488,7 +488,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     var_dump.argv = (char**)V3_Malloc(sizeof(char*)*argc);
 
     if (!var_dump.argv) {
-	PrintError("Cannot allocate var dump\n");
+	PrintError(core->vm_info, core, "Cannot allocate var dump\n");
 	return -1;
     }
 
@@ -501,14 +501,14 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         addr_t argvn;
         ret = v3_gva_to_hva(core, get_addr_linear(core, (addr_t)*((uint64_t*)cursor), &(core->segments.ds)), &argvn);
         if (ret == -1) {
-            PrintDebug("Error translating argvn address\n");
+            PrintDebug(core->vm_info, core, "Error translating argvn address\n");
         }
     
         /* malloc room for the string */
         char * tmpstr = (char*)V3_Malloc(strlen((char*)argvn) + 1);
 
 	if (!tmpstr) {
-	    PrintError("Cannot allocate temp string\n");
+	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
 
@@ -528,7 +528,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         char * tmpstr = (char*)V3_Malloc(strlen(argstrs[j]) + 1);
 
 	if (!tmpstr) {
-	    PrintError("Cannot allocate temp string\n");
+	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
 
@@ -544,7 +544,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         addr_t envpn;
         ret = v3_gva_to_hva(core, get_addr_linear(core, (addr_t)*((uint64_t*)cursor), &(core->segments.ds)), &envpn);
         if (ret == -1) {
-            PrintDebug("Error translating address for envpn\n");
+            PrintDebug(core->vm_info, core, "Error translating address for envpn\n");
         }
         envc++;
         cursor += 8;
@@ -554,7 +554,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
     var_dump.envp = (char**)V3_Malloc(sizeof(char*)*envc);
 
     if (!var_dump.envp) {
-	PrintError("Cannot allocate var dump\n");
+	PrintError(core->vm_info, core, "Cannot allocate var dump\n");
 	return -1;
     }
 
@@ -568,14 +568,14 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         addr_t envpn;
         ret = v3_gva_to_hva(core, get_addr_linear(core, (addr_t)*((uint64_t*)cursor), &(core->segments.ds)), &envpn);
         if (ret == -1) {
-            PrintDebug("Error translating address for envpn\n");
+            PrintDebug(core->vm_info, core, "Error translating address for envpn\n");
         }
         
         /* malloc room for the string */
         char * tmpstr = (char*)V3_Malloc(strlen((char*)envpn) + 1);
 
 	if (!tmpstr) {
-	    PrintError("Cannot allocate temp string\n");
+	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
         
@@ -595,7 +595,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         char * tmpstr = (char*)V3_Malloc(strlen(envstrs[j]) + 1);
 
 	if (!tmpstr) {
-	    PrintError("Cannot allocate temp string\n");
+	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
 
@@ -621,15 +621,15 @@ static int v3_inject_strings64 (struct guest_info * core, const char ** argstrs,
 
     /* copy out all of the arguments and the environment to the VMM */
     if ((bytes_needed = v3_copy_chunk_vmm64(core, argstrs, envstrs, argcnt, envcnt)) == -1) {
-        PrintDebug("Error copying out environment and arguments\n");
+        PrintDebug(core->vm_info, core, "Error copying out environment and arguments\n");
         return -1;
     }
 
-    PrintDebug("environment successfully copied into VMM\n");
+    PrintDebug(core->vm_info, core, "environment successfully copied into VMM\n");
     
     inject_gva = v3_prepare_guest_stack(core, bytes_needed);
     if (!inject_gva) {
-        PrintDebug("Not enough space on user stack\n");
+        PrintDebug(core->vm_info, core, "Not enough space on user stack\n");
         return -1;
     }
 
@@ -698,12 +698,12 @@ int v3_inject_strings (struct guest_info * core, const char ** argstrs, const ch
     
     if (core->cpu_mode == LONG) {
         if (v3_inject_strings64(core, argstrs, envstrs, argcnt, envcnt) == -1) {
-            PrintDebug("Error injecting strings into environment (64)\n");
+            PrintDebug(core->vm_info, core, "Error injecting strings into environment (64)\n");
             return -1;
         }
     } else {
         if (v3_inject_strings32(core, argstrs, envstrs, argcnt, envcnt) == -1) {
-            PrintDebug("Error injecting strings into environment (32)\n");
+            PrintDebug(core->vm_info, core, "Error injecting strings into environment (32)\n");
             return -1;
         }
     }

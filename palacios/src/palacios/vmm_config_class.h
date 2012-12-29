@@ -55,7 +55,7 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	void * vgabios_dst = 0;
 
 	if (v3_gpa_to_hva(&(vm->cores[0]), VGABIOS_START, (addr_t *)&vgabios_dst) == -1) {
-	    PrintError("Could not find VGABIOS destination address\n");
+	    PrintError(vm, VCORE_NONE, "Could not find VGABIOS destination address\n");
 	    return -1;
 	}
 
@@ -69,7 +69,7 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	void * rombios_dst = 0;
 	
 	if (v3_gpa_to_hva(&(vm->cores[0]), ROMBIOS_START, (addr_t *)&rombios_dst) == -1) {
-	    PrintError("Could not find ROMBIOS destination address\n");
+	    PrintError(vm, VCORE_NONE, "Could not find ROMBIOS destination address\n");
 	    return -1;
 	}
 

@@ -383,7 +383,7 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data, struct v3
     irq.private_data = vec->private_data;
 
     /*
-    PrintError("Raising PCI dev %d intr %d via IOAPIC as IRQ %d and via PIRQ as IRQ %d on VM %p\n", 
+    PrintError(info->vm_info, info, "Raising PCI dev %d intr %d via IOAPIC as IRQ %d and via PIRQ as IRQ %d on VM %p\n", 
 	       pci_dev->dev_num, pci_dev->config_header.intr_pin, 
 	       16+irq_index,
 	       piix3_cfg->pirq_rc[irq_index], piix3->vm);
@@ -394,7 +394,7 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data, struct v3
     if (piix3_cfg->pirq_rc[irq_index] < 16) {
 	irq.irq = piix3_cfg->pirq_rc[irq_index] & 0xf;
 
-	//	V3_Print("Raising PIIX IRQ %d\n", irq.irq);
+	//	V3_Print(info->vm_info, info, "Raising PIIX IRQ %d\n", irq.irq);
 	v3_raise_acked_irq(piix3->vm, irq);
     } else {
       // not an error
@@ -404,7 +404,7 @@ static int raise_pci_irq(struct pci_device * pci_dev, void * dev_data, struct v3
     // mptable (ioapic, pins 16->19 are used for PCI0)
     // ideally this would check to verify that an ioapic is actually available
     irq.irq = (irq_index + 1) + 16;
-    //    V3_Print("Raising PIIX IRQ (#2) %d\n", irq.irq);
+    //    V3_Print(info->vm_info, info, "Raising PIIX IRQ (#2) %d\n", irq.irq);
     v3_raise_acked_irq(piix3->vm, irq);
     
 
@@ -423,7 +423,7 @@ static int lower_pci_irq(struct pci_device * pci_dev, void * dev_data, struct v3
 
     irq.ack = vec->ack;
     irq.private_data = vec->private_data;
-    //    PrintError("Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
+    //    PrintError(info->vm_info, info, "Lowering PCI IRQ %d\n", piix3_cfg->pirq_rc[irq_index]);
 
     // First, lower the pin on the ioapic
     irq.irq = (irq_index + 1) + 16;
@@ -473,7 +473,7 @@ static int setup_pci(struct v3_southbridge * piix3) {
 				     "PIIX3", bars, 
 				     NULL, NULL, NULL, NULL, piix3);
     if (pci_dev == NULL) {
-	PrintError("Could not register PCI Device for PIIX3\n");
+	PrintError(VM_NONE, VCORE_NONE, "Could not register PCI Device for PIIX3\n");
 	return -1;
     }
 
@@ -498,12 +498,12 @@ static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");
 
     if (!piix3) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
     if (!pci) {
-	PrintError("Could not find PCI device\n");
+	PrintError(vm, VCORE_NONE, "Could not find PCI device\n");
 	return -1;
     }
 
@@ -514,12 +514,12 @@ static int piix3_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     dev = v3_add_device(vm, dev_id, &dev_ops, piix3);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(piix3);
 	return -1;
     }
 
-    PrintDebug("Created PIIX3\n");
+    PrintDebug(vm, VCORE_NONE, "Created PIIX3\n");
 
     if (setup_pci(piix3) == -1) {
 	v3_remove_device(dev);

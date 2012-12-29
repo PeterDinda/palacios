@@ -339,7 +339,7 @@ static int ne2k_update_irq(struct ne2k_state * nic_state) {
 
        nic_state->statistics.rx_interrupts ++;
 
-       PrintDebug("NE2000: Raise IRQ\n");
+       PrintDebug(VM_NONE, VCORE_NONE, "NE2000: Raise IRQ\n");
     }
 
     return 0;
@@ -348,7 +348,7 @@ static int ne2k_update_irq(struct ne2k_state * nic_state) {
 static int tx_one_pkt(struct ne2k_state * nic_state, uchar_t *pkt, uint32_t length) {
 	
 #ifdef V3_CONFIG_DEBUG_NE2K
-    PrintDebug("NE2000: Send Packet:\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "NE2000: Send Packet:\n");
     v3_hexdump(pkt, length, NULL, 0);
 #endif    
 
@@ -408,7 +408,7 @@ static int rx_one_pkt(struct ne2k_state * nic_state, const uchar_t * pkt,  uint3
     }
 
     if (ne2k_rxbuf_full(regs)) {
-	PrintError("Ne2k: received buffer overflow\n");
+	PrintError(VM_NONE, VCORE_NONE, "Ne2k: received buffer overflow\n");
 	return -1;
     }
 
@@ -485,7 +485,7 @@ static int ne2k_rx(uint8_t * buf, uint32_t size, void * private_data){
     struct ne2k_state * nic_state = (struct ne2k_state *)private_data;
   
 #ifdef V3_CONFIG_DEBUG_NE2K
-    PrintDebug("\nNe2k: Packet Received:\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\nNe2k: Packet Received:\n");
     v3_hexdump(buf, size, NULL, 0);
 #endif    
 
@@ -604,14 +604,14 @@ static int ne2k_data_read(struct guest_info * core,
 	    val = mem_readl(nic_state, addr);
 	    break;
 	default:
-	    PrintError("ne2k_data_read error: invalid length %d\n", length);
+	    PrintError(VM_NONE, VCORE_NONE, "ne2k_data_read error: invalid length %d\n", length);
 	    val = 0x0;
     }
     
     dma_update(nic_state, length);
     memcpy(dst, &val, length);
 
-    PrintDebug("NE2000 read: port:0x%x (%u bytes): 0x%x", port & 0x1f, length, val);
+    PrintDebug(VM_NONE, VCORE_NONE, "NE2000 read: port:0x%x (%u bytes): 0x%x", port & 0x1f, length, val);
 
     return length;
 }
@@ -644,12 +644,12 @@ static int ne2k_data_write(struct guest_info * core,
 	    mem_writel(nic_state, addr, val);
 	    break;
 	default:
-	    PrintError("NE2000 port write error: invalid length %d\n", length);
+	    PrintError(VM_NONE, VCORE_NONE, "NE2000 port write error: invalid length %d\n", length);
     }
     
     dma_update(nic_state, length);
 
-    PrintDebug("NE2000: Write port:0x%x (%u bytes): 0x%x\n", port & 0x1f, length, val);
+    PrintDebug(VM_NONE, VCORE_NONE, "NE2000: Write port:0x%x (%u bytes): 0x%x\n", port & 0x1f, length, val);
     
     return length;
 }
@@ -675,7 +675,7 @@ static void ne2k_init_state(struct ne2k_state * nic_state) {
 static int reset_device(struct ne2k_state * nic_state) {  
     ne2k_init_state(nic_state);
 
-    PrintDebug("NE2000: Reset device\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "NE2000: Reset device\n");
 
     return 0;
 }
@@ -714,7 +714,7 @@ static int ne2k_cmd_write(struct guest_info * core,
     struct ne2k_registers * regs = (struct ne2k_registers *)&(nic_state->context);
 
     if (length != 1) {
-	PrintError("Invalid write length to NE2000 Command register\n");
+	PrintError(core->vm_info, core, "Invalid write length to NE2000 Command register\n");
 	return -1;
     }
 
@@ -763,13 +763,13 @@ static int ne2k_cmd_read(struct guest_info * core,
     struct ne2k_state * nic_state = (struct ne2k_state *)private_data;
 
     if (length != 1) {
-	PrintError("Invalid read length to NE2000 Command register\n");
+	PrintError(core->vm_info, core, "Invalid read length to NE2000 Command register\n");
 	return -1;
     }
 
     *(uint8_t *)dst = nic_state->context.cmd.val;
 
-    PrintDebug("ne2k_read: port:0x%x  val: 0x%x\n", port, *(uint8_t *)dst);
+    PrintDebug(core->vm_info, core, "ne2k_read: port:0x%x  val: 0x%x\n", port, *(uint8_t *)dst);
     return length;
 }
 
@@ -784,13 +784,13 @@ static int ne2k_std_write(struct guest_info * core,
     uint8_t page = regs->cmd.pg_sel;
 
     if (length != 1){
-	PrintError("NE2000 port write error: length %d port 0x%xnot equal to 1\n", length, port);  
+	PrintError(core->vm_info, core, "NE2000 port write error: length %d port 0x%xnot equal to 1\n", length, port);  
 	return -1;
     }
 
     uint8_t val = *(uint8_t *)src;
 	
-    PrintDebug("NE2000: write port:0x%x val: 0x%x\n", port, (uint8_t)val);
+    PrintDebug(core->vm_info, core, "NE2000: write port:0x%x val: 0x%x\n", port, (uint8_t)val);
     
     if (page == 0) {
 	switch (idx) {
@@ -843,7 +843,7 @@ static int ne2k_std_write(struct guest_info * core,
 		break;
 
 	    default:
-		PrintError("NE2000 port write error: invalid port:0x%x\n", port);
+		PrintError(core->vm_info, core, "NE2000 port write error: invalid port:0x%x\n", port);
 		return -1;
 	}
     } else if (page == 1) {
@@ -859,7 +859,7 @@ static int ne2k_std_write(struct guest_info * core,
 		break;
 		
 	    default:
-		PrintError("NE2000 write port error: invalid port:0x%x\n", port);
+		PrintError(core->vm_info, core, "NE2000 write port error: invalid port:0x%x\n", port);
 		return -1;
 	}
     } else if (page == 2) {
@@ -884,11 +884,11 @@ static int ne2k_std_write(struct guest_info * core,
 		break;
 		
 	    default:
-		PrintError("NE2000 write port error: invalid port:0x%x\n", port);
+		PrintError(core->vm_info, core, "NE2000 write port error: invalid port:0x%x\n", port);
 		return -1;
 	}
     } else {
-	PrintError("NE2000: Invalid Register Page Value\n");
+	PrintError(core->vm_info, core, "NE2000: Invalid Register Page Value\n");
 	return -1;
     }
 
@@ -908,7 +908,7 @@ static int ne2k_std_read(struct guest_info * core,
     uint8_t page = regs->cmd.pg_sel;
 
     if (length > 1) {
-	PrintError("ne2k_read error: length %d\n", length);
+	PrintError(core->vm_info, core, "ne2k_read error: length %d\n", length);
 	return length;
     }
 
@@ -956,7 +956,7 @@ static int ne2k_std_read(struct guest_info * core,
 		break;
 		
 	    default:
-		PrintError("NE2000 port read error: invalid port:0x%x\n", port);
+		PrintError(core->vm_info, core, "NE2000 port read error: invalid port:0x%x\n", port);
 		return -1;
 	}
     } else if (page == 1) {
@@ -972,7 +972,7 @@ static int ne2k_std_read(struct guest_info * core,
 		break;
 		
 	    default:
-		PrintError("ne2k_read error: invalid port:0x%x\n", port);
+		PrintError(core->vm_info, core, "ne2k_read error: invalid port:0x%x\n", port);
 		return -1;
 	}
     } else if (page == 2) {
@@ -1011,15 +1011,15 @@ static int ne2k_std_read(struct guest_info * core,
 		*(uint8_t *)dst = regs->imr.val;
 		break;
 	    default:
-		PrintError("NE2000 port read error: invalid port:0x%x\n", port);
+		PrintError(core->vm_info, core, "NE2000 port read error: invalid port:0x%x\n", port);
 		return -1;
 	}
     } else {
-	PrintError("NE2000 port read: Invalid Register Page Value\n");
+	PrintError(core->vm_info, core, "NE2000 port read: Invalid Register Page Value\n");
 	return -1;
     }
 
-    PrintDebug("NE2000 port read: port:0x%x  val: 0x%x\n", port, *(uint8_t *)dst);
+    PrintDebug(core->vm_info, core, "NE2000 port read: port:0x%x  val: 0x%x\n", port, *(uint8_t *)dst);
 
     return length;
 }
@@ -1049,7 +1049,7 @@ static int ne2k_pci_write(struct guest_info * core,
 	    break;
 
 	default:
-	    PrintError("NE2000 port write error: invalid port:0x%x\n", port);
+	    PrintError(core->vm_info, core, "NE2000 port write error: invalid port:0x%x\n", port);
 	    return -1;
     }
 
@@ -1079,7 +1079,7 @@ static int ne2k_pci_read(struct guest_info * core,
 	    break;
 
 	default:
-	    PrintError("NE2000 port read error: invalid port:0x%x\n", port);
+	    PrintError(core->vm_info, core, "NE2000 port read error: invalid port:0x%x\n", port);
 	    return -1;
     }
 
@@ -1093,7 +1093,7 @@ static int pci_config_update(struct pci_device * pci_dev,
 			     void * src, 
 			     uint_t length,
 			     void * private_data) {
-    PrintDebug("PCI Config Update\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "PCI Config Update\n");
 
     /* Do we need this? */
 
@@ -1109,7 +1109,7 @@ static int register_dev(struct ne2k_state * nic_state)
 	struct v3_pci_bar bars[6];
 	struct pci_device * pci_dev = NULL;
 
-  	PrintDebug("NE2000: PCI Enabled\n");
+  	PrintDebug(VM_NONE, VCORE_NONE, "NE2000: PCI Enabled\n");
 
 	for (i = 0; i < 6; i++) {
 	    bars[i].type = PCI_BAR_NONE;
@@ -1129,7 +1129,7 @@ static int register_dev(struct ne2k_state * nic_state)
 
 
     	if (pci_dev == NULL) {
-	    PrintError("NE2000: Could not register PCI Device\n");
+	    PrintError(VM_NONE, VCORE_NONE, "NE2000: Could not register PCI Device\n");
 	    return -1;
     	}
 	
@@ -1146,7 +1146,7 @@ static int register_dev(struct ne2k_state * nic_state)
 
 	nic_state->pci_dev = pci_dev;
     }else {
-	PrintDebug("NE2000: Not attached to PCI\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "NE2000: Not attached to PCI\n");
 
 	v3_dev_hook_io(nic_state->dev, NIC_REG_BASE_PORT , &ne2k_cmd_read, &ne2k_cmd_write);
 
@@ -1220,7 +1220,7 @@ static int ne2k_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     nic_state  = (struct ne2k_state *)V3_Malloc(sizeof(struct ne2k_state));
 
     if (!nic_state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -1230,16 +1230,16 @@ static int ne2k_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     nic_state->vm = vm;
 
     if (macstr != NULL && !str2mac(macstr, nic_state->mac)) {
-	PrintDebug("NE2000: Mac specified %s\n", macstr);
+	PrintDebug(vm, VCORE_NONE, "NE2000: Mac specified %s\n", macstr);
     }else {
-    	PrintDebug("NE2000: MAC not specified\n");
+    	PrintDebug(vm, VCORE_NONE, "NE2000: MAC not specified\n");
 	random_ethaddr(nic_state->mac);
     }
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, nic_state);
 
     if (dev == NULL) {
-	PrintError("NE2000: Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "NE2000: Could not attach device %s\n", dev_id);
 	V3_Free(nic_state);
 	return -1;
     }
@@ -1247,7 +1247,7 @@ static int ne2k_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     nic_state->dev = dev;
 
     if (v3_dev_add_net_frontend(vm, dev_id, connect_fn, (void *)nic_state) == -1) {
-	PrintError("NE2000: Could not register %s as net frontend\n", dev_id);
+	PrintError(vm, VCORE_NONE, "NE2000: Could not register %s as net frontend\n", dev_id);
 	v3_remove_device(dev);
 	V3_Free(nic_state);
 	return -1;

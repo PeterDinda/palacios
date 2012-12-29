@@ -198,7 +198,7 @@ int v3_wait_at_barrier(struct guest_info * core) {
 	return 0;
     }
 
-    V3_Print("Core %d waiting at barrier\n", core->vcpu_id);
+    V3_Print(core->vm_info, core, "Core %d waiting at barrier\n", core->vcpu_id);
 
     /*  Barrier has been activated. 
      *  Wait here until it's lowered
@@ -207,7 +207,7 @@ int v3_wait_at_barrier(struct guest_info * core) {
     
     // set cpu bit in barrier bitmap
     v3_bitmap_set(&(barrier->cpu_map), core->vcpu_id);
-    V3_Print("Core %d bit set as waiting\n", core->vcpu_id);
+    V3_Print(core->vm_info, core, "Core %d bit set as waiting\n", core->vcpu_id);
 
     // wait for cpu bit to clear
     while (v3_bitmap_check(&(barrier->cpu_map), core->vcpu_id)) {

@@ -115,15 +115,15 @@ int V3_init_checkpoint() {
     store_table = v3_create_htable(0, store_hash_fn, store_eq_fn);
 
     while (tmp_store != __stop__v3_chkpt_stores) {
-	V3_Print("Registering Checkpoint Backing Store (%s)\n", (*tmp_store)->name);
+	V3_Print(VM_NONE, VCORE_NONE, "Registering Checkpoint Backing Store (%s)\n", (*tmp_store)->name);
 
 	if (v3_htable_search(store_table, (addr_t)((*tmp_store)->name))) {
-	    PrintError("Multiple instances of Checkpoint backing Store (%s)\n", (*tmp_store)->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Multiple instances of Checkpoint backing Store (%s)\n", (*tmp_store)->name);
 	    return -1;
 	}
 
 	if (v3_htable_insert(store_table, (addr_t)((*tmp_store)->name), (addr_t)(*tmp_store)) == 0) {
-	    PrintError("Could not register Checkpoint backing store (%s)\n", (*tmp_store)->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not register Checkpoint backing store (%s)\n", (*tmp_store)->name);
 	    return -1;
 	}
 
@@ -151,13 +151,13 @@ static int chkpt_close(struct v3_chkpt * chkpt) {
     V3_Free(chkpt);
 
     if (rc!=0) { 
-      PrintError("Internal store failed to close valid checkpoint\n");
+      PrintError(VM_NONE, VCORE_NONE, "Internal store failed to close valid checkpoint\n");
       return -1;
     } else {
       return 0;
     }
   } else {
-    PrintError("Attempt to close null checkpoint\n");
+    PrintError(VM_NONE, VCORE_NONE, "Attempt to close null checkpoint\n");
     return -1;
   }
 }
@@ -171,14 +171,14 @@ static struct v3_chkpt * chkpt_open(struct v3_vm_info * vm, char * store, char *
     iface = (void *)v3_htable_search(store_table, (addr_t)store);
     
     if (iface == NULL) {
-	V3_Print("Error: Could not locate Checkpoint interface for store (%s)\n", store);
+	V3_Print(vm, VCORE_NONE, "Error: Could not locate Checkpoint interface for store (%s)\n", store);
 	return NULL;
     }
 
     store_data = iface->open_chkpt(url, mode);
 
     if (store_data == NULL) {
-	PrintError("Could not open url (%s) for backing store (%s)\n", url, store);
+	PrintError(vm, VCORE_NONE, "Could not open url (%s) for backing store (%s)\n", url, store);
 	return NULL;
     }
 
@@ -186,7 +186,7 @@ static struct v3_chkpt * chkpt_open(struct v3_vm_info * vm, char * store, char *
     chkpt = V3_Malloc(sizeof(struct v3_chkpt));
     
     if (!chkpt) {
-	PrintError("Could not allocate checkpoint state, closing checkpoint\n");
+	PrintError(vm, VCORE_NONE, "Could not allocate checkpoint state, closing checkpoint\n");
 	iface->close_chkpt(store_data);
 	return NULL;
     }
@@ -205,14 +205,14 @@ struct v3_chkpt_ctx * v3_chkpt_open_ctx(struct v3_chkpt * chkpt, char * name) {
   struct v3_chkpt_ctx * ctx;
 
   if (chkpt->current_ctx) { 
-    PrintError("Attempt to open context %s before old context has been closed\n", name);
+    PrintError(VM_NONE, VCORE_NONE, "Attempt to open context %s before old context has been closed\n", name);
     return NULL;
   }
 
   ctx = V3_Malloc(sizeof(struct v3_chkpt_ctx));
 
   if (!ctx) { 
-    PrintError("Unable to allocate context\n");
+    PrintError(VM_NONE, VCORE_NONE, "Unable to allocate context\n");
     return 0;
   }
   
@@ -222,7 +222,7 @@ struct v3_chkpt_ctx * v3_chkpt_open_ctx(struct v3_chkpt * chkpt, char * name) {
   ctx->store_ctx = chkpt->interface->open_ctx(chkpt->store_data, name);
 
   if (!(ctx->store_ctx)) {
-    PrintError("Underlying store failed to open context %s\n",name);
+    PrintError(VM_NONE, VCORE_NONE, "Underlying store failed to open context %s\n",name);
     V3_Free(ctx);
     return NULL;
   }
@@ -237,14 +237,14 @@ int v3_chkpt_close_ctx(struct v3_chkpt_ctx * ctx) {
     int ret = 0;
 
     if (chkpt->current_ctx != ctx) { 
-      PrintError("Attempt to close a context that is not the current context on the store\n");
+      PrintError(VM_NONE, VCORE_NONE, "Attempt to close a context that is not the current context on the store\n");
       return -1;
     }
 
     ret = chkpt->interface->close_ctx(chkpt->store_data, ctx->store_ctx);
 
     if (ret) { 
-      PrintError("Failed to close context on store, closing device-independent context anyway - bad\n");
+      PrintError(VM_NONE, VCORE_NONE, "Failed to close context on store, closing device-independent context anyway - bad\n");
       ret = -1;
     }
 
@@ -264,19 +264,19 @@ int v3_chkpt_save(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * bu
     int rc;
 
     if (!ctx) { 
-      PrintError("Attempt to save tag %s on null context\n",tag);
+      PrintError(VM_NONE, VCORE_NONE, "Attempt to save tag %s on null context\n",tag);
       return -1;
     }
 
     if (chkpt->current_ctx != ctx) { 
-      PrintError("Attempt to save on context that is not the current context for the store\n");
+      PrintError(VM_NONE, VCORE_NONE, "Attempt to save on context that is not the current context for the store\n");
       return -1;
     }
 
     rc = chkpt->interface->save(chkpt->store_data, ctx->store_ctx, tag , len, buf);
 
     if (rc) { 
-      PrintError("Underlying store failed to save tag %s on valid context\n",tag);
+      PrintError(VM_NONE, VCORE_NONE, "Underlying store failed to save tag %s on valid context\n",tag);
       return -1;
     } else {
       return 0;
@@ -289,19 +289,19 @@ int v3_chkpt_load(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * bu
     int rc;
 
     if (!ctx) { 
-      PrintError("Attempt to load tag %s from null context\n",tag);
+      PrintError(VM_NONE, VCORE_NONE, "Attempt to load tag %s from null context\n",tag);
       return -1;
     }
     
     if (chkpt->current_ctx != ctx) { 
-      PrintError("Attempt to load from context that is not the current context for the store\n");
+      PrintError(VM_NONE, VCORE_NONE, "Attempt to load from context that is not the current context for the store\n");
       return -1;
     }
 
     rc = chkpt->interface->load(chkpt->store_data, ctx->store_ctx, tag, len, buf);
 
     if (rc) { 
-      PrintError("Underlying store failed to load tag %s from valid context\n",tag);
+      PrintError(VM_NONE, VCORE_NONE, "Underlying store failed to load tag %s from valid context\n",tag);
       return -1;
     } else {
       return 0;
@@ -321,12 +321,12 @@ static int load_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     ctx = v3_chkpt_open_ctx(chkpt, "memory_img");
     
     if (!ctx) { 
-	PrintError("Unable to open context for memory load\n");
+	PrintError(vm, VCORE_NONE, "Unable to open context for memory load\n");
 	return -1;
     }
 		     
     if (v3_chkpt_load(ctx, "memory_img", vm->mem_size, guest_mem_base)) {
-	PrintError("Unable to load all of memory (requested=%llu bytes, result=%llu bytes\n",(uint64_t)(vm->mem_size),ret);
+	PrintError(vm, VCORE_NONE, "Unable to load all of memory (requested=%llu bytes, result=%llu bytes\n",(uint64_t)(vm->mem_size),ret);
 	v3_chkpt_close_ctx(ctx);
 	return -1;
     }
@@ -347,12 +347,12 @@ static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     ctx = v3_chkpt_open_ctx(chkpt, "memory_img");
 
     if (!ctx) { 
-	PrintError("Unable to open context to save memory\n");
+	PrintError(vm, VCORE_NONE, "Unable to open context to save memory\n");
 	return -1;
     }
 
     if (v3_chkpt_save(ctx, "memory_img", vm->mem_size, guest_mem_base)) {
-	PrintError("Unable to save all of memory (requested=%llu, received=%llu)\n",(uint64_t)(vm->mem_size),ret);
+	PrintError(vm, VCORE_NONE, "Unable to save all of memory (requested=%llu, received=%llu)\n",(uint64_t)(vm->mem_size),ret);
 	v3_chkpt_close_ctx(ctx);  
 	return -1;
     }
@@ -402,14 +402,14 @@ static struct mem_migration_state *start_page_tracking(struct v3_vm_info *vm)
     m = (struct mem_migration_state *)V3_Malloc(sizeof(struct mem_migration_state));
 
     if (!m) { 
-	PrintError("Cannot allocate\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate\n");
 	return NULL;
     }
 
     m->vm=vm;
     
     if (v3_bitmap_init(&(m->modified_pages),vm->mem_size >> 12) == -1) { 
-	PrintError("Failed to initialize modified_pages bit vector");
+	PrintError(vm, VCORE_NONE, "Failed to initialize modified_pages bit vector");
 	V3_Free(m);
     }
 
@@ -455,12 +455,12 @@ static int save_inc_memory(struct v3_vm_info * vm,
    
     guest_mem_base = V3_VAddr((void *)vm->mem_map.base_region.host_addr);
     
-    PrintDebug("Saving incremental memory.\n");
+    PrintDebug(vm, VCORE_NONE, "Saving incremental memory.\n");
 
     ctx = v3_chkpt_open_ctx(chkpt,"memory_bitmap_bits");
 
     if (!ctx) { 
-	PrintError("Cannot open context for dirty memory bitmap\n");
+	PrintError(vm, VCORE_NONE, "Cannot open context for dirty memory bitmap\n");
 	return -1;
     }
 	
@@ -469,29 +469,29 @@ static int save_inc_memory(struct v3_vm_info * vm,
 		      "memory_bitmap_bits",
 		      bitmap_num_bytes,
 		      mod_pgs_to_send->bits)) {
-	PrintError("Unable to write all of the dirty memory bitmap\n");
+	PrintError(vm, VCORE_NONE, "Unable to write all of the dirty memory bitmap\n");
 	v3_chkpt_close_ctx(ctx);
 	return -1;
     }
 
     v3_chkpt_close_ctx(ctx);
 
-    PrintDebug("Sent bitmap bits.\n");
+    PrintDebug(vm, VCORE_NONE, "Sent bitmap bits.\n");
 
     // Dirty memory pages are sent in bitmap order
     for (i = 0; i < mod_pgs_to_send->num_bits; i++) {
         if (v3_bitmap_check(mod_pgs_to_send, i)) {
-           // PrintDebug("Sending memory page %d.\n",i);
+           // PrintDebug(vm, VCORE_NONE, "Sending memory page %d.\n",i);
             ctx = v3_chkpt_open_ctx(chkpt, "memory_page");
 	    if (!ctx) { 
-		PrintError("Unable to open context to send memory page\n");
+		PrintError(vm, VCORE_NONE, "Unable to open context to send memory page\n");
 		return -1;
 	    }
             if (v3_chkpt_save(ctx, 
 			      "memory_page", 
 			      page_size_bytes,
 			      guest_mem_base + (page_size_bytes * i))) {
-		PrintError("Unable to send a memory page\n");
+		PrintError(vm, VCORE_NONE, "Unable to send a memory page\n");
 		v3_chkpt_close_ctx(ctx);
 		return -1;
 	    }
@@ -526,7 +526,7 @@ static int load_inc_memory(struct v3_vm_info * vm,
     ctx = v3_chkpt_open_ctx(chkpt, "memory_bitmap_bits");
 
     if (!ctx) { 
-	PrintError("Cannot open context to receive memory bitmap\n");
+	PrintError(vm, VCORE_NONE, "Cannot open context to receive memory bitmap\n");
 	return -1;
     }
 
@@ -534,7 +534,7 @@ static int load_inc_memory(struct v3_vm_info * vm,
 		      "memory_bitmap_bits",
 		      bitmap_num_bytes,
 		      mod_pgs->bits)) {
-	PrintError("Did not receive all of memory bitmap\n");
+	PrintError(vm, VCORE_NONE, "Did not receive all of memory bitmap\n");
 	v3_chkpt_close_ctx(ctx);
 	return -1;
     }
@@ -544,11 +544,11 @@ static int load_inc_memory(struct v3_vm_info * vm,
     // Receive also follows bitmap order
     for (i = 0; i < mod_pgs->num_bits; i ++) {
         if (v3_bitmap_check(mod_pgs, i)) {
-            PrintDebug("Loading page %d\n", i);
+            PrintDebug(vm, VCORE_NONE, "Loading page %d\n", i);
             empty_bitmap = false;
             ctx = v3_chkpt_open_ctx(chkpt, "memory_page");
 	    if (!ctx) { 
-		PrintError("Cannot open context to receive memory page\n");
+		PrintError(vm, VCORE_NONE, "Cannot open context to receive memory page\n");
 		return -1;
 	    }
 	    
@@ -556,7 +556,7 @@ static int load_inc_memory(struct v3_vm_info * vm,
 			      "memory_page", 
 			      page_size_bytes,
 			      guest_mem_base + (page_size_bytes * i))) {
-		PrintError("Did not receive all of memory page\n");
+		PrintError(vm, VCORE_NONE, "Did not receive all of memory page\n");
 		v3_chkpt_close_ctx(ctx);
 		return -1;
 	    }
@@ -566,7 +566,7 @@ static int load_inc_memory(struct v3_vm_info * vm,
     
     if (empty_bitmap) {
         // signal end of receiving pages
-        PrintDebug("Finished receiving pages.\n");
+        PrintDebug(vm, VCORE_NONE, "Finished receiving pages.\n");
 	return 1;
     } else {
 	// need to run again
@@ -583,7 +583,7 @@ int save_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     
     ctx = v3_chkpt_open_ctx(chkpt, "header");
     if (!ctx) { 
-	PrintError("Cannot open context to save header\n");
+	PrintError(vm, VCORE_NONE, "Cannot open context to save header\n");
 	return -1;
     }
 
@@ -591,7 +591,7 @@ int save_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU: {
 	    if (v3_chkpt_save(ctx, "header", strlen(svm_chkpt_header), svm_chkpt_header)) { 
-		PrintError("Could not save all of SVM header\n");
+		PrintError(vm, VCORE_NONE, "Could not save all of SVM header\n");
 		v3_chkpt_close_ctx(ctx);
 		return -1;
 	    }
@@ -601,14 +601,14 @@ int save_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	case V3_VMX_EPT_CPU:
 	case V3_VMX_EPT_UG_CPU: {
 	    if (v3_chkpt_save(ctx, "header", strlen(vmx_chkpt_header), vmx_chkpt_header)) { 
-		PrintError("Could not save all of VMX header\n");
+		PrintError(vm, VCORE_NONE, "Could not save all of VMX header\n");
 		v3_chkpt_close_ctx(ctx);
 		return -1;
 	    }
 	    break;
 	}
 	default:
-	    PrintError("checkpoint not supported on this architecture\n");
+	    PrintError(vm, VCORE_NONE, "checkpoint not supported on this architecture\n");
 	    v3_chkpt_close_ctx(ctx);
 	    return -1;
     }
@@ -630,7 +630,7 @@ static int load_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	    char header[strlen(svm_chkpt_header) + 1];
 	 
 	    if (v3_chkpt_load(ctx, "header", strlen(svm_chkpt_header), header)) {
-		PrintError("Could not load all of SVM header\n");
+		PrintError(vm, VCORE_NONE, "Could not load all of SVM header\n");
 		v3_chkpt_close_ctx(ctx);
 		return -1;
 	    }
@@ -645,7 +645,7 @@ static int load_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	    char header[strlen(vmx_chkpt_header) + 1];
 	    
 	    if (v3_chkpt_load(ctx, "header", strlen(vmx_chkpt_header), header)) {
-		PrintError("Could not load all of VMX header\n");
+		PrintError(vm, VCORE_NONE, "Could not load all of VMX header\n");
 		v3_chkpt_close_ctx(ctx);
 		return -1;
 	    }
@@ -655,7 +655,7 @@ static int load_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	    break;
 	}
 	default:
-	    PrintError("checkpoint not supported on this architecture\n");
+	    PrintError(vm, VCORE_NONE, "checkpoint not supported on this architecture\n");
 	    v3_chkpt_close_ctx(ctx);
 	    return -1;
     }
@@ -672,7 +672,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     char key_name[16];
     v3_reg_t tempreg;
 
-    PrintDebug("Loading core\n");
+    PrintDebug(info->vm_info, info, "Loading core\n");
 
     memset(key_name, 0, 16);
 
@@ -681,7 +681,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     ctx = v3_chkpt_open_ctx(chkpt, key_name);
 
     if (!ctx) { 
-	PrintError("Could not open context to load core\n");
+	PrintError(info->vm_info, info, "Could not open context to load core\n");
 	goto loadfailout;
     }
 
@@ -753,7 +753,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
     v3_chkpt_close_ctx(ctx); ctx=0;
 
-    PrintDebug("Finished reading guest_info information\n");
+    PrintDebug(info->vm_info, info, "Finished reading guest_info information\n");
 
     info->cpu_mode = v3_get_vm_cpu_mode(info);
     info->mem_mode = v3_get_vm_mem_mode(info);
@@ -761,12 +761,12 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
 	    if (v3_activate_shadow_pt(info) == -1) {
-		PrintError("Failed to activate shadow page tables\n");
+		PrintError(info->vm_info, info, "Failed to activate shadow page tables\n");
 		goto loadfailout;
 	    }
 	} else {
 	    if (v3_activate_passthrough_pt(info) == -1) {
-		PrintError("Failed to activate passthrough page tables\n");
+		PrintError(info->vm_info, info, "Failed to activate passthrough page tables\n");
 		goto loadfailout;
 	    }
 	}
@@ -782,12 +782,12 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    ctx = v3_chkpt_open_ctx(chkpt, key_name);
 
 	    if (!ctx) { 
-		PrintError("Could not open context to load SVM core\n");
+		PrintError(info->vm_info, info, "Could not open context to load SVM core\n");
 		goto loadfailout;
 	    }
 	    
 	    if (v3_svm_load_core(info, ctx) < 0 ) {
-		PrintError("Failed to patch core %d\n", info->vcpu_id);
+		PrintError(info->vm_info, info, "Failed to patch core %d\n", info->vcpu_id);
 		goto loadfailout;
 	    }
 
@@ -805,12 +805,12 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    ctx = v3_chkpt_open_ctx(chkpt, key_name);
 
 	    if (!ctx) { 
-		PrintError("Could not open context to load VMX core\n");
+		PrintError(info->vm_info, info, "Could not open context to load VMX core\n");
 		goto loadfailout;
 	    }
 	    
 	    if (v3_vmx_load_core(info, ctx) < 0) {
-		PrintError("VMX checkpoint failed\n");
+		PrintError(info->vm_info, info, "VMX checkpoint failed\n");
 		goto loadfailout;
 	    }
 
@@ -819,18 +819,18 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    break;
 	}
 	default:
-	    PrintError("Invalid CPU Type (%d)\n", v3_mach_type);
+	    PrintError(info->vm_info, info, "Invalid CPU Type (%d)\n", v3_mach_type);
 	    goto loadfailout;
     }
 
-    PrintDebug("Load of core succeeded\n");
+    PrintDebug(info->vm_info, info, "Load of core succeeded\n");
 
     v3_print_guest_state(info);
 
     return 0;
 
  loadfailout:
-    PrintError("Failed to load core\n");
+    PrintError(info->vm_info, info, "Failed to load core\n");
     if (ctx) { v3_chkpt_close_ctx(ctx);}
     return -1;
 
@@ -844,7 +844,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     char key_name[16];
     v3_reg_t tempreg;
 
-    PrintDebug("Saving core\n");
+    PrintDebug(info->vm_info, info, "Saving core\n");
 
     v3_print_guest_state(info);
 
@@ -855,7 +855,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     ctx = v3_chkpt_open_ctx(chkpt, key_name);
     
     if (!ctx) { 
-	PrintError("Unable to open context to save core\n");
+	PrintError(info->vm_info, info, "Unable to open context to save core\n");
 	goto savefailout;
     }
 
@@ -939,12 +939,12 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    ctx = v3_chkpt_open_ctx(chkpt, key_name);
 
 	    if (!ctx) { 
-		PrintError("Could not open context to store SVM core\n");
+		PrintError(info->vm_info, info, "Could not open context to store SVM core\n");
 		goto savefailout;
 	    }
 	    
 	    if (v3_svm_save_core(info, ctx) < 0) {
-		PrintError("VMCB Unable to be written\n");
+		PrintError(info->vm_info, info, "VMCB Unable to be written\n");
 		goto savefailout;
 	    }
 	    
@@ -961,12 +961,12 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    ctx = v3_chkpt_open_ctx(chkpt, key_name);
 	    
 	    if (!ctx) { 
-		PrintError("Could not open context to store VMX core\n");
+		PrintError(info->vm_info, info, "Could not open context to store VMX core\n");
 		goto savefailout;
 	    }
 
 	    if (v3_vmx_save_core(info, ctx) == -1) {
-		PrintError("VMX checkpoint failed\n");
+		PrintError(info->vm_info, info, "VMX checkpoint failed\n");
 		goto savefailout;
 	    }
 
@@ -975,7 +975,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    break;
 	}
 	default:
-	    PrintError("Invalid CPU Type (%d)\n", v3_mach_type);
+	    PrintError(info->vm_info, info, "Invalid CPU Type (%d)\n", v3_mach_type);
 	    goto savefailout;
 	    
     }
@@ -983,7 +983,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     return 0;
 
  savefailout:
-    PrintError("Failed to save core\n");
+    PrintError(info->vm_info, info, "Failed to save core\n");
     if (ctx) { v3_chkpt_close_ctx(ctx); }
     return -1;
 
@@ -1002,7 +1002,7 @@ int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
     chkpt = chkpt_open(vm, store, url, SAVE);
 
     if (chkpt == NULL) {
-	PrintError("Error creating checkpoint store for url %s\n",url);
+	PrintError(vm, VCORE_NONE, "Error creating checkpoint store for url %s\n",url);
 	return -1;
     }
 
@@ -1012,25 +1012,25 @@ int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
     }
 
     if ((ret = save_memory(vm, chkpt)) == -1) {
-	PrintError("Unable to save memory\n");
+	PrintError(vm, VCORE_NONE, "Unable to save memory\n");
 	goto out;
     }
     
     
     if ((ret = v3_save_vm_devices(vm, chkpt)) == -1) {
-	PrintError("Unable to save devices\n");
+	PrintError(vm, VCORE_NONE, "Unable to save devices\n");
 	goto out;
     }
     
 
     if ((ret = save_header(vm, chkpt)) == -1) {
-	PrintError("Unable to save header\n");
+	PrintError(vm, VCORE_NONE, "Unable to save header\n");
 	goto out;
     }
     
     for (i = 0; i < vm->num_cores; i++){
 	if ((ret = save_core(&(vm->cores[i]), chkpt)) == -1) {
-	    PrintError("chkpt of core %d failed\n", i);
+	    PrintError(vm, VCORE_NONE, "chkpt of core %d failed\n", i);
 	    goto out;
 	}
     }
@@ -1056,7 +1056,7 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
     chkpt = chkpt_open(vm, store, url, LOAD);
 
     if (chkpt == NULL) {
-	PrintError("Error creating checkpoint store\n");
+	PrintError(vm, VCORE_NONE, "Error creating checkpoint store\n");
 	return -1;
     }
 
@@ -1066,26 +1066,26 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
     }
 
     if ((ret = load_memory(vm, chkpt)) == -1) {
-	PrintError("Unable to load memory\n");
+	PrintError(vm, VCORE_NONE, "Unable to load memory\n");
 	goto out;
     }
 
 
     if ((ret = v3_load_vm_devices(vm, chkpt)) == -1) {
-	PrintError("Unable to load devies\n");
+	PrintError(vm, VCORE_NONE, "Unable to load devies\n");
 	goto out;
     }
 
 
     if ((ret = load_header(vm, chkpt)) == -1) {
-	PrintError("Unable to load header\n");
+	PrintError(vm, VCORE_NONE, "Unable to load header\n");
 	goto out;
     }
 
     //per core cloning
     for (i = 0; i < vm->num_cores; i++) {
 	if ((ret = load_core(&(vm->cores[i]), chkpt)) == -1) {
-	    PrintError("Error loading core state (core=%d)\n", i);
+	    PrintError(vm, VCORE_NONE, "Error loading core state (core=%d)\n", i);
 	    goto out;
 	}
     }
@@ -1134,7 +1134,7 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
     // Currently will work only for shadow paging
     for (i=0;i<vm->num_cores;i++) { 
 	if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING) { 
-	    PrintError("Cannot currently handle nested paging\n");
+	    PrintError(vm, VCORE_NONE, "Cannot currently handle nested paging\n");
 	    return -1;
 	}
     }
@@ -1143,7 +1143,7 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
     chkpt = chkpt_open(vm, store, url, SAVE);
     
     if (chkpt == NULL) {
-	PrintError("Error creating checkpoint store\n");
+	PrintError(vm, VCORE_NONE, "Error creating checkpoint store\n");
 	chkpt_close(chkpt);
 	return -1;
     }
@@ -1154,7 +1154,7 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
     if (v3_bitmap_init(&modified_pages_to_send,
 		       vm->mem_size>>12 // number of pages in main region
 		       ) == -1) {
-        PrintError("Could not intialize bitmap.\n");
+        PrintError(vm, VCORE_NONE, "Could not intialize bitmap.\n");
         return -1;
     }
 
@@ -1165,14 +1165,14 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
 
     iter = 0;
     while (!last_modpage_iteration) {
-        PrintDebug("Modified memory page iteration %d\n",i++);
+        PrintDebug(vm, VCORE_NONE, "Modified memory page iteration %d\n",i++);
         
         start_time = v3_get_host_time(&(vm->cores[0].time_state));
         
 	// We will pause the VM for a short while
 	// so that we can collect the set of changed pages
         if (v3_pause_vm(vm) == -1) {
-            PrintError("Could not pause VM\n");
+            PrintError(vm, VCORE_NONE, "Could not pause VM\n");
             ret = -1;
             goto out;
         }
@@ -1195,26 +1195,26 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
 	    // we are done, so we will not restart page tracking
 	    // the vm is paused, and so we should be able
 	    // to just send the data
-            PrintDebug("Last modified memory page iteration.\n");
+            PrintDebug(vm, VCORE_NONE, "Last modified memory page iteration.\n");
             last_modpage_iteration = true;
 	} else {
 	    // we are not done, so we will restart page tracking
 	    // to prepare for a second round of pages
 	    // we will resume the VM as this happens
 	    if (!(mm_state=start_page_tracking(vm))) { 
-		PrintError("Error enabling page tracking.\n");
+		PrintError(vm, VCORE_NONE, "Error enabling page tracking.\n");
 		ret = -1;
 		goto out;
 	    }
             if (v3_continue_vm(vm) == -1) {
-                PrintError("Error resuming the VM\n");
+                PrintError(vm, VCORE_NONE, "Error resuming the VM\n");
 		stop_page_tracking(mm_state);
                 ret = -1;
                 goto out;
             }
 	    
             stop_time = v3_get_host_time(&(vm->cores[0].time_state));
-            PrintDebug("num_mod_pages=%d\ndowntime=%llu\n",num_mod_pages,stop_time-start_time);
+            PrintDebug(vm, VCORE_NONE, "num_mod_pages=%d\ndowntime=%llu\n",num_mod_pages,stop_time-start_time);
         }
 	
 
@@ -1223,7 +1223,7 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
 	// round in parallel with current execution
 	if (num_mod_pages>0) { 
 	    if (save_inc_memory(vm, &modified_pages_to_send, chkpt) == -1) {
-		PrintError("Error sending incremental memory.\n");
+		PrintError(vm, VCORE_NONE, "Error sending incremental memory.\n");
 		ret = -1;
 		goto out;
 	    }
@@ -1233,40 +1233,40 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
     }        
     
     if (v3_bitmap_reset(&modified_pages_to_send) == -1) {
-        PrintError("Error reseting bitmap.\n");
+        PrintError(vm, VCORE_NONE, "Error reseting bitmap.\n");
         ret = -1;
         goto out;
     }    
     
     // send bitmap of 0s to signal end of modpages
     if (save_inc_memory(vm, &modified_pages_to_send, chkpt) == -1) {
-        PrintError("Error sending incremental memory.\n");
+        PrintError(vm, VCORE_NONE, "Error sending incremental memory.\n");
         ret = -1;
         goto out;
     }
     
     // save the non-memory state
     if ((ret = v3_save_vm_devices(vm, chkpt)) == -1) {
-	PrintError("Unable to save devices\n");
+	PrintError(vm, VCORE_NONE, "Unable to save devices\n");
 	goto out;
     }
     
 
     if ((ret = save_header(vm, chkpt)) == -1) {
-	PrintError("Unable to save header\n");
+	PrintError(vm, VCORE_NONE, "Unable to save header\n");
 	goto out;
     }
     
     for (i = 0; i < vm->num_cores; i++){
 	if ((ret = save_core(&(vm->cores[i]), chkpt)) == -1) {
-	    PrintError("chkpt of core %d failed\n", i);
+	    PrintError(vm, VCORE_NONE, "chkpt of core %d failed\n", i);
 	    goto out;
 	}
     }
     
     stop_time = v3_get_host_time(&(vm->cores[0].time_state));
-    PrintDebug("num_mod_pages=%d\ndowntime=%llu\n",num_mod_pages,stop_time-start_time);
-    PrintDebug("Done sending VM!\n"); 
+    PrintDebug(vm, VCORE_NONE, "num_mod_pages=%d\ndowntime=%llu\n",num_mod_pages,stop_time-start_time);
+    PrintDebug(vm, VCORE_NONE, "Done sending VM!\n"); 
  out:
     v3_bitmap_deinit(&modified_pages_to_send);
     chkpt_close(chkpt);
@@ -1284,7 +1284,7 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
     // Currently will work only for shadow paging
     for (i=0;i<vm->num_cores;i++) { 
 	if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING) { 
-	    PrintError("Cannot currently handle nested paging\n");
+	    PrintError(vm, VCORE_NONE, "Cannot currently handle nested paging\n");
 	    return -1;
 	}
     }
@@ -1292,14 +1292,14 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
     chkpt = chkpt_open(vm, store, url, LOAD);
     
     if (chkpt == NULL) {
-	PrintError("Error creating checkpoint store\n");
+	PrintError(vm, VCORE_NONE, "Error creating checkpoint store\n");
 	chkpt_close(chkpt);
 	return -1;
     }
     
     if (v3_bitmap_init(&mod_pgs,vm->mem_size>>12) == -1) {
 	chkpt_close(chkpt);
-        PrintError("Could not intialize bitmap.\n");
+        PrintError(vm, VCORE_NONE, "Could not intialize bitmap.\n");
         return -1;
     }
     
@@ -1312,27 +1312,27 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
     while(true) {
         // 1. Receive copy of bitmap
         // 2. Receive pages
-        PrintDebug("Memory page iteration %d\n",i++);
+        PrintDebug(vm, VCORE_NONE, "Memory page iteration %d\n",i++);
         int retval = load_inc_memory(vm, &mod_pgs, chkpt);
         if (retval == 1) {
             // end of receiving memory pages
             break;        
         } else if (retval == -1) {
-            PrintError("Error receiving incremental memory.\n");
+            PrintError(vm, VCORE_NONE, "Error receiving incremental memory.\n");
             ret = -1;
             goto out;
 	}
     }        
     
     if ((ret = v3_load_vm_devices(vm, chkpt)) == -1) {
-	PrintError("Unable to load devices\n");
+	PrintError(vm, VCORE_NONE, "Unable to load devices\n");
 	ret = -1;
 	goto out;
     }
     
     
     if ((ret = load_header(vm, chkpt)) == -1) {
-	PrintError("Unable to load header\n");
+	PrintError(vm, VCORE_NONE, "Unable to load header\n");
 	ret = -1;
 	goto out;
     }
@@ -1340,23 +1340,23 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
     //per core cloning
     for (i = 0; i < vm->num_cores; i++) {
 	if ((ret = load_core(&(vm->cores[i]), chkpt)) == -1) {
-	    PrintError("Error loading core state (core=%d)\n", i);
+	    PrintError(vm, VCORE_NONE, "Error loading core state (core=%d)\n", i);
 	    goto out;
 	}
     }
     
  out:
     if (ret==-1) { 
-	PrintError("Unable to receive VM\n");
+	PrintError(vm, VCORE_NONE, "Unable to receive VM\n");
     } else {
-	PrintDebug("Done receving the VM\n");
+	PrintDebug(vm, VCORE_NONE, "Done receving the VM\n");
     }
 	
 	
     /* Resume the guest if it was running and we didn't just trash the state*/
     if (vm->run_state == VM_RUNNING) { 
 	if (ret == -1) {
-	    PrintError("VM was previously running.  It is now borked.  Pausing it. \n");
+	    PrintError(vm, VCORE_NONE, "VM was previously running.  It is now borked.  Pausing it. \n");
 	    vm->run_state = VM_STOPPED;
 	}
 	    

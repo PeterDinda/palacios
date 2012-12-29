@@ -137,7 +137,7 @@ int v3_register_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id,
     struct hypercall * hcall = (struct hypercall *)V3_Malloc(sizeof(struct hypercall));
 
     if (!hcall) {
-	PrintError("Cannot allocate in registering hypercall\n");
+        PrintError(vm, VCORE_NONE, "Cannot allocate in registering hypercall\n");
 	return -1;
     }
 
@@ -166,7 +166,7 @@ int v3_remove_hypercall(struct v3_vm_info * vm, hcall_id_t hypercall_id) {
     struct hypercall * hcall = get_hypercall(vm, hypercall_id);
 
     if (hcall == NULL) {
-	PrintError("Attempted to remove non existant hypercall\n");
+	PrintError(vm, VCORE_NONE, "Attempted to remove non existant hypercall\n");
 	return -1;
     }
 
@@ -181,13 +181,13 @@ int v3_handle_hypercall(struct guest_info * info) {
     struct hypercall * hcall = get_hypercall(info->vm_info, hypercall_id);
 
     if (!hcall) {
-	PrintError("Invalid Hypercall (%d(0x%x) not registered)\n", 
+        PrintError(info->vm_info, info,  "Invalid Hypercall (%d(0x%x) not registered)\n", 
 		   hypercall_id, hypercall_id);
 	return -1;
     }
 
     if (hcall->hcall_fn(info, hypercall_id, hcall->priv_data) != 0) {
-	PrintError("Error handling hypercall\n");
+	PrintError(info->vm_info, info, "Error handling hypercall\n");
 	return -1;
     }
 

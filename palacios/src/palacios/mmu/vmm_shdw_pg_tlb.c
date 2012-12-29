@@ -65,7 +65,7 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
 
 
 	if (page_tail->cr3 != cur_cr3) {
-	    PrintDebug("Reusing old shadow Page: %p (cur_CR3=%p)(page_cr3=%p) \n",
+	    PrintDebug(core->vm_info, core, "Reusing old shadow Page: %p (cur_CR3=%p)(page_cr3=%p) \n",
 		       (void *)(addr_t)page_tail->page_pa, 
 		       (void *)(addr_t)cur_cr3, 
 		       (void *)(addr_t)(page_tail->cr3));
@@ -84,18 +84,18 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
     page_tail = (struct shadow_page_data *)V3_Malloc(sizeof(struct shadow_page_data));
 
     if (!page_tail) {
-	PrintError("Cannot allocate\n");
+	PrintError(core->vm_info, core, "Cannot allocate\n");
 	return NULL;
     }
 
     page_tail->page_pa = (addr_t)V3_AllocPages(1);
 
     if (!page_tail->page_pa) {
-	PrintError("Cannot allocate page\n");
+	PrintError(core->vm_info, core, "Cannot allocate page\n");
 	return NULL;
     }
 
-    PrintDebug("Allocating new shadow Page: %p (cur_cr3=%p)\n", 
+    PrintDebug(core->vm_info, core, "Allocating new shadow Page: %p (cur_cr3=%p)\n", 
 	       (void *)(addr_t)page_tail->page_pa, 
 	       (void *)(addr_t)cur_cr3);
 
@@ -112,7 +112,7 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
 
 static int vtlb_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
-    V3_Print("VTLB initialization\n");
+    V3_Print(vm, VCORE_NONE, "VTLB initialization\n");
     return 0;
 }
 
@@ -124,12 +124,12 @@ static int vtlb_local_init(struct guest_info * core) {
     struct v3_shdw_pg_state * state = &(core->shdw_pg_state);
     struct vtlb_local_state * vtlb_state = NULL;
 
-    V3_Print("VTLB local initialization\n");
+    V3_Print(core->vm_info, core, "VTLB local initialization\n");
 
     vtlb_state = (struct vtlb_local_state *)V3_Malloc(sizeof(struct vtlb_local_state));
 
     if (!vtlb_state) {
-	PrintError("Cannot allocate\n");
+	PrintError(core->vm_info, core, "Cannot allocate\n");
 	return -1;
     }
 
@@ -174,7 +174,7 @@ static int vtlb_activate_shdw_pt(struct guest_info * core) {
 	case LONG_16_COMPAT:
 	    return activate_shadow_pt_64(core);
 	default:
-	    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 	    return -1;
     }
 
@@ -200,7 +200,7 @@ static int vtlb_handle_pf(struct guest_info * core, addr_t fault_addr, pf_error_
 		return handle_shadow_pagefault_64(core, fault_addr, error_code);
 		break;
 	    default:
-		PrintError("Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+		PrintError(core->vm_info, core, "Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 		return -1;
 	}
 }
@@ -218,7 +218,7 @@ static int vtlb_handle_invlpg(struct guest_info * core, addr_t vaddr) {
 	case LONG_16_COMPAT:
 	    return handle_shadow_invlpg_64(core, vaddr);
 	default:
-	    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 	    return -1;
     }
 }

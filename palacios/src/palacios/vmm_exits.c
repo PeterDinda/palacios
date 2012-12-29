@@ -29,7 +29,7 @@ int v3_init_exit_hooks(struct v3_vm_info * vm) {
     map->exits = V3_Malloc(sizeof(struct v3_exit_hook) * V3_EXIT_INVALID);
 
     if (map->exits == NULL) {
-	PrintError("Error allocating exit map\n");
+	PrintError(vm, VCORE_NONE, "Error allocating exit map\n");
 	return -1;
     }
     
@@ -61,7 +61,7 @@ int v3_init_exit_hooks_core(struct guest_info * core) {
 
 	if (hook->hooked) {
 	    if (hook->enable(core, i) != 0) {
-		PrintError("Error could not enable exit hook %d on core %d\n", i, core->vcpu_id);
+		PrintError(core->vm_info, core, "Error could not enable exit hook %d on core %d\n", i, core->vcpu_id);
 		return -1;
 	    }
 	}
@@ -82,14 +82,14 @@ int v3_dispatch_exit_hook(struct guest_info * core, v3_exit_type_t exit_type, vo
     struct v3_exit_hook * hook = NULL;
 
     if (exit_type >= V3_EXIT_INVALID) {
-	PrintError("Error: Tried to dispatch invalid exit type (%d)\n", exit_type);
+	PrintError(core->vm_info, core, "Error: Tried to dispatch invalid exit type (%d)\n", exit_type);
 	return -1;
     }
   
     hook = &(map->exits[exit_type]);
 
     if (hook->hooked == 0) {
-	PrintError("Tried to dispatch an unhooked exit (%d)\n", exit_type);
+	PrintError(core->vm_info, core, "Tried to dispatch an unhooked exit (%d)\n", exit_type);
 	return -1;
     }
 
@@ -105,14 +105,14 @@ int v3_register_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type,
     struct v3_exit_hook * hook = NULL;
 
     if (exit_type >= V3_EXIT_INVALID) {
-	PrintError("Error: Tried to register invalid exit type (%d)\n", exit_type);
+	PrintError(vm, VCORE_NONE, "Error: Tried to register invalid exit type (%d)\n", exit_type);
 	return -1;
     }
   
     hook = &(map->exits[exit_type]);
 
     if (hook->registered == 1) {
-	PrintError("Tried to reregister an exit (%d)\n", exit_type);
+	PrintError(vm, VCORE_NONE, "Tried to reregister an exit (%d)\n", exit_type);
 	return -1;
     }
 
@@ -135,19 +135,19 @@ int v3_hook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type,
     
     
     if (exit_type >= V3_EXIT_INVALID) {
-	PrintError("Error: Tried to hook invalid exit type (%d)\n", exit_type);
+	PrintError(vm, VCORE_NONE, "Error: Tried to hook invalid exit type (%d)\n", exit_type);
 	return -1;
     }
   
     hook = &(map->exits[exit_type]);
 
     if (hook->registered == 0) {
-	PrintError("Tried to hook unregistered exit (%d)\n", exit_type);
+	PrintError(vm, VCORE_NONE, "Tried to hook unregistered exit (%d)\n", exit_type);
 	return -1;
     } 
 
     if (hook->hooked != 0) {
-	PrintError("Tried to rehook exit (%d)\n", exit_type);
+	PrintError(vm, VCORE_NONE, "Tried to rehook exit (%d)\n", exit_type);
 	return -1;
     }
 
@@ -164,7 +164,7 @@ int v3_hook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type,
 	for (i = 0; i < vm->num_cores; i++) {
 	    
 	    if (hook->enable(&(vm->cores[i]), exit_type) != 0) {
-		PrintError("Error could not enable exit hook %d on core %d\n", exit_type, i);
+		PrintError(vm, VCORE_NONE, "Error could not enable exit hook %d on core %d\n", exit_type, i);
 		v3_lower_barrier(vm);
 		return -1;
 	    }	
@@ -184,19 +184,19 @@ int v3_unhook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type, struct gues
     
     
     if (exit_type >= V3_EXIT_INVALID) {
-	PrintError("Error: Tried to unhook invalid exit type (%d)\n", exit_type);
+	PrintError(vm, VCORE_NONE, "Error: Tried to unhook invalid exit type (%d)\n", exit_type);
 	return -1;
     }
   
     hook = &(map->exits[exit_type]);
 
     if (hook->registered == 0) {
-	PrintError("Tried to unhook an unregistered exit (%d)\n", exit_type);
+	PrintError(vm, VCORE_NONE, "Tried to unhook an unregistered exit (%d)\n", exit_type);
 	return -1;
     } 
 
     if (hook->hooked == 0) {
-	PrintError("Tried to unhook and unhooked exit (%d)\n", exit_type);
+	PrintError(vm, VCORE_NONE, "Tried to unhook and unhooked exit (%d)\n", exit_type);
 	return -1;
     }
 
@@ -214,7 +214,7 @@ int v3_unhook_exit(struct v3_vm_info * vm, v3_exit_type_t exit_type, struct gues
 	for (i = 0; i < vm->num_cores; i++) {
 	    
 	    if (hook->disable(&(vm->cores[i]), exit_type) != 0) {
-		PrintError("Error could not enable exit hook %d on core %d\n", exit_type, i);
+		PrintError(vm, VCORE_NONE, "Error could not enable exit hook %d on core %d\n", exit_type, i);
 		v3_lower_barrier(vm);
 		return -1;
 	    }	

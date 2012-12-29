@@ -30,7 +30,7 @@ int v3_bitmap_init(struct v3_bitmap * bitmap, int num_bits) {
 
 
     if (bitmap->bits == NULL) {
-	PrintError("Could not allocate bitmap of %d bits\n", num_bits);
+	PrintError(VM_NONE, VCORE_NONE, "Could not allocate bitmap of %d bits\n", num_bits);
 	return -1;
     }
     
@@ -61,7 +61,7 @@ int v3_bitmap_set(struct v3_bitmap * bitmap, int index) {
     uint32_t flags = 0;
 
     if (index > (bitmap->num_bits - 1)) {
-	PrintError("Index out of bitmap range: (pos = %d) (num_bits = %d)\n", 
+	PrintError(VM_NONE, VCORE_NONE, "Index out of bitmap range: (pos = %d) (num_bits = %d)\n", 
 		   index, bitmap->num_bits);
 	return -1;
     }
@@ -85,7 +85,7 @@ int v3_bitmap_clear(struct v3_bitmap * bitmap, int index) {
     uint32_t flags = 0;
 
     if (index > (bitmap->num_bits - 1)) {
-	PrintError("Index out of bitmap range: (pos = %d) (num_bits = %d)\n", 
+	PrintError(VM_NONE, VCORE_NONE, "Index out of bitmap range: (pos = %d) (num_bits = %d)\n", 
 		   index, bitmap->num_bits);
 	return -1;
     }
@@ -105,7 +105,7 @@ int v3_bitmap_check(struct v3_bitmap * bitmap, int index) {
     int minor = index % 8;
 
     if (index > (bitmap->num_bits - 1)) {
-	PrintError("Index out of bitmap range: (pos = %d) (num_bits = %d)\n", 
+	PrintError(VM_NONE, VCORE_NONE, "Index out of bitmap range: (pos = %d) (num_bits = %d)\n", 
 		   index, bitmap->num_bits);
 	return -1;
     }
@@ -136,7 +136,7 @@ int v3_bitmap_count(struct v3_bitmap * bitmap) {
 int v3_bitmap_copy(struct v3_bitmap * dst, struct v3_bitmap * src) {
     
     if (src->num_bits != dst->num_bits) {
-        PrintError("src and dst must be the same size.\n");
+        PrintError(VM_NONE, VCORE_NONE, "src and dst must be the same size.\n");
 	return -1;    
     }
     

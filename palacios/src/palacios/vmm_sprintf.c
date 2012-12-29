@@ -575,35 +575,35 @@ void v3_hexdump(const void * ptr, int length, const char * hdr, int flags) {
     cp = ptr;
     for (i = 0; i < length; i+= cols) {
 	if (hdr != NULL)
-	    V3_Print("%s", hdr);
+	    V3_Print(VM_NONE, VCORE_NONE, "%s", hdr);
 
 	if ((flags & HD_OMIT_COUNT) == 0)
-	    V3_Print("%04x  ", i);
+	    V3_Print(VM_NONE, VCORE_NONE, "%04x  ", i);
 
 	if ((flags & HD_OMIT_HEX) == 0) {
 	    for (j = 0; j < cols; j++) {
 		k = i + j;
 		if (k < length)
-		    V3_Print("%c%02x", delim, cp[k]);
+		    V3_Print(VM_NONE, VCORE_NONE, "%c%02x", delim, cp[k]);
 		else
-		    V3_Print("   ");
+		    V3_Print(VM_NONE, VCORE_NONE, "   ");
 	    }
 	}
 
 	if ((flags & HD_OMIT_CHARS) == 0) {
-	    V3_Print("  |");
+	    V3_Print(VM_NONE, VCORE_NONE, "  |");
 	    for (j = 0; j < cols; j++) {
 		k = i + j;
 		if (k >= length)
-		    V3_Print(" ");
+		    V3_Print(VM_NONE, VCORE_NONE, " ");
 		else if (cp[k] >= ' ' && cp[k] <= '~')
-		    V3_Print("%c", cp[k]);
+		    V3_Print(VM_NONE, VCORE_NONE, "%c", cp[k]);
 		else
-		    V3_Print(".");
+		    V3_Print(VM_NONE, VCORE_NONE, ".");
 	    }
-	    V3_Print("|");
+	    V3_Print(VM_NONE, VCORE_NONE, "|");
 	}
-	V3_Print("\n");
+	V3_Print(VM_NONE, VCORE_NONE, "\n");
     }
 }
 

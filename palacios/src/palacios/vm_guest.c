@@ -48,8 +48,8 @@ v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
 	cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
 	efer = (struct efer_64 *)&(info->ctrl_regs.efer);
     } else {
-	PrintError("Invalid Paging Mode...\n");
-	V3_ASSERT(0);
+        PrintError(info->vm_info, info, "Invalid Paging Mode...\n");
+	V3_ASSERT(info->vm_info, info, 0);
 	return -1;
     }
 
@@ -82,8 +82,8 @@ uint_t v3_get_addr_width(struct guest_info * info) {
 	cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
 	efer = (struct efer_64 *)&(info->ctrl_regs.efer);
     } else {
-	PrintError("Invalid Paging Mode...\n");
-	V3_ASSERT(0);
+        PrintError(info->vm_info, info, "Invalid Paging Mode...\n");
+	V3_ASSERT(info->vm_info, info, 0);
 	return -1;
     }
 
@@ -136,8 +136,8 @@ v3_mem_mode_t v3_get_vm_mem_mode(struct guest_info * info) {
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
 	cr0 = (struct cr0_32 *)&(info->ctrl_regs.cr0);
     } else {
-	PrintError("Invalid Paging Mode...\n");
-	V3_ASSERT(0);
+	PrintError(info->vm_info, info, "Invalid Paging Mode...\n");
+	V3_ASSERT(info->vm_info, info, 0);
 	return -1;
     }
 
@@ -174,7 +174,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
     extern v3_cpu_arch_t v3_mach_type;
     int cpu_valid = 0;
 
-    V3_Print("************** Guest State ************\n");
+    V3_Print(core->vm_info, core, "************** Guest State ************\n");
     v3_print_guest_state(core);
     
     // init SVM/VMX
@@ -191,7 +191,7 @@ static int info_hcall(struct guest_info * core, uint_t hcall_id, void * priv_dat
     }
 #endif
     if (!cpu_valid) {
-	PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
+	PrintError(core->vm_info, core, "Invalid CPU Type 0x%x\n", v3_mach_type);
 	return -1;
     }
     
@@ -238,14 +238,14 @@ int v3_init_vm(struct v3_vm_info * vm) {
 
     // Initialize the memory map
     if (v3_init_mem_map(vm) == -1) {
-	PrintError("Could not initialize shadow map\n");
+        PrintError(vm, VCORE_NONE, "Could not initialize shadow map\n");
 	return -1;
     }
 
     v3_init_mem_hooks(vm);
 
     if (v3_init_shdw_impl(vm) == -1) {
-	PrintError("VM initialization error in shadow implementaion\n");
+        PrintError(vm, VCORE_NONE, "VM initialization error in shadow implementaion\n");
 	return -1;
     }
 
@@ -282,13 +282,13 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	    break;
 #endif
 	default:
-	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
+   	    PrintError(vm, VCORE_NONE, "Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
     
     v3_register_hypercall(vm, GUEST_INFO_HCALL, info_hcall, NULL);
 
-    V3_Print("GUEST_INFO_HCALL=%x\n", GUEST_INFO_HCALL);
+    V3_Print(vm, VCORE_NONE, "GUEST_INFO_HCALL=%x\n", GUEST_INFO_HCALL);
 
     return 0;
 }
@@ -323,7 +323,7 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 	    break;
 #endif
 	default:
-	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
+  	    PrintError(vm, VCORE_NONE, "Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
 
@@ -395,7 +395,7 @@ int v3_init_core(struct guest_info * core) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    if (v3_init_svm_vmcb(core, vm->vm_class) == -1) {
-		PrintError("Error in SVM initialization\n");
+	        PrintError(vm, core, "Error in SVM initialization\n");
 		return -1;
 	    }
 	    break;
@@ -405,13 +405,13 @@ int v3_init_core(struct guest_info * core) {
 	case V3_VMX_EPT_CPU:
 	case V3_VMX_EPT_UG_CPU:
 	    if (v3_init_vmx_vmcs(core, vm->vm_class) == -1) {
-		PrintError("Error in VMX initialization\n");
+  	        PrintError(vm, core, "Error in VMX initialization\n");
 		return -1;
 	    }
 	    break;
 #endif
 	default:
-	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
+            PrintError(vm, core, "Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
     
@@ -451,7 +451,7 @@ int v3_free_core(struct guest_info * core) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
 	    if (v3_deinit_svm_vmcb(core) == -1) {
-		PrintError("Error in SVM initialization\n");
+  	        PrintError(VM_NONE,VCORE_NONE, "Error in SVM deinitialization\n");
 		return -1;
 	    }
 	    break;
@@ -461,13 +461,13 @@ int v3_free_core(struct guest_info * core) {
 	case V3_VMX_EPT_CPU:
 	case V3_VMX_EPT_UG_CPU:
 	    if (v3_deinit_vmx_vmcs(core) == -1) {
-		PrintError("Error in VMX initialization\n");
+	        PrintError(VM_NONE, VCORE_NONE, "Error in VMX initialization\n");
 		return -1;
 	    }
 	    break;
 #endif
 	default:
-	    PrintError("Invalid CPU Type 0x%x\n", v3_mach_type);
+  	    PrintError(core->vm_info, core, "Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
 

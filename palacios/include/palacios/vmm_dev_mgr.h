@@ -28,7 +28,6 @@
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_msr.h>
 #include <palacios/vmm_config.h>
-#include <palacios/vmm_ethernet.h>
 
 #ifdef V3_CONFIG_CHECKPOINT
 #include <palacios/vmm_checkpoint.h>

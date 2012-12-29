@@ -254,7 +254,7 @@ static int palacios_graphics_console_key(struct v3_guest * guest,
 					 struct palacios_graphics_console *cons, 
 					 uint8_t scancode)
 {
-    struct v3_keyboard_event e;
+     struct v3_keyboard_event e;
     e.status = 0;
     e.scan_code = scancode;
 
@@ -271,11 +271,12 @@ static int palacios_graphics_console_mouse(struct v3_guest * guest,
 					   struct palacios_graphics_console *cons, 
 					   uint8_t x, uint8_t y, uint8_t buttons)
 {
+  /*
     struct v3_mouse_event e;
     e.data[0]=x;
     e.data[1]=y;
     e.data[2]=buttons;   // These three are completely wrong, of course - ignoring mouse for now
-
+  */
     // mouse delivery is broken, so don't do it.
     // v3_deliver_mouse_event(guest->v3_ctx,&e);
 

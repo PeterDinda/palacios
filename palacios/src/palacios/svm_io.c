@@ -53,7 +53,7 @@ int v3_init_svm_io_map(struct v3_vm_info * vm) {
     temp = V3_AllocPages(3);
     
     if (!temp) { 
-	PrintError("Cannot allocate io bitmap\n");
+	PrintError(vm, VCORE_NONE,  "Cannot allocate io bitmap\n");
 	return -1;
     }
 
@@ -87,17 +87,17 @@ int v3_handle_svm_io_in(struct guest_info * core, struct svm_io_info * io_info) 
 	read_size = 4;
     }
 
-    PrintDebug("IN of %d bytes on port %d (0x%x)\n", read_size, io_info->port, io_info->port);
+    PrintDebug(core->vm_info, core, "IN of %d bytes on port %d (0x%x)\n", read_size, io_info->port, io_info->port);
 
     if (hook == NULL) {
-	PrintDebug("IN operation on unhooked IO port 0x%x - returning zero\n", io_info->port);
+	PrintDebug(core->vm_info, core, "IN operation on unhooked IO port 0x%x - returning zero\n", io_info->port);
 	core->vm_regs.rax >>= 8*read_size;
 	core->vm_regs.rax <<= 8*read_size;
 
     } else {
 	if (hook->read(core, io_info->port, &(core->vm_regs.rax), read_size, hook->priv_data) != read_size) {
 	    // not sure how we handle errors.....
-	    PrintError("Read Failure for in on port 0x%x\n", io_info->port);
+	    PrintError(core->vm_info, core, "Read Failure for in on port 0x%x\n", io_info->port);
 	    return -1;
 	}
     }
@@ -135,7 +135,7 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
     
 
     if (v3_gva_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), &inst_ptr) == -1) {
-	PrintError("Can't access instruction\n");
+	PrintError(core->vm_info, core, "Can't access instruction\n");
 	return -1;
     }
 
@@ -166,7 +166,7 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
     }
 
 
-    PrintDebug("INS on  port %d (0x%x)\n", io_info->port, io_info->port);
+    PrintDebug(core->vm_info, core, "INS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
     if (io_info->sz8) {
 	read_size = 1;
@@ -175,7 +175,7 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
     } else if (io_info->sz32) {
 	read_size = 4;
     } else {
-	PrintError("io_info Invalid Size\n");
+	PrintError(core->vm_info, core, "io_info Invalid Size\n");
 	return -1;
     }
 
@@ -190,9 +190,9 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
 	// This value should be set depending on the host register size...
 	mask = get_gpr_mask(core);
 
-	PrintDebug("INS io_info invalid address size, mask=0x%p, io_info=0x%p\n",
+	PrintDebug(core->vm_info, core, "INS io_info invalid address size, mask=0x%p, io_info=0x%p\n",
 		   (void *)(addr_t)mask, (void *)(addr_t)(io_info));
-	// PrintDebug("INS Aborted... Check implementation\n");
+	// PrintDebug(core->vm_info, core, "INS Aborted... Check implementation\n");
 	//return -1;
     }
 
@@ -201,28 +201,28 @@ int v3_handle_svm_io_ins(struct guest_info * core, struct svm_io_info * io_info)
 	//rep_num = info->vm_regs.rcx;
     }
 
-    PrintDebug("INS size=%d for %d steps\n", read_size, rep_num);
+    PrintDebug(core->vm_info, core, "INS size=%d for %d steps\n", read_size, rep_num);
 
     while (rep_num > 0) {
 	addr_t host_addr;
 	dst_addr = get_addr_linear(core, (core->vm_regs.rdi & mask), theseg);
     
-	//	PrintDebug("Writing 0x%p\n", (void *)dst_addr);
+	//	PrintDebug(core->vm_info, core, "Writing 0x%p\n", (void *)dst_addr);
 
 	if (v3_gva_to_hva(core, dst_addr, &host_addr) == -1) {
 	    // either page fault or gpf...
-	    PrintError("Could not convert Guest VA to host VA\n");
+	    PrintError(core->vm_info, core, "Could not convert Guest VA to host VA\n");
 	    return -1;
 	}
 
 	if (hook == NULL) {
-	    PrintDebug("INS operation on unhooked IO port 0x%x - returning zeros\n", io_info->port);
+	    PrintDebug(core->vm_info, core, "INS operation on unhooked IO port 0x%x - returning zeros\n", io_info->port);
 	    memset((char*)host_addr,0,read_size);
 	    
 	} else {
 	    if (hook->read(core, io_info->port, (char *)host_addr, read_size, hook->priv_data) != read_size) {
 		// not sure how we handle errors.....
-		PrintError("Read Failure for ins on port 0x%x\n", io_info->port);
+		PrintError(core->vm_info, core, "Read Failure for ins on port 0x%x\n", io_info->port);
 		return -1;
 	    }
 	}
@@ -251,14 +251,14 @@ int v3_handle_svm_io_out(struct guest_info * core, struct svm_io_info * io_info)
 	write_size = 4;
     }
 
-    PrintDebug("OUT of %d bytes on  port %d (0x%x)\n", write_size, io_info->port, io_info->port);
+    PrintDebug(core->vm_info, core, "OUT of %d bytes on  port %d (0x%x)\n", write_size, io_info->port, io_info->port);
 
     if (hook == NULL) {
-	PrintDebug("OUT operation on unhooked IO port 0x%x - ignored\n", io_info->port);
+	PrintDebug(core->vm_info, core, "OUT operation on unhooked IO port 0x%x - ignored\n", io_info->port);
     } else {
 	if (hook->write(core, io_info->port, &(core->vm_regs.rax), write_size, hook->priv_data) != write_size) {
 	    // not sure how we handle errors.....
-	    PrintError("Write Failure for out on port 0x%x\n", io_info->port);
+	    PrintError(core->vm_info, core, "Write Failure for out on port 0x%x\n", io_info->port);
 	    return -1;
 	}
     }
@@ -292,7 +292,7 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 	direction = -1;
     }
 
-    PrintDebug("OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
+    PrintDebug(core->vm_info, core, "OUTS on  port %d (0x%x)\n", io_info->port, io_info->port);
 
     if (io_info->sz8) { 
 	write_size = 1;
@@ -313,12 +313,12 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 	// This value should be set depending on the host register size...
 	mask = get_gpr_mask(core);
 
-	PrintDebug("OUTS io_info invalid address size, mask=0%p, io_info=0x%p\n",
+	PrintDebug(core->vm_info, core, "OUTS io_info invalid address size, mask=0%p, io_info=0x%p\n",
 		   (void *)(addr_t)mask, (void *)(addr_t)io_info);
-	// PrintDebug("INS Aborted... Check implementation\n");
+	// PrintDebug(core->vm_info, core, "INS Aborted... Check implementation\n");
 	//return -1;
 	// should never happen
-	//PrintDebug("Invalid Address length\n");
+	//PrintDebug(core->vm_info, core, "Invalid Address length\n");
 	//return -1;
     }
 
@@ -330,7 +330,7 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 
 
     if (v3_gva_to_hva(core, get_addr_linear(core, core->rip, &(core->segments.cs)), &inst_ptr) == -1) {
-	PrintError("Can't access instruction\n");
+	PrintError(core->vm_info, core, "Can't access instruction\n");
 	return -1;
     }
 
@@ -360,7 +360,7 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 	inst_ptr++;
     }
 
-    PrintDebug("OUTS size=%d for %d steps\n", write_size, rep_num);
+    PrintDebug(core->vm_info, core, "OUTS size=%d for %d steps\n", write_size, rep_num);
 
     while (rep_num > 0) {
 	addr_t host_addr = 0;
@@ -368,16 +368,16 @@ int v3_handle_svm_io_outs(struct guest_info * core, struct svm_io_info * io_info
 	dst_addr = get_addr_linear(core, (core->vm_regs.rsi & mask), theseg);
     
 	if (v3_gva_to_hva(core, dst_addr, &host_addr) == -1) {
-	    PrintError("Could not translate outs dest addr, either page fault or gpf...\n");
+	    PrintError(core->vm_info, core, "Could not translate outs dest addr, either page fault or gpf...\n");
 	    return -1;
 	}
 
 	if (hook == NULL) {
-	    PrintDebug("OUTS operation on unhooked IO port 0x%x - ignored\n", io_info->port);
+	    PrintDebug(core->vm_info, core, "OUTS operation on unhooked IO port 0x%x - ignored\n", io_info->port);
 	} else {
 	    if (hook->write(core, io_info->port, (char*)host_addr, write_size, hook->priv_data) != write_size) {
 		// not sure how we handle errors.....
-		PrintError("Write Failure for outs on port 0x%x\n", io_info->port);
+		PrintError(core->vm_info, core, "Write Failure for outs on port 0x%x\n", io_info->port);
 		return -1;
 	    }
 	}

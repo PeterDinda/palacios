@@ -141,15 +141,15 @@ static void print_route(struct v3_vnet_route * route){
     char str[50];
 
     mac2str(route->src_mac, str);
-    PrintDebug("Src Mac (%s),  src_qual (%d)\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Src Mac (%s),  src_qual (%d)\n", 
 	       str, route->src_mac_qual);
     mac2str(route->dst_mac, str);
-    PrintDebug("Dst Mac (%s),  dst_qual (%d)\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Dst Mac (%s),  dst_qual (%d)\n", 
 	       str, route->dst_mac_qual);
-    PrintDebug("Src dev id (%d), src type (%d)", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Src dev id (%d), src type (%d)", 
 	       route->src_id, 
 	       route->src_type);
-    PrintDebug("Dst dev id (%d), dst type (%d)\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Dst dev id (%d), dst type (%d)\n", 
 	       route->dst_id, 
 	       route->dst_type);
 }
@@ -157,13 +157,13 @@ static void print_route(struct v3_vnet_route * route){
 static void dump_routes(){
     struct vnet_route_info *route;
 
-    PrintDebug("\n========Dump routes starts ============\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n========Dump routes starts ============\n");
     list_for_each_entry(route, &(vnet_state.routes), node) {
-    	PrintDebug("\nroute %d:\n", route->idx);
+    	PrintDebug(VM_NONE, VCORE_NONE, "\nroute %d:\n", route->idx);
 		
 	print_route(&(route->route_def));
 	if (route->route_def.dst_type == LINK_INTERFACE) {
-	    PrintDebug("dst_dev (%p), dst_dev_id (%d), dst_dev_ops(%p), dst_dev_data (%p)\n",
+	    PrintDebug(VM_NONE, VCORE_NONE, "dst_dev (%p), dst_dev_id (%d), dst_dev_ops(%p), dst_dev_data (%p)\n",
 	       	route->dst_dev,
 	       	route->dst_dev->dev_id,
 	       	(void *)&(route->dst_dev->dev_ops),
@@ -171,7 +171,7 @@ static void dump_routes(){
 	}
     }
 
-    PrintDebug("\n========Dump routes end ============\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n========Dump routes end ============\n");
 }
 
 #endif
@@ -195,7 +195,7 @@ static int add_route_to_cache(const struct v3_vnet_pkt * pkt, struct route_list 
     memcpy(routes->hash_buf, pkt->hash_buf, VNET_HASH_SIZE);    
 
     if (vnet_htable_insert(vnet_state.route_cache, (addr_t)routes->hash_buf, (addr_t)routes) == 0) {
-	PrintError("VNET/P Core: Failed to insert new route entry to the cache\n");
+	PrintError(VM_NONE, VCORE_NONE, "VNET/P Core: Failed to insert new route entry to the cache\n");
 	return -1;
     }
     
@@ -266,14 +266,14 @@ int v3_vnet_add_route(struct v3_vnet_route route) {
     new_route = (struct vnet_route_info *)Vnet_Malloc(sizeof(struct vnet_route_info));
 
     if (!new_route) {
-	PrintError("Cannot allocate new route\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate new route\n");
 	return -1;
     }
 
     memset(new_route, 0, sizeof(struct vnet_route_info));
 
 #ifdef V3_CONFIG_DEBUG_VNET
-    PrintDebug("VNET/P Core: add_route_entry:\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "VNET/P Core: add_route_entry:\n");
     print_route(&route);
 #endif
     
@@ -398,7 +398,7 @@ static inline uint8_t match_mac(uint8_t test_mac[ETH_ALEN],
 	    }
 	    break;
 	default:
-	    PrintError("Unknown qualifier %u\n",route_qual);
+	    PrintError(VM_NONE, VCORE_NONE, "Unknown qualifier %u\n",route_qual);
 	    return NONE;
 	    break;
     }
@@ -505,7 +505,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt)
 	char dst_str[32], src_str[32];
 	mac2str(hdr->src_mac, src_str);  
 	mac2str(hdr->dst_mac, dst_str);
-	PrintDebug("VNET/P Core: match_route. pkt: SRC(%s), DEST(%s)\n", src_str, dst_str);
+	PrintDebug(VM_NONE, VCORE_NONE, "VNET/P Core: match_route. pkt: SRC(%s), DEST(%s)\n", src_str, dst_str);
     }
 #endif
     
@@ -535,7 +535,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt)
 	    mac2str(route_def->src_mac, src_str);  
 	    mac2str(route_def->dst_mac, dst_str);
 	    
-	    PrintDebug("Tested match against SRC(%s) SRC_QUAL(%s), DEST(%s) DST_QUAL(%s): "
+	    PrintDebug(VM_NONE, VCORE_NONE, "Tested match against SRC(%s) SRC_QUAL(%s), DEST(%s) DST_QUAL(%s): "
 		       "SRC_MATCH=%s  DEST_MATCH=%s PRIORITY=%d\n", 
 		       src_str, QUAL_TO_STR(route_def->src_mac_qual), 
 		       dst_str, QUAL_TO_STR(route_def->dst_mac_qual),
@@ -546,12 +546,12 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt)
 #endif
 
 	if (priority<0) { 
-	    PrintDebug("No match to this rule\n");
+	    PrintDebug(VM_NONE, VCORE_NONE, "No match to this rule\n");
 	    continue;
 	}
 
 	if (priority > max_priority) { 
-            PrintDebug("New highest priority match, reseting list\n");
+            PrintDebug(VM_NONE, VCORE_NONE, "New highest priority match, reseting list\n");
 	    max_priority = priority;
 
 	    struct vnet_route_info *my_route, *tmp_route;
@@ -564,7 +564,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt)
 	    num_matches = 1;					
 	    
 	} else if (priority == max_priority) {                      
-            PrintDebug("Equal priority match, adding to list\n");
+            PrintDebug(VM_NONE, VCORE_NONE, "Equal priority match, adding to list\n");
 	    
 	    list_add(&(route->match_node), &match_list);	
 	    num_matches++;					
@@ -572,7 +572,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt)
 	
     }
 
-    PrintDebug("VNET/P Core: match_route: Matches=%d\n", num_matches);
+    PrintDebug(VM_NONE, VCORE_NONE, "VNET/P Core: match_route: Matches=%d\n", num_matches);
 
     if (num_matches <= 0) {
 	return NULL;
@@ -583,7 +583,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt)
 
 
     if (!matches) {
-	PrintError("VNET/P Core: Unable to allocate matches\n");
+	PrintError(VM_NONE, VCORE_NONE, "VNET/P Core: Unable to allocate matches\n");
 	return NULL;
     }
 
@@ -593,7 +593,7 @@ static struct route_list * match_route(const struct v3_vnet_pkt * pkt)
     list_for_each_entry(route, &match_list, match_node) {
 	if (i==num_matches) { 
 	    // the list should never have more than num_matches on it...
-	    PrintError("Weird list behavior\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Weird list behavior\n");
 	    break;
 	} else {
 	    matches->routes[i++] = route;
@@ -635,7 +635,7 @@ int v3_vnet_query_header(uint8_t src_mac[ETH_ALEN],
 	routes = match_route(&p);
 	if (!routes) { 
 	    vnet_unlock_irqrestore(vnet_state.lock,flags);
-	    PrintError("Cannot match route\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Cannot match route\n");
 	    header->header_type=VNET_HEADER_NOMATCH;
 	    header->header_len=0;
 	    return -1;
@@ -647,14 +647,14 @@ int v3_vnet_query_header(uint8_t src_mac[ETH_ALEN],
     vnet_unlock_irqrestore(vnet_state.lock,flags);
     
     if (routes->num_routes<1) { 
-	PrintError("Less than one route\n");
+	PrintError(VM_NONE, VCORE_NONE, "Less than one route\n");
 	header->header_type=VNET_HEADER_NOMATCH;
 	header->header_len=0;
 	return -1;
     }
 
     if (routes->num_routes>1) { 
-	PrintError("More than one route, building header for the first one only\n");
+	PrintError(VM_NONE, VCORE_NONE, "More than one route, building header for the first one only\n");
     }
 
     r=routes->routes[0];
@@ -690,7 +690,7 @@ int v3_vnet_query_header(uint8_t src_mac[ETH_ALEN],
 	    break;
 
 	default:
-	    PrintError("Unknown destination type\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Unknown destination type\n");
 	    return -1;
 	    break;
 
@@ -724,14 +724,14 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
     look_into_cache(pkt, &matched_routes);
 
     if (matched_routes == NULL) {  
-	PrintDebug("VNET/P Core: sending pkt - matching route\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "VNET/P Core: sending pkt - matching route\n");
 	
 	matched_routes = match_route(pkt);
 	
       	if (matched_routes) {
 	    add_route_to_cache(pkt, matched_routes);
 	} else {
-	    PrintDebug("VNET/P Core: Could not find route for packet... discarding packet\n");
+	    PrintDebug(VM_NONE, VCORE_NONE, "VNET/P Core: Could not find route for packet... discarding packet\n");
 	    vnet_unlock_irqrestore(vnet_state.lock, flags);
 	    return 0; /* do we return -1 here?*/
 	}
@@ -739,7 +739,7 @@ int v3_vnet_send_pkt(struct v3_vnet_pkt * pkt, void * private_data) {
 
     vnet_unlock_irqrestore(vnet_state.lock, flags);
 
-    PrintDebug("VNET/P Core: send pkt route matches %d\n", matched_routes->num_routes);
+    PrintDebug(VM_NONE, VCORE_NONE, "VNET/P Core: send pkt route matches %d\n", matched_routes->num_routes);
 
     for (i = 0; i < matched_routes->num_routes; i++) {
 	struct vnet_route_info * route = matched_routes->routes[i];
@@ -816,7 +816,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 	    v3_enqueue(vnet_state.poll_devs, (addr_t)new_dev);
 	}
     } else {
-	PrintError("VNET/P: Device with the same MAC has already been added\n");
+        PrintError(VM_NONE, VCORE_NONE,"VNET/P: Device with the same MAC has already been added\n");
     }
 
     vnet_unlock_irqrestore(vnet_state.lock, flags);
@@ -829,7 +829,7 @@ int v3_vnet_add_dev(struct v3_vm_info * vm, uint8_t * mac,
 	return -1;
     }
 
-    PrintDebug("VNET/P Core: Add Device: dev_id %d\n", new_dev->dev_id);
+    PrintDebug(VM_NONE, VCORE_NONE, "VNET/P Core: Add Device: dev_id %d\n", new_dev->dev_id);
 
     return new_dev->dev_id;
 }
@@ -856,7 +856,7 @@ int v3_vnet_del_dev(int dev_id){
 
     Vnet_Free(dev);
 
-    PrintDebug("VNET/P Core: Removed Device: dev_id %d\n", dev_id);
+    PrintDebug(VM_NONE, VCORE_NONE, "VNET/P Core: Removed Device: dev_id %d\n", dev_id);
 
     return 0;
 }
@@ -906,14 +906,14 @@ int v3_vnet_add_bridge(struct v3_vm_info * vm,
     vnet_unlock_irqrestore(vnet_state.lock, flags);
 
     if (bridge_free == 0) {
-	PrintError("VNET/P Core: Bridge already set\n");
+	PrintError(VM_NONE, VCORE_NONE, "VNET/P Core: Bridge already set\n");
 	return -1;
     }
 
     tmp_bridge = (struct vnet_brg_dev *)Vnet_Malloc(sizeof(struct vnet_brg_dev));
 
     if (tmp_bridge == NULL) {
-	PrintError("VNET/P Core: Unable to allocate new bridge\n");
+	PrintError(VM_NONE, VCORE_NONE, "VNET/P Core: Unable to allocate new bridge\n");
 	vnet_state.bridge = NULL;
 	return -1;
     }
@@ -974,7 +974,7 @@ static int vnet_tx_flush(void * args){
     struct v3_queue * tq = v3_create_queue();
 
     if (!tq) { 
-	PrintError("VNET/P polling thread cannot allocate queue\n");
+	PrintError(VM_NONE, VCORE_NONE, "VNET/P polling thread cannot allocate queue\n");
 	return -1;
     }
 
@@ -1063,12 +1063,12 @@ int v3_init_vnet()
     vnet_state.num_routes = 0;
 
     if (vnet_lock_init(&(vnet_state.lock)) == -1){
-        PrintError("VNET/P: Fails to initiate lock\n");
+        PrintError(VM_NONE, VCORE_NONE, "VNET/P: Fails to initiate lock\n");
     }
 
     vnet_state.route_cache = vnet_create_htable(0, &hash_fn, &hash_eq);
     if (vnet_state.route_cache == NULL) {
-        PrintError("VNET/P: Fails to initiate route cache\n");
+        PrintError(VM_NONE, VCORE_NONE, "VNET/P: Fails to initiate route cache\n");
         return -1;
     }
 
@@ -1076,7 +1076,7 @@ int v3_init_vnet()
 
     start_vnet_kick_threads();
 
-    PrintDebug("VNET/P is initiated (%d tx kick threads active)\n",VNET_NUM_TX_KICK_THREADS);
+    PrintDebug(VM_NONE, VCORE_NONE, "VNET/P is initiated (%d tx kick threads active)\n",VNET_NUM_TX_KICK_THREADS);
 
     return 0;
 }
@@ -1085,11 +1085,11 @@ int v3_init_vnet()
 void v3_deinit_vnet() 
 {
 
-    PrintDebug("Stopping kick threads\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Stopping kick threads\n");
     stop_vnet_kick_threads();
 
 
-    PrintDebug("Deiniting poll devices\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Deiniting poll devices\n");
     v3_deinit_queue(vnet_state.poll_devs);
     Vnet_Free(vnet_state.poll_devs);
 
@@ -1099,26 +1099,26 @@ void v3_deinit_vnet()
     Vnet_Free(vnet_state.poll_devs);
 
 
-    PrintDebug("Deiniting Device List\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Deiniting Device List\n");
     // close any devices we have open
     deinit_devices_list();  
     
-    PrintDebug("Deiniting Route List\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Deiniting Route List\n");
     // remove any routes we have
     deinit_routes_list();
 
-    PrintDebug("Freeing hash table\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Freeing hash table\n");
     // remove the hash table
     vnet_free_htable(vnet_state.route_cache, 1, 1);
 
     
-    PrintDebug("Removing Bridge\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Removing Bridge\n");
     // remove bridge if it was added
     if (vnet_state.bridge) { 
 	Vnet_Free(vnet_state.bridge);
     }
 
-    PrintDebug("Deleting lock\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Deleting lock\n");
     // eliminate the lock
     vnet_lock_deinit(&(vnet_state.lock));
 

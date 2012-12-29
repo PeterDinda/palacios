@@ -123,7 +123,8 @@ struct proc_dir_entry *palacios_get_procdir(void);
 
 // Selected exported stubs, for use in other palacios components, like vnet
 // The idea is that everything uses the same stubs
-void  palacios_print(const char *fmt, ...);
+void  palacios_print_scoped(void *vm, int vcore, const char *fmt, ...);
+#define palacios_print(...) palacios_print_scoped(0,-1, __VA_ARGS__)
 void *palacios_allocate_pages(int num_pages, unsigned int alignment);
 void  palacios_free_pages(void *page_addr, int num_pages);
 void *palacios_alloc(unsigned int size);

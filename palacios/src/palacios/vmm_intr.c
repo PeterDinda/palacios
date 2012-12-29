@@ -99,7 +99,7 @@ void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_op
     struct intr_controller * ctrlr = (struct intr_controller *)V3_Malloc(sizeof(struct intr_controller));
 
     if (!ctrlr) {
-	PrintError("Cannot allocate in registering an interrupt controller\n");
+	PrintError(info->vm_info, info, "Cannot allocate in registering an interrupt controller\n");
 	return NULL;
     }
 
@@ -125,7 +125,7 @@ void v3_remove_intr_controller(struct guest_info * core, void * handle) {
     }
 
     if (found == 0) {
-	PrintError("Attempted to remove invalid interrupt controller handle\n");
+	PrintError(core->vm_info, core, "Attempted to remove invalid interrupt controller handle\n");
 	return;
     }
 
@@ -137,7 +137,7 @@ void * v3_register_intr_router(struct v3_vm_info * vm, struct intr_router_ops * 
     struct intr_router * router = (struct intr_router *)V3_Malloc(sizeof(struct intr_router));
 
     if (!router) {
-	PrintError("Cannot allocate in registering an interrupt router\n");
+        PrintError(vm, VCORE_NONE,"Cannot allocate in registering an interrupt router\n");
 	return NULL;
     }
 
@@ -162,7 +162,7 @@ void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
     }
 
     if (found == 0) {
-	PrintError("Attempted to remove invalid interrupt router\n");
+        PrintError(vm, VCORE_NONE, "Attempted to remove invalid interrupt router\n");
 	return;
     }
 
@@ -173,7 +173,7 @@ void v3_remove_intr_router(struct v3_vm_info * vm, void * handle) {
 
 
 static inline struct v3_irq_hook * get_irq_hook(struct v3_vm_info * vm, uint_t irq) {
-    V3_ASSERT(irq <= 256);
+    V3_ASSERT(vm, VCORE_NONE,irq <= 256);
     return vm->intr_routers.hooks[irq];
 }
 
@@ -187,12 +187,12 @@ int v3_hook_irq(struct v3_vm_info * vm,
 
 
     if (hook == NULL) { 
-	PrintError("Cannot allocate when hooking an irq\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate when hooking an irq\n");
 	return -1; 
     }
 
     if (get_irq_hook(vm, irq) != NULL) {
-	PrintError("IRQ %d already hooked\n", irq);
+	PrintError(vm, VCORE_NONE, "IRQ %d already hooked\n", irq);
 	V3_Free(hook);
 	return -1;
     }
@@ -203,12 +203,12 @@ int v3_hook_irq(struct v3_vm_info * vm,
     vm->intr_routers.hooks[irq] = hook;
 
     if (V3_Hook_Interrupt(vm, irq)) { 
-	PrintError("hook_irq: failed to hook irq %d\n", irq);
+	PrintError(vm, VCORE_NONE, "hook_irq: failed to hook irq %d\n", irq);
 	vm->intr_routers.hooks[irq] = NULL;
 	V3_Free(hook);
 	return -1;
     } else {
-	PrintDebug("hook_irq: hooked irq %d\n", irq);
+        PrintDebug(vm, VCORE_NONE, "hook_irq: hooked irq %d\n", irq);
 	return 0;
     }
 }
@@ -216,7 +216,7 @@ int v3_hook_irq(struct v3_vm_info * vm,
 
 
 static int passthrough_irq_handler(struct v3_vm_info * vm, struct v3_interrupt * intr, void * priv_data) {
-    PrintDebug("[passthrough_irq_handler] raise_irq=%d (guest=0x%p)\n", 
+    PrintDebug(vm, VCORE_NONE, "[passthrough_irq_handler] raise_irq=%d (guest=0x%p)\n", 
 	       intr->irq, (void *)vm);
 
     return v3_raise_irq(vm, intr->irq);
@@ -226,10 +226,10 @@ int v3_hook_passthrough_irq(struct v3_vm_info * vm, uint_t irq) {
     int rc = v3_hook_irq(vm, irq, passthrough_irq_handler, NULL);
 
     if (rc) { 
-	PrintError("guest_irq_injection: failed to hook irq 0x%x (guest=0x%p)\n", irq, (void *)vm);
+	PrintError(vm, VCORE_NONE, "guest_irq_injection: failed to hook irq 0x%x (guest=0x%p)\n", irq, (void *)vm);
 	return -1;
     } else {
-	PrintDebug("guest_irq_injection: hooked irq 0x%x (guest=0x%p)\n", irq, (void *)vm);
+	PrintDebug(vm, VCORE_NONE, "guest_irq_injection: hooked irq 0x%x (guest=0x%p)\n", irq, (void *)vm);
 	return 0;
     }
 }
@@ -239,12 +239,12 @@ int v3_hook_passthrough_irq(struct v3_vm_info * vm, uint_t irq) {
 
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr) {
-    PrintDebug("v3_deliver_irq: irq=%d state=0x%p, \n", intr->irq, (void *)intr);
+    PrintDebug(vm, VCORE_NONE, "v3_deliver_irq: irq=%d state=0x%p, \n", intr->irq, (void *)intr);
   
     struct v3_irq_hook * hook = get_irq_hook(vm, intr->irq);
 
     if (hook == NULL) {
-	PrintError("Attempting to deliver interrupt to non registered hook(irq=%d)\n", intr->irq);
+	PrintError(vm, VCORE_NONE, "Attempting to deliver interrupt to non registered hook(irq=%d)\n", intr->irq);
 	return -1;
     }
   
@@ -257,8 +257,8 @@ int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr) {
 int v3_raise_swintr (struct guest_info * core, uint8_t vector) {
     struct v3_intr_core_state * intr_state = &(core->intr_core_state);
 
-    PrintDebug("Signaling software interrupt in v3_signal_swintr()\n");
-    PrintDebug("\tINT vector: %d\n", vector);
+    PrintDebug(core->vm_info, core, "Signaling software interrupt in v3_signal_swintr()\n");
+    PrintDebug(core->vm_info, core, "\tINT vector: %d\n", vector);
     
     intr_state->swintr_posted = 1;
     intr_state->swintr_vector = vector;
@@ -313,7 +313,7 @@ int v3_raise_acked_irq(struct v3_vm_info * vm, struct v3_irq irq) {
     struct intr_router * router = NULL;
     struct v3_intr_routers * routers = &(vm->intr_routers);
 
-    //  PrintDebug("[v3_raise_irq (%d)]\n", irq);
+    //  PrintDebug(info->vm_info, info, "[v3_raise_irq (%d)]\n", irq);
     addr_t irq_state = v3_lock_irqsave(routers->irq_lock);
 
     list_for_each_entry(router, &(routers->router_list), router_node) {
@@ -330,7 +330,7 @@ int v3_lower_acked_irq(struct v3_vm_info * vm, struct v3_irq irq) {
     struct intr_router * router = NULL;
     struct v3_intr_routers * routers = &(vm->intr_routers);
 
-    //    PrintDebug("[v3_lower_irq]\n");
+    //    PrintDebug(info->vm_info, info, "[v3_lower_irq]\n");
     addr_t irq_state = v3_lock_irqsave(routers->irq_lock);
 
     list_for_each_entry(router, &(routers->router_list), router_node) {
@@ -359,7 +359,7 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
     int ret = V3_INVALID_INTR;
     int i = 0;
 
-    //  PrintDebug("[intr_pending]\n");
+    //  PrintDebug(info->vm_info, info, "[intr_pending]\n");
     addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);
 
     // External IRQs have lowest priority
@@ -416,7 +416,7 @@ uint32_t v3_get_intr(struct guest_info * info) {
 	    if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data)) {
 		uint_t intr_num = ctrl->ctrl_ops->get_intr_number(info, ctrl->priv_data);
 		
-		//	PrintDebug("[get_intr_number] intr_number = %d\n", intr_num);
+		//	PrintDebug(info->vm_info, info, "[get_intr_number] intr_number = %d\n", intr_num);
 		ret = intr_num;
 		break;
 	    }
@@ -438,7 +438,7 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
 
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	if (ctrl->ctrl_ops->intr_pending(ctrl->priv_data) == 1) {
-	    //PrintDebug("[get_intr_type] External_irq\n");
+	    //PrintDebug(info->vm_info, info, "[get_intr_type] External_irq\n");
 	    type = V3_EXTERNAL_IRQ;	    
 	    break;
 	}
@@ -446,7 +446,7 @@ intr_type_t v3_get_intr_type(struct guest_info * info) {
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
     if (type == V3_INVALID_INTR) {
-	PrintError("[get_intr_type] Invalid_Intr\n");
+	PrintError(info->vm_info, info, "[get_intr_type] Invalid_Intr\n");
     }
 #endif
 
@@ -468,7 +468,7 @@ int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t 
 
 	addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock); 
 
-	//	PrintDebug("[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
+	//	PrintDebug(info->vm_info, info, "[injecting_intr] External_Irq with intr_num = %x\n", intr_num);
 	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	    ctrl->ctrl_ops->begin_irq(info, ctrl->priv_data, intr_num);
 	}

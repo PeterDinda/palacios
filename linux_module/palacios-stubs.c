@@ -87,7 +87,7 @@ static int init_print_buffers(void)
 /**
  * Prints a message to the console.
  */
-void palacios_print(const char *fmt, ...) {
+void palacios_print_scoped(void * vm, int vcore, const char *fmt, ...) {
 
 #if V3_PRINTK_OLD_STYLE_OUTPUT
 
@@ -104,6 +104,7 @@ void palacios_print(const char *fmt, ...) {
   va_list ap;
   char *buf;
   unsigned int cpu = palacios_get_cpu();
+  struct v3_guest *guest = (struct v3_guest *)vm;
 
   buf = print_buffer[cpu];
 
@@ -132,14 +133,30 @@ void palacios_print(const char *fmt, ...) {
   }
 #endif
 
-  printk(KERN_INFO "palacios (pcore %u): %s",cpu,buf);
-
+  if (guest) {
+    if (vcore>=0) { 
+      printk(KERN_INFO "palacios (pcore %u vm %s vcore %u): %s",
+	     cpu,
+	     guest->name,
+	     vcore,
+	     buf);
+    } else {
+       printk(KERN_INFO "palacios (pcore %u vm %s): %s",
+	     cpu,
+	     guest->name,
+	     buf);
+    }
+  } else {
+    printk(KERN_INFO "palacios (pcore %u): %s",
+	   cpu,
+	   buf);
+  }
+    
   return;
 
 #endif
 
 }
-
 
 
 /*
@@ -663,7 +680,7 @@ palacios_mutex_unlock_irqrestore(void *mutex, void *flags)
  * Structure used by the Palacios hypervisor to interface with the host kernel.
  */
 static struct v3_os_hooks palacios_os_hooks = {
-	.print			= palacios_print,
+	.print			= palacios_print_scoped,
 	.allocate_pages		= palacios_allocate_pages,
 	.free_pages		= palacios_free_pages,
 	.malloc			= palacios_alloc,

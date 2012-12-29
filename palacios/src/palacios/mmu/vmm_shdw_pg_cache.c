@@ -134,7 +134,7 @@ static  inline int evict_pt(void * pt, addr_t va, page_type_t pt_type) {
 	    break;
 	}
 	default:
-	    PrintError("Invalid page type: %d\n", pt_type);
+	    PrintError(VM_NONE, VCORE_NONE, "Invalid page type: %d\n", pt_type);
 	    return -1;
     }
 
@@ -182,7 +182,7 @@ static  inline int grab_pt(void * pt, addr_t va, page_type_t pt_type) {
 	    break;
 	}
 	default:
-	    PrintError("Invalid page type: %d\n", pt_type);
+	    PrintError(VM_NONE, VCORE_NONE, "Invalid page type: %d\n", pt_type);
 	    return -1;
     }
 
@@ -194,7 +194,7 @@ static int unlink_shdw_pg(struct shdw_pg_data * pg_data) {
     struct shdw_back_ptr * back_ptr = NULL;
     struct shdw_back_ptr * tmp_ptr = NULL;
 
-    PrintError("Unlinking gpa=%p, type=%d\n", (void *)pg_data->tuple.gpa, pg_data->tuple.pt_type);
+    PrintError(VM_NONE, VCORE_NONE, "Unlinking gpa=%p, type=%d\n", (void *)pg_data->tuple.gpa, pg_data->tuple.pt_type);
 
     list_for_each_entry_safe(back_ptr, tmp_ptr, &(pg_data->back_ptrs), back_ptr_node) {
 	struct shdw_pg_data * parent = back_ptr->pg_data;
@@ -222,7 +222,7 @@ static int add_rmap(struct v3_vm_info * vm, struct shdw_pg_data * pg_data, addr_
 	rmap_list = V3_Malloc(sizeof(struct list_head));
 
 	if (!rmap_list) {
-	    PrintError("Cannot allocate\n");
+	    PrintError(vm, VCORE_NONE, "Cannot allocate\n");
 	    return -1;
 	}
 
@@ -234,7 +234,7 @@ static int add_rmap(struct v3_vm_info * vm, struct shdw_pg_data * pg_data, addr_
     entry = V3_Malloc(sizeof(struct rmap_entry));
 
     if (!entry) {
-	PrintError("Cannot allocate\n");
+	PrintError(vm, VCORE_NONE,  "Cannot allocate\n");
 	return -1;
     }
 
@@ -261,23 +261,23 @@ static int update_rmap_entries(struct v3_vm_info * vm, addr_t gpa) {
 	return 0;
     }
 
-    PrintError("Updating rmap entries\n\t");
+    PrintError(vm, VCORE_NONE, "Updating rmap entries\n\t");
 
     list_for_each_entry(entry, rmap_list, rmap_node) {
 	struct shdw_pg_data * pg_data = NULL;
 	struct guest_pg_tuple tuple = {entry->gpa, entry->pt_type};
 
-	V3_Print("%d \n", i);
+	V3_Print(vm, VCORE_NONE,  "%d \n", i);
 
 	pg_data = (struct shdw_pg_data *)v3_htable_search(cache_state->page_htable, (addr_t)&tuple);
 
 	if (!pg_data) {
-	    PrintError("Invalid PTE reference... Should Delete rmap entry\n");
+	    PrintError(vm, VCORE_NONE, "Invalid PTE reference... Should Delete rmap entry\n");
 	    continue;
 	}
 
 	if (grab_pt(pg_data->hva, entry->gva, entry->pt_type) == -1) {
-	    PrintError("Could not invalidate reverse map entry\n");
+	    PrintError(vm, VCORE_NONE, "Could not invalidate reverse map entry\n");
 	    return -1;
 	}
 
@@ -295,7 +295,7 @@ static int link_shdw_pg(struct shdw_pg_data * child_pg, struct shdw_pg_data * pa
     struct shdw_back_ptr * back_ptr = V3_Malloc(sizeof(struct shdw_back_ptr));
 
     if (!back_ptr) {
-	PrintError("Cannot allocate\n");
+	PrintError(VM_NONE, VCORE_NONE,  "Cannot allocate\n");
 	return -1;
     }
 
@@ -333,11 +333,11 @@ static int evict_shdw_pg(struct v3_vm_info * vm, addr_t gpa, page_type_t pt_type
 
     pg_data = find_shdw_pt(vm, gpa, pt_type);
 
-    PrintError("Evicting GPA: %p, type=%d\n", (void *)gpa, pt_type);
+    PrintError(vm, VCORE_NONE,  "Evicting GPA: %p, type=%d\n", (void *)gpa, pt_type);
 
     if (pg_data != NULL) {
 	if (unlink_shdw_pg(pg_data) == -1) {
-	    PrintError("Error unlinking page...\n");
+	    PrintError(vm, VCORE_NONE,  "Error unlinking page...\n");
 	    return -1;
 	}
 	
@@ -358,13 +358,13 @@ static struct shdw_pg_data * pop_queue_pg(struct v3_vm_info * vm,
 					  struct cache_vm_state * cache_state) {
     struct shdw_pg_data * pg_data = NULL;
 
-    PrintError("popping page from queue\n");
+    PrintError(vm, VCORE_NONE, "popping page from queue\n");
 
     pg_data = list_tail_entry(&(cache_state->pg_queue), struct shdw_pg_data, pg_queue_node);
 
 
     if (unlink_shdw_pg(pg_data) == -1) {
-	PrintError("Error unlinking cached page\n");
+        PrintError(vm, VCORE_NONE, "Error unlinking cached page\n");
 	return NULL;
     }
 
@@ -381,20 +381,20 @@ static struct shdw_pg_data * create_shdw_pt(struct v3_vm_info * vm, addr_t gpa, 
     struct shdw_pg_data * pg_data = NULL;
 
 
-    PrintError("Creating shdw page: gpa=%p, type=%d\n", (void *)gpa, pt_type);
+    PrintError(vm, VCORE_NONE, "Creating shdw page: gpa=%p, type=%d\n", (void *)gpa, pt_type);
 
     if (cache_state->pgs_in_cache < cache_state->max_cache_pgs) {
 	pg_data = V3_Malloc(sizeof(struct shdw_pg_data));
 
 	if (!pg_data) {
-	    PrintError("Cannot allocate\n");
+	    PrintError(vm, VCORE_NONE,  "Cannot allocate\n");
 	    return NULL;
 	}
 
 	pg_data->hpa = (addr_t)V3_AllocPages(1);
 
 	if (!pg_data->hpa) {
-	    PrintError("Cannot allocate page for shadow page table\n");
+	    PrintError(vm, VCORE_NONE,  "Cannot allocate page for shadow page table\n");
 	    return NULL;
 	}
 
@@ -402,7 +402,7 @@ static struct shdw_pg_data * create_shdw_pt(struct v3_vm_info * vm, addr_t gpa, 
 
     } else if (cache_state->pgs_in_free_list) {
 
-	PrintError("pulling page from free list\n");
+	PrintError(vm, VCORE_NONE,  "pulling page from free list\n");
 	// pull from free list
 	pg_data = list_tail_entry(&(cache_state->free_list), struct shdw_pg_data, pg_queue_node);
 	
@@ -416,7 +416,7 @@ static struct shdw_pg_data * create_shdw_pt(struct v3_vm_info * vm, addr_t gpa, 
 
 
     if (pg_data == NULL) {
-	PrintError("Error creating Shadow Page table page\n");
+	PrintError(vm, VCORE_NONE,  "Error creating Shadow Page table page\n");
 	return NULL;
     }
 
@@ -474,12 +474,12 @@ static int cache_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	cache_size = ((atoi(cache_sz_str) * 1024 * 1024) / 4096);
     }
 
-    V3_Print("Shadow Page Cache initialization\n");
+    V3_Print(vm, VCORE_NONE, "Shadow Page Cache initialization\n");
 
     cache_state = V3_Malloc(sizeof(struct cache_vm_state));
 
     if (!cache_state) {
-	PrintError("Cannot allocate\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate\n");
 	return -1;
     }
 
@@ -514,7 +514,7 @@ static int cache_activate_shdw_pt(struct guest_info * core) {
     switch (v3_get_vm_cpu_mode(core)) {
 
 	case PROTECTED:
-	    PrintError("Calling 32 bit cache activation\n");
+	    PrintError(core->vm_info, core, "Calling 32 bit cache activation\n");
 	    return activate_shadow_pt_32(core);
 	case PROTECTED_PAE:
 	    //	    return activate_shadow_pt_32pae(core);
@@ -523,7 +523,7 @@ static int cache_activate_shdw_pt(struct guest_info * core) {
 	case LONG_16_COMPAT:
 	    //	    return activate_shadow_pt_64(core);
 	default:
-	    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 	    return -1;
     }
 
@@ -532,7 +532,7 @@ static int cache_activate_shdw_pt(struct guest_info * core) {
 
 static int cache_invalidate_shdw_pt(struct guest_info * core) {
     // wipe everything...
-    V3_Print("Cache invalidation called\n");
+    V3_Print(core->vm_info, core, "Cache invalidation called\n");
     
     return cache_activate_shdw_pt(core);
 }
@@ -552,14 +552,14 @@ static int cache_handle_pf(struct guest_info * core, addr_t fault_addr, pf_error
 	    case LONG_16_COMPAT:
 		//	return handle_shadow_pagefault_64(core, fault_addr, error_code);
 	    default:
-		PrintError("Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+		PrintError(core->vm_info, core, "Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 		return -1;
 	}
 }
 
 
 static int cache_handle_invlpg(struct guest_info * core, addr_t vaddr) {
-    PrintError("INVLPG called for %p\n", (void *)vaddr);
+    PrintError(core->vm_info, core, "INVLPG called for %p\n", (void *)vaddr);
 
     switch (v3_get_vm_cpu_mode(core)) {
 	case PROTECTED:
@@ -571,7 +571,7 @@ static int cache_handle_invlpg(struct guest_info * core, addr_t vaddr) {
 	case LONG_16_COMPAT:
 	    //    return handle_shadow_invlpg_64(core, vaddr);
 	default:
-	    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 	    return -1;
     }
 }

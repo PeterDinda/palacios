@@ -84,14 +84,14 @@ static int pic_init(struct guest_info * vm, void * cfg_data) {
     state = (struct pic_internal *)V3_Malloc(sizeof(struct pic_internal));
 
     if (!state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(info->vm_info, info, "Cannot allocate in init\n");
 	return -1;
     }
 
     struct vm_device * dev = v3_allocate_device("SIMPLE_PIC", &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-        PrintError("Could not attach device %s\n", "SIMPLE_PIC");
+        PrintError(info->vm_info, info, "Could not attach device %s\n", "SIMPLE_PIC");
 	V3_Free(state);
         return -1;
     }

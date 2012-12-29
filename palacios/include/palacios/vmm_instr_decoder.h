@@ -151,7 +151,7 @@ static int get_addr_width(struct guest_info * info, struct x86_instr * instr) {
 			return (instr->prefixes.addr_size) ? 4 : 2;
 		}			
 	default:
-	    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
+	    PrintError(info->vm_info, info, "Unsupported CPU mode: %d\n", info->cpu_mode);
 	    return -1;
     }
 }
@@ -276,13 +276,13 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 			return (instr->prefixes.op_size) ? 4 : 2;
 		    }
 		default:
-		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
+		    PrintError(info->vm_info, info, "Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
 	case INVLPG:
 	    switch (v3_get_vm_cpu_mode(info)) {
 		case REAL:
-		    PrintError("Invalid instruction given operating mode (%d)\n", form);
+		    PrintError(info->vm_info, info, "Invalid instruction given operating mode (%d)\n", form);
 		    return 0;
 		case PROTECTED:
 		case PROTECTED_PAE:
@@ -291,7 +291,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		case LONG:
 			return 8;
 		default:
-		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
+		    PrintError(info->vm_info, info, "Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
 
@@ -307,7 +307,7 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		case LONG:
 			return 8;
 		default:
-		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
+		    PrintError(info->vm_info, info, "Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
 
@@ -326,14 +326,14 @@ static int get_operand_width(struct guest_info * info, struct x86_instr * instr,
 		case LONG:
 			return 8;
 		default:
-		    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
+		    PrintError(info->vm_info, info, "Unsupported CPU mode: %d\n", info->cpu_mode);
 		    return -1;
 	    }
 
 	case MOV_SR2:
 	case MOV_2SR:
 	default:
-	    PrintError("Unsupported instruction form %d\n", form);
+	    PrintError(info->vm_info, info, "Unsupported instruction form %d\n", form);
 	    return -1;
 	
     }
@@ -437,7 +437,7 @@ static inline int decode_gpr(struct guest_info * core,
 	    reg->operand = (addr_t)&(gprs->r15);
 	    break;
 	default:
-	    PrintError("Invalid Reg Code (%d)\n", reg_code);
+	    PrintError(core->vm_info, core, "Invalid Reg Code (%d)\n", reg_code);
 	    reg->operand = 0;
 	    return -1;
     }
@@ -454,7 +454,7 @@ static inline int decode_cr(struct guest_info * core,
 
     struct v3_ctrl_regs * crs = &(core->ctrl_regs);
 
-//    PrintDebug("\t Ctrl regs %d\n", reg_code);
+//    PrintDebug(core->vm_info, core, "\t Ctrl regs %d\n", reg_code);
 
     switch (reg_code) {
 	case 0:
@@ -471,7 +471,7 @@ static inline int decode_cr(struct guest_info * core,
 	    break;
 	default:
 	    reg->operand = 0;
-	    PrintError("Invalid Reg Code (%d)\n", reg_code);
+	    PrintError(core->vm_info, core, "Invalid Reg Code (%d)\n", reg_code);
 	    return -1;
     }
 
@@ -510,14 +510,14 @@ static  int decode_rm_operand16(struct guest_info * core,
     modrm_mode_t mod_mode = 0;
     uint8_t * instr_cursor = modrm_instr;
 
-    //  PrintDebug("ModRM mod=%d\n", modrm->mod);
+    //  PrintDebug(core->vm_info, core, "ModRM mod=%d\n", modrm->mod);
     
     *reg_code = modrm->reg;
 
     instr_cursor += 1;
 
     if (modrm->mod == 3) {
-	//PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+	//PrintDebug(core->vm_info, core, "first operand = Register (RM=%d)\n",modrm->rm);
 	operand->type = REG_OPERAND;
 
 	decode_gpr(core, modrm->rm, operand);
@@ -534,7 +534,7 @@ static  int decode_rm_operand16(struct guest_info * core,
 	} else if (modrm->mod == 2) {
 	    mod_mode = DISP16;
 	} else {
-	    PrintError("Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
+	    PrintError(core->vm_info, core, "Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
 	    v3_print_instr(instr);
 	    return -1;
 	}
@@ -627,7 +627,7 @@ static int decode_rm_operand32(struct guest_info * core,
 
     if (modrm->mod == 3) {
     	operand->type = REG_OPERAND;
-	//    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+	//    PrintDebug(core->vm_info, core, "first operand = Register (RM=%d)\n",modrm->rm);
 
 	decode_gpr(core, modrm->rm, operand);
 
@@ -643,7 +643,7 @@ static int decode_rm_operand32(struct guest_info * core,
 	} else if (modrm->mod == 2) {
 	    mod_mode = DISP32;
 	} else {
-	    PrintError("Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
+	    PrintError(core->vm_info, core, "Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
 	    v3_print_instr(instr);
 	    return -1;
 	}
@@ -806,7 +806,7 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 	rm_val |= (instr->prefixes.rex_rm << 3);
 	
 	operand->type = REG_OPERAND;
-	//    PrintDebug("first operand = Register (RM=%d)\n",modrm->rm);
+	//    PrintDebug(core->vm_info, core, "first operand = Register (RM=%d)\n",modrm->rm);
 	
 	decode_gpr(core, rm_val, operand);
     } else {
@@ -823,7 +823,7 @@ int decode_rm_operand64(struct guest_info * core, uint8_t * modrm_instr,
 	} else if (modrm->mod == 2) {
 	    mod_mode = DISP32;
 	} else {
-	    PrintError("Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
+	    PrintError(core->vm_info, core, "Instruction format error: Invalid mod_rm mode (%d)\n", modrm->mod);
 	    v3_print_instr(instr);
 	    return -1;
 	}
@@ -1075,7 +1075,7 @@ static int decode_rm_operand(struct guest_info * core,
 	case LONG_32_COMPAT:
 	    return decode_rm_operand32(core, instr_ptr, instr, operand, reg_code);
 	default:
-	    PrintError("Invalid CPU_MODE (%d)\n", mode);
+	    PrintError(core->vm_info, core, "Invalid CPU_MODE (%d)\n", mode);
 	    return -1;
     }
 }

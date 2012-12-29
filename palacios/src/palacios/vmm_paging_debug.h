@@ -28,7 +28,7 @@
 
 static void PrintPDE32(addr_t virtual_address, pde32_t * pde)
 {
-    PrintDebug("PDE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+  PrintDebug(VM_NONE, VCORE_NONE, "PDE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
 	       (void *)virtual_address,
 	       (void *)(addr_t) (pde->pt_base_addr << PAGE_POWER),
 	       pde->present,
@@ -46,7 +46,7 @@ static void PrintPDE32(addr_t virtual_address, pde32_t * pde)
   
 static void PrintPTE32(addr_t virtual_address, pte32_t * pte)
 {
-    PrintDebug("PTE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "PTE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
 	       (void *)virtual_address,
 	       (void*)(addr_t)(pte->page_base_addr << PAGE_POWER),
 	       pte->present,
@@ -70,7 +70,7 @@ static void PrintPTE32(addr_t virtual_address, pte32_t * pte)
 
 static void PrintPDPE32PAE(addr_t virtual_address, pdpe32pae_t * pdpe)
 {
-    PrintDebug("PDPE %p -> %p : present=%x, wt=%x, cd=%x, accessed=%x, kernelInfo=%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "PDPE %p -> %p : present=%x, wt=%x, cd=%x, accessed=%x, kernelInfo=%x\n",
 	       (void *)virtual_address,
 	       (void *)(addr_t) (pdpe->pd_base_addr << PAGE_POWER),
 	       pdpe->present,
@@ -82,7 +82,7 @@ static void PrintPDPE32PAE(addr_t virtual_address, pdpe32pae_t * pdpe)
 
 static void PrintPDE32PAE(addr_t virtual_address, pde32pae_t * pde)
 {
-    PrintDebug("PDE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "PDE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
 	       (void *)virtual_address,
 	       (void *)(addr_t) (pde->pt_base_addr << PAGE_POWER),
 	       pde->present,
@@ -99,7 +99,7 @@ static void PrintPDE32PAE(addr_t virtual_address, pde32pae_t * pde)
   
 static void PrintPTE32PAE(addr_t virtual_address, pte32pae_t * pte)
 {
-    PrintDebug("PTE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "PTE %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
 	       (void *)virtual_address,
 	       (void*)(addr_t)(pte->page_base_addr << PAGE_POWER),
 	       pte->present,
@@ -123,7 +123,7 @@ static void PrintPTE32PAE(addr_t virtual_address, pte32pae_t * pte)
 
 static void PrintPML4e64(addr_t virtual_address, pml4e64_t * pml)
 {
-    PrintDebug("PML4e64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, kernelInfo=%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "PML4e64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, kernelInfo=%x\n",
 	       (void *)virtual_address,
 	       (void *)(addr_t) (BASE_TO_PAGE_ADDR(pml->pdp_base_addr)),
 	       pml->present,
@@ -138,7 +138,7 @@ static void PrintPML4e64(addr_t virtual_address, pml4e64_t * pml)
 
 static void PrintPDPE64(addr_t virtual_address, pdpe64_t * pdpe)
 {
-    PrintDebug("PDPE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage/zero=%x, kernelInfo=%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "PDPE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage/zero=%x, kernelInfo=%x\n",
 	       (void *)virtual_address,
 	       (void *)(addr_t) (BASE_TO_PAGE_ADDR(pdpe->pd_base_addr)),
 	       pdpe->present,
@@ -157,7 +157,7 @@ static void PrintPDPE64(addr_t virtual_address, pdpe64_t * pdpe)
 
 static void PrintPDE64(addr_t virtual_address, pde64_t * pde)
 {
-    PrintDebug("PDE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "PDE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, reserved=%x, largePages=%x, globalPage=%x, kernelInfo=%x\n",
 	       (void *)virtual_address,
 	       (void *)(addr_t) (BASE_TO_PAGE_ADDR(pde->pt_base_addr)),
 	       pde->present,
@@ -175,7 +175,7 @@ static void PrintPDE64(addr_t virtual_address, pde64_t * pde)
   
 static void PrintPTE64(addr_t virtual_address, pte64_t * pte)
 {
-    PrintDebug("PTE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "PTE64 %p -> %p : present=%x, writable=%x, user=%x, wt=%x, cd=%x, accessed=%x, dirty=%x, pteAttribute=%x, globalPage=%x, vmm_info=%x\n",
 	       (void *)virtual_address,
 	       (void*)(addr_t)(BASE_TO_PAGE_ADDR(pte->page_base_addr)),
 	       pte->present,
@@ -207,7 +207,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PML464:
 	    {
 		pml4e64_t * pml = (pml4e64_t *)page_ptr;
-		PrintDebug("PML4E64 Page\n");
+		PrintDebug(info->vm_info, info, "PML4E64 Page\n");
 		for (i = 0; i < MAX_PML4E64_ENTRIES; i++) {
 		    tmp_vaddr = (4096 * MAX_PTE64_ENTRIES);
 		    tmp_vaddr *= (MAX_PDE64_ENTRIES * MAX_PDPE64_ENTRIES * i); // break apart to avoid int overflow compile errors
@@ -220,7 +220,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PDP64:
 	    {
 		pdpe64_t * pdp = (pdpe64_t *)page_ptr;
-		PrintDebug("PDPE64 Page\n");
+		PrintDebug(info->vm_info, info, "PDPE64 Page\n");
 		for (i = 0; i < MAX_PDPE64_ENTRIES; i++) {
 		    tmp_vaddr = 4096 * MAX_PTE64_ENTRIES * MAX_PDE64_ENTRIES * i; 
 		    tmp_vaddr += vaddr;
@@ -232,7 +232,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PD64:
 	    {
 		pde64_t * pd = (pde64_t *)page_ptr;
-		PrintDebug("PDE64 Page\n");
+		PrintDebug(info->vm_info, info, "PDE64 Page\n");
 		for (i = 0; i < MAX_PDE64_ENTRIES; i++) {
 		    tmp_vaddr = 4096 * MAX_PTE64_ENTRIES * i; 
 		    tmp_vaddr += vaddr;
@@ -244,7 +244,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PT64:
 	    {
 		pte64_t * pt = (pte64_t *)page_ptr;
-		PrintDebug("PTE64 Page\n");
+		PrintDebug(info->vm_info, info, "PTE64 Page\n");
 		for (i = 0; i < MAX_PTE64_ENTRIES; i++) {
 		    tmp_vaddr = 4096 * i; 
 		    tmp_vaddr += vaddr;
@@ -259,7 +259,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PDP32PAE:
 	    {
 		pdpe32pae_t * pdp = (pdpe32pae_t *)page_ptr;
-		PrintDebug("PDPE32PAE Page\n");
+		PrintDebug(info->vm_info, info, "PDPE32PAE Page\n");
 		for (i = 0; i < MAX_PDPE32PAE_ENTRIES; i++) {
 		    tmp_vaddr = 4096 * MAX_PTE32PAE_ENTRIES * MAX_PDE32PAE_ENTRIES * i; 
 		    tmp_vaddr += vaddr;
@@ -271,7 +271,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PD32PAE:
 	    {
 		pde32pae_t * pd = (pde32pae_t *)page_ptr;
-		PrintDebug("PDE32PAE Page\n");
+		PrintDebug(info->vm_info, info, "PDE32PAE Page\n");
 		for (i = 0; i < MAX_PDE32PAE_ENTRIES; i++) {
 		    tmp_vaddr = 4096 * MAX_PTE32PAE_ENTRIES * i; 
 		    tmp_vaddr += vaddr;
@@ -283,7 +283,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PT32PAE:
 	    {
 		pte32pae_t * pt = (pte32pae_t *)page_ptr;
-		PrintDebug("PTE32PAE Page\n");
+		PrintDebug(info->vm_info, info, "PTE32PAE Page\n");
 		for (i = 0; i < MAX_PTE32PAE_ENTRIES; i++) {
 		    tmp_vaddr = 4096 * i; 
 		    tmp_vaddr += vaddr;
@@ -298,7 +298,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PD32:
 	    {
 		pde32_t * pd = (pde32_t *)page_ptr;
-		PrintDebug("PDE32 Page\n");
+		PrintDebug(info->vm_info, info, "PDE32 Page\n");
 		for (i = 0; i < MAX_PTE32_ENTRIES; i++) {
 		    tmp_vaddr = 4096 * MAX_PTE32_ENTRIES * i; 
 		    tmp_vaddr += vaddr;
@@ -310,7 +310,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 	case PAGE_PT32:
 	    {
 		pte32_t * pt = (pte32_t *)page_ptr;
-		PrintDebug("PTE32 Page\n");
+		PrintDebug(info->vm_info, info, "PTE32 Page\n");
 		for (i = 0; i < MAX_PTE32_ENTRIES; i++) {
 		    tmp_vaddr = 4096 * i; 
 		    tmp_vaddr += vaddr;
@@ -396,7 +396,7 @@ static int print_page_tree_cb(struct guest_info * info, page_type_t type, addr_t
 		break;
 	    }
 	default:
-	    PrintDebug("%s %p->%p \n", v3_page_type_to_str(type), (void *)vaddr, (void *)page_pa);
+	    PrintDebug(info->vm_info, info, "%s %p->%p \n", v3_page_type_to_str(type), (void *)vaddr, (void *)page_pa);
 	    break;
     }
 
@@ -411,7 +411,7 @@ void PrintPTEntry(struct guest_info * info, page_type_t type, addr_t vaddr, void
 
 
 void PrintHostPageTables(struct guest_info * info, v3_cpu_mode_t cpu_mode, addr_t cr3) {
-    PrintDebug("CR3: %p\n", (void *)cr3);
+    PrintDebug(info->vm_info, info, "CR3: %p\n", (void *)cr3);
     switch (cpu_mode) {
 	case PROTECTED:
 	    v3_walk_host_pt_32(info, cr3, print_page_walk_cb, NULL);
@@ -425,14 +425,14 @@ void PrintHostPageTables(struct guest_info * info, v3_cpu_mode_t cpu_mode, addr_
 	    v3_walk_host_pt_64(info, cr3, print_page_walk_cb, NULL);
 	    break;
 	default:
-	    PrintError("Unsupported CPU MODE %s\n", v3_cpu_mode_to_str(info->cpu_mode));
+	    PrintError(info->vm_info, info, "Unsupported CPU MODE %s\n", v3_cpu_mode_to_str(info->cpu_mode));
 	    break;
     }
 }
 
 
 void PrintGuestPageTables(struct guest_info * info, addr_t cr3) {
-    PrintDebug("CR3: %p\n", (void *)cr3);
+    PrintDebug(info->vm_info, info, "CR3: %p\n", (void *)cr3);
     switch (info->cpu_mode) {
 	case REAL:
 	case PROTECTED:
@@ -447,13 +447,13 @@ void PrintGuestPageTables(struct guest_info * info, addr_t cr3) {
 	    v3_walk_guest_pt_64(info, cr3, print_page_walk_cb, NULL);
 	    break;
 	default:
-	    PrintError("Unsupported CPU MODE %s\n", v3_cpu_mode_to_str(info->cpu_mode));
+	    PrintError(info->vm_info, info, "Unsupported CPU MODE %s\n", v3_cpu_mode_to_str(info->cpu_mode));
 	    break;
     }
 }
 
 void PrintHostPageTree(struct guest_info * info,  addr_t virtual_addr, addr_t cr3) {
-    PrintDebug("CR3: %p\n", (void *)cr3);
+    PrintDebug(info->vm_info, info, "CR3: %p\n", (void *)cr3);
     switch (info->cpu_mode) {
 	case PROTECTED:
 	    v3_drill_host_pt_32(info, cr3, virtual_addr, print_page_tree_cb, NULL);
@@ -467,13 +467,13 @@ void PrintHostPageTree(struct guest_info * info,  addr_t virtual_addr, addr_t cr
 	    v3_drill_host_pt_64(info, cr3, virtual_addr, print_page_tree_cb, NULL);
 	    break;
 	default:
-	    PrintError("Unsupported CPU MODE %s\n", v3_cpu_mode_to_str(info->cpu_mode));
+	    PrintError(info->vm_info, info, "Unsupported CPU MODE %s\n", v3_cpu_mode_to_str(info->cpu_mode));
 	    break;
     }
 }
 
 void PrintGuestPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr3) {
-    PrintDebug("CR3: %p\n", (void *)cr3);
+    PrintDebug(info->vm_info, info, "CR3: %p\n", (void *)cr3);
     switch (info->cpu_mode) {
 	case PROTECTED:
 	    v3_drill_guest_pt_32(info, cr3, virtual_addr, print_page_tree_cb, NULL);
@@ -487,7 +487,7 @@ void PrintGuestPageTree(struct guest_info * info, addr_t virtual_addr, addr_t cr
 	    v3_drill_guest_pt_64(info, cr3, virtual_addr, print_page_tree_cb, NULL);
 	    break;
 	default:
-	    PrintError("Unsupported CPU MODE %s\n", v3_cpu_mode_to_str(info->cpu_mode));
+	    PrintError(info->vm_info, info, "Unsupported CPU MODE %s\n", v3_cpu_mode_to_str(info->cpu_mode));
 	    break;
     }
 }

@@ -31,7 +31,7 @@
 int v3_handle_svm_wbinvd(struct guest_info * info) {
 
     if (info->cpl != 0) { 
-	PrintDebug("WBINVD: cpl != 0, injecting GPF\n");
+	PrintDebug(info->vm_info, info, "WBINVD: cpl != 0, injecting GPF\n");
 	v3_raise_exception(info, GPF_EXCEPTION);
     } else {
 	info->rip += 2;

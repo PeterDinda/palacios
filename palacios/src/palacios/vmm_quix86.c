@@ -53,7 +53,7 @@ static int decode_string_op(struct guest_info * core,
                 const qx86_insn * qx86_inst, struct x86_instr * instr)
 {
     int status = 0;
-    PrintDebug("String operation\n");
+    PrintDebug(info->vm_info, info, "String operation\n");
 
     if (instr->prefixes.rep == 1) {
         uint64_t a_mask = ~(~0ULL <<
@@ -71,7 +71,7 @@ static int decode_string_op(struct guest_info * core,
 
         if((status = qx86_calculate_linear_address(qx86_inst, 0,
                 (qx86_uint64*)&instr->dst_operand.operand)) != QX86_SUCCESS) {
-            PrintError("Could not get destination memory operand: "
+            PrintError(info->vm_info, info, "Could not get destination memory operand: "
                     "qx86_calculate_linear_address: %d\n", status);
             return -1;
         }
@@ -82,7 +82,7 @@ static int decode_string_op(struct guest_info * core,
 
         if((status = qx86_calculate_linear_address(qx86_inst, 1,
                 (qx86_uint64*)&instr->src_operand.operand)) != QX86_SUCCESS) {
-            PrintError("Could not get source memory operand: "
+            PrintError(info->vm_info, info, "Could not get source memory operand: "
                     "qx86_calculate_linear_address: %d\n", status);
             return -1;
         }
@@ -99,7 +99,7 @@ static int decode_string_op(struct guest_info * core,
 
         if((status = qx86_calculate_linear_address(qx86_inst, 0,
                 (qx86_uint64*)&instr->dst_operand.operand)) != QX86_SUCCESS) {
-            PrintError("Could not get destination memory operand: "
+            PrintError(info->vm_info, info, "Could not get destination memory operand: "
                     "qx86_calculate_linear_address: %d\n", status);
             return -1;
         }
@@ -119,15 +119,15 @@ static int decode_string_op(struct guest_info * core,
 
 
     } else {
-        PrintError("Unhandled String OP\n");
+        PrintError(info->vm_info, info, "Unhandled String OP\n");
         return -1;
     }
 
 
 #ifdef V3_CONFIG_DEBUG_DECODER
-    V3_Print("Decoding Instr at %p\n", (void *)core->rip);
+    V3_Print(info->vm_info, info, "Decoding Instr at %p\n", (void *)core->rip);
     v3_print_instr(instr);
-    V3_Print("CS DB FLag=%x\n", core->segments.cs.db);
+    V3_Print(info->vm_info, info, "CS DB FLag=%x\n", core->segments.cs.db);
 #endif
 
 
@@ -144,7 +144,7 @@ static int callback(void *data, int rindex, int subreg, unsigned char *value) {
         (addr_t*)&reg_addr, &reg_size);
 
     if(v3_reg_type == -1) {
-        PrintError("Callback failed to get register index %d\n", rindex);
+        PrintError(info->vm_info, info, "Callback failed to get register index %d\n", rindex);
         return 0;
     }
 
@@ -157,7 +157,7 @@ static int callback(void *data, int rindex, int subreg, unsigned char *value) {
         *(uint32_t*)value = ((struct v3_segment*)reg_addr)->limit;
         break;
     case QX86_SUBREG_FLAGS:
-        PrintError("Callback doesn't know how to give flags.\n");
+        PrintError(info->vm_info, info, "Callback doesn't know how to give flags.\n");
         return 0;
     case QX86_SUBREG_NONE: {
         switch(qx86_rtab[rindex].size) {
@@ -183,7 +183,7 @@ static inline int qx86_op_to_v3_op(struct guest_info *info, qx86_insn *qx86_insn
                 &(v3_op->operand), &(v3_op->size));
 
         if (v3_reg_type == -1) {
-            PrintError("Operand %d is an Unhandled Operand: %s\n", op_num,
+            PrintError(info->vm_info, info, "Operand %d is an Unhandled Operand: %s\n", op_num,
                     qx86_rtab[qx86_op->u.r.rindex].name);
             v3_op->type = INVALID_OPERAND;
             return -1;
@@ -194,10 +194,10 @@ static inline int qx86_op_to_v3_op(struct guest_info *info, qx86_insn *qx86_insn
         v3_op->type = REG_OPERAND;
 
     } else if(qx86_op->ot == QX86_OPERAND_TYPE_MEMORY) {
-        PrintDebug("Memory operand (%d)\n", op_num);
+        PrintDebug(info->vm_info, info, "Memory operand (%d)\n", op_num);
         if((status = qx86_calculate_linear_address(qx86_insn, op_num,
                 (qx86_uint64*)&v3_op->operand)) != QX86_SUCCESS) {
-            PrintError("Could not get memory operand %d: "
+            PrintError(info->vm_info, info, "Could not get memory operand %d: "
                     "qx86_calculate_linear_address() returns %d\n", op_num, status);
             return -1;
         }
@@ -208,14 +208,14 @@ static inline int qx86_op_to_v3_op(struct guest_info *info, qx86_insn *qx86_insn
         v3_op->size = qx86_op->u.i.valueSize;
 
         if (v3_op->size > 4) {
-            PrintError("Unhandled 64 bit immediates\n");
+            PrintError(info->vm_info, info, "Unhandled 64 bit immediates\n");
             return -1;
         }
         v3_op->operand = (addr_t)*(uint64_t*)qx86_op->u.i.value;
         v3_op->type = IMM_OPERAND;
 
     } else {
-        PrintError("Unhandled Operand %d Type %d\n", op_num, qx86_op->ot);
+        PrintError(info->vm_info, info, "Unhandled Operand %d Type %d\n", op_num, qx86_op->ot);
         return -1;
     }
 
@@ -246,7 +246,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     case LONG:
         proc_mode = QX86_SIZE_64; break;
     default:
-        PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
+        PrintError(info->vm_info, info, "Unsupported CPU mode: %d\n", info->cpu_mode);
         return -1;
     }
 
@@ -263,13 +263,13 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
                     (info->rip & ~0xfffULL) + 0x1000, &(info->segments.cs)), &instr_ptr2);
         }
         if (status == -1) {
-            PrintError("Could not translate Instruction Address at second stage "
+            PrintError(info->vm_info, info, "Could not translate Instruction Address at second stage "
                     "translation (%p)\n", (void *)(addr_t)info->rip);
             return -1;
         }
 
         if(((instr_ptr & ~0xfffUL) + 0x1000) != instr_ptr2) {
-            PrintError("Note: physical page non-contiguous\n");
+            PrintError(info->vm_info, info, "Note: physical page non-contiguous\n");
             memcpy(inst_buf, (const void*)instr_ptr, left_in_page);
             memcpy(inst_buf + left_in_page, (const void*)instr_ptr2,
                     QX86_INSN_SIZE_MAX - left_in_page);
@@ -283,14 +283,14 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     int status = qx86_decode(&qx86_inst, proc_mode,
             (const void*)instr_ptr, QX86_INSN_SIZE_MAX);
     if(status != QX86_SUCCESS) {
-        PrintError("qx86_decode() returned %d\n", status);
+        PrintError(info->vm_info, info, "qx86_decode() returned %d\n", status);
         return -1;
     }
 
     instr->instr_length = qx86_inst.rawSize;
 
     if ((instr->op_type = get_opcode(&qx86_inst)) == V3_INVALID_OP) {
-        PrintError("Could not get opcode. (mnemonic=%s)\n",
+        PrintError(info->vm_info, info, "Could not get opcode. (mnemonic=%s)\n",
                 qx86_mtab[qx86_inst.mnemonic].name);
         return -1;
     }
@@ -328,11 +328,11 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     char buf[128];
     int buf_sz = 128;
     if(qx86_print_intel(&qx86_inst, &opt, buf, &buf_sz) != QX86_SUCCESS) {
-        PrintDebug("Print failed!\n");
+        PrintDebug(info->vm_info, info, "Print failed!\n");
     } else {
-        PrintDebug("Instruction (%p): %s\n", (void*)info->rip, buf);
+        PrintDebug(info->vm_info, info, "Instruction (%p): %s\n", (void*)info->rip, buf);
     }
-    PrintDebug("Operands: dst %p src %p 3rd %p\n", (void*)instr->dst_operand.operand,
+    PrintDebug(info->vm_info, info, "Operands: dst %p src %p 3rd %p\n", (void*)instr->dst_operand.operand,
             (void*)instr->src_operand.operand, (void*)instr->third_operand.operand);
 #endif
     return 0;
@@ -353,7 +353,7 @@ static int get_opcode(qx86_insn *inst) {
         if(IS_CR(1))
             return V3_OP_MOVCR2;
 
-        PrintError("Bad operand types for MOV: %d %d\n", inst->operands[0].ot,
+        PrintError(info->vm_info, info, "Bad operand types for MOV: %d %d\n", inst->operands[0].ot,
                 inst->operands[1].ot);
         return V3_INVALID_OP;
     }
@@ -481,7 +481,7 @@ static int get_opcode(qx86_insn *inst) {
 
 static int qx86_register_to_v3_reg(struct guest_info * info, int qx86_reg,
                  addr_t * v3_reg, uint_t * reg_len) {
-    PrintDebug("qx86 Register: %s\n", qx86_rtab[qx86_reg].name);
+    PrintDebug(info->vm_info, info, "qx86 Register: %s\n", qx86_rtab[qx86_reg].name);
 
     switch (qx86_reg) {
     case QX86_REGISTER_INVALID:

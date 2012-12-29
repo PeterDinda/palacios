@@ -42,7 +42,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
     struct v3_mem_region * region = v3_get_mem_region(info->vm_info, info->vcpu_id, fault_addr);
 
     if (region == NULL) {
-	PrintError("Invalid region in passthrough page fault 32, addr=%p\n", 
+        PrintError(info->vm_info, info, "Invalid region in passthrough page fault 32, addr=%p\n", 
 		   (void *)fault_addr);
 	return -1;
     }
@@ -86,7 +86,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	    }
 
     	    if (v3_gpa_to_hpa(info, fault_addr, &host_addr) == -1) {
-		PrintError("Could not translate fault address (%p)\n", (void *)fault_addr);
+		PrintError(info->vm_info, info, "Could not translate fault address (%p)\n", (void *)fault_addr);
 		return -1;
     	    }
 	    

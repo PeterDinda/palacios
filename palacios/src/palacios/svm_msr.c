@@ -47,7 +47,7 @@ static int get_bitmap_index(uint_t msr) {
 	       (msr <= AMD_7_8_GEN_MSRS_END)) {
 	return (AMD_7_8_GEN_MSRS_INDEX + (msr - AMD_7_8_GEN_MSRS_START));
     } else {
-	PrintError("MSR out of range (MSR=0x%x)\n", msr);
+	PrintError(VM_NONE, VCORE_NONE,  "MSR out of range (MSR=0x%x)\n", msr);
 	return -1;
     }
 }
@@ -62,7 +62,7 @@ static int update_map(struct v3_vm_info * vm, uint_t msr, int hook_reads, int ho
     uint8_t * bitmap = (uint8_t *)(vm->msr_map.arch_data);
 
     if (index == -1) {
-	PrintError("MSR (0x%x) out of bitmap range\n", msr);
+	PrintError(vm, VCORE_NONE,  "MSR (0x%x) out of bitmap range\n", msr);
 	return 0;
     }
 
@@ -90,7 +90,7 @@ int v3_init_svm_msr_map(struct v3_vm_info * vm) {
     temp = V3_AllocPages(2);
     
     if (!temp) { 
-	PrintError("Cannot allocate msr bitmap\n");
+	PrintError(vm, VCORE_NONE,  "Cannot allocate msr bitmap\n");
 	return -1;
     }
 

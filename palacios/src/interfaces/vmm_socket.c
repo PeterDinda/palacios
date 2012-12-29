@@ -205,8 +205,8 @@ uint32_t v3_ntohl(uint32_t n) {
 
 
 v3_sock_t v3_create_udp_socket(struct v3_vm_info * vm) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->udp_socket);
+    V3_ASSERT(vm, VCORE_NONE, sock_hooks);
+    V3_ASSERT(vm, VCORE_NONE, sock_hooks->udp_socket);
     void * priv_data = NULL;
 
     if (vm) {
@@ -217,8 +217,8 @@ v3_sock_t v3_create_udp_socket(struct v3_vm_info * vm) {
 }
 
 v3_sock_t v3_create_tcp_socket(struct v3_vm_info * vm) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->tcp_socket);
+    V3_ASSERT(vm, VCORE_NONE, sock_hooks);
+    V3_ASSERT(vm, VCORE_NONE, sock_hooks->tcp_socket);
     void * priv_data = NULL;
 
     if (vm) {
@@ -229,89 +229,89 @@ v3_sock_t v3_create_tcp_socket(struct v3_vm_info * vm) {
 }
 
 void v3_socket_close(v3_sock_t sock) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->close);
+    V3_ASSERT(VM_NONE, VCORE_NONE, sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->close);
 
     sock_hooks->close(sock);
 }
 
 int v3_socket_bind(const v3_sock_t sock, uint16_t port) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->bind);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->bind);
 
     return sock_hooks->bind(sock, port);
 }
 
 int v3_socket_listen(const v3_sock_t sock, int backlog) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->listen);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->listen);
 
     return sock_hooks->listen(sock, backlog);
 }
 
 v3_sock_t v3_socket_accept(const v3_sock_t sock, uint32_t * remote_ip, uint32_t * port) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->accept);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->accept);
 
     return sock_hooks->accept(sock, remote_ip, port);
 }
 
 int v3_connect_to_ip(const v3_sock_t sock, const uint32_t hostip, const uint16_t port) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->connect_to_ip);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->connect_to_ip);
     
     return sock_hooks->connect_to_ip(sock, hostip, port);
 }
 
 int v3_connect_to_host(const v3_sock_t sock, const char * hostname, const uint16_t port) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->connect_to_host);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->connect_to_host);
 
     return sock_hooks->connect_to_host(sock, hostname, port);
 }
 
 int v3_socket_send(const v3_sock_t sock, const uint8_t * buf, const uint32_t len) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->send);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->send);
 
     return sock_hooks->send(sock, buf, len);
 }
 
 int v3_socket_recv(const v3_sock_t sock, uint8_t * buf, const uint32_t len) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->recv);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->recv);
 
     return sock_hooks->recv(sock, buf, len);
 }
 
 int v3_socket_send_to_host(const v3_sock_t sock, const char * hostname, const uint16_t port, 
 			   const uint8_t * buf, const uint32_t len) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->sendto_host);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->sendto_host);
 
     return sock_hooks->sendto_host(sock, hostname, port, buf, len);
 }
 
 int v3_socket_send_to_ip(const v3_sock_t sock, const uint32_t ip, const uint16_t port, 
 			 const uint8_t * buf, const uint32_t len) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->sendto_ip);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->sendto_ip);
 
     return sock_hooks->sendto_ip(sock, ip, port, buf, len);
 }
 
 int v3_socket_recv_from_host(const v3_sock_t sock, const char * hostname, const uint16_t port, 
 			     uint8_t * buf, const uint32_t len) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->recvfrom_host);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->recvfrom_host);
 
     return sock_hooks->recvfrom_host(sock, hostname, port, buf, len);
 }
 
 int v3_socket_recv_from_ip(const v3_sock_t sock, const uint32_t ip, const uint16_t port, 
 			   uint8_t * buf, const uint32_t len) {
-    V3_ASSERT(sock_hooks);
-    V3_ASSERT(sock_hooks->recvfrom_ip);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE,sock_hooks->recvfrom_ip);
 
     return sock_hooks->recvfrom_ip(sock, ip, port, buf, len);
 }
@@ -321,7 +321,7 @@ int v3_socket_recv_from_ip(const v3_sock_t sock, const uint32_t ip, const uint16
 
 void V3_Init_Sockets(struct v3_socket_hooks * hooks) {
     sock_hooks = hooks;
-    PrintDebug("V3 sockets inited\n");
+    PrintDebug(VM_NONE, VCORE_NONE,"V3 sockets inited\n");
 
     return;
 }

@@ -192,7 +192,7 @@ static int pci_exp_rom_init(struct vm_device * dev, struct pt_dev_state * state)
     prom->addr = PCI_EXP_ROM_BASE(rom_val);
     prom->size = ~PCI_EXP_ROM_BASE(max_val) + 1;
     
-    PrintDebug("Adding 32 bit PCI mem region: start=%p, end=%p\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "Adding 32 bit PCI mem region: start=%p, end=%p\n",
 	       (void *)(addr_t)prom->addr, 
 	       (void *)(addr_t)(prom->addr + prom->size));
 
@@ -208,13 +208,13 @@ static int pci_exp_rom_init(struct vm_device * dev, struct pt_dev_state * state)
     // Initially the virtual location matches the physical ones
     memcpy(&(state->virt_exp_rom), &(state->phys_exp_rom), sizeof(struct pt_bar));
 
-    PrintDebug("exp_rom_val=0x%x\n", rom_val);
+    PrintDebug(VM_NONE, VCORE_NONE, "exp_rom_val=0x%x\n", rom_val);
 
-    PrintDebug("phys exp_rom: addr=%p, size=%u\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "phys exp_rom: addr=%p, size=%u\n", 
 	       (void *)(addr_t)prom->addr, 
 	       prom->size);
 
-    PrintDebug("virt exp_rom: addr=%p, size=%u\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "virt exp_rom: addr=%p, size=%u\n",
 	       (void *)(addr_t)vrom->addr, 
 	       vrom->size);
 
@@ -239,7 +239,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
     // should read from cached header
     pci_addr.reg = bar_base_reg + bar_num;
 
-    PrintDebug("PCI Address = 0x%x\n", pci_addr.value);
+    PrintDebug(VM_NONE, VCORE_NONE, "PCI Address = 0x%x\n", pci_addr.value);
 
     bar_val = pci_cfg_read32(pci_addr.value);
     pbar->val = bar_val; 
@@ -262,7 +262,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 	// The right way to do this would be to change 'size' to the order (power of 2) of the region
 	pbar->size += lo_pbar->size;
 
-	PrintDebug("Adding 64 bit PCI mem region: start=0x%p, end=0x%p\n",
+	PrintDebug(VM_NONE, VCORE_NONE, "Adding 64 bit PCI mem region: start=0x%p, end=0x%p\n",
 		   (void *)(addr_t)pbar->addr, 
 		   (void *)(addr_t)(pbar->addr + pbar->size));
 	
@@ -270,7 +270,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 	if (v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, pbar->addr, 
 			      pbar->addr + pbar->size - 1, pbar->addr) == -1) {
 
-	    PrintError("Fail to insert shadow region (0x%p, 0x%p)  -> 0x%p\n",
+	    PrintError(VM_NONE, VCORE_NONE, "Fail to insert shadow region (0x%p, 0x%p)  -> 0x%p\n",
 		       (void *)(addr_t)pbar->addr,
 		       (void *)(addr_t)(pbar->addr + pbar->size - 1),
 		       (void *)(addr_t)pbar->addr);
@@ -298,12 +298,12 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 
 	//v3_irq_restore(irq_state);
 
-	V3_Print("max_val = %x\n", max_val);
+	V3_Print(VM_NONE, VCORE_NONE, "max_val = %x\n", max_val);
 
 	pbar->size = (uint16_t)~PCI_IO_BASE(max_val) + 1;
 
 	
-	V3_Print("IO Bar with %d (%x) ports %x->%x\n", pbar->size, pbar->size, 
+	V3_Print(VM_NONE, VCORE_NONE, "IO Bar with %d (%x) ports %x->%x\n", pbar->size, pbar->size, 
 		 (uint32_t)pbar->addr, (uint32_t)pbar->addr + pbar->size);
 	// setup a set of null io hooks
 	// This allows the guest to do passthrough IO to these ports
@@ -343,7 +343,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 		pbar->addr = PCI_MEM32_BASE(bar_val);
 		pbar->size = ~PCI_MEM32_BASE(max_val) + 1;
 
-		PrintDebug("Adding 32 bit PCI mem region: start=%p, end=%p\n",
+		PrintDebug(VM_NONE, VCORE_NONE, "Adding 32 bit PCI mem region: start=%p, end=%p\n",
 			   (void *)(addr_t)pbar->addr, 
 			   (void *)(addr_t)(pbar->addr + pbar->size));
 
@@ -374,7 +374,7 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 		pbar->size = ~PCI_MEM64_BASE_LO(max_val) + 1;
 
 	    } else {
-		PrintError("Invalid Memory bar type\n");
+		PrintError(VM_NONE, VCORE_NONE, "Invalid Memory bar type\n");
 		return -1;
 	    }
 
@@ -385,13 +385,13 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
     // Initially the virtual bars match the physical ones
     memcpy(&(state->virt_bars[bar_num]), &(state->phys_bars[bar_num]), sizeof(struct pt_bar));
 
-    PrintDebug("bar_num=%d, bar_val=0x%x\n", bar_num, bar_val);
+    PrintDebug(VM_NONE, VCORE_NONE, "bar_num=%d, bar_val=0x%x\n", bar_num, bar_val);
 
-    PrintDebug("phys bar  type=%d, addr=%p, size=%d\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "phys bar  type=%d, addr=%p, size=%d\n", 
 	       pbar->type, (void *)(addr_t)pbar->addr, 
 	       pbar->size);
 
-    PrintDebug("virt bar  type=%d, addr=%p, size=%d\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "virt bar  type=%d, addr=%p, size=%d\n",
 	       state->virt_bars[bar_num].type, (void *)(addr_t)state->virt_bars[bar_num].addr, 
 	       state->virt_bars[bar_num].size);
 
@@ -412,7 +412,7 @@ static int pt_io_read(struct guest_info * core, uint16_t port, void * dst, uint_
     } else if (length == 4) {
 	*(uint32_t *)dst = v3_indw(pbar->addr + port_offset);
     } else {
-	PrintError("Invalid PCI passthrough IO Redirection size read\n");
+	PrintError(core->vm_info, core, "Invalid PCI passthrough IO Redirection size read\n");
 	return -1;
     }
 
@@ -431,7 +431,7 @@ static int pt_io_write(struct guest_info * core, uint16_t port, void * src, uint
     } else if (length == 4) {
 	v3_outdw(pbar->addr + port_offset, *(uint32_t *)src);
     } else {
-	PrintError("Invalid PCI passthrough IO Redirection size write\n");
+	PrintError(core->vm_info, core, "Invalid PCI passthrough IO Redirection size write\n");
 	return -1;
     }
     
@@ -450,10 +450,10 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
     struct pt_bar * pbar = &(state->phys_bars[bar_num]);
     struct pt_bar * vbar = &(state->virt_bars[bar_num]);
 
-    PrintDebug("Bar update: bar_num=%d, src=0x%x\n", bar_num, *src);
-    PrintDebug("vbar is size=%u, type=%d, addr=%p, val=0x%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "Bar update: bar_num=%d, src=0x%x\n", bar_num, *src);
+    PrintDebug(VM_NONE, VCORE_NONE, "vbar is size=%u, type=%d, addr=%p, val=0x%x\n",
 	       vbar->size, vbar->type, (void *)(addr_t)vbar->addr, vbar->val);
-    PrintDebug("pbar is size=%u, type=%d, addr=%p, val=0x%x\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "pbar is size=%u, type=%d, addr=%p, val=0x%x\n",
 	       pbar->size, pbar->type, (void *)(addr_t)pbar->addr, pbar->val);
 
 
@@ -466,13 +466,13 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	// unhook old ports
 	for (i = 0; i < vbar->size; i++) {
 	    if (v3_unhook_io_port(dev->vm, vbar->addr + i) == -1) {
-		PrintError("Could not unhook previously hooked port.... %d (0x%x)\n", 
+		PrintError(VM_NONE, VCORE_NONE, "Could not unhook previously hooked port.... %d (0x%x)\n", 
 			   (uint32_t)vbar->addr + i, (uint32_t)vbar->addr + i);
 		return -1;
 	    }
 	}
 
-	PrintDebug("Setting IO Port range size=%d\n", pbar->size);
+	PrintDebug(VM_NONE, VCORE_NONE, "Setting IO Port range size=%d\n", pbar->size);
 
 	// clear the low bits to match the size
 	*src &= ~(pbar->size - 1);
@@ -482,9 +482,9 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 
 	vbar->addr = PCI_IO_BASE(*src);	
 
-	PrintDebug("Cooked src=0x%x\n", *src);
+	PrintDebug(VM_NONE, VCORE_NONE, "Cooked src=0x%x\n", *src);
 
-	PrintDebug("Rehooking passthrough IO ports starting at %d (0x%x)\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Rehooking passthrough IO ports starting at %d (0x%x)\n", 
 		   (uint32_t)vbar->addr, (uint32_t)vbar->addr);
 
 	if (vbar->addr == pbar->addr) {
@@ -504,7 +504,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 
 	if (old_reg == NULL) {
 	    // uh oh...
-	    PrintError("Could not find PCI Passthrough memory redirection region (addr=0x%x)\n", (uint32_t)vbar->addr);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not find PCI Passthrough memory redirection region (addr=0x%x)\n", (uint32_t)vbar->addr);
 	    return -1;
 	}
 
@@ -516,11 +516,11 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	// Set reserved bits
 	*src |= (pbar->val & ~PCI_MEM_MASK);
 
-	PrintDebug("Cooked src=0x%x\n", *src);
+	PrintDebug(VM_NONE, VCORE_NONE, "Cooked src=0x%x\n", *src);
 
 	vbar->addr = PCI_MEM32_BASE(*src);
 
-	PrintDebug("Adding pci Passthrough remapping: start=0x%x, size=%d, end=0x%x\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Adding pci Passthrough remapping: start=0x%x, size=%d, end=0x%x\n", 
 		   (uint32_t)vbar->addr, vbar->size, (uint32_t)vbar->addr + vbar->size);
 
 	v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
@@ -546,7 +546,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 
 	if (old_reg == NULL) {
 	    // uh oh...
-	    PrintError("Could not find PCI Passthrough memory redirection region (addr=%p)\n", 
+	    PrintError(VM_NONE, VCORE_NONE, "Could not find PCI Passthrough memory redirection region (addr=%p)\n", 
 		       (void *)(addr_t)vbar->addr);
 	    return -1;
 	}
@@ -563,14 +563,14 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	vbar->addr <<= 32;
 	vbar->addr += lo_vbar->addr;
 
-	PrintDebug("Adding pci Passthrough remapping: start=%p, size=%p, end=%p\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Adding pci Passthrough remapping: start=%p, size=%p, end=%p\n", 
 		   (void *)(addr_t)vbar->addr, (void *)(addr_t)vbar->size, 
 		   (void *)(addr_t)(vbar->addr + vbar->size));
 
 	if (v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, vbar->addr, 
 			      vbar->addr + vbar->size - 1, pbar->addr) == -1) {
 
-	    PrintDebug("Fail to insert shadow region (%p, %p)  -> %p\n",
+	    PrintDebug(VM_NONE, VCORE_NONE, "Fail to insert shadow region (%p, %p)  -> %p\n",
 		       (void *)(addr_t)vbar->addr,
 		       (void *)(addr_t)(vbar->addr + vbar->size - 1),
 		       (void *)(addr_t)pbar->addr);
@@ -578,7 +578,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	}
 	
     } else {
-	PrintError("Unhandled Pasthrough PCI Bar type %d\n", vbar->type);
+	PrintError(VM_NONE, VCORE_NONE, "Unhandled Pasthrough PCI Bar type %d\n", vbar->type);
 	return -1;
     }
 
@@ -619,9 +619,9 @@ static int pt_exp_rom_write(struct pci_device * pci_dev, uint32_t * src, void * 
     struct pt_bar * prom = &(state->phys_exp_rom);
     struct pt_bar * vrom = &(state->virt_exp_rom);
 
-    PrintDebug("exp_rom update: src=0x%x\n", *src);
-    PrintDebug("vrom is size=%u, addr=0x%x, val=0x%x\n", vrom->size, (uint32_t)vrom->addr, vrom->val);
-    PrintDebug("prom is size=%u, addr=0x%x, val=0x%x\n", prom->size, (uint32_t)prom->addr, prom->val);
+    PrintDebug(VM_NONE, VCORE_NONE, "exp_rom update: src=0x%x\n", *src);
+    PrintDebug(VM_NONE, VCORE_NONE, "vrom is size=%u, addr=0x%x, val=0x%x\n", vrom->size, (uint32_t)vrom->addr, vrom->val);
+    PrintDebug(VM_NONE, VCORE_NONE, "prom is size=%u, addr=0x%x, val=0x%x\n", prom->size, (uint32_t)prom->addr, prom->val);
 
     // only remove old mapping if present, I.E. if the rom was enabled previously 
     if ((vrom->val & 0x1) == 0x1) {
@@ -629,7 +629,7 @@ static int pt_exp_rom_write(struct pci_device * pci_dev, uint32_t * src, void * 
 	
 	if (old_reg == NULL) {
 	    // uh oh...
-	    PrintError("Could not find PCI Passthrough exp_rom_base redirection region (addr=0x%x)\n", (uint32_t)vrom->addr);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not find PCI Passthrough exp_rom_base redirection region (addr=0x%x)\n", (uint32_t)vrom->addr);
 	    return -1;
 	}
     
@@ -642,18 +642,18 @@ static int pt_exp_rom_write(struct pci_device * pci_dev, uint32_t * src, void * 
     // Set reserved bits
     *src |= (prom->val & ~PCI_EXP_ROM_MASK);
     
-    PrintDebug("Cooked src=0x%x\n", *src);
+    PrintDebug(VM_NONE, VCORE_NONE, "Cooked src=0x%x\n", *src);
 
     vrom->addr = PCI_EXP_ROM_BASE(*src);
     
 
     if ((prom->val & 0x1) == 0x1) {
-	PrintDebug("Adding pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Adding pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
 		   (uint32_t)vrom->addr, vrom->size, (uint32_t)vrom->addr + vrom->size);
 	
 	if (v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, vrom->addr, 
 			      vrom->addr + vrom->size - 1, prom->addr) == -1) {
-	    PrintError("Failed to remap pci exp_rom: start=0x%x, size=%u, end=0x%x\n", 
+	    PrintError(VM_NONE, VCORE_NONE, "Failed to remap pci exp_rom: start=0x%x, size=%u, end=0x%x\n", 
 		       (uint32_t)vrom->addr, vrom->size, (uint32_t)vrom->addr + vrom->size);
 	    return -1;
 	}
@@ -677,7 +677,7 @@ static int find_real_pci_dev(uint16_t vendor_id, uint16_t device_id, struct pt_d
 	} __attribute__((packed));
     } __attribute__((packed)) pci_hdr = {0};
 
-    //PrintDebug("Scanning PCI busses for vendor=%x, device=%x\n", vendor_id, device_id);
+    //PrintDebug(VM_NONE, VCORE_NONE, "Scanning PCI busses for vendor=%x, device=%x\n", vendor_id, device_id);
     for (i = 0, pci_addr.bus = 0; i < PCI_BUS_MAX; i++, pci_addr.bus++) {
 	for (j = 0, pci_addr.dev = 0; j < PCI_DEV_MAX; j++, pci_addr.dev++) {
 	    for (k = 0, pci_addr.func = 0; k < PCI_FN_MAX; k++, pci_addr.func++) {
@@ -685,7 +685,7 @@ static int find_real_pci_dev(uint16_t vendor_id, uint16_t device_id, struct pt_d
 		v3_outdw(PCI_CFG_ADDR, pci_addr.value);
 		pci_hdr.value = v3_indw(PCI_CFG_DATA);
 
-		//PrintDebug("\bus=%d, tvendor=%x, device=%x\n", pci_addr.bus, pci_hdr.vendor, pci_hdr.device);
+		//PrintDebug(VM_NONE, VCORE_NONE, "\bus=%d, tvendor=%x, device=%x\n", pci_addr.bus, pci_hdr.vendor, pci_hdr.device);
 
 		if ((pci_hdr.vendor == vendor_id) && (pci_hdr.device == device_id)) {
 		    uint32_t * cfg_space = (uint32_t *)&state->real_hdr;
@@ -698,7 +698,7 @@ static int find_real_pci_dev(uint16_t vendor_id, uint16_t device_id, struct pt_d
 		    }
 
 
-		    PrintDebug("Found device %x:%x (bus=%d, dev=%d, func=%d)\n", 
+		    PrintDebug(VM_NONE, VCORE_NONE, "Found device %x:%x (bus=%d, dev=%d, func=%d)\n", 
 			       vendor_id, device_id, 
 			       pci_addr.bus, pci_addr.dev, pci_addr.func);
 
@@ -780,14 +780,14 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");    
 
     if (!state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
     memset(state, 0, sizeof(struct pt_dev_state));
 
     if (!pci) {
-	PrintError("Could not find PCI device\n");
+	PrintError(vm, VCORE_NONE, "Could not find PCI device\n");
 	return -1;
     }
     
@@ -798,7 +798,7 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
     }
@@ -807,7 +807,7 @@ static int passthrough_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     if (find_real_pci_dev(atox(v3_cfg_val(cfg, "vendor_id")), 
 			  atox(v3_cfg_val(cfg, "device_id")), 
 			  state) == -1) {
-	PrintError("Could not find PCI Device %s:%s\n", 
+	PrintError(vm, VCORE_NONE, "Could not find PCI Device %s:%s\n", 
 		   v3_cfg_val(cfg, "vendor_id"), 
 		   v3_cfg_val(cfg, "device_id"));
 	v3_remove_device(dev);

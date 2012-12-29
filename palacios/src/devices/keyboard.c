@@ -246,7 +246,7 @@ static int update_kb_irq(struct keyboard_internal * state) {
 	state->status.mouse_buf_full = 1;
     } 
     
-    PrintDebug("keyboard: interrupt 0x%d\n", irq_num);
+    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: interrupt 0x%d\n", irq_num);
     
     if (irq_num) {
 	// Global output buffer flag (for both Keyboard and mouse)
@@ -310,13 +310,13 @@ static int pull_from_output_queue(struct keyboard_internal * state, uint8_t * va
 
     if (state->kbd_queue.count > 0) {
 	q = &(state->kbd_queue);
-	PrintDebug("Reading from Keyboard Queue\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "Reading from Keyboard Queue\n");
     } else if (state->mouse_queue.count > 0) {
 	q = &(state->mouse_queue);
-	PrintDebug("Reading from Mouse Queue\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "Reading from Mouse Queue\n");
     } else {
 	uint8_t idx = state->kbd_queue.start - 1;
-	PrintDebug("No Data in any queue\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "No Data in any queue\n");
 	*value = state->kbd_queue.queue[idx];
 	return 0;
     }
@@ -332,8 +332,8 @@ static int pull_from_output_queue(struct keyboard_internal * state, uint8_t * va
     q->count--;
 
 
-    PrintDebug("Read from Queue: %x\n", *value);
-    PrintDebug("QStart=%d, QEnd=%d\n", q->start, q->end);
+    PrintDebug(VM_NONE, VCORE_NONE, "Read from Queue: %x\n", *value);
+    PrintDebug(VM_NONE, VCORE_NONE, "QStart=%d, QEnd=%d\n", q->start, q->end);
 
     update_kb_irq(state);
 
@@ -351,7 +351,7 @@ static int key_event_handler(struct v3_vm_info * vm,
 			     void * private_data) {
     struct keyboard_internal * state = (struct keyboard_internal *)private_data;
 
-    PrintDebug("keyboard: injected status 0x%x, and scancode 0x%x\n", evt->status, evt->scan_code);
+    PrintDebug(vm, VCORE_NONE, "keyboard: injected status 0x%x, and scancode 0x%x\n", evt->status, evt->scan_code);
 
     if (evt->scan_code == 0x44) { // F10 debug dump
 	int i = 0;
@@ -363,7 +363,7 @@ static int key_event_handler(struct v3_vm_info * vm,
 #ifdef V3_CONFIG_SYMCALL
     else if (evt->scan_code == 0x43) { // F9 Sym test
 	struct guest_info * core = &(vm->cores[0]);
-	PrintDebug("Testing sym call\n");
+	PrintDebug(vm, VCORE_NONE, "Testing sym call\n");
 	sym_arg_t a0 = 0x1111;
 	sym_arg_t a1 = 0x2222;
 	sym_arg_t a2 = 0x3333;
@@ -372,15 +372,15 @@ static int key_event_handler(struct v3_vm_info * vm,
 	uint64_t call_start = 0;
 	uint64_t call_end = 0;
 	
-	V3_Print("Exits before symcall: %d\n", (uint32_t)core->num_exits);
+	V3_Print(vm, VCORE_NONE, "Exits before symcall: %d\n", (uint32_t)core->num_exits);
 
 	rdtscll(call_start);
 	v3_sym_call5(core, SYMCALL_TEST, &a0, &a1, &a2, &a3, &a4);
 	rdtscll(call_end);
 	
-	V3_Print("Symcall latency = %d cycles (%d exits)\n", (uint32_t)(call_end - call_start), (uint32_t)core->num_exits);
+	V3_Print(vm, VCORE_NONE, "Symcall latency = %d cycles (%d exits)\n", (uint32_t)(call_end - call_start), (uint32_t)core->num_exits);
 
-	V3_Print("Symcall  Test Returned arg0=%x, arg1=%x, arg2=%x, arg3=%x, arg4=%x\n",
+	V3_Print(vm, VCORE_NONE, "Symcall  Test Returned arg0=%x, arg1=%x, arg2=%x, arg3=%x, arg4=%x\n",
 		 (uint32_t)a0, (uint32_t)a1, (uint32_t)a2, (uint32_t)a3, (uint32_t)a4);
 
     } 
@@ -388,7 +388,7 @@ static int key_event_handler(struct v3_vm_info * vm,
     else if (evt->scan_code == 0x42) { // F8 debug toggle
 	extern int v3_dbg_enable;
 	
-	PrintDebug("Toggling Debugging\n");	
+	PrintDebug(vm, VCORE_NONE, "Toggling Debugging\n");	
 	v3_dbg_enable ^= 1;
 
     } 
@@ -425,7 +425,7 @@ static int mouse_event_handler(struct v3_vm_info * vm,
     struct keyboard_internal * kbd = (struct keyboard_internal *)private_data;
     int ret = 0;
 
-    PrintDebug("keyboard: injected mouse packet 0x %x %x %x\n",
+    PrintDebug(vm, VCORE_NONE, "keyboard: injected mouse packet 0x %x %x %x\n",
 	       evt->data[0], evt->data[1], evt->data[2]);
   
     addr_t irq_state = v3_lock_irqsave(kbd->kb_lock);
@@ -440,7 +440,7 @@ static int mouse_event_handler(struct v3_vm_info * vm,
 	    }
 	    break;
 	default:
-	    PrintError("Invalid mouse state\n");
+	    PrintError(vm, VCORE_NONE, "Invalid mouse state\n");
 	    ret = -1;
 	    break;
     }
@@ -477,7 +477,7 @@ static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
 
 /* 		case 0xfe: //resend */
 /* 		    PushToOutputQueue(kbd, 0xfa, OVERWRITE, DATA, MOUSE) ;  */
-/* 		    PrintDebug(" mouse resend begins "); */
+/* 		    PrintDebug(VM_NONE, VCORE_NONE, " mouse resend begins "); */
 /* 		    kbd->mouse_done_after_ack = 0; */
 /* 		    kbd->mouse_needs_ack = 0; */
 /* 		    kbd->mouse_state = STREAM1; */
@@ -486,55 +486,55 @@ static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
       
 		case 0xf6: // set defaults
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(" mouse set defaults ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set defaults ");
 
 		    break;
       
 		case 0xf5: // disable data reporting 
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(" mouse disable data reporting ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse disable data reporting ");
 		    break;
       
 		case 0xf4: // enable data reporting 
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(" mouse enable data reporting ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse enable data reporting ");
 		    break;
       
 		case 0xf3: // set sample rate
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
 		    kbd->mouse_state = SAMPLE;
-		    PrintDebug(" mouse set sample rate begins ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set sample rate begins ");
 		    break;
       
 		case 0xf2: // get device id
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
 		    push_to_output_queue(kbd, 0x0,  DATA, MOUSE); 
-		    PrintDebug(" mouse get device id begins ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse get device id begins ");
 		    break;
       
 		case 0xf0: // set remote mode
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(" mouse set remote mode  ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set remote mode  ");
 		    break;
 
 		case 0xee: // set wrap mode
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintError(" mouse set wrap mode (ignored)  ");
+		    PrintError(VM_NONE, VCORE_NONE, " mouse set wrap mode (ignored)  ");
 		    break;
 
 		case 0xec: // reset wrap mode
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintError(" mouse reset wrap mode (ignored)  ");
+		    PrintError(VM_NONE, VCORE_NONE, " mouse reset wrap mode (ignored)  ");
 		    break;
 
 		case 0xeb: // read data
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintError(" mouse switch to wrap mode (ignored)  ");
+		    PrintError(VM_NONE, VCORE_NONE, " mouse switch to wrap mode (ignored)  ");
 		    break;
       
 		case 0xea: // set stream mode
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(" mouse set stream mode  ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set stream mode  ");
 		    break;
 
 		case 0xe9: // status request
@@ -542,27 +542,27 @@ static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
 		    push_to_output_queue(kbd, 0x00, DATA, MOUSE); 
 		    push_to_output_queue(kbd, 0x00, DATA, MOUSE);
 		    push_to_output_queue(kbd, 0x00, DATA, MOUSE); 
-		    PrintDebug(" mouse status request begins  ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse status request begins  ");
 		    break;
 
 		case 0xe8: // set resolution
 		    push_to_output_queue(kbd, MOUSE_ACK,  DATA, MOUSE) ; 
-		    PrintDebug(" mouse set resolution begins  ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set resolution begins  ");
 		    kbd->mouse_state = SET_RES;
 		    break;
 
 		case 0xe7: // set scaling 2:1
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(" mouse set scaling 2:1 ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set scaling 2:1 ");
 		    break;
 
 		case 0xe6: // set scaling 1:1
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(" mouse set scaling 1:1 ");
+		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set scaling 1:1 ");
 		    break;
       
 		default:
-		    PrintDebug(" receiving unknown mouse command (0x%x) in acceptable kbd ", data);
+		    PrintDebug(VM_NONE, VCORE_NONE, " receiving unknown mouse command (0x%x) in acceptable kbd ", data);
 		    break;
 	    }
 
@@ -570,7 +570,7 @@ static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
 	case SAMPLE:
 	case SET_RES:
 	default:
-	    PrintDebug(" receiving mouse output in unhandled kbd (0x%x) ", kbd->mouse_state);
+	    PrintDebug(VM_NONE, VCORE_NONE, " receiving mouse output in unhandled kbd (0x%x) ", kbd->mouse_state);
 	    return -1;
     }
 
@@ -583,10 +583,10 @@ static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
 static int keyboard_write_delay(struct guest_info *core, ushort_t port, void * src,  uint_t length, void * priv_data) {
 
     if (length == 1) { 
-	PrintDebug("keyboard: write of 0x%x to 80h\n", *((uint8_t*)src));
+	PrintDebug(core->vm_info, core, "keyboard: write of 0x%x to 80h\n", *((uint8_t*)src));
 	return 1;
     } else {
-	PrintDebug("keyboard: write of >1 byte to 80h\n", *((uint8_t*)src));
+	PrintDebug(core->vm_info, core, "keyboard: write of >1 byte to 80h\n", *((uint8_t*)src));
 	return length;
     }
 }
@@ -596,11 +596,11 @@ static int keyboard_read_delay(struct guest_info * core, ushort_t port, void * d
     if (length == 1) { 
 	*(uint8_t *)dest = v3_inb(port);
 
-	PrintDebug("keyboard: read of 0x%x from 80h\n", *((uint8_t*)dest));
+	PrintDebug(core->vm_info, core, "keyboard: read of 0x%x from 80h\n", *((uint8_t*)dest));
 
 	return 1;
     } else {
-	PrintDebug("keyboard: read of >1 byte from 80h\n");
+	PrintDebug(core->vm_info, core, "keyboard: read of >1 byte from 80h\n");
 
 	return length;
     }
@@ -617,7 +617,7 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
 
     // Should always be single byte write
     if (length != 1) { 
-	PrintError("keyboard: write of >1 bytes (%d) to 64h\n", length);
+	PrintError(core->vm_info, core, "keyboard: write of >1 bytes (%d) to 64h\n", length);
 	return -1;
     }
 
@@ -625,132 +625,132 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
     addr_t irq_state = v3_lock_irqsave(kbd->kb_lock);
 
     if (kbd->state != NORMAL) { 
-	PrintDebug("keyboard: warning - receiving command on 64h but state != NORMAL\n");
+	PrintDebug(core->vm_info, core, "keyboard: warning - receiving command on 64h but state != NORMAL\n");
     }
   
-    PrintDebug("keyboard: command 0x%x on 64h\n", cmd);
+    PrintDebug(core->vm_info, core, "keyboard: command 0x%x on 64h\n", cmd);
 
     switch (cmd) { 
 	case 0x20:  // READ COMMAND BYTE (returned in 60h)
 	    push_to_output_queue(kbd, kbd->cmd.val, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: command byte 0x%x returned\n", kbd->cmd.val);
+	    PrintDebug(core->vm_info, core, "keyboard: command byte 0x%x returned\n", kbd->cmd.val);
 	    break;
 
 	case 0x60:  // WRITE COMMAND BYTE (read from 60h)
 	    kbd->state = WRITING_CMD_BYTE; // we need to make sure we send the next 0x60 byte appropriately
-	    PrintDebug("keyboard: prepare to write command byte\n");
+	    PrintDebug(core->vm_info, core, "keyboard: prepare to write command byte\n");
 	    break;
 
 	    // case 0x90-9f - write to output port  (?)
 
 	case 0xa1: // Get version number
 	    push_to_output_queue(kbd, 0x00, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: version number 0x0 returned\n");
+	    PrintDebug(core->vm_info, core, "keyboard: version number 0x0 returned\n");
 	    break;
 
 	case 0xa4:  // is password installed?  send result to 0x60
 	    // we don't support passwords
 	    push_to_output_queue(kbd, 0xf1, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: password not installed\n");
+	    PrintDebug(core->vm_info, core, "keyboard: password not installed\n");
 	    break;
 
 	case 0xa5:  // new password will arrive on 0x60
 	    kbd->state = TRANSMIT_PASSWD;
-	    PrintDebug("keyboard: pepare to transmit password\n");
+	    PrintDebug(core->vm_info, core, "keyboard: pepare to transmit password\n");
 	    break;
 
 	case 0xa6:  // check passwd;
 	    // since we do not support passwords, we will simply ignore this
 	    // the implication is that any password check immediately succeeds 
 	    // with a blank password
-	    PrintDebug("keyboard: password check succeeded\n");
+	    PrintDebug(core->vm_info, core, "keyboard: password check succeeded\n");
 	    break;
 
 	case 0xa7:  // disable mouse
 	    kbd->cmd.mouse_disable = 1;
-	    PrintDebug("keyboard: mouse disabled\n");
+	    PrintDebug(core->vm_info, core, "keyboard: mouse disabled\n");
 	    break;
 
 	case 0xa8:  // enable mouse
 	    kbd->cmd.mouse_disable = 0;
-	    PrintDebug("keyboard: mouse enabled\n");
+	    PrintDebug(core->vm_info, core, "keyboard: mouse enabled\n");
 	    break;
 
 	case 0xa9:  // mouse interface test  (always succeeds)
 	    push_to_output_queue(kbd, 0x00, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: mouse interface test succeeded\n");
+	    PrintDebug(core->vm_info, core, "keyboard: mouse interface test succeeded\n");
 	    break;
 
 	case 0xaa:  // controller self test (always succeeds)
 	    push_to_output_queue(kbd, 0x55, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: controller self test succeeded\n");
+	    PrintDebug(core->vm_info, core, "keyboard: controller self test succeeded\n");
 	    break;
 
 	case 0xab:  // keyboard interface test (always succeeds)
 	    push_to_output_queue(kbd, 0, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: keyboard interface test succeeded\n");
+	    PrintDebug(core->vm_info, core, "keyboard: keyboard interface test succeeded\n");
 	    break;
 
 	case 0xad:  // disable keyboard
 	    kbd->cmd.disable = 1;
-	    PrintDebug("keyboard: keyboard disabled\n");
+	    PrintDebug(core->vm_info, core, "keyboard: keyboard disabled\n");
 	    break;
 
 	case 0xae:  // enable keyboard
 	    kbd->cmd.disable = 0;
-	    PrintDebug("keyboard: keyboard enabled\n");
+	    PrintDebug(core->vm_info, core, "keyboard: keyboard enabled\n");
 	    break;
 
 	case 0xaf:  // get version
 	    push_to_output_queue(kbd, 0x00, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: version 0 returned \n");
+	    PrintDebug(core->vm_info, core, "keyboard: version 0 returned \n");
 	    break;
 
 	case 0xd0: // return microcontroller output on 60h
 	    push_to_output_queue(kbd, kbd->output_byte, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: output byte 0x%x returned\n", kbd->output_byte);
+	    PrintDebug(core->vm_info, core, "keyboard: output byte 0x%x returned\n", kbd->output_byte);
 	    break;
 
 	case 0xd1: // request to write next byte on 60h to the microcontroller output port
 	    kbd->state = WRITING_OUTPUT_PORT;
-	    PrintDebug("keyboard: prepare to write output byte\n");
+	    PrintDebug(core->vm_info, core, "keyboard: prepare to write output byte\n");
 	    break;
 
 	case 0xd2:  //  write keyboard buffer (inject key)
 	    kbd->state = INJECTING_KEY;
-	    PrintDebug("keyboard: prepare to inject key\n");
+	    PrintDebug(core->vm_info, core, "keyboard: prepare to inject key\n");
 	    break;
 
 	case 0xd3: //  write mouse buffer (inject mouse)
 	    kbd->state = INJECTING_MOUSE;
-	    PrintDebug("keyboard: prepare to inject mouse\n");
+	    PrintDebug(core->vm_info, core, "keyboard: prepare to inject mouse\n");
 	    break;
 
 	case 0xd4: // write mouse device (command to mouse?)
 	    kbd->state = IN_MOUSE;
-	    PrintDebug("keyboard: prepare to inject mouse command\n");
+	    PrintDebug(core->vm_info, core, "keyboard: prepare to inject mouse command\n");
 	    break;
 
 	case 0xc0: //  read input port 
 	    push_to_output_queue(kbd, kbd->input_byte, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: input byte 0x%x returned\n", kbd->input_byte);
+	    PrintDebug(core->vm_info, core, "keyboard: input byte 0x%x returned\n", kbd->input_byte);
 	    break;
 
 	case 0xc1:  //copy input port lsn to status msn
 	    kbd->status.val &= 0x0f;
 	    kbd->status.val |= (kbd->input_byte & 0xf) << 4;
-	    PrintDebug("keyboard: copied input byte low 4 bits to status reg hi 4 bits\n");
+	    PrintDebug(core->vm_info, core, "keyboard: copied input byte low 4 bits to status reg hi 4 bits\n");
 	    break;
 
 	case 0xc2: // copy input port msn to status msn
 	    kbd->status.val &= 0x0f;
 	    kbd->status.val |= (kbd->input_byte & 0xf0);
-	    PrintDebug("keyboard: copied input byte hi 4 bits to status reg hi 4 bits\n");
+	    PrintDebug(core->vm_info, core, "keyboard: copied input byte hi 4 bits to status reg hi 4 bits\n");
 	    break;
     
 	case 0xe0: // read test port
 	    push_to_output_queue(kbd, kbd->output_byte >> 6, COMMAND, KEYBOARD);
-	    PrintDebug("keyboard: read 0x%x from test port\n", kbd->output_byte >> 6);
+	    PrintDebug(core->vm_info, core, "keyboard: read 0x%x from test port\n", kbd->output_byte >> 6);
 	    break;
 
    
@@ -770,12 +770,12 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
 	case 0xfd:
 	case 0xfe:
 	case 0xff:
-	    PrintDebug("keyboard: ignoring pulse of 0x%x (low=pulsed) on output port\n", (cmd & 0xf));
+	    PrintDebug(core->vm_info, core, "keyboard: ignoring pulse of 0x%x (low=pulsed) on output port\n", (cmd & 0xf));
 	    break;
    
 	    // case ac  diagonstic - returns 16 bytes from keyboard microcontroler on 60h
 	default:
-	    PrintDebug("keyboard: ignoring command (unimplemented)\n");
+	    PrintDebug(core->vm_info, core, "keyboard: ignoring command (unimplemented)\n");
 	    break;
     }
 
@@ -788,11 +788,11 @@ static int keyboard_read_status(struct guest_info * core, ushort_t port, void * 
     struct keyboard_internal * kbd = priv_data;
 
     if (length != 1) { 
-	PrintError("keyboard: >1 byte read for status (64h)\n");
+	PrintError(core->vm_info, core, "keyboard: >1 byte read for status (64h)\n");
 	return -1;
     }
 
-    PrintDebug("keyboard: read status (64h): ");
+    PrintDebug(core->vm_info, core, "keyboard: read status (64h): ");
 
     addr_t irq_state = v3_lock_irqsave(kbd->kb_lock);
 
@@ -800,7 +800,7 @@ static int keyboard_read_status(struct guest_info * core, ushort_t port, void * 
 
     v3_unlock_irqrestore(kbd->kb_lock, irq_state);
     
-    PrintDebug("0x%x\n", *(uint8_t *)dest);
+    PrintDebug(core->vm_info, core, "0x%x\n", *(uint8_t *)dest);
     
     return length;
 }
@@ -810,13 +810,13 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
     int ret = length;
 
     if (length != 1) { 
-	PrintError("keyboard: write of 60h with >1 byte\n");
+	PrintError(core->vm_info, core, "keyboard: write of 60h with >1 byte\n");
 	return -1;
     }
 
     uint8_t data = *(uint8_t *)src;
   
-    PrintDebug("keyboard: output 0x%x on 60h\n", data);
+    PrintDebug(core->vm_info, core, "keyboard: output 0x%x on 60h\n", data);
 
     addr_t irq_state = v3_lock_irqsave(kbd->kb_lock);
 
@@ -824,55 +824,55 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 	case WRITING_CMD_BYTE:
 	    kbd->cmd.val = data;
 	    kbd->state = NORMAL;
-	    PrintDebug("keyboard: wrote new command byte 0x%x\n", kbd->cmd.val);
+	    PrintDebug(core->vm_info, core, "keyboard: wrote new command byte 0x%x\n", kbd->cmd.val);
 	    break;
 
 	case WRITING_OUTPUT_PORT:
 	    kbd->output_byte = data;
 	    kbd->state = NORMAL;
-	    PrintDebug("keyboard: wrote new output byte 0x%x\n", kbd->output_byte);
+	    PrintDebug(core->vm_info, core, "keyboard: wrote new output byte 0x%x\n", kbd->output_byte);
 	    break;
 
 	case INJECTING_KEY:
 	    push_to_output_queue(kbd, data, COMMAND, KEYBOARD);  // probably should be a call to deliver_key_to_vmm()
 	    kbd->state = NORMAL;
-	    PrintDebug("keyboard: injected key 0x%x\n", data);
+	    PrintDebug(core->vm_info, core, "keyboard: injected key 0x%x\n", data);
 	    break;
 
 	case INJECTING_MOUSE:
 	    push_to_output_queue(kbd, data, DATA, MOUSE);
-	    //	    PrintDebug("keyboard: ignoring injected mouse event 0x%x\n", data);
-	    PrintDebug("keyboard: injected mouse event 0x%x\n", data);
+	    //	    PrintDebug(core->vm_info, core, "keyboard: ignoring injected mouse event 0x%x\n", data);
+	    PrintDebug(core->vm_info, core, "keyboard: injected mouse event 0x%x\n", data);
 	    kbd->state = NORMAL;
 	    break;
 
 	case IN_MOUSE:
-	    PrintDebug("keyboard: mouse action: ");
+	    PrintDebug(core->vm_info, core, "keyboard: mouse action: ");
 	    if (mouse_write_output(kbd, data)) { 
 		kbd->state = NORMAL;
 	    }
-	    PrintDebug("\n");
+	    PrintDebug(core->vm_info, core, "\n");
 	    break;
 
 	case TRANSMIT_PASSWD:
 	    if (data) {
 		//ignore passwd
-		PrintDebug("keyboard: ignoring password character 0x%x\n",data);
+		PrintDebug(core->vm_info, core, "keyboard: ignoring password character 0x%x\n",data);
 	    } else {
 		// end of password
 		kbd->state = NORMAL;
-		PrintDebug("keyboard: done with password\n");
+		PrintDebug(core->vm_info, core, "keyboard: done with password\n");
 	    }
 	    break;
 
 	case SET_LEDS:
-	    PrintDebug("Keyboard: LEDs being set...\n");
+	    PrintDebug(core->vm_info, core, "Keyboard: LEDs being set...\n");
 	    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
 	    kbd->state = NORMAL;
 	    break;
 
 	case SET_RATE:
-	    PrintDebug("Keyboard: Rate being set...\n");
+	    PrintDebug(core->vm_info, core, "Keyboard: Rate being set...\n");
 	    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
 	    kbd->state = NORMAL;
 	    break;
@@ -880,14 +880,14 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 	case GETSET_SCANCODES:
     	    switch (data) {
     	    	case 0:
-	    	    PrintDebug("Keyboard: scancode set being read\n");
+	    	    PrintDebug(core->vm_info, core, "Keyboard: scancode set being read\n");
     	    	    push_to_output_queue(kbd, 0x45 - 2 * kbd->scancode_set, COMMAND, KEYBOARD);
     	    	    break;
     	    	case 1:
-	    	    PrintError("keyboard: unsupported scancode set %d selected\n", data);
+	    	    PrintError(core->vm_info, core, "keyboard: unsupported scancode set %d selected\n", data);
 	    	    return -1;
     	    	case 2:
-	    	    PrintDebug("Keyboard: scancode set being set to %d\n", data);
+	    	    PrintDebug(core->vm_info, core, "Keyboard: scancode set being set to %d\n", data);
 	    	    kbd->scancode_set = data;
 	    	    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
     	    	    break;
@@ -895,10 +895,10 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
     	    	    /* OpenBSD wants scancode set 3, but falls back to 2 if a
     	    	     * subsequent read reveals that the request was ignored
     	    	     */
-	    	    PrintError("keyboard: ignoring request for scancode set %d\n", data);
+	    	    PrintError(core->vm_info, core, "keyboard: ignoring request for scancode set %d\n", data);
 	    	    break;
     	    	default:
-	    	    PrintError("keyboard: unknown scancode set %d selected\n", data);
+	    	    PrintError(core->vm_info, core, "keyboard: unknown scancode set %d selected\n", data);
 	    	    ret = -1;
                     break;
   
@@ -918,7 +918,7 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 		case 0xff: // reset
 		    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD); // ack
 		    push_to_output_queue(kbd, 0xaa, COMMAND, KEYBOARD);
-		    PrintDebug("keyboard: reset complete and acked\n");
+		    PrintDebug(core->vm_info, core, "keyboard: reset complete and acked\n");
 		    break;
 
 		case 0xf5: // disable scanning
@@ -926,7 +926,7 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 		    // ack
 		    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
 		    // should do something here... PAD
-		    PrintDebug("keyboard: %s scanning done and acked\n", (data == 0xf5) ? "disable" : "enable");
+		    PrintDebug(core->vm_info, core, "keyboard: %s scanning done and acked\n", (data == 0xf5) ? "disable" : "enable");
 		    break;
 
 		case 0xf3:
@@ -938,7 +938,7 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 		    push_to_output_queue(kbd, 0xfa, COMMAND, KEYBOARD);
 		    push_to_output_queue(kbd, 0xab, COMMAND, KEYBOARD);
 		    push_to_output_queue(kbd, 0x83, COMMAND, KEYBOARD);
-		    PrintDebug("Keyboard: Requesting Keyboard ID\n");
+		    PrintDebug(core->vm_info, core, "Keyboard: Requesting Keyboard ID\n");
 		    break;
 
 		case 0xed: // enable keyboard LEDs
@@ -973,12 +973,12 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 		case 0xf8: // set all make/break
 		case 0xf7: // set all typemaktic
 
-		    PrintError("keyboard: unhandled known command 0x%x on output buffer (60h)\n", data);
+		    PrintError(core->vm_info, core, "keyboard: unhandled known command 0x%x on output buffer (60h)\n", data);
 		    ret = -1;
 		    break;
 
 		default:
-		    PrintError("keyboard: unhandled unknown command 0x%x on output buffer (60h)\n", data);
+		    PrintError(core->vm_info, core, "keyboard: unhandled unknown command 0x%x on output buffer (60h)\n", data);
 		    kbd->status.out_buf_full = 1;
 		    ret = -1;
 		    break;
@@ -996,7 +996,7 @@ static int keyboard_read_input(struct guest_info * core, ushort_t port, void * d
     struct keyboard_internal * kbd = priv_data;
 
     if (length != 1) {
-	PrintError("keyboard: unknown size read from input (60h)\n");
+	PrintError(core->vm_info, core, "keyboard: unknown size read from input (60h)\n");
 	return -1;
     }
     
@@ -1006,7 +1006,7 @@ static int keyboard_read_input(struct guest_info * core, ushort_t port, void * d
       
     v3_unlock_irqrestore(kbd->kb_lock, irq_state);
 
-    PrintDebug("keyboard: read from input (60h): 0x%x\n", *(uint8_t *)dest);
+    PrintDebug(core->vm_info, core, "keyboard: read from input (60h): 0x%x\n", *(uint8_t *)dest);
 
     return length;
 }
@@ -1067,7 +1067,7 @@ static int keyboard_reset_device(struct keyboard_internal * kbd) {
     kbd->input_byte = INPUT_RAM;  // we have some
     // also display=color, jumper 0, keyboard enabled 
 
-    PrintDebug("keyboard: reset device\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: reset device\n");
  
     return 0;
 
@@ -1090,7 +1090,7 @@ static int keyboard_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     return 0;
 
  savefailout:
-    PrintError("Failed to save keyboard\n");
+    PrintError(VM_NONE, VCORE_NONE, "Failed to save keyboard\n");
     return -1;
 
 }
@@ -1113,7 +1113,7 @@ static int keyboard_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     return 0;
 
  loadfailout:
-    PrintError("Failed to load keyboard\n");
+    PrintError(VM_NONE, VCORE_NONE, "Failed to load keyboard\n");
     return -1;
 }
 
@@ -1136,12 +1136,12 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");
     int ret = 0;
 
-    PrintDebug("keyboard: init_device\n");
+    PrintDebug(vm, VCORE_NONE, "keyboard: init_device\n");
 
     kbd = (struct keyboard_internal *)V3_Malloc(sizeof(struct keyboard_internal));
 
     if (!kbd) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -1152,7 +1152,7 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, kbd);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(kbd);
 	return -1;
     }
@@ -1168,7 +1168,7 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     ret |= v3_dev_hook_io(dev, KEYBOARD_60H, &keyboard_read_input, &keyboard_write_output);
 
     if (ret != 0) {
-	PrintError("Error hooking keyboard IO ports\n");
+	PrintError(vm, VCORE_NONE, "Error hooking keyboard IO ports\n");
 	v3_remove_device(dev);
 	return -1;
     }

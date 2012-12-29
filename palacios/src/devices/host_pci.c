@@ -78,7 +78,7 @@ static int pci_exp_rom_init(struct vm_device * dev, struct host_pci_state * stat
 
 
     
-    PrintDebug("Adding 32 bit PCI mem region: start=%p, end=%p\n",
+    PrintDebug(info->vm_info, info, "Adding 32 bit PCI mem region: start=%p, end=%p\n",
 	       (void *)(addr_t)hrom->addr, 
 	       (void *)(addr_t)(hrom->addr + hrom->size));
 
@@ -94,7 +94,7 @@ static int pci_exp_rom_init(struct vm_device * dev, struct host_pci_state * stat
 	memcpy(&(state->virt_exp_rom), hrom, sizeof(struct v3_host_pci_bar));
 
 
-	PrintDebug("phys exp_rom: addr=%p, size=%u\n", 
+	PrintDebug(info->vm_info, info, "phys exp_rom: addr=%p, size=%u\n", 
 		   (void *)(addr_t)hrom->addr, 
 		   hrom->size);
 
@@ -121,7 +121,7 @@ static int pt_io_read(struct guest_info * core, uint16_t port, void * dst, uint_
     } else if (length == 4) {
 	*(uint32_t *)dst = v3_indw(pbar->addr + port_offset);
     } else {
-	PrintError("Invalid PCI passthrough IO Redirection size read\n");
+	PrintError(core->vm_info, core, "Invalid PCI passthrough IO Redirection size read\n");
 	return -1;
     }
 
@@ -140,7 +140,7 @@ static int pt_io_write(struct guest_info * core, uint16_t port, void * src, uint
     } else if (length == 4) {
 	v3_outdw(pbar->addr + port_offset, *(uint32_t *)src);
     } else {
-	PrintError("Invalid PCI passthrough IO Redirection size write\n");
+	PrintError(core->vm_info, core, "Invalid PCI passthrough IO Redirection size write\n");
 	return -1;
     }
     
@@ -215,7 +215,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	// unhook old ports
 	for (i = 0; i < vbar->size; i++) {
 	    if (v3_unhook_io_port(dev->vm, vbar->addr + i) == -1) {
-		PrintError("Could not unhook previously hooked port.... %d (0x%x)\n", 
+		PrintError(VM_NONE, VCORE_NONE, "Could not unhook previously hooked port.... %d (0x%x)\n", 
 			   (uint32_t)vbar->addr + i, (uint32_t)vbar->addr + i);
 		return -1;
 	    }
@@ -227,7 +227,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	// udpate source version
 	*src = PCI_IO_BAR_VAL(vbar->addr);
 
-	PrintDebug("Rehooking passthrough IO ports starting at %d (0x%x)\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Rehooking passthrough IO ports starting at %d (0x%x)\n", 
 		   (uint32_t)vbar->addr, (uint32_t)vbar->addr);
 
 	if (vbar->addr == hbar->addr) {
@@ -247,7 +247,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 
 	if (old_reg == NULL) {
 	    // uh oh...
-	    PrintError("Could not find PCI Passthrough memory redirection region (addr=0x%x)\n", (uint32_t)vbar->addr);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not find PCI Passthrough memory redirection region (addr=0x%x)\n", (uint32_t)vbar->addr);
 	    return -1;
 	}
 
@@ -259,7 +259,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	// Set reserved bits
 	*src = PCI_MEM32_BAR_VAL(vbar->addr, hbar->prefetchable);
 
-	PrintDebug("Adding pci Passthrough remapping: start=0x%x, size=%d, end=0x%x (hpa=%p)\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Adding pci Passthrough remapping: start=0x%x, size=%d, end=0x%x (hpa=%p)\n", 
 		   (uint32_t)vbar->addr, vbar->size, (uint32_t)vbar->addr + vbar->size, (void *)hbar->addr);
 
 	v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, 
@@ -281,7 +281,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 
 	if (old_reg == NULL) {
 	    // uh oh...
-	    PrintError("Could not find PCI Passthrough memory redirection region (addr=%p)\n", 
+	    PrintError(VM_NONE, VCORE_NONE, "Could not find PCI Passthrough memory redirection region (addr=%p)\n", 
 		       (void *)(addr_t)vbar->addr);
 	    return -1;
 	}
@@ -295,14 +295,14 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	// src does not change, because there are no reserved bits
 	
 
-	PrintDebug("Adding pci Passthrough remapping: start=%p, size=%p, end=%p\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Adding pci Passthrough remapping: start=%p, size=%p, end=%p\n", 
 		   (void *)(addr_t)vbar->addr, (void *)(addr_t)vbar->size, 
 		   (void *)(addr_t)(vbar->addr + vbar->size));
 
 	if (v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, vbar->addr, 
 			      vbar->addr + vbar->size - 1, hbar->addr) == -1) {
 
-	    PrintDebug("Fail to insert shadow region (%p, %p)  -> %p\n",
+	    PrintDebug(VM_NONE, VCORE_NONE, "Fail to insert shadow region (%p, %p)  -> %p\n",
 		       (void *)(addr_t)vbar->addr,
 		       (void *)(addr_t)(vbar->addr + vbar->size - 1),
 		       (void *)(addr_t)hbar->addr);
@@ -310,7 +310,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	}
 	
     } else {
-	PrintError("Unhandled Pasthrough PCI Bar type %d\n", vbar->type);
+	PrintError(VM_NONE, VCORE_NONE, "Unhandled Pasthrough PCI Bar type %d\n", vbar->type);
 	return -1;
     }
 
@@ -323,7 +323,7 @@ static int pt_config_write(struct pci_device * pci_dev, uint32_t reg_num, void *
     struct vm_device * dev = (struct vm_device *)private_data;
     struct host_pci_state * state = (struct host_pci_state *)dev->private_data;
     
-//    V3_Print("Writing host PCI config space update\n");
+//    V3_Print(VM_NONE, VCORE_NONE, "Writing host PCI config space update\n");
 
     // We will mask all operations to the config header itself, 
     // and only allow direct access to the device specific config space
@@ -340,7 +340,7 @@ static int pt_config_read(struct pci_device * pci_dev, uint32_t reg_num, void * 
     struct vm_device * dev = (struct vm_device *)private_data;
     struct host_pci_state * state = (struct host_pci_state *)dev->private_data;
     
-  //  V3_Print("Reading host PCI config space update\n");
+  //  V3_Print(VM_NONE, VCORE_NONE, "Reading host PCI config space update\n");
 
     return v3_host_pci_config_read(state->host_dev, reg_num, dst, length);
 }
@@ -360,9 +360,9 @@ static int pt_exp_rom_write(struct pci_device * pci_dev, uint32_t * src, void * 
     struct v3_host_pci_bar * hrom = &(state->host_dev->exp_rom);
     struct v3_host_pci_bar * vrom = &(state->virt_exp_rom);
 
-    PrintDebug("exp_rom update: src=0x%x\n", *src);
-    PrintDebug("vrom is size=%u, addr=0x%x\n", vrom->size, (uint32_t)vrom->addr);
-    PrintDebug("hrom is size=%u, addr=0x%x\n", hrom->size, (uint32_t)hrom->addr);
+    PrintDebug(VM_NONE, VCORE_NONE, "exp_rom update: src=0x%x\n", *src);
+    PrintDebug(VM_NONE, VCORE_NONE, "vrom is size=%u, addr=0x%x\n", vrom->size, (uint32_t)vrom->addr);
+    PrintDebug(VM_NONE, VCORE_NONE, "hrom is size=%u, addr=0x%x\n", hrom->size, (uint32_t)hrom->addr);
 
     if (hrom->exp_rom_enabled) {
 	// only remove old mapping if present, I.E. if the rom was enabled previously 
@@ -371,7 +371,7 @@ static int pt_exp_rom_write(struct pci_device * pci_dev, uint32_t * src, void * 
 	  
 	    if (old_reg == NULL) {
 		// uh oh...
-		PrintError("Could not find PCI Passthrough exp_rom_base redirection region (addr=0x%x)\n", (uint32_t)vrom->addr);
+		PrintError(VM_NONE, VCORE_NONE, "Could not find PCI Passthrough exp_rom_base redirection region (addr=0x%x)\n", (uint32_t)vrom->addr);
 		return -1;
 	    }
 	  
@@ -384,15 +384,15 @@ static int pt_exp_rom_write(struct pci_device * pci_dev, uint32_t * src, void * 
 	// Set flags in actual register value
 	*src = PCI_EXP_ROM_VAL(vrom->addr, (*src & 0x00000001));
       
-	PrintDebug("Cooked src=0x%x\n", *src);
+	PrintDebug(VM_NONE, VCORE_NONE, "Cooked src=0x%x\n", *src);
       
   
-	PrintDebug("Adding pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Adding pci Passthrough exp_rom_base remapping: start=0x%x, size=%u, end=0x%x\n", 
 		   (uint32_t)vrom->addr, vrom->size, (uint32_t)vrom->addr + vrom->size);
       
 	if (v3_add_shadow_mem(dev->vm, V3_MEM_CORE_ANY, vrom->addr, 
 			      vrom->addr + vrom->size - 1, hrom->addr) == -1) {
-	    PrintError("Failed to remap pci exp_rom: start=0x%x, size=%u, end=0x%x\n", 
+	    PrintError(VM_NONE, VCORE_NONE, "Failed to remap pci exp_rom: start=0x%x, size=%u, end=0x%x\n", 
 		       (uint32_t)vrom->addr, vrom->size, (uint32_t)vrom->addr + vrom->size);
 	    return -1;
 	}
@@ -406,7 +406,7 @@ static int pt_cmd_update(struct pci_device * pci, pci_cmd_t cmd, uint64_t arg, v
     struct vm_device * dev = (struct vm_device *)(priv_data);
     struct host_pci_state * state = (struct host_pci_state *)dev->private_data;
 
-    V3_Print("Host PCI Device: CMD update (%d)(arg=%llu)\n", cmd, arg);
+    V3_Print(VM_NONE, VCORE_NONE, "Host PCI Device: CMD update (%d)(arg=%llu)\n", cmd, arg);
     
     v3_host_pci_cmd_update(state->host_dev, cmd, arg);
 
@@ -455,7 +455,7 @@ static int setup_virt_pci_dev(struct v3_vm_info * vm_info, struct vm_device * de
 #ifdef V3_CONFIG_SYMBIOTIC
 	v3_sym_map_pci_passthrough(vm_info, pci_dev->bus_num, pci_dev->dev_num, pci_dev->fn_num);
 #else
-	PrintError("ERROR Symbiotic Passthrough is not enabled\n");
+	PrintError(VM_NONE, VCORE_NONE, "ERROR Symbiotic Passthrough is not enabled\n");
 	return -1;
 #endif
     }
@@ -473,7 +473,7 @@ static int irq_ack(struct guest_info * core, uint32_t irq, void * private_data) 
     struct host_pci_state * state = (struct host_pci_state *)private_data;
 
     
-    //    V3_Print("Acking IRQ %d\n", irq);
+    //    V3_Print(core->vm_info, core, "Acking IRQ %d\n", irq);
     v3_host_pci_ack_irq(state->host_dev, irq);
 
     return 0;
@@ -489,7 +489,7 @@ static int irq_handler(void * private_data, uint32_t vec_index) {
     vec.private_data = state;
 
 
-    //    V3_Print("Raising host PCI IRQ %d\n", vec_index);
+    //    V3_Print(VM_NONE, VCORE_NONE, "Raising host PCI IRQ %d\n", vec_index);
 
     if (state->pci_dev->irq_type == IRQ_NONE) {
 	return 0;
@@ -513,7 +513,7 @@ static int host_pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     memset(state, 0, sizeof(struct host_pci_state));
 
     if (!pci) {
-	PrintError("PCI bus not specified in config file\n");
+	PrintError(vm, VCORE_NONE, "PCI bus not specified in config file\n");
 	return -1;
     }
     
@@ -524,7 +524,7 @@ static int host_pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
     }
@@ -532,7 +532,7 @@ static int host_pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state->host_dev = v3_host_pci_get_dev(vm, url, state);
 
     if (state->host_dev == NULL) {
-	PrintError("Could not connect to host pci device (%s)\n", url);
+	PrintError(vm, VCORE_NONE, "Could not connect to host pci device (%s)\n", url);
 	return -1;
     }
 
@@ -540,7 +540,7 @@ static int host_pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state->host_dev->irq_handler = irq_handler;
 
     if (setup_virt_pci_dev(vm, dev) == -1) {
-	PrintError("Could not setup virtual host PCI device\n");
+	PrintError(vm, VCORE_NONE, "Could not setup virtual host PCI device\n");
 	return -1;
     }
 

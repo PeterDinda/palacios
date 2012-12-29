@@ -102,7 +102,7 @@ int v3_init_vmx_hw(struct vmx_hw_info * hw_info) {
     v3_get_msr(VMX_MISC_MSR, &(hw_info->misc_info.hi), &(hw_info->misc_info.lo));
 
 
-    PrintError("BASIC_MSR: Lo: %x, Hi: %x\n", hw_info->basic_info.lo, hw_info->basic_info.hi);
+    PrintError(VM_NONE, VCORE_NONE, "BASIC_MSR: Lo: %x, Hi: %x\n", hw_info->basic_info.lo, hw_info->basic_info.hi);
 
     get_ex_ctrl_caps(hw_info, &(hw_info->pin_ctrls), VMX_PINBASED_CTLS_MSR, VMX_TRUE_PINBASED_CTLS_MSR);
     get_ex_ctrl_caps(hw_info, &(hw_info->proc_ctrls), VMX_PROCBASED_CTLS_MSR, VMX_TRUE_PROCBASED_CTLS_MSR);

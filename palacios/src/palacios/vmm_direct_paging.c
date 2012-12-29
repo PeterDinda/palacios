@@ -37,7 +37,7 @@ static addr_t create_generic_pt_page() {
 
     temp = V3_AllocPages(1);
     if (!temp) { 
-	PrintError("Cannot allocate page\n");
+	PrintError(VM_NONE, VCORE_NONE,"Cannot allocate page\n");
 	return 0;
     }
 
@@ -74,7 +74,7 @@ int v3_free_passthrough_pts(struct guest_info * core) {
 	    delete_page_tables_32pae((pdpe32pae_t *)V3_VAddr((void *)(core->direct_map_pt)));
 	    break;
 	default:
-	    PrintError("Unknown CPU Mode\n");
+	    PrintError(core->vm_info, core, "Unknown CPU Mode\n");
 	    return -1;
 	    break;
     }
@@ -101,7 +101,7 @@ int v3_activate_passthrough_pt(struct guest_info * info) {
     // So this will cause chaos if it is called at that time
 
     info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
-    //PrintError("Activate Passthrough Page tables not implemented\n");
+    //PrintError(info->vm_info, info, "Activate Passthrough Page tables not implemented\n");
     return 0;
 }
 
@@ -121,7 +121,7 @@ int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr,
 	    return handle_passthrough_pagefault_32pae(info, fault_addr, error_code);
 
 	default:
-	    PrintError("Unknown CPU Mode\n");
+	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
     }
     return -1;
@@ -133,7 +133,7 @@ int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
     v3_cpu_mode_t mode = v3_get_host_cpu_mode();
 
 
-    PrintDebug("Nested PageFault: fault_addr=%p, error_code=%u\n", (void *)fault_addr, *(uint_t *)&error_code);
+    PrintDebug(info->vm_info, info, "Nested PageFault: fault_addr=%p, error_code=%u\n", (void *)fault_addr, *(uint_t *)&error_code);
 
     switch(mode) {
 	case REAL:
@@ -148,7 +148,7 @@ int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 	    return handle_passthrough_pagefault_64(info, fault_addr, error_code);	    
 	
 	default:
-	    PrintError("Unknown CPU Mode\n");
+	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
     }
     return -1;
@@ -169,7 +169,7 @@ int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
 	    return invalidate_addr_32pae(info, inv_addr);
 
 	default:
-	    PrintError("Unknown CPU Mode\n");
+	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
     }
     return -1;
@@ -197,7 +197,7 @@ int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr) {
 	    return invalidate_addr_64(info, inv_addr);	    
 	
 	default:
-	    PrintError("Unknown CPU Mode\n");
+	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
     }
 

@@ -58,15 +58,15 @@ int V3_init_extensions() {
     ext_table = v3_create_htable(0, ext_hash_fn, ext_eq_fn);
 
     while (tmp_ext != __stop__v3_extensions) {
-	V3_Print("Registering Extension (%s)\n", (*tmp_ext)->name);
+        V3_Print(VM_NONE, VCORE_NONE, "Registering Extension (%s)\n", (*tmp_ext)->name);
 
 	if (v3_htable_search(ext_table, (addr_t)((*tmp_ext)->name))) {
-	    PrintError("Multiple instances of Extension (%s)\n", (*tmp_ext)->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Multiple instances of Extension (%s)\n", (*tmp_ext)->name);
 	    return -1;
 	}
 
 	if (v3_htable_insert(ext_table, (addr_t)((*tmp_ext)->name), (addr_t)(*tmp_ext)) == 0) {
-	    PrintError("Could not register Extension (%s)\n", (*tmp_ext)->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not register Extension (%s)\n", (*tmp_ext)->name);
 	    return -1;
 	}
 
@@ -109,10 +109,10 @@ int v3_deinit_ext_manager(struct v3_vm_info * vm)  {
 
     list_for_each_entry_safe(ext, tmp, &(ext_state->extensions), node) {
         
-	V3_Print("Cleaning up Extension (%s)\n", ext->impl->name);
+	V3_Print(vm, VCORE_NONE, "Cleaning up Extension (%s)\n", ext->impl->name);
 	if ((ext->impl) && (ext->impl->deinit)) {
 	    if (ext->impl->deinit(vm, ext->priv_data) == -1) {
-		PrintError("Error cleaning up extension (%s)\n", ext->impl->name);
+		PrintError(vm, VCORE_NONE, "Error cleaning up extension (%s)\n", ext->impl->name);
 		return -1;
 	    }
 	}
@@ -141,25 +141,25 @@ int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * 
     impl = (void *)v3_htable_search(ext_table, (addr_t)name);
 
     if (impl == NULL) {
-	PrintError("Could not find requested extension (%s)\n", name);
+	PrintError(vm, VCORE_NONE, "Could not find requested extension (%s)\n", name);
 	return -1;
     }
     
-    V3_ASSERT(impl->init);
+    V3_ASSERT(vm, VCORE_NONE, impl->init);
 
     /* this allows each extension to track its own per-core state */
     ext_size = sizeof(struct v3_extension) + (sizeof(void *) * vm->num_cores);
     ext = V3_Malloc(ext_size);
     
     if (!ext) {
-	PrintError("Could not allocate extension\n");
+	PrintError(vm, VCORE_NONE,  "Could not allocate extension\n");
 	return -1;
     }
 
     ext->impl = impl;
 
     if (impl->init(vm, cfg, &(ext->priv_data)) == -1) {
-	PrintError("Error initializing Extension (%s)\n", name);
+	PrintError(vm, VCORE_NONE,  "Error initializing Extension (%s)\n", name);
 	V3_Free(ext);
 	return -1;
     }
@@ -184,7 +184,7 @@ int v3_init_core_extensions(struct guest_info * core) {
     list_for_each_entry(ext, &(core->vm_info->extensions.extensions), node) {
 	if ((ext->impl) && (ext->impl->core_init)) {
 	    if (ext->impl->core_init(core, ext->priv_data, &(ext->core_ext_priv_data[cpuid])) == -1) {
-		PrintError("Error configuring per core extension %s on core %d\n", 
+		PrintError(core->vm_info, core, "Error configuring per core extension %s on core %d\n", 
 			   ext->impl->name, core->vcpu_id);
 		return -1;
 	    }
@@ -204,7 +204,7 @@ int v3_deinit_core_extensions (struct guest_info * core) {
         list_for_each_entry_safe(ext, tmp, &(vm->extensions.extensions), node) {
             if ((ext->impl) && (ext->impl->core_deinit)) {
                 if (ext->impl->core_deinit(core, ext->priv_data, ext->core_ext_priv_data[cpuid]) == -1) {
-                    PrintError("Error tearing down per core extension %s on core %d\n",
+                    PrintError(core->vm_info, core, "Error tearing down per core extension %s on core %d\n",
                                 ext->impl->name, cpuid);
                     return -1;
                 }

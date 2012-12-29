@@ -73,7 +73,7 @@ static int init_swintr_core_svm (struct guest_info * core, void * priv_data) {
 
 
 static int init_swintr_core_vmx (struct guest_info * core, void * priv_data) {
-    PrintError("Not implemented!\n");
+    PrintError(core->vm_info, core, "Not implemented!\n");
     return -1;
 }
 
@@ -85,7 +85,7 @@ static int init_swintr_intercept_core (struct guest_info * core, void * priv_dat
         case V3_SVM_CPU:
         case V3_SVM_REV3_CPU: {
             if (init_swintr_core_svm(core, priv_data) == -1) {
-                PrintError("Problem initializing svm software interrupt intercept\n");
+                PrintError(core->vm_info, core, "Problem initializing svm software interrupt intercept\n");
                 return -1;
             }
             break;
@@ -94,13 +94,13 @@ static int init_swintr_intercept_core (struct guest_info * core, void * priv_dat
         case V3_VMX_EPT_CPU:
         case V3_VMX_EPT_UG_CPU: {
             if (init_swintr_core_vmx(core, priv_data) == -1) {
-                PrintError("Problem initializing vmx software interrupt intercept\n");
+                PrintError(core->vm_info, core, "Problem initializing vmx software interrupt intercept\n");
                 return -1;
             }
             break;
         }
         default:
-            PrintError("software interrupt interception not supported on this architecture\n");
+            PrintError(core->vm_info, core, "software interrupt interception not supported on this architecture\n");
             return -1;
     }
     return 0;
@@ -139,12 +139,12 @@ int v3_handle_swintr (struct guest_info * core) {
     }   
     
     if (ret == -1) {
-        PrintError("V3 SWintr Handler: Could not translate Instruction Address (%p)\n", (void *)core->rip);
+        PrintError(core->vm_info, core, "V3 SWintr Handler: Could not translate Instruction Address (%p)\n", (void *)core->rip);
         return -1; 
     }   
 
     if (v3_decode(core, (addr_t)instr_ptr, &instr) == -1) {
-        PrintError("V3 SWintr Handler: Decoding Error\n");
+        PrintError(core->vm_info, core, "V3 SWintr Handler: Decoding Error\n");
         return -1; 
     }   
 
@@ -154,7 +154,7 @@ int v3_handle_swintr (struct guest_info * core) {
     if (hook == NULL) {
 #ifdef V3_CONFIG_EXT_SWINTR_PASSTHROUGH
         if (v3_hook_passthrough_swintr(core, vector) == -1) {
-            PrintDebug("V3 SWintr Handler: Error hooking passthrough swintr\n");
+            PrintDebug(core->vm_info, core, "V3 SWintr Handler: Error hooking passthrough swintr\n");
             return -1; 
         }
         hook = swintr_hooks[vector];
@@ -166,7 +166,7 @@ int v3_handle_swintr (struct guest_info * core) {
 
     ret = hook->handler(core, vector, NULL);
     if (ret == -1) {
-        PrintDebug("V3 SWintr Handler: Error in swintr hook\n");
+        PrintDebug(core->vm_info, core, "V3 SWintr Handler: Error in swintr hook\n");
         return -1; 
     }   
 
@@ -195,12 +195,12 @@ int v3_hook_swintr (struct guest_info * core,
     struct v3_swintr_hook * hook = (struct v3_swintr_hook*)V3_Malloc(sizeof(struct v3_swintr_hook));
 
     if (hook == NULL) {
-	PrintError("Cannot allocate for swintr hook\n");
+	PrintError(core->vm_info, core, "Cannot allocate for swintr hook\n");
         return -1;
     }
 
     if (get_swintr_hook(core, vector) != NULL) {
-        PrintError("swint %d already hooked\n", vector);
+        PrintError(core->vm_info, core, "swint %d already hooked\n", vector);
         return -1;
     }
     
@@ -209,14 +209,14 @@ int v3_hook_swintr (struct guest_info * core,
 
     swintr_hooks[vector] = hook;
 
-    PrintDebug("Hooked Swintr #%d\n", vector);
+    PrintDebug(core->vm_info, core, "Hooked Swintr #%d\n", vector);
 
     return 0;
 }
     
 
 static int passthrough_swintr_handler (struct guest_info * core, uint8_t vector, void * priv_data) {
-    PrintDebug("[passthrough_swint_handler] INT vector=%d (guest=0x%p)\n",
+    PrintDebug(core->vm_info, core, "[passthrough_swint_handler] INT vector=%d (guest=0x%p)\n",
         vector, (void*)core);
     return 0;
 }
@@ -227,10 +227,10 @@ int v3_hook_passthrough_swintr (struct guest_info * core, uint8_t vector) {
     int rc = v3_hook_swintr(core, vector, passthrough_swintr_handler, NULL);
     
     if (rc) {
-        PrintError("guest_swintr_injection: failed to hook swint 0x%x (guest=0x%p)\n", vector, (void*)core);
+        PrintError(core->vm_info, core, "guest_swintr_injection: failed to hook swint 0x%x (guest=0x%p)\n", vector, (void*)core);
         return -1;
     } else {
-        PrintDebug("guest_swintr_injection: hooked swint 0x%x (guest=0x%p)\n", vector, (void*)core);
+        PrintDebug(core->vm_info, core, "guest_swintr_injection: hooked swint 0x%x (guest=0x%p)\n", vector, (void*)core);
         return 0;
     }
     

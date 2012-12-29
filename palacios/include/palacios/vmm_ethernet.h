@@ -53,27 +53,24 @@ struct nic_statistics {
 
 #include <palacios/vmm.h>
 
-#define V3_Net_Print(level, fmt, args...)					\
+#define V3_Net_Print(level, fmt, args...)	\
     do {								\
 	if(level <= net_debug) {   \
-	    extern struct v3_os_hooks * os_hooks;			\
-	    if ((os_hooks) && (os_hooks)->print) {			\
-	    	(os_hooks)->print((fmt), ##args);			\
-	    }							\
+	  V3_Print(VM_NONE, VCORE_NONE, fmt, ##args);                   \
 	}							\
     } while (0)	
 
 
 static inline int is_multicast_ethaddr(const uint8_t * addr)
 {
-    V3_ASSERT(ETH_ALEN == 6);
+    V3_ASSERT(VM_NONE, VCORE_NONE, ETH_ALEN == 6);
 	
     return (0x01 & addr[0]);
 }
 
 static inline int is_broadcast_ethaddr(const uint8_t * addr)
 {
-    V3_ASSERT(ETH_ALEN == 6);
+    V3_ASSERT(VM_NONE, VCORE_NONE, ETH_ALEN == 6);
 	
     return (addr[0] & addr[1] & addr[2] & addr[3] & addr[4] & addr[5]) == 0xff;
 }
@@ -84,7 +81,7 @@ static inline int compare_ethaddr(const uint8_t * addr1, const uint8_t * addr2)
     const uint16_t *a = (const uint16_t *) addr1;
     const uint16_t *b = (const uint16_t *) addr2;
 
-    V3_ASSERT(ETH_ALEN == 6);
+    V3_ASSERT(VM_NONE, VCORE_NONE, ETH_ALEN == 6);
     return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
 }
 
@@ -94,7 +91,7 @@ static inline int compare_ether_hdr(const uint8_t * hdr1, const uint8_t * hdr2)
     uint32_t *a32 = (uint32_t *)(hdr1 + 2);
     uint32_t *b32 = (uint32_t *)(hdr2 + 2);
 
-    V3_ASSERT(ETHERNET_HEADER_LEN == 14);
+    V3_ASSERT(VM_NONE, VCORE_NONE, ETHERNET_HEADER_LEN == 14);
 
     return (*(uint16_t *)hdr1 ^ *(uint16_t *)hdr2) | (a32[0] ^ b32[0]) |
              (a32[1] ^ b32[1]) | (a32[2] ^ b32[2]);

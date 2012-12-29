@@ -52,7 +52,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
     if (msr == SYMSPY_GLOBAL_MSR) {
 	struct v3_symspy_global_state * global_state = &(core->vm_info->sym_vm_state.symspy_state);
 
-	PrintDebug("Symbiotic Glbal MSR write for page %p\n", (void *)(addr_t)src.value);
+	PrintDebug(core->vm_info, core, "Symbiotic Glbal MSR write for page %p\n", (void *)(addr_t)src.value);
 
 	if (global_state->active == 1) {
 	    // unmap page
@@ -60,7 +60,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 								     (addr_t)global_state->global_guest_pa);
 
 	    if (old_reg == NULL) {
-		PrintError("Could not find previously active symbiotic page (%p)\n", 
+		PrintError(core->vm_info, core, "Could not find previously active symbiotic page (%p)\n", 
 			   (void *)(addr_t)global_state->global_guest_pa);
 		return -1;
 	    }
@@ -80,7 +80,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
     } else if (msr == SYMSPY_LOCAL_MSR) {
 	struct v3_symspy_local_state * local_state = &(core->sym_core_state.symspy_state);
 
-	PrintDebug("Symbiotic Local MSR write for page %p\n", (void *)(addr_t)src.value);
+	PrintDebug(core->vm_info, core, "Symbiotic Local MSR write for page %p\n", (void *)(addr_t)src.value);
 
 	if (local_state->active == 1) {
 	    // unmap page
@@ -88,7 +88,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 								     (addr_t)local_state->local_guest_pa);
 
 	    if (old_reg == NULL) {
-		PrintError("Could not find previously active symbiotic page (%p)\n", 
+		PrintError(core->vm_info, core, "Could not find previously active symbiotic page (%p)\n", 
 			   (void *)(addr_t)local_state->local_guest_pa);
 		return -1;
 	    }
@@ -106,7 +106,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 			  (addr_t)(local_state->local_guest_pa + PAGE_SIZE_4KB - 1), 
 			  local_state->local_page_pa);
     } else {
-	PrintError("Invalid Symbiotic MSR write (0x%x)\n", msr);
+	PrintError(core->vm_info, core, "Invalid Symbiotic MSR write (0x%x)\n", msr);
 	return -1;
     }
 
@@ -119,7 +119,7 @@ int v3_init_symspy_vm(struct v3_vm_info * vm, struct v3_symspy_global_state * st
 
     state->global_page_pa = (addr_t)V3_AllocPages(1);
     if (!state->global_page_pa) { 
-	PrintError("Cannot allocate page\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate page\n");
 	return -1;
     }
 
@@ -140,7 +140,7 @@ int v3_init_symspy_core(struct guest_info * core, struct v3_symspy_local_state *
     state->local_page_pa = (addr_t)V3_AllocPages(1);
 
     if (!state->local_page_pa) { 
-	PrintError("Cannot allocate page\n");
+	PrintError(core->vm_info, core, "Cannot allocate page\n");
 	return -1;
     }
     state->local_page = (struct v3_symspy_local_page *)V3_VAddr((void *)state->local_page_pa);
@@ -160,17 +160,17 @@ int v3_sym_map_pci_passthrough(struct v3_vm_info * vm, uint_t bus, uint_t dev, u
     uint_t minor = dev_index % 8;
 
     if (bus > 3) {
-	PrintError("Invalid PCI bus %d\n", bus);
+        PrintError(vm, VCORE_NONE, "Invalid PCI bus %d\n", bus);
 	return -1;
     }
 
-    PrintDebug("Setting passthrough pci map for index=%d\n", dev_index);
+    PrintDebug(vm, VCORE_NONE, "Setting passthrough pci map for index=%d\n", dev_index);
 
     global_state->sym_page->pci_pt_map[major] |= 0x1 << minor;
 
-    PrintDebug("pt_map entry=%x\n",   global_state->sym_page->pci_pt_map[major]);
+    PrintDebug(vm, VCORE_NONE, "pt_map entry=%x\n",   global_state->sym_page->pci_pt_map[major]);
 
-    PrintDebug("pt map vmm addr=%p\n", global_state->sym_page->pci_pt_map);
+    PrintDebug(vm, VCORE_NONE, "pt map vmm addr=%p\n", global_state->sym_page->pci_pt_map);
 
     return 0;
 }
@@ -182,7 +182,7 @@ int v3_sym_unmap_pci_passthrough(struct v3_vm_info * vm, uint_t bus, uint_t dev,
     uint_t minor = dev_index % 8;
 
     if (bus > 3) {
-	PrintError("Invalid PCI bus %d\n", bus);
+	PrintError(vm, VCORE_NONE, "Invalid PCI bus %d\n", bus);
 	return -1;
     }
 

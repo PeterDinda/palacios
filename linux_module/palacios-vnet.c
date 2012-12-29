@@ -140,8 +140,6 @@ host_del_timer(void * vnet_timer){
 
 
 
-
-
 static struct vnet_host_hooks vnet_host_hooks = {
     .timer_create	        = host_create_timer,
     .timer_del		        = host_del_timer,
@@ -164,7 +162,7 @@ static struct vnet_host_hooks vnet_host_hooks = {
     .mutex_lock_irqsave         = palacios_mutex_lock_irqsave, 
     .mutex_unlock_irqrestore    = palacios_mutex_unlock_irqrestore,
 
-    .print			= palacios_print,
+    .print			= palacios_print_scoped,
     .allocate_pages	        = palacios_allocate_pages,
     .free_pages	                = palacios_free_pages,
     .malloc		        = palacios_alloc,

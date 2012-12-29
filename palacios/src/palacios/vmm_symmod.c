@@ -62,7 +62,7 @@ int V3_init_symmod() {
     int i = 0;
 
     if (tmp_def == __stop__v3_capsules) {
-	PrintDebug("No Symbiotic capsules found\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "No Symbiotic capsules found\n");
 	return 0;
     }
 
@@ -72,7 +72,7 @@ int V3_init_symmod() {
 	struct v3_sym_capsule * capsule = NULL;
 
 	if (v3_htable_search(capsule_table, (addr_t)(tmp_def->name))) {
-	    PrintError("Multiple instances of Module (%s)\n", tmp_def->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Multiple instances of Module (%s)\n", tmp_def->name);
 	    return -1;
 	}
 	
@@ -80,7 +80,7 @@ int V3_init_symmod() {
 	capsule = V3_Malloc(sizeof(struct v3_sym_capsule));
 
 	if (!capsule) {
-	    PrintError("Cannot allocate in initializing symmod\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in initializing symmod\n");
 	    return -1;
 	}
 
@@ -102,16 +102,16 @@ int V3_init_symmod() {
 	    capsule->guest_size = capsule->size;
 	    capsule->capsule_data = NULL;
 	} else {
-	    V3_Free(capsule)
+	    V3_Free(capsule);
 	    return -1;
 	}
 
-	PrintDebug("Registering Symbiotic Module (%s)\n", tmp_def->name);
+	PrintDebug(VM_NONE, VCORE_NONE, "Registering Symbiotic Module (%s)\n", tmp_def->name);
 
 	if (v3_htable_insert(capsule_table, 
 			     (addr_t)(tmp_def->name),
 			     (addr_t)(capsule)) == 0) {
-	    PrintError("Could not insert module %s to master list\n", tmp_def->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not insert module %s to master list\n", tmp_def->name);
 	    V3_Free(capsule);
 	    return -1;
 	}
@@ -166,7 +166,7 @@ static int symbol_hcall_handler(struct guest_info * core, hcall_id_t hcall_id, v
 
     int i = 0;
 
-    PrintError("Received SYMMOD symbol tables addr=%p, size=%d\n", (void *)sym_start_gva, sym_size);
+    PrintError(core->vm_info, core, "Received SYMMOD symbol tables addr=%p, size=%d\n", (void *)sym_start_gva, sym_size);
 
     for (i = 0; i < sym_size; i++) {
 	char * sym_name = NULL;
@@ -176,21 +176,21 @@ static int symbol_hcall_handler(struct guest_info * core, hcall_id_t hcall_id, v
 
 
 	if (v3_gva_to_hva(core, sym_gva, (addr_t *)&(tmp_symbol)) == -1) {
-	    PrintError("Could not locate symbiotic symbol definition\n");
+	    PrintError(core->vm_info, core, "Could not locate symbiotic symbol definition\n");
 	    continue;
 	}
 	
 	if (v3_gva_to_hva(core, tmp_symbol->name_gva, (addr_t *)&(sym_name)) == -1) {
-	    PrintError("Could not locate symbiotic symbol name\n");
+	    PrintError(core->vm_info, core, "Could not locate symbiotic symbol name\n");
 	    continue;
 	}
 	
-	PrintError("Symbiotic Symbol (%s) at %p\n", sym_name, (void *)(addr_t)tmp_symbol->value);
+	PrintError(core->vm_info, core, "Symbiotic Symbol (%s) at %p\n", sym_name, (void *)(addr_t)tmp_symbol->value);
 	
 	new_symbol = (struct v3_symbol *)V3_Malloc(sizeof(struct v3_symbol));
 
 	if (!new_symbol) {
-	    PrintError("Cannot allocate in symbiotic hcall handler\n");
+	    PrintError(core->vm_info, core, "Cannot allocate in symbiotic hcall handler\n");
 	    return -1;
 	}
 
@@ -214,11 +214,11 @@ int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     // Add modules to local hash table, should be keyed to config
     list_for_each_entry(tmp_capsule, &capsule_list, node) {
-	V3_Print("Adding %s to local module table\n", tmp_capsule->name);
+        V3_Print(vm, VCORE_NONE, "Adding %s to local module table\n", tmp_capsule->name);
 	if (v3_htable_insert(symmod_state->capsule_table, 
 			     (addr_t)(tmp_capsule->name),
 			     (addr_t)(tmp_capsule)) == 0) {
-	    PrintError("Could not insert module %s to vm local list\n", tmp_capsule->name);
+	    PrintError(vm, VCORE_NONE, "Could not insert module %s to vm local list\n", tmp_capsule->name);
 	    return -1;
 	}
 	symmod_state->num_avail_capsules++;
@@ -231,7 +231,7 @@ int v3_init_symmod_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     INIT_LIST_HEAD(&(symmod_state->v3_sym_list));
 
-    V3_Print("Symmod initialized\n");
+    V3_Print(vm, VCORE_NONE, "Symmod initialized\n");
 
     return 0;
 }
@@ -272,11 +272,11 @@ int v3_load_sym_capsule(struct v3_vm_info * vm, char * name) {
     struct v3_sym_capsule * capsule = (struct v3_sym_capsule *)v3_htable_search(capsule_table, (addr_t)name);
 
     if (!capsule) {
-	PrintError("Could not find capsule %s\n", name);
+	PrintError(vm, VCORE_NONE, "Could not find capsule %s\n", name);
 	return -1;
     }
 
-    PrintDebug("Loading Capsule (%s)\n", name);
+    PrintDebug(vm, VCORE_NONE, "Loading Capsule (%s)\n", name);
 
     return symmod_state->loader_ops->load_capsule(vm, capsule, symmod_state->loader_data);
 }
@@ -292,7 +292,7 @@ struct v3_sym_capsule * v3_get_sym_capsule(struct v3_vm_info * vm, char * name) 
     struct v3_sym_capsule * mod = (struct v3_sym_capsule *)v3_htable_search(capsule_table, (addr_t)name);
 
     if (!mod) {
-	PrintError("Could not find module %s\n", name);
+	PrintError(vm, VCORE_NONE, "Could not find module %s\n", name);
 	return NULL;
     }
 

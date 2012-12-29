@@ -75,7 +75,7 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state = (struct stream_state *)V3_Malloc(sizeof(struct stream_state));
 
     if (state == NULL) {
-	PrintError("Could not allocate stream backend device\n");
+	PrintError(vm, VCORE_NONE, "Could not allocate stream backend device\n");
 	return -1;
     }
 
@@ -84,7 +84,7 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("Could not allocate device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not allocate device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
     }
@@ -93,7 +93,7 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state->stream = v3_stream_open(vm, stream_name, stream_input, state);
 
     if (state->stream == NULL) {
-	PrintError("Could not open stream %s\n", stream_name);
+	PrintError(vm, VCORE_NONE, "Could not open stream %s\n", stream_name);
 	v3_remove_device(dev);
 	return -1;
     }
@@ -104,7 +104,7 @@ static int stream_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     if (v3_dev_connect_char(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			    &(state->char_ops), frontend_cfg, 
 			    state, &(state->push_fn_arg)) == -1) {
-	PrintError("Could not connect %s to frontend %s\n", 
+	PrintError(vm, VCORE_NONE, "Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	v3_remove_device(dev);
 	return -1;

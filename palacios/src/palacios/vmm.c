@@ -54,20 +54,20 @@ static void init_cpu(void * arg) {
 
 #ifdef V3_CONFIG_SVM
     if (v3_is_svm_capable()) {
-        PrintDebug("Machine is SVM Capable\n");
+        PrintDebug(VM_NONE, VCORE_NONE, "Machine is SVM Capable\n");
         v3_init_svm_cpu(cpu_id);
 	
     } else 
 #endif
 #ifdef V3_CONFIG_VMX
     if (v3_is_vmx_capable()) {
-	PrintDebug("Machine is VMX Capable\n");
+        PrintDebug(VM_NONE, VCORE_NONE, "Machine is VMX Capable\n");
 	v3_init_vmx_cpu(cpu_id);
 
     } else 
 #endif
     {
-       PrintError("CPU has no virtualization Extensions\n");
+       PrintError(VM_NONE, VCORE_NONE, "CPU has no virtualization Extensions\n");
     }
 }
 
@@ -80,7 +80,7 @@ static void deinit_cpu(void * arg) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
-	    PrintDebug("Deinitializing SVM CPU %d\n", cpu_id);
+	    PrintDebug(VM_NONE, VCORE_NONE, "Deinitializing SVM CPU %d\n", cpu_id);
 	    v3_deinit_svm_cpu(cpu_id);
 	    break;
 #endif
@@ -88,13 +88,13 @@ static void deinit_cpu(void * arg) {
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
 	case V3_VMX_EPT_UG_CPU:
-	    PrintDebug("Deinitializing VMX CPU %d\n", cpu_id);
+	    PrintDebug(VM_NONE, VCORE_NONE, "Deinitializing VMX CPU %d\n", cpu_id);
 	    v3_deinit_vmx_cpu(cpu_id);
 	    break;
 #endif
 	case V3_INVALID_CPU:
 	default:
-	    PrintError("CPU has no virtualization Extensions\n");
+	    PrintError(VM_NONE, VCORE_NONE, "CPU has no virtualization Extensions\n");
 	    break;
     }
 }
@@ -105,7 +105,7 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus) {
     int minor = 0;
     int major = 0;
 
-    V3_Print("V3 Print statement to fix a Kitten page fault bug\n");
+    V3_Print(VM_NONE, VCORE_NONE, "V3 Print statement to fix a Kitten page fault bug\n");
 
     // Set global variables. 
     os_hooks = hooks;
@@ -142,7 +142,7 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus) {
             minor = i % 8;
 
             if ((cpu_mask == NULL) || (*(cpu_mask + major) & (0x1 << minor))) {
-                V3_Print("Initializing VMM extensions on cpu %d\n", i);
+                V3_Print(VM_NONE, VCORE_NONE, "Initializing VMM extensions on cpu %d\n", i);
                 hooks->call_on_cpu(i, &init_cpu, (void *)(addr_t)i);
 
 		if (v3_mach_type == V3_INVALID_CPU) {
@@ -193,16 +193,16 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
     struct v3_vm_info * vm = v3_config_guest(cfg, priv_data);
 
     if (vm == NULL) {
-	PrintError("Could not configure guest\n");
+	PrintError(VM_NONE, VCORE_NONE, "Could not configure guest\n");
 	return NULL;
     }
 
-    V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
+    V3_Print(vm, VCORE_NONE, "CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
 
     if (name == NULL) {
 	name = "[V3_VM]";
     } else if (strlen(name) >= 128) {
-	PrintError("VM name is too long. Will be truncated to 128 chars.\n");
+        PrintError(vm, VCORE_NONE,"VM name is too long. Will be truncated to 128 chars.\n");
     }
 
     memset(vm->name, 0, 128);
@@ -219,7 +219,7 @@ static int start_core(void * p)
     struct guest_info * core = (struct guest_info *)p;
 
 
-    PrintDebug("virtual core %u (on logical core %u): in start_core (RIP=%p)\n", 
+    PrintDebug(core->vm_info,core,"virtual core %u (on logical core %u): in start_core (RIP=%p)\n", 
 	       core->vcpu_id, core->pcpu_id, (void *)(addr_t)core->rip);
 
     switch (v3_mach_type) {
@@ -237,7 +237,7 @@ static int start_core(void * p)
 	    break;
 #endif
 	default:
-	    PrintError("Attempting to enter a guest on an invalid CPU\n");
+	    PrintError(core->vm_info, core, "Attempting to enter a guest on an invalid CPU\n");
 	    return -1;
     }
     // should not happen
@@ -257,7 +257,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
 
     if (vm->run_state != VM_STOPPED) {
-        PrintError("VM has already been launched (state=%d)\n", (int)vm->run_state);
+        PrintError(vm, VCORE_NONE, "VM has already been launched (state=%d)\n", (int)vm->run_state);
         return -1;
     }
 
@@ -266,10 +266,10 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     for (i=0;i<vm->num_cores;i++) { 
 	if (vm->cores[i].shdw_pg_mode == SHADOW_PAGING) {
 	    if ((vm->mem_map.base_region.host_addr + vm->mem_size ) >= 0x100000000ULL) {
-		PrintError("Base memory region exceeds 4 GB boundary with shadow paging enabled on core %d.\n",i);
-		PrintError("Any use of non-64 bit mode in the guest is likely to fail in this configuration.\n");
-		PrintError("If you would like to proceed anyway, remove this check and recompile Palacios.\n");
-		PrintError("Alternatively, change this VM to use nested paging.\n");
+		PrintError(vm, VCORE_NONE, "Base memory region exceeds 4 GB boundary with shadow paging enabled on core %d.\n",i);
+		PrintError(vm, VCORE_NONE, "Any use of non-64 bit mode in the guest is likely to fail in this configuration.\n");
+		PrintError(vm, VCORE_NONE, "If you would like to proceed anyway, remove this check and recompile Palacios.\n");
+		PrintError(vm, VCORE_NONE, "Alternatively, change this VM to use nested paging.\n");
 		return -1;
 	    }
 	}
@@ -279,8 +279,8 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
     /// CHECK IF WE ARE MULTICORE ENABLED....
 
-    V3_Print("V3 --  Starting VM (%u cores)\n", vm->num_cores);
-    V3_Print("CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
+    V3_Print(vm, VCORE_NONE, "V3 --  Starting VM (%u cores)\n", vm->num_cores);
+    V3_Print(vm, VCORE_NONE, "CORE 0 RIP=%p\n", (void *)(addr_t)(vm->cores[0].rip));
 
 
     // Check that enough cores are present in the mask to handle vcores
@@ -299,7 +299,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
 
     if (vm->num_cores > avail_cores) {
-	PrintError("Attempted to start a VM with too many cores (vm->num_cores = %d, avail_cores = %d, MAX=%d)\n", 
+	PrintError(vm, VCORE_NONE, "Attempted to start a VM with too many cores (vm->num_cores = %d, avail_cores = %d, MAX=%d)\n", 
 		   vm->num_cores, avail_cores, MAX_CORES);
 	return -1;
     }
@@ -319,7 +319,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	    core_idx = atoi(specified_cpu);
 	    
 	    if ((core_idx < 0) || (core_idx >= MAX_CORES)) {
-		PrintError("Target CPU out of bounds (%d) (MAX_CORES=%d)\n", core_idx, MAX_CORES);
+		PrintError(vm, VCORE_NONE, "Target CPU out of bounds (%d) (MAX_CORES=%d)\n", core_idx, MAX_CORES);
 	    }
 
 	    i--; // We reset the logical core idx. Not strictly necessary I guess... 
@@ -331,11 +331,11 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	minor = core_idx % 8;
 
 	if ((core_mask[major] & (0x1 << minor)) == 0) {
-	    PrintError("Logical CPU %d not available for virtual core %d; not started\n",
+	    PrintError(vm, VCORE_NONE, "Logical CPU %d not available for virtual core %d; not started\n",
 		       core_idx, vcore_id);
 
 	    if (specified_cpu != NULL) {
-		PrintError("CPU was specified explicitly (%d). HARD ERROR\n", core_idx);
+		PrintError(vm, VCORE_NONE, "CPU was specified explicitly (%d). HARD ERROR\n", core_idx);
 		v3_stop_vm(vm);
 		return -1;
 	    }
@@ -343,12 +343,12 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	    continue;
 	}
 
-	PrintDebug("Starting virtual core %u on logical core %u\n", 
+	PrintDebug(vm, VCORE_NONE, "Starting virtual core %u on logical core %u\n", 
 		   vcore_id, core_idx);
 	
 	sprintf(core->exec_name, "%s-%u", vm->name, vcore_id);
 
-	PrintDebug("run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
+	PrintDebug(vm, VCORE_NONE, "run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
 		   core_idx, start_core, core, core->exec_name);
 
 	core->core_run_state = CORE_STOPPED;  // core zero will turn itself on
@@ -356,7 +356,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	core->core_thread = V3_CREATE_THREAD_ON_CPU(core_idx, start_core, core, core->exec_name);
 
 	if (core->core_thread == NULL) {
-	    PrintError("Thread launch failed\n");
+	    PrintError(vm, VCORE_NONE, "Thread launch failed\n");
 	    v3_stop_vm(vm);
 	    return -1;
 	}
@@ -365,7 +365,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     }
 
     if (vcore_id >= 0) {
-	PrintError("Error starting VM: Not enough available CPU cores\n");
+	PrintError(vm, VCORE_NONE, "Error starting VM: Not enough available CPU cores\n");
 	v3_stop_vm(vm);
 	return -1;
     }
@@ -382,19 +382,19 @@ int v3_reset_vm_core(struct guest_info * core, addr_t rip) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU:
-	    PrintDebug("Resetting SVM Guest CPU %d\n", core->vcpu_id);
+	    PrintDebug(core->vm_info, core, "Resetting SVM Guest CPU %d\n", core->vcpu_id);
 	    return v3_reset_svm_vm_core(core, rip);
 #endif
 #ifdef V3_CONFIG_VMX
 	case V3_VMX_CPU:
 	case V3_VMX_EPT_CPU:
 	case V3_VMX_EPT_UG_CPU:
-	    PrintDebug("Resetting VMX Guest CPU %d\n", core->vcpu_id);
+	    PrintDebug(core->vm_info, core, "Resetting VMX Guest CPU %d\n", core->vcpu_id);
 	    return v3_reset_vmx_vm_core(core, rip);
 #endif
 	case V3_INVALID_CPU:
 	default:
-	    PrintError("CPU has no virtualization Extensions\n");
+	    PrintError(core->vm_info, core, "CPU has no virtualization Extensions\n");
 	    break;
     }
 
@@ -408,31 +408,31 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
     struct guest_info * core = NULL;
 
     if ((vcore_id < 0) || (vcore_id >= vm->num_cores)) {
-	PrintError("Attempted to migrate invalid virtual core (%d)\n", vcore_id);
+        PrintError(vm, VCORE_NONE, "Attempted to migrate invalid virtual core (%d)\n", vcore_id);
 	return -1;
     }
 
     core = &(vm->cores[vcore_id]);
 
     if (target_cpu == core->pcpu_id) {
-	PrintError("Attempted to migrate to local core (%d)\n", target_cpu);
+	PrintError(vm,  core, "Attempted to migrate to local core (%d)\n", target_cpu);
 	// well that was pointless
 	return 0;
     }
 
     if (core->core_thread == NULL) {
-	PrintError("Attempted to migrate a core without a valid thread context\n");
+	PrintError(vm, core, "Attempted to migrate a core without a valid thread context\n");
 	return -1;
     }
 
     while (v3_raise_barrier(vm, NULL) == -1);
 
-    V3_Print("Performing Migration from %d to %d\n", core->pcpu_id, target_cpu);
+    V3_Print(vm, core, "Performing Migration from %d to %d\n", core->pcpu_id, target_cpu);
 
     // Double check that we weren't preemptively migrated
     if (target_cpu != core->pcpu_id) {    
 
-	V3_Print("Moving Core\n");
+	V3_Print(vm, core, "Moving Core\n");
 
 
 #ifdef V3_CONFIG_VMX
@@ -440,7 +440,7 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
 	    case V3_VMX_CPU:
 	    case V3_VMX_EPT_CPU:
 	    case V3_VMX_EPT_UG_CPU:
-		PrintDebug("Flushing VMX Guest CPU %d\n", core->vcpu_id);
+		PrintDebug(vm, core, "Flushing VMX Guest CPU %d\n", core->vcpu_id);
 		V3_Call_On_CPU(core->pcpu_id, (void (*)(void *))v3_flush_vmx_vm_core, (void *)core);
 		break;
 	    default:
@@ -449,7 +449,7 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
 #endif
 
 	if (V3_MOVE_THREAD_TO_CPU(target_cpu, core->core_thread) != 0) {
-	    PrintError("Failed to move Vcore %d to CPU %d\n", 
+	    PrintError(vm, core, "Failed to move Vcore %d to CPU %d\n", 
 		       core->vcpu_id, target_cpu);
 	    v3_lower_barrier(vm);
 	    return -1;
@@ -461,7 +461,7 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
 	*/
 	core->pcpu_id = target_cpu;
 
-	V3_Print("core now at %d\n", core->pcpu_id);	
+	V3_Print(vm, core, "core now at %d\n", core->pcpu_id);	
     }
 
     v3_lower_barrier(vm);
@@ -475,7 +475,7 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
     if ((vm->run_state != VM_RUNNING) && 
 	(vm->run_state != VM_SIMULATING)) {
-	PrintError("Tried to stop VM in invalid runstate (%d)\n", vm->run_state);
+        PrintError(vm, VCORE_NONE,"Tried to stop VM in invalid runstate (%d)\n", vm->run_state);
 	return -1;
     }
 
@@ -505,7 +505,7 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 	v3_yield(NULL,-1);
     }
     
-    V3_Print("VM stopped. Returning\n");
+    V3_Print(vm, VCORE_NONE,"VM stopped. Returning\n");
 
     return 0;
 }
@@ -514,7 +514,7 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 int v3_pause_vm(struct v3_vm_info * vm) {
 
     if (vm->run_state != VM_RUNNING) {
-	PrintError("Tried to pause a VM that was not running\n");
+	PrintError(vm, VCORE_NONE,"Tried to pause a VM that was not running\n");
 	return -1;
     }
 
@@ -529,7 +529,7 @@ int v3_pause_vm(struct v3_vm_info * vm) {
 int v3_continue_vm(struct v3_vm_info * vm) {
 
     if (vm->run_state != VM_PAUSED) {
-	PrintError("Tried to continue a VM that was not paused\n");
+	PrintError(vm, VCORE_NONE,"Tried to continue a VM that was not paused\n");
 	return -1;
     }
 
@@ -547,7 +547,7 @@ static int sim_callback(struct guest_info * core, void * private_data) {
 
     v3_bitmap_set(timeout_map, core->vcpu_id);
     
-    V3_Print("Simulation callback activated (guest_rip=%p)\n", (void *)core->rip);
+    V3_Print(core->vm_info, core, "Simulation callback activated (guest_rip=%p)\n", (void *)core->rip);
 
     while (v3_bitmap_check(timeout_map, core->vcpu_id) == 1) {
 	v3_yield(NULL,-1);
@@ -567,7 +567,7 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
     uint64_t cpu_khz = V3_CPU_KHZ();
 
     if (vm->run_state != VM_PAUSED) {
-	PrintError("VM must be paused before simulation begins\n");
+	PrintError(vm, VCORE_NONE,"VM must be paused before simulation begins\n");
 	return -1;
     }
 
@@ -585,18 +585,18 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
     
 
 
-    V3_Print("Simulating %u msecs (%llu cycles) [CPU_KHZ=%llu]\n", msecs, cycles, cpu_khz);
+    V3_Print(vm, VCORE_NONE,"Simulating %u msecs (%llu cycles) [CPU_KHZ=%llu]\n", msecs, cycles, cpu_khz);
 
     // set timeout
     
     for (i = 0; i < vm->num_cores; i++) {
 	if (v3_add_core_timeout(&(vm->cores[i]), cycles, sim_callback, &timeout_map) == -1) {
-	    PrintError("Could not register simulation timeout for core %d\n", i);
+	    PrintError(vm, VCORE_NONE,"Could not register simulation timeout for core %d\n", i);
 	    return -1;
 	}
     }
 
-    V3_Print("timeouts set on all cores\n ");
+    V3_Print(vm, VCORE_NONE,"timeouts set on all cores\n ");
 
     
     // Run the simulation
@@ -605,7 +605,7 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
     v3_lower_barrier(vm);
 
 
-    V3_Print("Barrier lowered: We are now Simulating!!\n");
+    V3_Print(vm, VCORE_NONE,"Barrier lowered: We are now Simulating!!\n");
 
     // block until simulation is complete    
     while (all_blocked == 0) {
@@ -625,7 +625,7 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
     }
 
 
-    V3_Print("Simulation is complete\n");
+    V3_Print(vm, VCORE_NONE,"Simulation is complete\n");
 
     // Simulation is complete
     // Reset back to PAUSED state
@@ -729,7 +729,7 @@ int v3_free_vm(struct v3_vm_info * vm) {
 
     if ((vm->run_state != VM_STOPPED) &&
 	(vm->run_state != VM_ERROR)) {
-	PrintError("Tried to Free VM in invalid runstate (%d)\n", vm->run_state);
+	PrintError(vm, VCORE_NONE,"Tried to Free VM in invalid runstate (%d)\n", vm->run_state);
 	return -1;
     }
 
@@ -789,7 +789,7 @@ void v3_yield_cond(struct guest_info * info, int usec) {
     cur_cycle = v3_get_host_time(&info->time_state);
 
     if (cur_cycle > (info->yield_start_cycle + info->vm_info->yield_cycle_period)) {
-	//PrintDebug("Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
+	//PrintDebug(info->vm_info, info, "Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
 	//           (void *)cur_cycle, (void *)info->yield_start_cycle, 
 	//	   (void *)info->yield_cycle_period);
 	
@@ -836,7 +836,7 @@ void v3_print_cond(const char * fmt, ...) {
 	vsnprintf(buf, 2048, fmt, ap);
 	va_end(ap);
 
-	V3_Print("%s", buf);
+	V3_Print(VM_NONE, VCORE_NONE,"%s", buf);
     }    
 }
 
@@ -868,7 +868,26 @@ int v3_vm_enter(struct guest_info * info) {
 	    break;
 #endif
 	default:
-	    PrintError("Attemping to enter a guest on an invalid CPU\n");
+	    PrintError(info->vm_info, info, "Attemping to enter a guest on an invalid CPU\n");
 	    return -1;
     }
+}
+
+
+void    *v3_get_host_vm(struct v3_vm_info *x)
+{
+  if (x) { 
+    return x->host_priv_data;
+  } else {
+    return 0;
+  }
+}
+
+int v3_get_vcore(struct guest_info *x)
+{
+  if (x) {
+    return x->vcpu_id;
+  } else {
+    return -1;
+  }
 }

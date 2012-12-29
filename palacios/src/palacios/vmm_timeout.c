@@ -31,7 +31,7 @@ int v3_add_core_timeout(struct guest_info * core, uint64_t cycles,
     struct v3_core_timeouts * timeouts = &(core->timeouts);
 
     if (timeouts->timeout_active) {
-	PrintError("Tried to activate a timeout whiel one is already active\n");
+	PrintError(core->vm_info, core, "Tried to activate a timeout whiel one is already active\n");
 	return -1;
     }
 
@@ -40,8 +40,7 @@ int v3_add_core_timeout(struct guest_info * core, uint64_t cycles,
     timeouts->timeout_active = 1;
     timeouts->next_timeout = cycles;
 
-    return 0;
-}
+    return 0;}
 
 
 
@@ -49,7 +48,7 @@ int v3_handle_timeouts(struct guest_info * core, uint64_t guest_cycles) {
     struct v3_core_timeouts * timeouts = &(core->timeouts);
 
     /*
-    V3_Print("Handling timeout from %llu guest cycles (Next timeout=%llu)\n", guest_cycles,
+    V3_Print(core->vm_info, core, "Handling timeout from %llu guest cycles (Next timeout=%llu)\n", guest_cycles,
 	     timeouts->next_timeout);
     */
 
@@ -59,7 +58,7 @@ int v3_handle_timeouts(struct guest_info * core, uint64_t guest_cycles) {
 
 	if (timeouts->callback) {
 
-	    V3_Print("Calling timeout callback\n");
+	    V3_Print(core->vm_info, core, "Calling timeout callback\n");
 	    timeouts->callback(core, timeouts->private_data);
 	}
     } else {

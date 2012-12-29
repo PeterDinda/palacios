@@ -35,7 +35,7 @@ static int inline check_vmcs_write(vmcs_field_t field, addr_t val) {
     ret = vmcs_write(field, val);
 
     if (ret != VMX_SUCCESS) {
-        PrintError("VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
+        PrintError(VM_NONE, VCORE_NONE, "VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
         return 1;
     }
 
@@ -47,7 +47,7 @@ static int inline check_vmcs_read(vmcs_field_t field, void * val) {
     ret = vmcs_read(field, val);
 
     if (ret != VMX_SUCCESS) {
-        PrintError("VMREAD error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
+        PrintError(VM_NONE, VCORE_NONE, "VMREAD error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
     }
 
     return ret;
@@ -552,16 +552,16 @@ static inline void print_vmcs_field(vmcs_field_t vmcs_index) {
     addr_t val;
     
     if (vmcs_read(vmcs_index, &val) != VMX_SUCCESS) {
-	PrintError("VMCS_READ error for %s\n", v3_vmcs_field_to_str(vmcs_index));
+	PrintError(VM_NONE, VCORE_NONE, "VMCS_READ error for %s\n", v3_vmcs_field_to_str(vmcs_index));
 	return;
     };
     
     if (len == 2) {
-	PrintDebug("\t%s: 0x%.4x\n", v3_vmcs_field_to_str(vmcs_index), (uint16_t)val);
+	PrintDebug(VM_NONE, VCORE_NONE, "\t%s: 0x%.4x\n", v3_vmcs_field_to_str(vmcs_index), (uint16_t)val);
     } else if (len == 4) {
-	PrintDebug("\t%s: 0x%.8x\n", v3_vmcs_field_to_str(vmcs_index), (uint32_t)val);
+	PrintDebug(VM_NONE, VCORE_NONE, "\t%s: 0x%.8x\n", v3_vmcs_field_to_str(vmcs_index), (uint32_t)val);
     } else if (len == 8) {
-	PrintDebug("\t%s: 0x%p\n", v3_vmcs_field_to_str(vmcs_index), (void *)(addr_t)val);
+	PrintDebug(VM_NONE, VCORE_NONE, "\t%s: 0x%p\n", v3_vmcs_field_to_str(vmcs_index), (void *)(addr_t)val);
     }
 }
 
@@ -573,59 +573,59 @@ static void print_vmcs_segments() {
     v3_print_segments(&segs);
 
 
-    PrintDebug("   ==> CS\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> CS\n");
     print_vmcs_field(VMCS_GUEST_CS_SELECTOR);
     print_vmcs_field(VMCS_GUEST_CS_BASE);
     print_vmcs_field(VMCS_GUEST_CS_LIMIT);
     print_vmcs_field(VMCS_GUEST_CS_ACCESS);
 
-    PrintDebug("   ==> SS\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> SS\n");
     print_vmcs_field(VMCS_GUEST_SS_SELECTOR);
     print_vmcs_field(VMCS_GUEST_SS_BASE);
     print_vmcs_field(VMCS_GUEST_SS_LIMIT);
     print_vmcs_field(VMCS_GUEST_SS_ACCESS);
 
-    PrintDebug("   ==> DS\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> DS\n");
     print_vmcs_field(VMCS_GUEST_DS_SELECTOR);
     print_vmcs_field(VMCS_GUEST_DS_BASE);
     print_vmcs_field(VMCS_GUEST_DS_LIMIT);
     print_vmcs_field(VMCS_GUEST_DS_ACCESS);
 
-    PrintDebug("   ==> ES\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> ES\n");
     print_vmcs_field(VMCS_GUEST_ES_SELECTOR);
     print_vmcs_field(VMCS_GUEST_ES_BASE);
     print_vmcs_field(VMCS_GUEST_ES_LIMIT);
     print_vmcs_field(VMCS_GUEST_ES_ACCESS);
 
-    PrintDebug("   ==> FS\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> FS\n");
     print_vmcs_field(VMCS_GUEST_FS_SELECTOR);
     print_vmcs_field(VMCS_GUEST_FS_BASE);
     print_vmcs_field(VMCS_GUEST_FS_LIMIT);
     print_vmcs_field(VMCS_GUEST_FS_ACCESS);
 
-    PrintDebug("   ==> GS\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> GS\n");
     print_vmcs_field(VMCS_GUEST_GS_SELECTOR);
     print_vmcs_field(VMCS_GUEST_GS_BASE);
     print_vmcs_field(VMCS_GUEST_GS_LIMIT);
     print_vmcs_field(VMCS_GUEST_GS_ACCESS);
 
-    PrintDebug("   ==> LDTR\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> LDTR\n");
     print_vmcs_field(VMCS_GUEST_LDTR_SELECTOR);
     print_vmcs_field(VMCS_GUEST_LDTR_BASE);
     print_vmcs_field(VMCS_GUEST_LDTR_LIMIT);
     print_vmcs_field(VMCS_GUEST_LDTR_ACCESS);
 
-    PrintDebug("   ==> TR\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> TR\n");
     print_vmcs_field(VMCS_GUEST_TR_SELECTOR);
     print_vmcs_field(VMCS_GUEST_TR_BASE);
     print_vmcs_field(VMCS_GUEST_TR_LIMIT);
     print_vmcs_field(VMCS_GUEST_TR_ACCESS);
 
-    PrintDebug("   ==> GDTR\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> GDTR\n");
     print_vmcs_field(VMCS_GUEST_GDTR_BASE);
     print_vmcs_field(VMCS_GUEST_GDTR_LIMIT);
 
-    PrintDebug("   ==> IDTR\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "   ==> IDTR\n");
     print_vmcs_field(VMCS_GUEST_IDTR_BASE);
     print_vmcs_field(VMCS_GUEST_IDTR_LIMIT);
 
@@ -637,7 +637,7 @@ static void print_vmcs_segments() {
 
 static void print_guest_state()
 {
-    PrintDebug("VMCS_GUEST_STATE\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "VMCS_GUEST_STATE\n");
     print_vmcs_field(VMCS_GUEST_RIP);
     print_vmcs_field(VMCS_GUEST_RSP);
     print_vmcs_field(VMCS_GUEST_RFLAGS);
@@ -653,11 +653,11 @@ static void print_guest_state()
 #endif
 
 
-    PrintDebug("\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n");
 
     print_vmcs_segments();
 
-    PrintDebug("\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n");
 
     print_vmcs_field(VMCS_GUEST_DBG_CTL);
 #ifdef __V3_32BIT__
@@ -685,7 +685,7 @@ static void print_guest_state()
 
 
 
-    PrintDebug("GUEST_NON_REGISTER_STATE\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "GUEST_NON_REGISTER_STATE\n");
 
     print_vmcs_field(VMCS_GUEST_ACTIVITY_STATE);
     print_vmcs_field(VMCS_GUEST_INT_STATE);
@@ -698,7 +698,7 @@ static void print_guest_state()
        
 static void print_host_state()
 {
-    PrintDebug("VMCS_HOST_STATE\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "VMCS_HOST_STATE\n");
 
     print_vmcs_field(VMCS_HOST_RIP);
     print_vmcs_field(VMCS_HOST_RSP);
@@ -715,7 +715,7 @@ static void print_host_state()
 #endif
 
 
-    PrintDebug("\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n");
     print_vmcs_field(VMCS_HOST_CS_SELECTOR);
     print_vmcs_field(VMCS_HOST_SS_SELECTOR);
     print_vmcs_field(VMCS_HOST_DS_SELECTOR);
@@ -724,14 +724,14 @@ static void print_host_state()
     print_vmcs_field(VMCS_HOST_GS_SELECTOR);
     print_vmcs_field(VMCS_HOST_TR_SELECTOR);
 
-    PrintDebug("\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n");
     print_vmcs_field(VMCS_HOST_FS_BASE);
     print_vmcs_field(VMCS_HOST_GS_BASE);
     print_vmcs_field(VMCS_HOST_TR_BASE);
     print_vmcs_field(VMCS_HOST_GDTR_BASE);
     print_vmcs_field(VMCS_HOST_IDTR_BASE);
 
-    PrintDebug("\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n");
     print_vmcs_field(VMCS_HOST_SYSENTER_CS);
     print_vmcs_field(VMCS_HOST_SYSENTER_ESP);
     print_vmcs_field(VMCS_HOST_SYSENTER_EIP);
@@ -752,7 +752,7 @@ static void print_host_state()
 
 
 static void print_exec_ctrls() {
-    PrintDebug("VMCS_EXEC_CTRL_FIELDS\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "VMCS_EXEC_CTRL_FIELDS\n");
     print_vmcs_field(VMCS_PIN_CTRLS);
     print_vmcs_field(VMCS_PROC_CTRLS);
     
@@ -778,7 +778,7 @@ static void print_exec_ctrls() {
     print_vmcs_field(VMCS_TSC_OFFSET_HIGH);
 #endif
 
-    PrintDebug("\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n");
 
     print_vmcs_field(VMCS_CR0_MASK);
     print_vmcs_field(VMCS_CR0_READ_SHDW);
@@ -794,7 +794,7 @@ static void print_exec_ctrls() {
     // Check max number of CR3 targets... may continue...
 
 
-    PrintDebug("\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "\n");
 
     // if virtualize apic accesses
     print_vmcs_field(VMCS_APIC_ACCESS_ADDR);    
@@ -827,7 +827,7 @@ static void print_exec_ctrls() {
 }
 
 static void print_ept_state() {
-    V3_Print("VMCS EPT INFO\n");
+    V3_Print(VM_NONE, VCORE_NONE, "VMCS EPT INFO\n");
 
     // if enable vpid
     print_vmcs_field(VMCS_VPID);
@@ -870,7 +870,7 @@ static void print_ept_state() {
 
 
 static void print_exit_ctrls() {
-    PrintDebug("VMCS_EXIT_CTRLS\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "VMCS_EXIT_CTRLS\n");
 
     print_vmcs_field(VMCS_EXIT_CTRLS);
 
@@ -896,7 +896,7 @@ static void print_exit_ctrls() {
 
 
 static void print_entry_ctrls() {
-    PrintDebug("VMCS_ENTRY_CTRLS\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "VMCS_ENTRY_CTRLS\n");
     
     print_vmcs_field(VMCS_ENTRY_CTRLS);
 
@@ -915,7 +915,7 @@ static void print_entry_ctrls() {
 
 
 static void print_exit_info() {
-    PrintDebug("VMCS_EXIT_INFO\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "VMCS_EXIT_INFO\n");
 
     print_vmcs_field(VMCS_EXIT_REASON);
     print_vmcs_field(VMCS_EXIT_QUAL);
@@ -982,7 +982,7 @@ int v3_vmcs_get_field_len(vmcs_field_t field) {
 	case 3:
             return sizeof(addr_t);
         default:
-	    PrintError("Invalid VMCS field: 0x%x\n", field);
+	    PrintError(VM_NONE, VCORE_NONE, "Invalid VMCS field: 0x%x\n", field);
             return -1;
     }
 }

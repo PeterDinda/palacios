@@ -58,7 +58,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 
 
-    //    PrintDebug("SVM Returned: Exit Code: %p\n", (void *)exit_code); 
+    //    PrintDebug(info->vm_info, info, "SVM Returned: Exit Code: %p\n", (void *)exit_code); 
 
     switch (exit_code) {
 	case SVM_EXIT_IOIO: {
@@ -104,7 +104,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		    return -1;
 		}
 	    } else {
-		PrintError("Invalid MSR Operation\n");
+		PrintError(info->vm_info, info, "Invalid MSR Operation\n");
 		return -1;
 	    }
 		
@@ -112,14 +112,14 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 	case SVM_EXIT_CPUID:
 	    if (v3_handle_cpuid(info) == -1) {
-		PrintError("Error handling CPUID\n");
+		PrintError(info->vm_info, info, "Error handling CPUID\n");
 		return -1;
 	    }
 
 	    break;
 	case SVM_EXIT_CR0_WRITE: 
 #ifdef V3_CONFIG_DEBUG_CTRL_REGS
-	    PrintDebug("CR0 Write\n");
+	    PrintDebug(info->vm_info, info, "CR0 Write\n");
 #endif
 	    if (v3_handle_cr0_write(info) == -1) {
 		return -1;
@@ -127,7 +127,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    break;
 	case SVM_EXIT_CR0_READ: 
 #ifdef V3_CONFIG_DEBUG_CTRL_REGS
-	    PrintDebug("CR0 Read\n");
+	    PrintDebug(info->vm_info, info, "CR0 Read\n");
 #endif
 	    if (v3_handle_cr0_read(info) == -1) {
 		return -1;
@@ -135,7 +135,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    break;
 	case SVM_EXIT_CR3_WRITE: 
 #ifdef V3_CONFIG_DEBUG_CTRL_REGS
-	    PrintDebug("CR3 Write\n");
+	    PrintDebug(info->vm_info, info, "CR3 Write\n");
 #endif
 	    if (v3_handle_cr3_write(info) == -1) {
 		return -1;
@@ -144,7 +144,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    break;
 	case  SVM_EXIT_CR3_READ: 
 #ifdef V3_CONFIG_DEBUG_CTRL_REGS
-	    PrintDebug("CR3 Read\n");
+	    PrintDebug(info->vm_info, info, "CR3 Read\n");
 #endif
 	    if (v3_handle_cr3_read(info) == -1) {
 		return -1;
@@ -152,7 +152,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    break;
 	case SVM_EXIT_CR4_WRITE: 
 #ifdef V3_CONFIG_DEBUG_CTRL_REGS
-	    PrintDebug("CR4 Write\n");
+	    PrintDebug(info->vm_info, info, "CR4 Write\n");
 #endif
 	    if (v3_handle_cr4_write(info) == -1) {
 		return -1;
@@ -160,7 +160,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    break;
 	case  SVM_EXIT_CR4_READ: 
 #ifdef V3_CONFIG_DEBUG_CTRL_REGS
-	    PrintDebug("CR4 Read\n");
+	    PrintDebug(info->vm_info, info, "CR4 Read\n");
 #endif
 	    if (v3_handle_cr4_read(info) == -1) {
 		return -1;
@@ -169,7 +169,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 	case SVM_EXIT_CR8_WRITE:
 #ifdef V3_CONFIG_DEBUG_CTRL_REGS
-	    PrintDebug("CR8 Read\n");
+	    PrintDebug(info->vm_info, info, "CR8 Read\n");
 #endif
 	    if (v3_handle_cr8_read(info) == -1) {
 		return -1;
@@ -178,7 +178,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 	case SVM_EXIT_CR8_READ:
 #ifdef V3_CONFIG_DEBUG_CTRL_REGS
-	    PrintDebug("CR8 Read\n");
+	    PrintDebug(info->vm_info, info, "CR8 Read\n");
 #endif
 	    if (v3_handle_cr8_read(info) == -1) {
 		return -1;
@@ -189,7 +189,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    addr_t fault_addr = exit_info2;
 	    pf_error_t * error_code = (pf_error_t *)&(exit_info1);
 #ifdef V3_CONFIG_DEBUG_SHADOW_PAGING
-	    PrintDebug("PageFault at %p (error=%d)\n", 
+	    PrintDebug(info->vm_info, info, "PageFault at %p (error=%d)\n", 
 		       (void *)fault_addr, *(uint_t *)error_code);
 #endif
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -197,7 +197,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		    return -1;
 		}
 	    } else {
-		PrintError("Page fault in un implemented paging mode\n");
+		PrintError(info->vm_info, info, "Page fault in un implemented paging mode\n");
 		return -1;
 	    }
 	    break;
@@ -211,7 +211,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 		    return -1;
 		}
 	    } else {
-		PrintError("Currently unhandled Nested Page Fault\n");
+		PrintError(info->vm_info, info, "Currently unhandled Nested Page Fault\n");
 		return -1;
 		    }
 	    break;
@@ -219,7 +219,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	case SVM_EXIT_INVLPG: 
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
 #ifdef V3_CONFIG_DEBUG_SHADOW_PAGING
-		PrintDebug("Invlpg\n");
+		PrintDebug(info->vm_info, info, "Invlpg\n");
 #endif
 		if (v3_handle_shadow_invlpg(info) == -1) {
 		    return -1;
@@ -236,7 +236,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    info->rip += 3;	    
 
 	    if (v3_handle_hypercall(info) == -1) {
-		PrintError("Error handling Hypercall\n");
+		PrintError(info->vm_info, info, "Error handling Hypercall\n");
 		return -1;
 	    }
 
@@ -252,7 +252,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    break;
 	case SVM_EXIT_HLT:
 #ifdef V3_CONFIG_DEBUG_HALT
-	    PrintDebug("Guest halted\n");
+	    PrintDebug(info->vm_info, info, "Guest halted\n");
 #endif
 	    if (v3_handle_halt(info) == -1) {
 		return -1;
@@ -261,7 +261,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 	case SVM_EXIT_MONITOR:
 #ifdef V3_CONFIG_DEBUG_MWAIT
-	    PrintDebug("Guest issuing MONITOR\n");
+	    PrintDebug(info->vm_info, info, "Guest issuing MONITOR\n");
 #endif
 	    if (v3_handle_monitor(info) == -1) { 
 		return -1;
@@ -271,7 +271,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	case SVM_EXIT_MWAIT:
 	case SVM_EXIT_MWAIT_CONDITIONAL:
 #ifdef V3_CONFIG_DEBUG_MWAIT
-	    PrintDebug("Guest issuing MWAIT\n");
+	    PrintDebug(info->vm_info, info, "Guest issuing MWAIT\n");
 #endif
 	    if (v3_handle_mwait(info) == -1) { 
 		return -1;
@@ -279,14 +279,14 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    break;
 
 	case SVM_EXIT_PAUSE:
-	    //	    PrintDebug("Guest paused\n");
+	    //	    PrintDebug(info->vm_info, info, "Guest paused\n");
 	    if (v3_handle_svm_pause(info) == -1) { 
 		return -1;
 	    }
 	    break;
 	case SVM_EXIT_WBINVD:   
 #ifdef V3_CONFIG_DEBUG_EMULATOR
-	    PrintDebug("WBINVD\n");
+	    PrintDebug(info->vm_info, info, "WBINVD\n");
 #endif
 	    if (v3_handle_svm_wbinvd(info) == -1) { 
 		return -1;
@@ -294,25 +294,25 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    break;
         case SVM_EXIT_RDTSC:
 #ifdef V3_CONFIG_DEBUG_TIME
-	    PrintDebug("RDTSC/RDTSCP\n");
+	    PrintDebug(info->vm_info, info, "RDTSC/RDTSCP\n");
 #endif 
 	    if (v3_handle_rdtsc(info) == -1) {
-		PrintError("Error Handling RDTSC instruction\n");
+		PrintError(info->vm_info, info, "Error Handling RDTSC instruction\n");
 		return -1;
 	    }
 	    break;
         case SVM_EXIT_RDTSCP:
 #ifdef V3_CONFIG_DEBUG_TIME
-	    PrintDebug("RDTSCP\n");
+	    PrintDebug(info->vm_info, info, "RDTSCP\n");
 #endif 
 	    if (v3_handle_rdtscp(info) == -1) {
-		PrintError("Error handling RDTSCP instruction\n");
+		PrintError(info->vm_info, info, "Error handling RDTSCP instruction\n");
 		return -1;
 	    }
 	    
 	    break;
 	case SVM_EXIT_SHUTDOWN:
-	    PrintDebug("Guest-initiated shutdown\n");
+	    PrintDebug(info->vm_info, info, "Guest-initiated shutdown\n");
 
 	    info->vm_info->run_state = VM_STOPPED;
 
@@ -322,10 +322,10 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 #ifdef V3_CONFIG_EXT_SW_INTERRUPTS
     case SVM_EXIT_SWINT:
 #ifdef V3_CONFIG_DEBUG_EXT_SW_INTERRUPTS
-        PrintDebug("Intercepted a software interrupt\n");
+        PrintDebug(info->vm_info, info, "Intercepted a software interrupt\n");
 #endif
         if (v3_handle_swintr(info) == -1) {
-            PrintError("Error handling software interrupt\n");
+            PrintError(info->vm_info, info, "Error handling software interrupt\n");
             return -1;
         }
         break;
@@ -339,22 +339,22 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 	    addr_t rip_addr;
 	    
-	    PrintError("Unhandled SVM Exit: %s\n", v3_svm_exit_code_to_str(exit_code));
+	    PrintError(info->vm_info, info, "Unhandled SVM Exit: %s\n", v3_svm_exit_code_to_str(exit_code));
 	    
 	    rip_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 	    
 	    
-	    PrintError("SVM Returned:(VMCB=%p)\n", (void *)(info->vmm_data)); 
-	    PrintError("RIP: %p\n", (void *)(addr_t)(info->rip));
-	    PrintError("RIP Linear: %p\n", (void *)(addr_t)(rip_addr));
+	    PrintError(info->vm_info, info, "SVM Returned:(VMCB=%p)\n", (void *)(info->vmm_data)); 
+	    PrintError(info->vm_info, info, "RIP: %p\n", (void *)(addr_t)(info->rip));
+	    PrintError(info->vm_info, info, "RIP Linear: %p\n", (void *)(addr_t)(rip_addr));
 	    
-	    PrintError("SVM Returned: Exit Code: %p\n", (void *)(addr_t)exit_code); 
+	    PrintError(info->vm_info, info, "SVM Returned: Exit Code: %p\n", (void *)(addr_t)exit_code); 
 	    
-	    PrintError("io_info1 low = 0x%.8x\n", *(uint_t*)&(exit_info1));
-	    PrintError("io_info1 high = 0x%.8x\n", *(uint_t *)(((uint8_t *)&(exit_info1)) + 4));
+	    PrintError(info->vm_info, info, "io_info1 low = 0x%.8x\n", *(uint_t*)&(exit_info1));
+	    PrintError(info->vm_info, info, "io_info1 high = 0x%.8x\n", *(uint_t *)(((uint8_t *)&(exit_info1)) + 4));
 	    
-	    PrintError("io_info2 low = 0x%.8x\n", *(uint_t*)&(exit_info2));
-	    PrintError("io_info2 high = 0x%.8x\n", *(uint_t *)(((uint8_t *)&(exit_info2)) + 4));
+	    PrintError(info->vm_info, info, "io_info2 low = 0x%.8x\n", *(uint_t*)&(exit_info2));
+	    PrintError(info->vm_info, info, "io_info2 high = 0x%.8x\n", *(uint_t *)(((uint8_t *)&(exit_info2)) + 4));
 	    
 	    
 	    if (info->shdw_pg_mode == SHADOW_PAGING) {
@@ -375,7 +375,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 
 
     if (exit_code == SVM_EXIT_INTR) {
-	//PrintDebug("INTR ret IP = %x\n", guest_state->rip);
+	//PrintDebug(info->vm_info, info, "INTR ret IP = %x\n", guest_state->rip);
     }
     
     return 0;

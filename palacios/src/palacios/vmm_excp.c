@@ -39,9 +39,9 @@ int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t 
 	excp_state->excp_num = excp;
 	excp_state->excp_error_code = error_code;
 	excp_state->excp_error_code_valid = 1;
-	//	PrintDebug("[v3_raise_exception_with_error] error code: %x\n", error_code);
+	//	PrintDebug(info->vm_info, info, "[v3_raise_exception_with_error] error code: %x\n", error_code);
     } else {
-	PrintError("Error injecting exception_w_error (excp=%d) (error=%d) -- Exception (%d) (error=%d) already pending\n",
+	PrintError(info->vm_info, info, "Error injecting exception_w_error (excp=%d) (error=%d) -- Exception (%d) (error=%d) already pending\n",
 		   excp, error_code, excp_state->excp_num, excp_state->excp_error_code);
 	return -1;
     }
@@ -51,14 +51,14 @@ int v3_raise_exception_with_error(struct guest_info * info, uint_t excp, uint_t 
 
 int v3_raise_exception(struct guest_info * info, uint_t excp) {
     struct v3_excp_state * excp_state = &(info->excp_state);
-    //PrintDebug("[v3_raise_exception]\n");
+    //PrintDebug(info->vm_info, info, "[v3_raise_exception]\n");
     if (excp_state->excp_pending == 0) {
 	excp_state->excp_pending = 1;
 	excp_state->excp_num = excp;
 	excp_state->excp_error_code = 0;
 	excp_state->excp_error_code_valid = 0;
     } else {
-	PrintError("Error injecting exception (excp=%d) -- Exception (%d) (error=%d) already pending\n",
+	PrintError(info->vm_info, info, "Error injecting exception (excp=%d) -- Exception (%d) (error=%d) already pending\n",
 		   excp, excp_state->excp_num, excp_state->excp_error_code);
 	return -1;
     }

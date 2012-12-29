@@ -238,7 +238,7 @@ int mcg_write_handler(struct guest_info * core, uint32_t msr, struct v3_msr src,
 
     switch (msr) {
     case MCG_CAP:
-        PrintDebug(MSG_PRE "Ignoring write to MCG_CAP MSR.\n");
+        PrintDebug(core->vm_info, core, MSG_PRE "Ignoring write to MCG_CAP MSR.\n");
         break;
 
     case MCG_STAT:
@@ -247,7 +247,7 @@ int mcg_write_handler(struct guest_info * core, uint32_t msr, struct v3_msr src,
 
     case MCG_CTRL:
         if (!state->mcg_cap.mcg_ctl_p) {
-        PrintDebug(MSG_PRE "Ignoring write to control MSR '0x%x'. Control MSRs not supported.\n", msr);
+        PrintDebug(core->vm_info, core, MSG_PRE "Ignoring write to control MSR '0x%x'. Control MSRs not supported.\n", msr);
         break;
         }
 
@@ -258,7 +258,7 @@ int mcg_write_handler(struct guest_info * core, uint32_t msr, struct v3_msr src,
         break;
 
     default:
-         PrintError(MSG_PRE "Reading from invalid MSR: %x\n", msr);
+         PrintError(core->vm_info, core, MSG_PRE "Reading from invalid MSR: %x\n", msr);
          return -1;
     }
 
@@ -284,7 +284,7 @@ int mcg_read_handler(struct guest_info * core, uint32_t msr, struct v3_msr * dst
 
     case MCG_CTRL:
         if (!state->mcg_cap.mcg_ctl_p) {
-        PrintDebug(MSG_PRE "Ignoring read of control MSR '0x%x'. Control MSRs not supported.\n", msr);
+        PrintDebug(core->vm_info, core, MSG_PRE "Ignoring read of control MSR '0x%x'. Control MSRs not supported.\n", msr);
         break;
         }
 
@@ -292,7 +292,7 @@ int mcg_read_handler(struct guest_info * core, uint32_t msr, struct v3_msr * dst
         break;
 
      default:
-         PrintError(MSG_PRE "Reading from invalid MSR: %x\n", msr);
+         PrintError(core->vm_info, core, MSG_PRE "Reading from invalid MSR: %x\n", msr);
          return -1;
      }
 
@@ -323,17 +323,17 @@ int mci_read_handler(struct guest_info * const core,
     struct mcheck_state * const state = (struct mcheck_state *)priv_data;
     struct mci_bank * mci = get_mci_reg(state, msr);
 
-    PrintDebug(MSG_PRE "Reading value '0x%llx' for MSR '0x%x'.\n", dst->value, msr);
+    PrintDebug(core->vm_info, core, MSG_PRE "Reading value '0x%llx' for MSR '0x%x'.\n", dst->value, msr);
 
     if (mci == NULL) {
-    PrintError(MSG_PRE " MSR read for invalid MCI register 0x%x\n", msr);
+    PrintError(core->vm_info, core, MSG_PRE " MSR read for invalid MCI register 0x%x\n", msr);
     return -1;
     }
 
     switch (msr & ~MCi_MASK) {
     case MCi_CTRL:
         if (!state->mcg_cap.mcg_ctl_p) {
-        PrintDebug(MSG_PRE "Ignoring read of control MSR '0x%x'. Control MSRs not supported.\n", msr);
+        PrintDebug(core->vm_info, core, MSG_PRE "Ignoring read of control MSR '0x%x'. Control MSRs not supported.\n", msr);
         break;
         }
 
@@ -353,7 +353,7 @@ int mci_read_handler(struct guest_info * const core,
         break;
 
     default:
-        PrintError(MSG_PRE "Ignoring read of unhooked MSR '0x%x'. This is a bug.\n", msr);
+        PrintError(core->vm_info, core, MSG_PRE "Ignoring read of unhooked MSR '0x%x'. This is a bug.\n", msr);
         break;
     }
 
@@ -371,12 +371,12 @@ int mci_write_handler(struct guest_info * const core,
     struct mcheck_state * const state = (struct mcheck_state *)priv_data;
     struct mci_bank * mci = get_mci_reg(state, msr);
 
-    PrintDebug(MSG_PRE "Writing value '0x%llx' for MSR '0x%x'.\n", src.value, msr);
+    PrintDebug(core->vm_info, core, MSG_PRE "Writing value '0x%llx' for MSR '0x%x'.\n", src.value, msr);
 
     switch (msr & ~MCi_MASK) {
     case MCi_CTRL:
         if (!state->mcg_cap.mcg_ctl_p) {
-        PrintDebug(MSG_PRE "Ignoring read of control MSR '0x%x'. Control MSRs not supported.\n", msr);
+        PrintDebug(core->vm_info, core, MSG_PRE "Ignoring read of control MSR '0x%x'. Control MSRs not supported.\n", msr);
         break;
         }
 
@@ -386,7 +386,7 @@ int mci_write_handler(struct guest_info * const core,
     case MCi_STAT:
         if (src.value != 0) {
         // Should be a GPF.
-        PrintError(MSG_PRE "Ignoring write of illegal value '0x%llx'.\n", src.value);
+        PrintError(core->vm_info, core, MSG_PRE "Ignoring write of illegal value '0x%llx'.\n", src.value);
         return -1;
         }
 
@@ -398,11 +398,11 @@ int mci_write_handler(struct guest_info * const core,
         break;
 
     case MCi_MISC:
-        V3_Print(MSG_PRE "Ignoring write to read only miscellaneous MSR '0x%x'.\n", msr);
+        V3_Print(core->vm_info, core, MSG_PRE "Ignoring write to read only miscellaneous MSR '0x%x'.\n", msr);
         break;
 
     default:
-        PrintError(MSG_PRE "Ignoring write of unhooked MSR '0x%x'. This is a bug.\n", msr);
+        PrintError(core->vm_info, core, MSG_PRE "Ignoring write of unhooked MSR '0x%x'. This is a bug.\n", msr);
         break;
     }
 
@@ -426,8 +426,8 @@ int add_cpuid_fields(struct v3_vm_info * const vm,
                               CPUID_FIELDS, CPUID_FIELDS);
 
     if (ret == -1) {
-    PrintError(MSG_PRE "Failed to add CPUID fields for function 0000_0001.\n");
-    return -1;
+      PrintError(vm, VCORE_NONE, MSG_PRE "Failed to add CPUID fields for function 0000_0001.\n");
+      return -1;
     }
 
     // Add bit 7, MCE availability, and bit 14, MCE availability.
@@ -438,7 +438,7 @@ int add_cpuid_fields(struct v3_vm_info * const vm,
                               CPUID_FIELDS, CPUID_FIELDS);
 
     if (ret == -1) {
-    PrintError(MSG_PRE "Failed to add CPUID fileds for function 8000_0001.\n");
+    PrintError(vm, VCORE_NONE, MSG_PRE "Failed to add CPUID fileds for function 8000_0001.\n");
     return -1;
     }
 
@@ -449,7 +449,7 @@ int add_cpuid_fields(struct v3_vm_info * const vm,
 static int deinit_mcheck(struct v3_vm_info * vm, void * priv_data) {
     struct mcheck_state * state = (struct mcheck_state *)v3_get_extension_state(vm, priv_data);
     if (state == NULL) {
-        PrintError(MSG_PRE "Failed to get machine-check architecture extension state.\n");
+        PrintError(vm, VCORE_NONE, MSG_PRE "Failed to get machine-check architecture extension state.\n");
         return -1;
     }
 
@@ -465,7 +465,7 @@ static int init_mcheck(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv
     state = (struct mcheck_state *)V3_Malloc(sizeof(struct mcheck_state));
 
     if (state == NULL) {
-	PrintError(MSG_PRE "Failed to allocate machine-check architecture state.\n");
+	PrintError(vm, VCORE_NONE, MSG_PRE "Failed to allocate machine-check architecture state.\n");
 	return -1;
     }
 
@@ -490,14 +490,14 @@ static int init_mcheck(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv
     }
 
     if (ret == -1) {
-    PrintError(MSG_PRE "Error hooking machine-check architecture resources.\n");
+    PrintError(vm, VCORE_NONE, MSG_PRE "Error hooking machine-check architecture resources.\n");
     V3_Free(state);
     return -1;
     }
 
     *priv_data = state;
 
-    PrintDebug(MSG_PRE "Initialized machine-check architecture.\n");
+    PrintDebug(vm, VCORE_NONE, MSG_PRE "Initialized machine-check architecture.\n");
 
     return 0;
 }
@@ -509,19 +509,19 @@ int v3_mcheck_inject_nb_mce(struct v3_vm_info * const vm, const uint32_t cpu,
     int ret;
 
     if (state == NULL) {
-    PrintError(MSG_PRE "Machine-check architecture extension state not found.\n");
+    PrintError(vm, VCORE_NONE, MSG_PRE "Machine-check architecture extension state not found.\n");
     return -1;
     }
 
     // For now only MCE injection on cpu 0 is supported.
     if (cpu != 0) {
-    PrintError(MSG_PRE "Injecting MCE on cpu %u not supported.\n", cpu);
+    PrintError(vm, VCORE_NONE, MSG_PRE "Injecting MCE on cpu %u not supported.\n", cpu);
     return -1;
     }
 
     // Is the Northbridge bank enabled?
     if (state->mcg_ctl.nbe != 1) {
-    PrintDebug(MSG_PRE "Northbridge register bank disabled. Ignoring Northbridge MCE.\n");
+    PrintDebug(vm, VCORE_NONE, MSG_PRE "Northbridge register bank disabled. Ignoring Northbridge MCE.\n");
     return 0;
     }
 
@@ -532,13 +532,13 @@ int v3_mcheck_inject_nb_mce(struct v3_vm_info * const vm, const uint32_t cpu,
     state->mcg_stat.ripv = 1;
     state->mcg_stat.mcip = 1;
 
-    PrintDebug(MSG_PRE "Injecting NB MCE on core %u.\n", 0);
+    PrintDebug(vm, VCORE_NONE, MSG_PRE "Injecting NB MCE on core %u.\n", 0);
 
     // Raise on core 0.
     ret = v3_raise_exception(&(vm->cores[0]), MCE_INTERRUPT);
 
     if (ret == -1) {
-    PrintError(MSG_PRE "Failed to raise MCE.\n");
+    PrintError(vm, VCORE_NONE, MSG_PRE "Failed to raise MCE.\n");
     return -1;
     }
 

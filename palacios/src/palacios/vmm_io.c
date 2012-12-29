@@ -129,7 +129,7 @@ int v3_hook_io_port(struct v3_vm_info * vm, uint16_t port,
   struct v3_io_hook * io_hook = (struct v3_io_hook *)V3_Malloc(sizeof(struct v3_io_hook));
 
   if (!io_hook) {
-      PrintError("Cannot allocate in hooking an I/O port\n");
+      PrintError(vm, VCORE_NONE, "Cannot allocate in hooking an I/O port\n");
       return -1;
   }
 
@@ -151,7 +151,7 @@ int v3_hook_io_port(struct v3_vm_info * vm, uint16_t port,
   io_hook->priv_data = priv_data;
 
   if (insert_io_hook(vm, io_hook)) {
-      PrintError("Could not insert IO hook for port %u (0x%x)\n", port, port);
+      PrintError(vm, VCORE_NONE, "Could not insert IO hook for port %u (0x%x)\n", port, port);
       V3_Free(io_hook);
       return -1;
   }
@@ -160,7 +160,7 @@ int v3_hook_io_port(struct v3_vm_info * vm, uint16_t port,
       if (vm->io_map.update_map(vm, port, 
 				  ((read == NULL) ? 0 : 1), 
 				  ((write == NULL) ? 0 : 1)) == -1) {
-	  PrintError("Could not update IO map for port %u (0x%x)\n", port, port);
+	  PrintError(vm, VCORE_NONE, "Could not update IO map for port %u (0x%x)\n", port, port);
 	  V3_Free(io_hook);
 	  return -1;
       }
@@ -187,7 +187,7 @@ int v3_unhook_io_port(struct v3_vm_info * vm, uint16_t port) {
     struct v3_io_hook * hook = v3_get_io_hook(vm, port);
 
     if (hook == NULL) {
-	PrintError("Could not find port to unhook %u (0x%x)\n", port, port);
+	PrintError(vm, VCORE_NONE, "Could not find port to unhook %u (0x%x)\n", port, port);
 	return -1;
     }
 
@@ -207,7 +207,7 @@ void v3_refresh_io_map(struct v3_vm_info * vm) {
     struct v3_io_hook * tmp = NULL;
     
     if (io_map->update_map == NULL) {
-	PrintError("Trying to refresh an io map with no backend\n");
+	PrintError(vm, VCORE_NONE, "Trying to refresh an io map with no backend\n");
 	return;
     }
 
@@ -225,10 +225,10 @@ void v3_print_io_map(struct v3_vm_info * vm) {
     struct v3_io_map * io_map = &(vm->io_map);
     struct v3_io_hook * tmp_hook = NULL;
 
-    V3_Print("VMM IO Map\n");
+    V3_Print(vm, VCORE_NONE, "VMM IO Map\n");
 
     v3_rb_for_each_entry(tmp_hook, &(io_map->map), tree_node) {
-	V3_Print("IO Port: %hu (Read=%p) (Write=%p)\n", 
+	V3_Print(vm, VCORE_NONE, "IO Port: %hu (Read=%p) (Write=%p)\n", 
 		 tmp_hook->port, 
 		 (void *)(tmp_hook->read), (void *)(tmp_hook->write));
     }

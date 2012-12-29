@@ -102,7 +102,7 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 static int handle_kick(struct guest_info * core, struct virtio_console_state * virtio) {
     struct virtio_queue * q = virtio->cur_queue;
 
-    PrintDebug("VIRTIO CONSOLE KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
+    PrintDebug(core->vm_info, core, "VIRTIO CONSOLE KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
 	       q->cur_avail_idx, q->cur_avail_idx % QUEUE_SIZE, q->avail->index);
 
     while (q->cur_avail_idx < q->avail->index) {
@@ -113,26 +113,26 @@ static int handle_kick(struct guest_info * core, struct virtio_console_state * v
 	uint32_t req_len = 0;
 
 
-	PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
+	PrintDebug(core->vm_info, core, "Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
 
 	for (i = 0; i < desc_cnt; i++) {
 	    addr_t page_addr;
 	    tmp_desc = &(q->desc[desc_idx]);
 	    
 	
-	    PrintDebug("Console output (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
+	    PrintDebug(core->vm_info, core, "Console output (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
 		       tmp_desc, 
 		       (void *)(addr_t)(tmp_desc->addr_gpa), tmp_desc->length, 
 		       tmp_desc->flags, tmp_desc->next);
 	
 	    if (v3_gpa_to_hva(core, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
-		PrintError("Could not translate block header address\n");
+		PrintError(core->vm_info, core, "Could not translate block header address\n");
 		return -1;
 	    }
 
 	    virtio->ops->output((uint8_t *)page_addr, tmp_desc->length, virtio->backend_data);
 
-	    PrintDebug("Guest Console Currently Ignored\n");
+	    PrintDebug(core->vm_info, core, "Guest Console Currently Ignored\n");
 
 	    req_len += tmp_desc->length;
 	    desc_idx = tmp_desc->next;
@@ -146,7 +146,7 @@ static int handle_kick(struct guest_info * core, struct virtio_console_state * v
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
+	PrintDebug(core->vm_info, core, "Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(virtio->pci_bus, virtio->pci_dev, 0);
 	virtio->virtio_cfg.pci_isr = VIRTIO_ISR_ACTIVE;
     }
@@ -160,7 +160,7 @@ static uint64_t virtio_input(struct v3_vm_info * vm, uint8_t * buf, uint64_t len
     struct virtio_queue * q = &(cons_state->queue[0]);
     int xfer_len = 0;
     
-   PrintDebug("VIRTIO CONSOLE Handle Input: cur_index=%d (mod=%d), avail_index=%d\n", 
+   PrintDebug(vm, VCORE_NONE, "VIRTIO CONSOLE Handle Input: cur_index=%d (mod=%d), avail_index=%d\n", 
 	       q->cur_avail_idx, q->cur_avail_idx % QUEUE_SIZE, q->avail->index);
 
 
@@ -173,7 +173,7 @@ static uint64_t virtio_input(struct v3_vm_info * vm, uint8_t * buf, uint64_t len
        input_desc = &(q->desc[input_idx]);
 
        if (v3_gpa_to_hva(&(cons_state->vm->cores[0]), input_desc->addr_gpa, (addr_t *)&(input_buf)) == -1) {
-	   PrintError("Could not translate receive buffer address\n");
+	   PrintError(vm, VCORE_NONE, "Could not translate receive buffer address\n");
 	   return 0;
        }
 
@@ -207,7 +207,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
     int port_idx = port % virtio->io_range_size;
 
 
-    PrintDebug("VIRTIO CONSOLE Write for port %d (index=%d) len=%d, value=%x\n", 
+    PrintDebug(core->vm_info, core, "VIRTIO CONSOLE Write for port %d (index=%d) len=%d, value=%x\n", 
 	       port, port_idx,  length, *(uint32_t *)src);
 
 
@@ -215,7 +215,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
     switch (port_idx) {
 	case GUEST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Illegal write length for guest features\n");
+		PrintError(core->vm_info, core, "Illegal write length for guest features\n");
 		return -1;
 	    }
 	    
@@ -240,32 +240,32 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 		virtio->cur_queue->ring_used_addr = (virtio->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
 
 		if (v3_gpa_to_hva(core, virtio->cur_queue->ring_desc_addr, (addr_t *)&(virtio->cur_queue->desc)) == -1) {
-		    PrintError("Could not translate ring descriptor address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
 		if (v3_gpa_to_hva(core, virtio->cur_queue->ring_avail_addr, (addr_t *)&(virtio->cur_queue->avail)) == -1) {
-		    PrintError("Could not translate ring available address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring available address\n");
 		    return -1;
 		}
 
 
 		if (v3_gpa_to_hva(core, virtio->cur_queue->ring_used_addr, (addr_t *)&(virtio->cur_queue->used)) == -1) {
-		    PrintError("Could not translate ring used address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring used address\n");
 		    return -1;
 		}
 
-		PrintDebug("RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
+		PrintDebug(core->vm_info, core, "RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
 			   (void *)(virtio->cur_queue->ring_desc_addr),
 			   (void *)(virtio->cur_queue->ring_avail_addr),
 			   (void *)(virtio->cur_queue->ring_used_addr));
 
-		PrintDebug("RingDesc=%p, Avail=%p, Used=%p\n", 
+		PrintDebug(core->vm_info, core, "RingDesc=%p, Avail=%p, Used=%p\n", 
 			   virtio->cur_queue->desc, virtio->cur_queue->avail, virtio->cur_queue->used);
 
 	    } else {
-		PrintError("Illegal write length for page frame number\n");
+		PrintError(core->vm_info, core, "Illegal write length for page frame number\n");
 		return -1;
 	    }
 	    break;
@@ -273,7 +273,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 	    virtio->virtio_cfg.vring_queue_selector = *(uint16_t *)src;
 
 	    if (virtio->virtio_cfg.vring_queue_selector > 1) {
-		PrintError("Virtio Console device only uses 2 queue, selected %d\n", 
+		PrintError(core->vm_info, core, "Virtio Console device only uses 2 queue, selected %d\n", 
 			   virtio->virtio_cfg.vring_queue_selector);
 		return -1;
 	    }
@@ -282,9 +282,9 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 
 	    break;
 	case VRING_Q_NOTIFY_PORT:
-	    PrintDebug("Handling Kick\n");
+	    PrintDebug(core->vm_info, core, "Handling Kick\n");
 	    if (handle_kick(core, virtio) == -1) {
-		PrintError("Could not handle Console Notification\n");
+		PrintError(core->vm_info, core, "Could not handle Console Notification\n");
 		return -1;
 	    }
 	    break;
@@ -292,7 +292,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 	    virtio->virtio_cfg.status = *(uint8_t *)src;
 
 	    if (virtio->virtio_cfg.status == 0) {
-		PrintDebug("Resetting device\n");
+		PrintDebug(core->vm_info, core, "Resetting device\n");
 		virtio_reset(virtio);
 	    }
 
@@ -315,13 +315,13 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
     int port_idx = port % virtio->io_range_size;
 
 
-    PrintDebug("VIRTIO CONSOLE Read  for port %d (index =%d), length=%d\n", 
+    PrintDebug(core->vm_info, core, "VIRTIO CONSOLE Read  for port %d (index =%d), length=%d\n", 
 	       port, port_idx, length);
 
     switch (port_idx) {
 	case HOST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Illegal read length for host features\n");
+		PrintError(core->vm_info, core, "Illegal read length for host features\n");
 		return -1;
 	    }
 
@@ -330,7 +330,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 	    break;
 	case VRING_PG_NUM_PORT:
 	    if (length != 4) {
-		PrintError("Illegal read length for page frame number\n");
+		PrintError(core->vm_info, core, "Illegal read length for page frame number\n");
 		return -1;
 	    }
 
@@ -339,7 +339,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 	    break;
 	case VRING_SIZE_PORT:
 	    if (length != 2) {
-		PrintError("Illegal read length for vring size\n");
+		PrintError(core->vm_info, core, "Illegal read length for vring size\n");
 		return -1;
 	    }
 		
@@ -349,7 +349,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 	case VIRTIO_STATUS_PORT:
 	    if (length != 1) {
-		PrintError("Illegal read length for status\n");
+		PrintError(core->vm_info, core, "Illegal read length for status\n");
 		return -1;
 	    }
 
@@ -371,7 +371,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 		memcpy(dst, cfg_ptr + cfg_offset, length);
 		
 	    } else {
-		PrintError("Read of Unhandled Virtio Read\n");
+		PrintError(core->vm_info, core, "Read of Unhandled Virtio Read\n");
 		return -1;
 	    }
 	  
@@ -425,10 +425,10 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_device * pci_dev = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
 
-    PrintDebug("Initializing VIRTIO Console device\n");
+    PrintDebug(vm, VCORE_NONE, "Initializing VIRTIO Console device\n");
 
     if (pci_bus == NULL) {
-	PrintError("VirtIO devices require a PCI Bus");
+	PrintError(vm, VCORE_NONE, "VirtIO devices require a PCI Bus");
 	return -1;
     }
 
@@ -436,7 +436,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     virtio_state = (struct virtio_console_state *)V3_Malloc(sizeof(struct virtio_console_state));
 
     if (!virtio_state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -451,7 +451,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(virtio_state);
 	return -1;
     }
@@ -498,7 +498,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 					 NULL, NULL, NULL, NULL, virtio_state);
 
 	if (!pci_dev) {
-	    PrintError("Could not register PCI Device\n");
+	    PrintError(vm, VCORE_NONE, "Could not register PCI Device\n");
 	    v3_remove_device(dev);
 	    return -1;
 	}
@@ -525,7 +525,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     virtio_reset(virtio_state);
 
     if (v3_dev_add_char_frontend(vm, dev_id, connect_fn, (void *)virtio_state) == -1) {
-	PrintError("Could not register %s as frontend\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not register %s as frontend\n", dev_id);
 	v3_remove_device(dev);
 	return -1;
     }

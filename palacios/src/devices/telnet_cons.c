@@ -48,8 +48,8 @@
 
 
 struct cons_state {
-    int server_fd;
-    int client_fd;
+    v3_sock_t server_fd;
+    v3_sock_t client_fd;
 
     uint16_t port;
 
@@ -57,7 +57,7 @@ struct cons_state {
 
     v3_lock_t cons_lock;
 
-    v3_vm_info * vm;
+    struct v3_vm_info * vm;
 
     struct vm_device * frontend_dev;
 };
@@ -113,7 +113,7 @@ static int deliver_scan_code(struct cons_state * state, struct key_code * key) {
     key_event.status = 0;
     key_event.scan_code = (uint8_t)key->scan_code;
 
-    PrintDebug("Scan code: 0x%x\n", key_event.scan_code);
+    PrintDebug(VM_NONE, VCORE_NONE, "Scan code: 0x%x\n", key_event.scan_code);
 
 
     if (cap) {
@@ -121,14 +121,14 @@ static int deliver_scan_code(struct cons_state * state, struct key_code * key) {
 	key_shift.scan_code = (uint8_t)0x2A;
 
 	if (v3_deliver_keyboard_event(state->vm, &key_shift) == -1) {
-	    PrintError("Video: Error delivering key event\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Video: Error delivering key event\n");
 	    return -1;
 	}
     }
 
     // Press
     if (v3_deliver_keyboard_event(state->vm, &key_event) == -1) {
-	PrintError("Video: Error delivering key event\n");
+	PrintError(VM_NONE, VCORE_NONE, "Video: Error delivering key event\n");
 	return -1;
     }
 
@@ -136,7 +136,7 @@ static int deliver_scan_code(struct cons_state * state, struct key_code * key) {
     key_event.scan_code = key_event.scan_code | 0x80;
   
     if (v3_deliver_keyboard_event(state->vm, &key_event) == -1) {
-	PrintError("Video: Error delivering key event\n");
+	PrintError(VM_NONE, VCORE_NONE, "Video: Error delivering key event\n");
 	return -1;
     }
 
@@ -145,31 +145,31 @@ static int deliver_scan_code(struct cons_state * state, struct key_code * key) {
         key_shift.scan_code = 0x2A | 0x80;
 
 	if (v3_deliver_keyboard_event(state->vm, &key_shift) == -1) {
-	    PrintError("Video: Error delivering key event\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Video: Error delivering key event\n");
 	    return -1;
 	}
     }
 
-    PrintDebug("Finished with Key delivery\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Finished with Key delivery\n");
     return 0;
 }
 
 
 
 
-static int recv_all(int socket, char * buf, int length) {
+static int recv_all(v3_sock_t socket, char * buf, int length) {
     int bytes_read = 0;
     
-    PrintDebug("Reading %d bytes\n", length - bytes_read);
+    PrintDebug(VM_NONE, VCORE_NONE, "Reading %d bytes\n", length - bytes_read);
     while (bytes_read < length) {
-        int tmp_bytes = V3_Recv(socket, buf + bytes_read, length - bytes_read);
-        PrintDebug("Received %d bytes\n", tmp_bytes);
+        int tmp_bytes = v3_socket_recv(socket, buf + bytes_read, length - bytes_read);
+        PrintDebug(VM_NONE, VCORE_NONE, "Received %d bytes\n", tmp_bytes);
 
         if (tmp_bytes == 0) {
-            PrintError("Connection Closed unexpectedly\n");
+            PrintError(VM_NONE, VCORE_NONE, "Connection Closed unexpectedly\n");
             return 0;
         } else if (tmp_bytes == -1) {
-	    PrintError("Socket Error in for V3_RECV\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Socket Error in for V3_RECV\n");
 	    return -1;
 	}
 
@@ -180,13 +180,13 @@ static int recv_all(int socket, char * buf, int length) {
 }
 
 
-static int send_all(const int sock, const char * buf, const int len){
+static int send_all(const v3_sock_t sock, const char * buf, const int len){
     int bytes_left = len;
 
     while (bytes_left != 0) {
 	int written = 0;
 
-	if ((written = V3_Send(sock, buf + (len - bytes_left), bytes_left)) == -1) {
+	if ((written = v3_socket_send(sock, buf + (len - bytes_left), bytes_left)) == -1) {
 	    return -1;
 	}
 
@@ -258,7 +258,7 @@ static int send_update(struct cons_state * state, uint8_t  x, uint8_t  y, uint8_
     buf[i++] = 'H';
     buf[i++] = val;
 
-    PrintDebug("printing value '%c'\n", val);
+    PrintDebug(VM_NONE, VCORE_NONE, "printing value '%c'\n", val);
 
     if (state->connected) {
 	uint64_t start, end;
@@ -267,7 +267,7 @@ static int send_update(struct cons_state * state, uint8_t  x, uint8_t  y, uint8_
 	ret =  send_all(state->client_fd, buf, 32);
 	rdtscll(end);
 
-	PrintDebug("Sendall latency=%d cycles\n", (uint32_t)(end - start));
+	PrintDebug(VM_NONE, VCORE_NONE, "Sendall latency=%d cycles\n", (uint32_t)(end - start));
     }
 
     return ret;
@@ -335,7 +335,7 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
 	irq_state = v3_lock_irqsave(state->cons_lock);
 
 	if (send_update(state, cur_x, cur_y, col[1], col[0]) == -1) {
-	    PrintError("Could not send attribute to telnet session\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Could not send attribute to telnet session\n");
 	    ret = -1;
 	    break;
 	}
@@ -368,7 +368,7 @@ static int scroll(int rows, void * private_data) {
 
 	    if (state->connected) {
 		if (send_all(state->client_fd, message, sizeof(message)) == -1) {
-		    PrintError("Could not send scroll command\n");
+		    PrintError(VM_NONE, VCORE_NONE, "Could not send scroll command\n");
 		    ret = -1;
 		    break;
 		}
@@ -409,14 +409,14 @@ static struct v3_device_ops dev_ops = {
 
 
 static int key_handler( struct cons_state * state, uint8_t ascii) {
-    PrintDebug("Character recieved: 0x%x\n", ascii);
+    PrintDebug(VM_NONE, VCORE_NONE, "Character recieved: 0x%x\n", ascii);
 
     // printable
     if (ascii < 0x80) {
 	const struct key_code * key = &(ascii_to_key_code[ascii]);
 
 	if (deliver_scan_code(state, (struct key_code *)key) == -1) {
-	    PrintError("Could not deliver scan code to vm\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Could not deliver scan code to vm\n");
 	    return -1;
 	}
 
@@ -428,16 +428,16 @@ static int key_handler( struct cons_state * state, uint8_t ascii) {
 	int recv = recv_all(state->client_fd, esc_seq, 2);
 
 	if (recv == -1) {
-	    PrintError("Video: Error getting key from network\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Video: Error getting key from network\n");
 	    return -1;
 	} else if (recv == 0) {
-	    PrintDebug("Video: Client Disconnected\n");
+	    PrintDebug(VM_NONE, VCORE_NONE, "Video: Client Disconnected\n");
 	    return -1;
 	}
 
 
 	if (esc_seq[0] != '[') {
-	    PrintDebug("Ignoring non handled escape sequence (codes = %d %d)\n", 
+	    PrintDebug(VM_NONE, VCORE_NONE, "Ignoring non handled escape sequence (codes = %d %d)\n", 
 		       esc_seq[0], esc_seq[1]);
 	    return 0;
 	}
@@ -457,7 +457,7 @@ static int key_handler( struct cons_state * state, uint8_t ascii) {
 	    deliver_scan_code(state, &left);
 	}
     } else {
-	PrintError("Invalid character received from network (%c) (code=%d)\n",
+	PrintError(VM_NONE, VCORE_NONE, "Invalid character received from network (%c) (code=%d)\n",
 		   ascii, ascii);
 	//	return 0;
     }
@@ -468,17 +468,17 @@ static int key_handler( struct cons_state * state, uint8_t ascii) {
 static int cons_server(void * arg) {
     struct cons_state * state = (struct cons_state *)arg;
     
-    state->server_fd = V3_Create_TCP_Socket();
+    state->server_fd = v3_create_tcp_socket(state->vm);
 
 
-    PrintDebug("Video: Socket File Descriptor: %d\n", state->server_fd);
+    PrintDebug(VM_NONE, VCORE_NONE, "Video: Socket File Descriptor: 0x%p\n", state->server_fd);
 
-    if (V3_Bind_Socket(state->server_fd, state->port) == -1) {
-	PrintError("Video: Failed to bind to socket %d\n", state->port);
+    if (v3_socket_bind(state->server_fd, state->port) == -1) {
+	PrintError(VM_NONE, VCORE_NONE, "Video: Failed to bind to socket %d\n", state->port);
     }
 
-    if (V3_Listen_Socket(state->server_fd, 8) == -1) {
-	PrintError("Video: Failed to listen with socket %d\n", state->server_fd);
+    if (v3_socket_listen(state->server_fd, 8) == -1) {
+	PrintError(VM_NONE, VCORE_NONE, "Video: Failed to listen with socket 0x%p\n", state->server_fd);
     }
 
     while (1) {
@@ -487,10 +487,10 @@ static int cons_server(void * arg) {
 	uint8_t ascii_code = 0;
 	int recv = 0;
 
-	if ((state->client_fd = V3_Accept_Socket(state->server_fd, &client_ip,  &client_port)) == -1) {
-	    PrintError("Video: Failed to accept connection on port %d\n", client_port);
+	if ((state->client_fd = v3_socket_accept(state->server_fd, &client_ip,  &client_port)) == 0) {
+	    PrintError(VM_NONE, VCORE_NONE, "Video: Failed to accept connection on port %d\n", client_port);
 	}
-	PrintDebug("Accepted Telnet Console connection\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "Accepted Telnet Console connection\n");
 	state->connected = 1;
 
 	screen_update(0, 0, SCREEN_SIZE, state);
@@ -498,24 +498,24 @@ static int cons_server(void * arg) {
 	while (1) {
 	    recv = recv_all(state->client_fd, &ascii_code, sizeof(ascii_code));
 
-	    PrintDebug("Telnet console Received %d bytes\n", recv);
+	    PrintDebug(VM_NONE, VCORE_NONE, "Telnet console Received %d bytes\n", recv);
 
 	    if (recv == -1) {
-		PrintError("Video: Error getting key from network\n");
+		PrintError(VM_NONE, VCORE_NONE, "Video: Error getting key from network\n");
 		break;
 	    } else if (recv == 0) {
-		PrintDebug("Video: Client Disconnected\n");
+		PrintDebug(VM_NONE, VCORE_NONE, "Video: Client Disconnected\n");
 		break;
 	    }
 
 	    if (key_handler(state, ascii_code) == -1) {
-		PrintError("Error in key handler\n");
+		PrintError(VM_NONE, VCORE_NONE, "Error in key handler\n");
 		break;
 	    }
 	}
 
 	state->connected = 0;
-	V3_Close_Socket(state->client_fd);
+	v3_socket_close(state->client_fd);
     }
     
     return -1;
@@ -529,7 +529,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");
 
     if (!state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -545,7 +545,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
     }

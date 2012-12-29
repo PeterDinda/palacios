@@ -52,20 +52,20 @@ int v3_init_symbiotic_vm(struct v3_vm_info * vm) {
     v3_hook_cpuid(vm, SYM_CPUID_NUM, cpuid_fn, NULL);
 
     if (v3_init_symspy_vm(vm, &(vm_state->symspy_state)) == -1) {
-	PrintError("Error initializing global SymSpy state\n");
+      PrintError(vm,VCORE_NONE, "Error initializing global SymSpy state\n");
 	return -1;
     }
 
 #ifdef V3_CONFIG_SYMCALL
     if (v3_init_symcall_vm(vm) == -1) {
-	PrintError("Error intializing global SymCall state\n");
+      PrintError(vm, VCORE_NONE, "Error intializing global SymCall state\n");
 	return -1;
     }
 #endif
 
 #ifdef V3_CONFIG_SYMMOD
     if (v3_init_symmod_vm(vm, vm->cfg_data->cfg) == -1) {
-	PrintError("Error initializing global SymMod state\n");
+        PrintError(vm, VCORE_NONE, "Error initializing global SymMod state\n");
 	return -1;
     }
 #endif
@@ -79,7 +79,7 @@ int v3_deinit_symbiotic_vm(struct v3_vm_info * vm) {
 
 #ifdef V3_CONFIG_SYMMOD
     if (v3_deinit_symmod_vm(vm) == -1) {
-	PrintError("Error deinitializing global SymMod state\n");
+        PrintError(vm, VCORE_NONE,  "Error deinitializing global SymMod state\n");
 	return -1;
     }
 #endif
@@ -98,7 +98,7 @@ int v3_init_symbiotic_core(struct guest_info * core) {
     
 
     if (v3_init_symspy_core(core, &(core_state->symspy_state)) == -1) {
-	PrintError("Error intializing local SymSpy state\n");
+        PrintError(core->vm_info, core, "Error intializing local SymSpy state\n");
 	return -1;
     }
 

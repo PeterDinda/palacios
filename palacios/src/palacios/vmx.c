@@ -66,7 +66,7 @@ static int inline check_vmcs_write(vmcs_field_t field, addr_t val) {
     ret = vmcs_write(field, val);
 
     if (ret != VMX_SUCCESS) {
-        PrintError("VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
+        PrintError(VM_NONE, VCORE_NONE, "VMWRITE error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
         return 1;
     }
 
@@ -82,7 +82,7 @@ static int inline check_vmcs_read(vmcs_field_t field, void * val) {
     ret = vmcs_read(field, val);
 
     if (ret != VMX_SUCCESS) {
-        PrintError("VMREAD error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
+        PrintError(VM_NONE, VCORE_NONE, "VMREAD error on %s!: %d\n", v3_vmcs_field_to_str(field), ret);
     }
 
     return ret;
@@ -95,18 +95,18 @@ static addr_t allocate_vmcs() {
     void *temp;
     struct vmcs_data * vmcs_page = NULL;
 
-    PrintDebug("Allocating page\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Allocating page\n");
 
     temp = V3_AllocPages(1);
     if (!temp) { 
-	PrintError("Cannot allocate VMCS\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate VMCS\n");
 	return -1;
     }
     vmcs_page = (struct vmcs_data *)V3_VAddr(temp);
     memset(vmcs_page, 0, 4096);
 
     vmcs_page->revision = hw_info.basic_info.revision;
-    PrintDebug("VMX Revision: 0x%x\n", vmcs_page->revision);
+    PrintDebug(VM_NONE, VCORE_NONE, "VMX Revision: 0x%x\n", vmcs_page->revision);
 
     return (addr_t)V3_PAddr((void *)vmcs_page);
 }
@@ -115,7 +115,7 @@ static addr_t allocate_vmcs() {
 #if 0
 static int debug_efer_read(struct guest_info * core, uint_t msr, struct v3_msr * src, void * priv_data) {
     struct v3_msr * efer = (struct v3_msr *)&(core->ctrl_regs.efer);
-    V3_Print("\n\nEFER READ (val = %p)\n", (void *)efer->value);
+    V3_Print(core->vm_info, core, "\n\nEFER READ (val = %p)\n", (void *)efer->value);
     
     v3_print_guest_state(core);
     v3_print_vmcs();
@@ -127,7 +127,7 @@ static int debug_efer_read(struct guest_info * core, uint_t msr, struct v3_msr *
 
 static int debug_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
     struct v3_msr * efer = (struct v3_msr *)&(core->ctrl_regs.efer);
-    V3_Print("\n\nEFER WRITE (old_val = %p) (new_val = %p)\n", (void *)efer->value, (void *)src.value);
+    V3_Print(core->vm_info, core, "\n\nEFER WRITE (old_val = %p) (new_val = %p)\n", (void *)efer->value, (void *)src.value);
     
     v3_print_guest_state(core);
     v3_print_vmcs();
@@ -151,12 +151,12 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     // disable global interrupts for vm state initialization
     v3_disable_ints();
 
-    PrintDebug("Loading VMCS\n");
+    PrintDebug(core->vm_info, core, "Loading VMCS\n");
     vmx_ret = vmcs_load(vmx_state->vmcs_ptr_phys);
     vmx_state->state = VMX_UNLAUNCHED;
 
     if (vmx_ret != VMX_SUCCESS) {
-        PrintError("VMPTRLD failed\n");
+        PrintError(core->vm_info, core, "VMPTRLD failed\n");
         return -1;
     }
 
@@ -170,8 +170,8 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_state->sec_proc_ctrls.value = hw_info.sec_proc_ctrls.def_val;
 
     /* Print Control MSRs */
-    V3_Print("CR0 MSR: req_val=%p, req_mask=%p\n", (void *)(addr_t)hw_info.cr0.req_val, (void *)(addr_t)hw_info.cr0.req_mask);
-    V3_Print("CR4 MSR: req_val=%p, req_mask=%p\n", (void *)(addr_t)hw_info.cr4.req_val, (void *)(addr_t)hw_info.cr4.req_mask);
+    V3_Print(core->vm_info, core, "CR0 MSR: req_val=%p, req_mask=%p\n", (void *)(addr_t)hw_info.cr0.req_val, (void *)(addr_t)hw_info.cr0.req_mask);
+    V3_Print(core->vm_info, core, "CR4 MSR: req_val=%p, req_mask=%p\n", (void *)(addr_t)hw_info.cr4.req_val, (void *)(addr_t)hw_info.cr4.req_mask);
 
 
 
@@ -191,7 +191,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
     /* We enable the preemption timer by default to measure accurate guest time */
     if (avail_pin_ctrls.active_preempt_timer) {
-	V3_Print("VMX Preemption Timer is available\n");
+	V3_Print(core->vm_info, core, "VMX Preemption Timer is available\n");
 	vmx_state->pin_ctrls.active_preempt_timer = 1;
 	vmx_state->exit_ctrls.save_preempt_timer = 1;
     }
@@ -255,10 +255,10 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
     /* Setup paging */
     if (core->shdw_pg_mode == SHADOW_PAGING) {
-        PrintDebug("Creating initial shadow page table\n");
+        PrintDebug(core->vm_info, core, "Creating initial shadow page table\n");
 
         if (v3_init_passthrough_pts(core) == -1) {
-            PrintError("Could not initialize passthrough page tables\n");
+            PrintError(core->vm_info, core, "Could not initialize passthrough page tables\n");
             return -1;
         }
         
@@ -327,7 +327,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
 
 	if (v3_init_ept(core, &hw_info) == -1) {
-	    PrintError("Error initializing EPT\n");
+	    PrintError(core->vm_info, core, "Error initializing EPT\n");
 	    return -1;
 	}
 
@@ -425,7 +425,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->cd = 0;
 
 	if (v3_init_ept(core, &hw_info) == -1) {
-	    PrintError("Error initializing EPT\n");
+	    PrintError(core->vm_info, core, "Error initializing EPT\n");
 	    return -1;
 	}
 
@@ -433,7 +433,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	//	v3_hook_msr(core->vm_info, EFER_MSR, &debug_efer_read, &debug_efer_write, core);
 	v3_hook_msr(core->vm_info, EFER_MSR, NULL, NULL, NULL);
     } else {
-	PrintError("Invalid Virtual paging mode (pg_mode=%d) (mach_type=%d)\n", core->shdw_pg_mode, v3_mach_type);
+	PrintError(core->vm_info, core, "Invalid Virtual paging mode (pg_mode=%d) (mach_type=%d)\n", core->shdw_pg_mode, v3_mach_type);
 	return -1;
     }
 
@@ -449,17 +449,17 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	int max_msrs = (hw_info.misc_info.max_msr_cache_size + 1) * 4;
 	int msr_ret = 0;
 
-	V3_Print("Setting up MSR load/store areas (max_msr_count=%d)\n", max_msrs);
+	V3_Print(core->vm_info, core, "Setting up MSR load/store areas (max_msr_count=%d)\n", max_msrs);
 
 	if (max_msrs < 4) {
-	    PrintError("Max MSR cache size is too small (%d)\n", max_msrs);
+	    PrintError(core->vm_info, core, "Max MSR cache size is too small (%d)\n", max_msrs);
 	    return -1;
 	}
 
 	vmx_state->msr_area_paddr = (addr_t)V3_AllocPages(1);
 	
 	if (vmx_state->msr_area_paddr == (addr_t)NULL) {
-	    PrintError("could not allocate msr load/store area\n");
+	    PrintError(core->vm_info, core, "could not allocate msr load/store area\n");
 	    return -1;
 	}
 
@@ -507,7 +507,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	msr_ret |= v3_hook_msr(core->vm_info, IA32_CSTAR_MSR, NULL, NULL, NULL);
 
 	if (msr_ret != 0) {
-	    PrintError("Error configuring MSR save/restore area\n");
+	    PrintError(core->vm_info, core, "Error configuring MSR save/restore area\n");
 	    return -1;
 	}
 
@@ -544,13 +544,13 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
  
 
     if (v3_update_vmcs_ctrl_fields(core)) {
-        PrintError("Could not write control fields!\n");
+        PrintError(core->vm_info, core, "Could not write control fields!\n");
         return -1;
     }
     
     /*
     if (v3_update_vmcs_host_state(core)) {
-        PrintError("Could not write host state\n");
+        PrintError(core->vm_info, core, "Could not write host state\n");
         return -1;
     }
     */
@@ -572,46 +572,46 @@ static void __init_vmx_vmcs(void * arg) {
     vmx_state = (struct vmx_data *)V3_Malloc(sizeof(struct vmx_data));
 
     if (!vmx_state) {
-	PrintError("Unable to allocate in initializing vmx vmcs\n");
+	PrintError(core->vm_info, core,  "Unable to allocate in initializing vmx vmcs\n");
 	return;
     }
 
     memset(vmx_state, 0, sizeof(struct vmx_data));
 
-    PrintDebug("vmx_data pointer: %p\n", (void *)vmx_state);
+    PrintDebug(core->vm_info, core,  "vmx_data pointer: %p\n", (void *)vmx_state);
 
-    PrintDebug("Allocating VMCS\n");
+    PrintDebug(core->vm_info, core, "Allocating VMCS\n");
     vmx_state->vmcs_ptr_phys = allocate_vmcs();
 
-    PrintDebug("VMCS pointer: %p\n", (void *)(vmx_state->vmcs_ptr_phys));
+    PrintDebug(core->vm_info, core, "VMCS pointer: %p\n", (void *)(vmx_state->vmcs_ptr_phys));
 
     core->vmm_data = vmx_state;
     vmx_state->state = VMX_UNLAUNCHED;
 
-    PrintDebug("Initializing VMCS (addr=%p)\n", core->vmm_data);
+    PrintDebug(core->vm_info, core, "Initializing VMCS (addr=%p)\n", core->vmm_data);
     
     // TODO: Fix vmcs fields so they're 32-bit
 
-    PrintDebug("Clearing VMCS: %p\n", (void *)vmx_state->vmcs_ptr_phys);
+    PrintDebug(core->vm_info, core, "Clearing VMCS: %p\n", (void *)vmx_state->vmcs_ptr_phys);
     vmx_ret = vmcs_clear(vmx_state->vmcs_ptr_phys);
 
     if (vmx_ret != VMX_SUCCESS) {
-        PrintError("VMCLEAR failed\n");
+        PrintError(core->vm_info, core, "VMCLEAR failed\n");
         return; 
     }
 
     if (core->vm_info->vm_class == V3_PC_VM) {
-	PrintDebug("Initializing VMCS\n");
+	PrintDebug(core->vm_info, core, "Initializing VMCS\n");
 	if (init_vmcs_bios(core, vmx_state) == -1) {
-	    PrintError("Error initializing VMCS to BIOS state\n");
+	    PrintError(core->vm_info, core, "Error initializing VMCS to BIOS state\n");
 	    return;
 	}
     } else {
-	PrintError("Invalid VM Class\n");
+	PrintError(core->vm_info, core, "Invalid VM Class\n");
 	return;
     }
 
-    PrintDebug("Serializing VMCS: %p\n", (void *)vmx_state->vmcs_ptr_phys);
+    PrintDebug(core->vm_info, core, "Serializing VMCS: %p\n", (void *)vmx_state->vmcs_ptr_phys);
     vmx_ret = vmcs_clear(vmx_state->vmcs_ptr_phys);
 
     core->core_run_state = CORE_STOPPED;
@@ -633,7 +633,7 @@ int v3_init_vmx_vmcs(struct guest_info * core, v3_vm_class_t vm_class) {
 	}
 
 	if (i == V3_CONFIG_MAX_CPUS) {
-	    PrintError("Could not find VALID CPU for VMX guest initialization\n");
+	    PrintError(core->vm_info, core, "Could not find VALID CPU for VMX guest initialization\n");
 	    return -1;
 	}
 
@@ -644,7 +644,7 @@ int v3_init_vmx_vmcs(struct guest_info * core, v3_vm_class_t vm_class) {
     }
 
     if (core->core_run_state != CORE_STOPPED) {
-	PrintError("Error initializing VMX Core\n");
+	PrintError(core->vm_info, core, "Error initializing VMX Core\n");
 	return -1;
     }
 
@@ -675,7 +675,7 @@ int v3_vmx_save_core(struct guest_info * core, void * ctx){
   // note that the vmcs pointer is an HPA, but we need an HVA
   if (v3_chkpt_save(ctx, "vmcs_data", PAGE_SIZE_4KB, 
 		    V3_VAddr((void*) (vmx_info->vmcs_ptr_phys)))) {
-    PrintError("Could not save vmcs data for VMX\n");
+    PrintError(core->vm_info, core, "Could not save vmcs data for VMX\n");
     return -1;
   }
   
@@ -690,13 +690,13 @@ int v3_vmx_load_core(struct guest_info * core, void * ctx){
   vmcs_page_paddr = (addr_t) V3_AllocPages(1);
   
   if (!vmcs_page_paddr) { 
-    PrintError("Could not allocate space for a vmcs in VMX\n");
+    PrintError(core->vm_info, core, "Could not allocate space for a vmcs in VMX\n");
     return -1;
   }
   
   if (v3_chkpt_load(ctx, "vmcs_data", PAGE_SIZE_4KB, 
 		    V3_VAddr((void *)vmcs_page_paddr)) == -1) { 
-    PrintError("Could not load vmcs data for VMX\n");
+    PrintError(core->vm_info, core, "Could not load vmcs data for VMX\n");
     V3_FreePages((void*)vmcs_page_paddr,1);
     return -1;
   }
@@ -718,12 +718,12 @@ int v3_vmx_load_core(struct guest_info * core, void * ctx){
   if (core->shdw_pg_mode == SHADOW_PAGING) {
     if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
       if (v3_activate_shadow_pt(core) == -1) {
-	PrintError("Failed to activate shadow page tables\n");
+	PrintError(core->vm_info, core, "Failed to activate shadow page tables\n");
 	return -1;
       }
     } else {
       if (v3_activate_passthrough_pt(core) == -1) {
-	PrintError("Failed to activate passthrough page tables\n");
+	PrintError(core->vm_info, core, "Failed to activate passthrough page tables\n");
 	return -1;
       }
     }
@@ -749,7 +749,7 @@ static int update_irq_exit_state(struct guest_info * info) {
 
     if ((info->intr_core_state.irq_started == 1) && (idt_vec_info.valid == 0)) {
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-        V3_Print("Calling v3_injecting_intr\n");
+        V3_Print(info->vm_info, info, "Calling v3_injecting_intr\n");
 #endif
         info->intr_core_state.irq_started = 0;
         v3_injecting_intr(info, info->intr_core_state.irq_vector, V3_EXTERNAL_IRQ);
@@ -781,14 +781,14 @@ static int update_irq_entry_state(struct guest_info * info) {
             int_info.error_code = 1;
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-            V3_Print("Injecting exception %d with error code %x\n", 
+            V3_Print(info->vm_info, info, "Injecting exception %d with error code %x\n", 
                     int_info.vector, info->excp_state.excp_error_code);
 #endif
         }
 
         int_info.valid = 1;
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-        V3_Print("Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)(addr_t)info->rip);
+        V3_Print(info->vm_info, info, "Injecting exception %d (EIP=%p)\n", int_info.vector, (void *)(addr_t)info->rip);
 #endif
         check_vmcs_write(VMCS_ENTRY_INT_INFO, int_info.value);
 
@@ -800,7 +800,7 @@ static int update_irq_entry_state(struct guest_info * info) {
         if ((info->intr_core_state.irq_started == 1) && (idt_vec_info.valid == 1)) {
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-            V3_Print("IRQ pending from previous injection\n");
+            V3_Print(info->vm_info, info, "IRQ pending from previous injection\n");
 #endif
 
             // Copy the IDT vectoring info over to reinject the old interrupt
@@ -827,7 +827,7 @@ static int update_irq_entry_state(struct guest_info * info) {
                     ent_int.valid = 1;
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-                    V3_Print("Injecting Interrupt %d at exit %u(EIP=%p)\n", 
+                    V3_Print(info->vm_info, info, "Injecting Interrupt %d at exit %u(EIP=%p)\n", 
 			       info->intr_core_state.irq_vector, 
 			       (uint32_t)info->num_exits, 
 			       (void *)(addr_t)info->rip);
@@ -839,7 +839,7 @@ static int update_irq_entry_state(struct guest_info * info) {
                     break;
                 }
                 case V3_NMI:
-                    PrintDebug("Injecting NMI\n");
+                    PrintDebug(info->vm_info, info, "Injecting NMI\n");
 
                     ent_int.type = 2;
                     ent_int.vector = 2;
@@ -848,7 +848,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 
                     break;
                 case V3_SOFTWARE_INTR:
-                    PrintDebug("Injecting software interrupt\n");
+                    PrintDebug(info->vm_info, info, "Injecting software interrupt\n");
                     ent_int.type = 4;
 
                     ent_int.valid = 1;
@@ -872,7 +872,7 @@ static int update_irq_entry_state(struct guest_info * info) {
         check_vmcs_read(VMCS_EXIT_INSTR_LEN, &instr_len);
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-        V3_Print("Enabling Interrupt-Window exiting: %d\n", instr_len);
+        V3_Print(info->vm_info, info, "Enabling Interrupt-Window exiting: %d\n", instr_len);
 #endif
 
         vmx_info->pri_proc_ctrls.int_wndw_exit = 1;
@@ -895,18 +895,18 @@ static void print_exit_log(struct guest_info * info) {
     int i = 0;
     
 
-    V3_Print("\nExit Log (%d total exits):\n", (uint32_t)info->num_exits);
+    V3_Print(info->vm_info, info, "\nExit Log (%d total exits):\n", (uint32_t)info->num_exits);
 
     for (i = 0; i < 10; i++) {
 	struct vmx_exit_info * tmp = &exit_log[cnt];
 
-	V3_Print("%d:\texit_reason = %p\n", i, (void *)(addr_t)tmp->exit_reason);
-	V3_Print("\texit_qual = %p\n", (void *)tmp->exit_qual);
-	V3_Print("\tint_info = %p\n", (void *)(addr_t)tmp->int_info);
-	V3_Print("\tint_err = %p\n", (void *)(addr_t)tmp->int_err);
-	V3_Print("\tinstr_info = %p\n", (void *)(addr_t)tmp->instr_info);
-	V3_Print("\tguest_linear_addr= %p\n", (void *)(addr_t)tmp->guest_linear_addr);
-	V3_Print("\tRIP = %p\n", (void *)rip_log[cnt]);
+	V3_Print(info->vm_info, info, "%d:\texit_reason = %p\n", i, (void *)(addr_t)tmp->exit_reason);
+	V3_Print(info->vm_info, info, "\texit_qual = %p\n", (void *)tmp->exit_qual);
+	V3_Print(info->vm_info, info, "\tint_info = %p\n", (void *)(addr_t)tmp->int_info);
+	V3_Print(info->vm_info, info, "\tint_err = %p\n", (void *)(addr_t)tmp->int_err);
+	V3_Print(info->vm_info, info, "\tinstr_info = %p\n", (void *)(addr_t)tmp->instr_info);
+	V3_Print(info->vm_info, info, "\tguest_linear_addr= %p\n", (void *)(addr_t)tmp->guest_linear_addr);
+	V3_Print(info->vm_info, info, "\tRIP = %p\n", (void *)rip_log[cnt]);
 
 
 	cnt--;
@@ -1007,7 +1007,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
     if (v3_update_vmcs_host_state(info)) {
 	v3_enable_ints();
-        PrintError("Could not write host state\n");
+        PrintError(info->vm_info, info, "Could not write host state\n");
         return -1;
     }
     
@@ -1034,7 +1034,7 @@ int v3_vmx_enter(struct guest_info * info) {
 	    rdtscll(exit_tsc);
 
 	} else {
-	    V3_ASSERT(vmx_info->state != VMX_UNLAUNCHED);
+	    V3_ASSERT(info->vm_info, info,vmx_info->state != VMX_UNLAUNCHED);
 	    rdtscll(entry_tsc);
 	    ret = v3_vmx_resume(&(info->vm_regs), info, &(info->ctrl_regs));
 	    rdtscll(exit_tsc);
@@ -1043,7 +1043,7 @@ int v3_vmx_enter(struct guest_info * info) {
 	guest_cycles = exit_tsc - entry_tsc;	
     }
 
-    //  PrintDebug("VMX Exit: ret=%d\n", ret);
+    //  PrintDebug(info->vm_info, info, "VMX Exit: ret=%d\n", ret);
 
     if (ret != VMX_SUCCESS) {
 	uint32_t error = 0;
@@ -1051,7 +1051,7 @@ int v3_vmx_enter(struct guest_info * info) {
 
 	v3_enable_ints();
 
-	PrintError("VMENTRY Error: %d (launch_ret = %d)\n", error, ret);
+	PrintError(info->vm_info, info, "VMENTRY Error: %d (launch_ret = %d)\n", error, ret);
 	return -1;
     }
 
@@ -1095,7 +1095,7 @@ int v3_vmx_enter(struct guest_info * info) {
 	check_vmcs_read(VMCS_GUEST_PHYS_ADDR, &(exit_info.ept_fault_addr));
     }
 
-    //PrintDebug("VMX Exit taken, id-qual: %u-%lu\n", exit_info.exit_reason, exit_info.exit_qual);
+    //PrintDebug(info->vm_info, info, "VMX Exit taken, id-qual: %u-%lu\n", exit_info.exit_reason, exit_info.exit_qual);
 
     exit_log[info->num_exits % 10] = exit_info;
     rip_log[info->num_exits % 10] = get_addr_linear(info, info->rip, &(info->segments.cs));
@@ -1115,7 +1115,7 @@ int v3_vmx_enter(struct guest_info * info) {
         vmcs_write(VMCS_PROC_CTRLS, vmx_info->pri_proc_ctrls.value);
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-       V3_Print("Interrupts available again! (RIP=%llx)\n", info->rip);
+       V3_Print(info->vm_info, info, "Interrupts available again! (RIP=%llx)\n", info->rip);
 #endif
     }
 
@@ -1140,7 +1140,7 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_update_timers(info);
 
     if (v3_handle_vmx_exit(info, &exit_info) == -1) {
-	PrintError("Error in VMX exit handler (Exit reason=%x)\n", exit_info.exit_reason);
+	PrintError(info->vm_info, info, "Error in VMX exit handler (Exit reason=%x)\n", exit_info.exit_reason);
 	return -1;
     }
 
@@ -1155,13 +1155,13 @@ int v3_vmx_enter(struct guest_info * info) {
 
 int v3_start_vmx_guest(struct guest_info * info) {
 
-    PrintDebug("Starting VMX core %u\n", info->vcpu_id);
+    PrintDebug(info->vm_info, info, "Starting VMX core %u\n", info->vcpu_id);
 
     if (info->vcpu_id == 0) {
 	info->core_run_state = CORE_RUNNING;
     } else {
 
-        PrintDebug("VMX core %u: Waiting for core initialization\n", info->vcpu_id);
+        PrintDebug(info->vm_info, info, "VMX core %u: Waiting for core initialization\n", info->vcpu_id);
 
         while (info->core_run_state == CORE_STOPPED) {
 
@@ -1171,22 +1171,22 @@ int v3_start_vmx_guest(struct guest_info * info) {
 	    }
 
             v3_yield(info,-1);
-            //PrintDebug("VMX core %u: still waiting for INIT\n",info->vcpu_id);
+            //PrintDebug(info->vm_info, info, "VMX core %u: still waiting for INIT\n",info->vcpu_id);
         }
 	
-	PrintDebug("VMX core %u initialized\n", info->vcpu_id);
+	PrintDebug(info->vm_info, info, "VMX core %u initialized\n", info->vcpu_id);
 
 	// We'll be paranoid about race conditions here
 	v3_wait_at_barrier(info);
     }
 
 
-    PrintDebug("VMX core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n",
+    PrintDebug(info->vm_info, info, "VMX core %u: I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n",
                info->vcpu_id, info->segments.cs.selector, (void *)(info->segments.cs.base),
                info->segments.cs.limit, (void *)(info->rip));
 
 
-    PrintDebug("VMX core %u: Launching VMX VM on logical core %u\n", info->vcpu_id, info->pcpu_id);
+    PrintDebug(info->vm_info, info, "VMX core %u: Launching VMX VM on logical core %u\n", info->vcpu_id, info->pcpu_id);
 
     v3_start_time(info);
 
@@ -1204,11 +1204,11 @@ int v3_start_vmx_guest(struct guest_info * info) {
             
             info->vm_info->run_state = VM_ERROR;
             
-            V3_Print("VMX core %u: VMX ERROR!!\n", info->vcpu_id); 
+            V3_Print(info->vm_info, info, "VMX core %u: VMX ERROR!!\n", info->vcpu_id); 
             
             v3_print_guest_state(info);
             
-            V3_Print("VMX core %u\n", info->vcpu_id); 
+            V3_Print(info->vm_info, info, "VMX core %u\n", info->vcpu_id); 
 
             linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
             
@@ -1218,9 +1218,9 @@ int v3_start_vmx_guest(struct guest_info * info) {
                 v3_gva_to_hva(info, linear_addr, &host_addr);
             }
             
-            V3_Print("VMX core %u: Host Address of rip = 0x%p\n", info->vcpu_id, (void *)host_addr);
+            V3_Print(info->vm_info, info, "VMX core %u: Host Address of rip = 0x%p\n", info->vcpu_id, (void *)host_addr);
             
-            V3_Print("VMX core %u: Instr (15 bytes) at %p:\n", info->vcpu_id, (void *)host_addr);
+            V3_Print(info->vm_info, info, "VMX core %u: Instr (15 bytes) at %p:\n", info->vcpu_id, (void *)host_addr);
             v3_dump_mem((uint8_t *)host_addr, 15);
             
             v3_print_stack(info);
@@ -1240,7 +1240,7 @@ int v3_start_vmx_guest(struct guest_info * info) {
 	}
 /*
 	if ((info->num_exits % 5000) == 0) {
-	    V3_Print("VMX Exit number %d\n", (uint32_t)info->num_exits);
+	    V3_Print(info->vm_info, info, "VMX Exit number %d\n", (uint32_t)info->num_exits);
 	}
 */
 
@@ -1262,20 +1262,20 @@ int v3_is_vmx_capable() {
 
     v3_cpuid(0x1, &eax, &ebx, &ecx, &edx);
 
-    PrintDebug("ECX: 0x%x\n", ecx);
+    PrintDebug(VM_NONE, VCORE_NONE, "ECX: 0x%x\n", ecx);
 
     if (ecx & CPUID_1_ECX_VTXFLAG) {
         v3_get_msr(VMX_FEATURE_CONTROL_MSR, &(feature_msr.hi), &(feature_msr.lo));
 	
-        PrintDebug("MSRREGlow: 0x%.8x\n", feature_msr.lo);
+        PrintDebug(VM_NONE, VCORE_NONE,  "MSRREGlow: 0x%.8x\n", feature_msr.lo);
 
         if ((feature_msr.lo & CPUID_VMX_FEATURES) != CPUID_VMX_FEATURES) {
-            PrintDebug("VMX is locked -- enable in the BIOS\n");
+            PrintDebug(VM_NONE, VCORE_NONE,  "VMX is locked -- enable in the BIOS\n");
             return 0;
         }
 
     } else {
-        PrintDebug("VMX not supported on this cpu\n");
+        PrintDebug(VM_NONE, VCORE_NONE,  "VMX not supported on this cpu\n");
         return 0;
     }
 
@@ -1310,7 +1310,7 @@ void v3_init_vmx_cpu(int cpu_id) {
 
     if (v3_mach_type == V3_INVALID_CPU) {
 	if (v3_init_vmx_hw(&hw_info) == -1) {
-	    PrintError("Could not initialize VMX hardware features on cpu %d\n", cpu_id);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not initialize VMX hardware features on cpu %d\n", cpu_id);
 	    return;
 	}
     }
@@ -1323,27 +1323,27 @@ void v3_init_vmx_cpu(int cpu_id) {
 
 
     if (vmx_on(vmx_on_region) == VMX_SUCCESS) {
-        V3_Print("VMX Enabled\n");
+        V3_Print(VM_NONE, VCORE_NONE,  "VMX Enabled\n");
 	host_vmcs_ptrs[cpu_id] = vmx_on_region;
     } else {
-        V3_Print("VMX already enabled\n");
+        V3_Print(VM_NONE, VCORE_NONE,  "VMX already enabled\n");
 	V3_FreePages((void *)vmx_on_region, 1);
     }
 
-    PrintDebug("VMXON pointer: 0x%p\n", (void *)host_vmcs_ptrs[cpu_id]);    
+    PrintDebug(VM_NONE, VCORE_NONE,  "VMXON pointer: 0x%p\n", (void *)host_vmcs_ptrs[cpu_id]);    
 
     {
 	struct vmx_sec_proc_ctrls sec_proc_ctrls;
 	sec_proc_ctrls.value = v3_vmx_get_ctrl_features(&(hw_info.sec_proc_ctrls));
 	
 	if (sec_proc_ctrls.enable_ept == 0) {
-	    V3_Print("VMX EPT (Nested) Paging not supported\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "VMX EPT (Nested) Paging not supported\n");
 	    v3_cpu_types[cpu_id] = V3_VMX_CPU;
 	} else if (sec_proc_ctrls.unrstrct_guest == 0) {
-	    V3_Print("VMX EPT (Nested) Paging supported\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "VMX EPT (Nested) Paging supported\n");
 	    v3_cpu_types[cpu_id] = V3_VMX_EPT_CPU;
 	} else {
-	    V3_Print("VMX EPT (Nested) Paging + Unrestricted guest supported\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "VMX EPT (Nested) Paging + Unrestricted guest supported\n");
 	    v3_cpu_types[cpu_id] = V3_VMX_EPT_UG_CPU;
 	}
     }
@@ -1356,10 +1356,10 @@ void v3_deinit_vmx_cpu(int cpu_id) {
     v3_cpu_types[cpu_id] = V3_INVALID_CPU;
 
     if (host_vmcs_ptrs[cpu_id] != 0) {
-	V3_Print("Disabling VMX\n");
+	V3_Print(VM_NONE, VCORE_NONE, "Disabling VMX\n");
 
 	if (vmx_off() != VMX_SUCCESS) {
-	    PrintError("Error executing VMXOFF\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Error executing VMXOFF\n");
 	}
 
 	V3_FreePages((void *)host_vmcs_ptrs[cpu_id], 1);

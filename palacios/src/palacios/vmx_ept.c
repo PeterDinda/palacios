@@ -32,7 +32,7 @@ static addr_t create_ept_page() {
     
     temp = V3_AllocPages(1);
     if (!temp) {
-	PrintError("Cannot allocate EPT page\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate EPT page\n");
 	return 0;
     }
     page = V3_VAddr(temp);
@@ -57,7 +57,7 @@ int v3_init_ept(struct guest_info * core, struct vmx_hw_info * hw_info) {
     if (ept_info->pg_walk_len4) {
 	ept_ptr->pwl1 = 3;
     } else {
-	PrintError("Unsupported EPT Table depth\n");
+	PrintError(core->vm_info, core, "Unsupported EPT Table depth\n");
 	return -1;
     }
 
@@ -94,7 +94,7 @@ int v3_handle_ept_fault(struct guest_info * core, addr_t fault_addr, struct ept_
     error_code.write = ept_qual->write;
     
     if (region == NULL) {
-	PrintError("invalid region, addr=%p\n", (void *)fault_addr);
+	PrintError(core->vm_info, core, "invalid region, addr=%p\n", (void *)fault_addr);
 	return -1;
     }
 
@@ -161,7 +161,7 @@ int v3_handle_ept_fault(struct guest_info * core, addr_t fault_addr, struct ept_
 		}
 
 		if (v3_gpa_to_hpa(core, fault_addr, &host_addr) == -1) {
-		    PrintError("Error: Could not translate fault addr (%p)\n", (void *)fault_addr);
+		    PrintError(core->vm_info, core, "Error: Could not translate fault addr (%p)\n", (void *)fault_addr);
 		    return -1;
 		}
 
@@ -216,7 +216,7 @@ int v3_handle_ept_fault(struct guest_info * core, addr_t fault_addr, struct ept_
 	    }
 
 	    if (v3_gpa_to_hpa(core, fault_addr, &host_addr) == -1) {
-		PrintError("Error Could not translate fault addr (%p)\n", (void *)fault_addr);
+		PrintError(core->vm_info, core, "Error Could not translate fault addr (%p)\n", (void *)fault_addr);
 		return -1;
 	    }
 

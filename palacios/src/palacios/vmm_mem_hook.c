@@ -61,7 +61,7 @@ int v3_init_mem_hooks(struct v3_vm_info * vm) {
     temp = V3_AllocPages(vm->num_cores);
 
     if (!temp) {
-	PrintError("Cannot allocate space for mem hooks\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate space for mem hooks\n");
 	return -1;
     }
 
@@ -70,7 +70,7 @@ int v3_init_mem_hooks(struct v3_vm_info * vm) {
     temp = V3_AllocPages(vm->num_cores);
 
     if (!temp) {
-	PrintError("Cannot allocate space for mem hooks\n");
+	PrintError(vm, VCORE_NONE,"Cannot allocate space for mem hooks\n");
 	V3_FreePages(hooks->hook_hvas_1,vm->num_cores);
 	return -1;
     }
@@ -165,12 +165,12 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
     }
 
     if (ret == -1) {
-      PrintError("Could not translate Instruction Address (%p)\n", (void *)(addr_t)core->rip);
+      PrintError(core->vm_info, core, "Could not translate Instruction Address (%p)\n", (void *)(addr_t)core->rip);
 	return -1;
     }
 
     if (v3_decode(core, (addr_t)instr_ptr, &instr) == -1) {
-	PrintError("Decoding Error\n");
+	PrintError(core->vm_info, core, "Decoding Error\n");
 	return -1;
     }
 
@@ -203,7 +203,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	}
 
 	if (src_reg == NULL) {
-	    PrintError("Error finding Source region (addr=%p)\n", (void *)src_mem_op_gpa);
+	    PrintError(core->vm_info, core, "Error finding Source region (addr=%p)\n", (void *)src_mem_op_gpa);
 	    return -1;
 	}
 
@@ -249,7 +249,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	}
 
 	if (dst_reg == NULL) {
-	    PrintError("Error finding Source region (addr=%p)\n", (void *)dst_mem_op_gpa);
+	    PrintError(core->vm_info, core, "Error finding Source region (addr=%p)\n", (void *)dst_mem_op_gpa);
 	    return -1;
 	}
 	
@@ -271,7 +271,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
     mem_op_size = ((uint_t)src_req_size < (uint_t)dst_req_size) ? src_req_size : dst_req_size;
 
     if (mem_op_size == -1) {
-	PrintError("Error: Did not detect any memory operands...\n");
+	PrintError(core->vm_info, core, "Error: Did not detect any memory operands...\n");
 	return -1;
     }
 
@@ -283,7 +283,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	// Read in data from hook
 	
 	if (src_hook->read(core, src_mem_op_gpa, (void *)src_mem_op_hva, mem_op_size, src_hook->priv_data) == -1) {
-	    PrintError("Read hook error at src_mem_op_gpa=%p\n", (void *)src_mem_op_gpa);
+	    PrintError(core->vm_info, core, "Read hook error at src_mem_op_gpa=%p\n", (void *)src_mem_op_gpa);
 	    return -1;
 	}
     }
@@ -294,7 +294,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	// Read in data from hook
 	
 	if (dst_hook->read(core, dst_mem_op_gpa, (void *)dst_mem_op_hva, mem_op_size, dst_hook->priv_data) == -1) {
-	    PrintError("Read hook error at dst_mem_op_gpa=%p\n", (void *)dst_mem_op_gpa);
+	    PrintError(core->vm_info, core, "Read hook error at dst_mem_op_gpa=%p\n", (void *)dst_mem_op_gpa);
 	    return -1;
 	}
     }
@@ -302,7 +302,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
     bytes_emulated = v3_emulate(core, &instr, mem_op_size, src_mem_op_hva, dst_mem_op_hva);
 
     if (bytes_emulated == -1) {
-	PrintError("Error emulating instruction\n");
+      PrintError(core->vm_info, core, "Error emulating instruction\n");
 	return -1;
     }
 
@@ -311,7 +311,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	 (instr.src_operand.write == 1) ) {
 
 	if (src_hook->write(core, src_mem_op_gpa, (void *)src_mem_op_hva, bytes_emulated, src_hook->priv_data) == -1) {
-	    PrintError("Write hook error at src_mem_op_gpa=%p\n", (void *)src_mem_op_gpa);
+	    PrintError(core->vm_info, core, "Write hook error at src_mem_op_gpa=%p\n", (void *)src_mem_op_gpa);
 	    return -1;
 	}
 
@@ -322,7 +322,7 @@ static int handle_mem_hook(struct guest_info * core, addr_t guest_va, addr_t gue
 	 (instr.dst_operand.write == 1) ) {
 
 	if (dst_hook->write(core, dst_mem_op_gpa, (void *)dst_mem_op_hva, bytes_emulated, dst_hook->priv_data) == -1) {
-	    PrintError("Write hook error at dst_mem_op_gpa=%p\n", (void *)dst_mem_op_gpa);
+	    PrintError(core->vm_info, core, "Write hook error at dst_mem_op_gpa=%p\n", (void *)dst_mem_op_gpa);
 	    return -1;
 	}
     }
@@ -347,7 +347,7 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
     if (!hook) {
-	PrintError("Cannot allocate in hooking memory for full access\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in hooking memory for full access\n");
 	return -1;
     }
 
@@ -394,7 +394,7 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
     if (!hook) {
-	PrintError("Cannot allocate in hooking memory for writing\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in hooking memory for writing\n");
 	return -1;
     }
 
@@ -407,7 +407,7 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
 
     if (!entry) {
-	PrintError("Cannot create memory region\n");
+	PrintError(vm, VCORE_NONE, "Cannot create memory region\n");
 	V3_Free(hook);
 	return -1;
     }
@@ -418,7 +418,7 @@ int v3_hook_full_mem(struct v3_vm_info * vm, uint16_t core_id,
     entry->priv_data = hook;
 
     if (v3_insert_mem_region(vm, entry)) {
-	PrintError("Cannot insert memory region\n");
+	PrintError(vm, VCORE_NONE, "Cannot insert memory region\n");
 	V3_Free(entry);
 	V3_Free(hook);
 	return -1;
@@ -448,7 +448,7 @@ int v3_hook_access_mem(struct v3_vm_info * vm, uint16_t core_id,
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
     if (!hook) {
-	PrintError("Cannot allocate in hooking memory for access\n");
+	PrintError(vm, VCORE_NONE,"Cannot allocate in hooking memory for access\n");
 	return -1;
     }
 
@@ -460,7 +460,7 @@ int v3_hook_access_mem(struct v3_vm_info * vm, uint16_t core_id,
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
 
     if (!entry) {
-	PrintError("Cannot create memory region\n");
+	PrintError(vm, VCORE_NONE, "Cannot create memory region\n");
 	V3_Free(hook);
 	return -1;
     }
@@ -471,7 +471,7 @@ int v3_hook_access_mem(struct v3_vm_info * vm, uint16_t core_id,
     entry->priv_data = hook;
 
     if (v3_insert_mem_region(vm, entry)) {
-	PrintError("Cannot insert memory region\n");
+	PrintError(vm, VCORE_NONE, "Cannot insert memory region\n");
 	V3_Free(entry);
 	V3_Free(hook);
 	return -1;
@@ -501,14 +501,14 @@ int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_st
     struct mem_hook * hook = NULL;
 
     if (reg == NULL) {
-	PrintError("Could not find region at %p\n", (void *)guest_addr_start);
+	PrintError(vm, VCORE_NONE, "Could not find region at %p\n", (void *)guest_addr_start);
 	return -1;
     }
 
     hook = reg->priv_data;
 
     if (hook == NULL) {
-	PrintError("Trying to unhook region that is not a hook at %p\n", (void *)guest_addr_start);
+	PrintError(vm, VCORE_NONE, "Trying to unhook region that is not a hook at %p\n", (void *)guest_addr_start);
 	return -1;
     }
     

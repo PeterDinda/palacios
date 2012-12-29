@@ -60,13 +60,13 @@ void delete_page_tables_32(pde32_t * pde) {
 	return;
     }
 
-    PrintDebug("Deleting Page Tables (32) -- PDE (%p)\n", pde);
+    PrintDebug(VM_NONE, VCORE_NONE, "Deleting Page Tables (32) -- PDE (%p)\n", pde);
 
     for (i = 0; i < MAX_PDE32_ENTRIES; i++) {
 	if ((pde[i].present == 1) && (pde[i].large_page == 0)) {
 	    // We double cast, first to an addr_t to handle 64 bit issues, then to the pointer
       
-	    PrintDebug("Deleting PT Page %d (%p)\n", i, (void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[i].pt_base_addr));
+	    PrintDebug(VM_NONE, VCORE_NONE, "Deleting PT Page %d (%p)\n", i, (void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[i].pt_base_addr));
 	    V3_FreePages((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[i].pt_base_addr), 1);
 	}
     }
@@ -81,7 +81,7 @@ void delete_page_tables_32pae(pdpe32pae_t * pdpe) {
 	return;
     }
 
-    PrintDebug("Deleting Page Tables (32 PAE) -- PDPE (%p)\n", pdpe);
+    PrintDebug(VM_NONE, VCORE_NONE, "Deleting Page Tables (32 PAE) -- PDPE (%p)\n", pdpe);
     
     for (i = 0; i < MAX_PDPE32PAE_ENTRIES; i++) {
 	if (pdpe[i].present == 0) {
@@ -112,7 +112,7 @@ void delete_page_tables_64(pml4e64_t * pml4) {
 	return;
     }
 
-    PrintDebug("Deleting Page Tables (64) -- PML4 (%p)\n", pml4);
+    PrintDebug(VM_NONE, VCORE_NONE,"Deleting Page Tables (64) -- PML4 (%p)\n", pml4);
 
     for (i = 0; i < MAX_PML4E64_ENTRIES; i++) {
 	if (pml4[i].present == 0) {
@@ -162,7 +162,7 @@ static int translate_pt_32_cb(struct guest_info * info, page_type_t type, addr_t
 	    *paddr = page_pa + PAGE_OFFSET_4KB(vaddr);
 	    return 0;
 	default: 
-	    PrintError("Inavlid page type (%s) in tranlate pt 32 callback\n", v3_page_type_to_str(type));
+	    PrintError(info->vm_info, info, "Inavlid page type (%s) in tranlate pt 32 callback\n", v3_page_type_to_str(type));
 	    return -1;
     }
 }
@@ -182,7 +182,7 @@ static int translate_pt_32pae_cb(struct guest_info * info, page_type_t type, add
 	    *paddr = page_pa + PAGE_OFFSET_4KB(vaddr);
 	    return 0;
 	default:
-	    PrintError("Inavlid page type (%s) in translate pt 32pae callback\n", v3_page_type_to_str(type));
+	    PrintError(info->vm_info, info, "Inavlid page type (%s) in translate pt 32pae callback\n", v3_page_type_to_str(type));
 	    return -1;
     }
 }
@@ -206,7 +206,7 @@ static int translate_pt_64_cb(struct guest_info * info, page_type_t type, addr_t
 	    *paddr = page_pa + PAGE_OFFSET_4KB(vaddr);
 	    return 0;
 	default:
-	    PrintError("Inavlid page type (%s) in translate pt 64 callback\n", v3_page_type_to_str(type));
+	    PrintError(info->vm_info, info, "Inavlid page type (%s) in translate pt 64 callback\n", v3_page_type_to_str(type));
 	    return -1;
     }
 }
@@ -247,7 +247,7 @@ static int find_pt_cb(struct guest_info * info, page_type_t type, addr_t vaddr,
 		      addr_t page_ptr, addr_t page_pa, void * private_data) {
     struct pt_find_data * pt_data = (struct pt_find_data *)private_data;
 
-    PrintDebug("FIND_PT Type=%s, page_pa = %p\n", 	     
+    PrintDebug(info->vm_info, info, "FIND_PT Type=%s, page_pa = %p\n", 	     
 	       v3_page_type_to_str(type),
 	       (void *)page_pa);
 
@@ -353,7 +353,7 @@ static int check_pt_32_cb(struct guest_info * info, page_type_t type, addr_t vad
 	case PAGE_4KB:
 	    return 0;
 	default: 
-	    PrintError("Inavlid page type (%s) in check pt 32 callback\n", v3_page_type_to_str(type));
+	    PrintError(info->vm_info, info, "Inavlid page type (%s) in check pt 32 callback\n", v3_page_type_to_str(type));
 	    return -1;
     }
 
@@ -382,7 +382,7 @@ static int check_pt_32pae_cb(struct guest_info * info, page_type_t type, addr_t 
 	case PAGE_4KB:
 	    return 0;
 	default: 
-	    PrintError("Inavlid page type (%s) in check pt 32pae callback\n", v3_page_type_to_str(type));
+	    PrintError(info->vm_info, info, "Inavlid page type (%s) in check pt 32pae callback\n", v3_page_type_to_str(type));
 	    return -1;
     }
 
@@ -415,7 +415,7 @@ static int check_pt_64_cb(struct guest_info * info, page_type_t type, addr_t vad
 	case PAGE_4KB:
 	    return 0;
 	default: 
-	    PrintError("Inavlid page type (%s) in check pt 64 callback\n", v3_page_type_to_str(type));
+	    PrintError(info->vm_info, info, "Inavlid page type (%s) in check pt 64 callback\n", v3_page_type_to_str(type));
 	    return -1;
     }
 
@@ -571,7 +571,7 @@ static pt_entry_type_t pte32_lookup(pte32_t * pt, addr_t addr, addr_t * entry) {
 
     if (!pte_entry->present) {
 	*entry = 0;
-	//    PrintDebug("Lookup at non present page (index=%d)\n", PTE32_INDEX(addr));
+	//    PrintDebug(VM_NONE, VCORE_NONE, "Lookup at non present page (index=%d)\n", PTE32_INDEX(addr));
 	return PT_ENTRY_NOT_PRESENT;
     } else {
 	*entry = BASE_TO_PAGE_ADDR(pte_entry->page_base_addr);
@@ -900,7 +900,7 @@ int v3_drill_host_pt_64(struct guest_info * info, v3_reg_t host_cr3, addr_t vadd
 		    if ((ret == callback(info, PAGE_1GB, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data)) != 0) {
 			return (ret == -1) ? -1 : PAGE_1GB;
 		    }
-		    PrintError("1 Gigabyte Pages not supported\n");
+		    PrintError(info->vm_info, info, "1 Gigabyte Pages not supported\n");
 		    return 0;
 		case PT_ENTRY_PAGE:
 
@@ -955,7 +955,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
   
 
     if (v3_gpa_to_hva(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
-	PrintError("Could not get virtual address of Guest PDE32 (PA=%p)\n", 
+	PrintError(info->vm_info, info, "Could not get virtual address of Guest PDE32 (PA=%p)\n", 
 		   (void *)guest_pde_pa);
 	return -1;
     }
@@ -988,7 +988,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		addr_t page_pa;
 
 		if (v3_gpa_to_hva(info, guest_pte_pa, (addr_t*)&guest_pte) == -1) {
-		    PrintError("Could not get virtual address of Guest PTE32 (PA=%p)\n", 
+		    PrintError(info->vm_info, info, "Could not get virtual address of Guest PTE32 (PA=%p)\n", 
 			       (void *)guest_pte_pa);
 		    return -1;
 		}
@@ -1015,7 +1015,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
     }
 
     // should never get here
-    PrintError("End of drill function (guest 32)... Should never have gotten here...\n");
+    PrintError(info->vm_info, info, "End of drill function (guest 32)... Should never have gotten here...\n");
     return -1;
 }
 
@@ -1030,7 +1030,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
     int ret = 0;
 
     if (v3_gpa_to_hva(info, guest_pdpe_pa, (addr_t*)&guest_pdpe) == -1) {
-	PrintError("Could not get virtual address of Guest PDPE32PAE (PA=%p)\n",
+	PrintError(info->vm_info, info, "Could not get virtual address of Guest PDPE32PAE (PA=%p)\n",
 		   (void *)guest_pdpe_pa);
 	return -1;
     }
@@ -1049,7 +1049,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 		    addr_t guest_pte_pa = 0;
 	
 		    if (v3_gpa_to_hva(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
-			PrintError("Could not get virtual Address of Guest PDE32PAE (PA=%p)\n", 
+			PrintError(info->vm_info, info, "Could not get virtual Address of Guest PDE32PAE (PA=%p)\n", 
 				   (void *)guest_pde_pa);
 			return -1;
 		    }
@@ -1082,7 +1082,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 				    addr_t page_pa;
 
 				    if (v3_gpa_to_hva(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
-					PrintError("Could not get virtual Address of Guest PTE32PAE (PA=%p)\n", 
+					PrintError(info->vm_info, info, "Could not get virtual Address of Guest PTE32PAE (PA=%p)\n", 
 						   (void *)guest_pte_pa);
 					return -1;
 				    }
@@ -1109,12 +1109,12 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 			}
 		}
 	    default:
-		PrintError("Invalid page type for PD32PAE\n");
+		PrintError(info->vm_info, info, "Invalid page type for PD32PAE\n");
 		return -1;
 	}
 
     // should never get here
-    PrintError("End of drill function (guest 32pae)... Should never have gotten here...\n");
+    PrintError(info->vm_info, info, "End of drill function (guest 32pae)... Should never have gotten here...\n");
     return -1;
 }
 
@@ -1127,7 +1127,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
     int ret = 0;
 
     if (v3_gpa_to_hva(info, guest_pml4_pa, (addr_t*)&guest_pmle) == -1) {
-	PrintError("Could not get virtual address of Guest PML4E64 (PA=%p)\n", 
+	PrintError(info->vm_info, info, "Could not get virtual address of Guest PML4E64 (PA=%p)\n", 
 		   (void *)guest_pml4_pa);
 	return -1;
     }
@@ -1145,7 +1145,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		addr_t guest_pde_pa = 0;
 
 		if (v3_gpa_to_hva(info, guest_pdpe_pa, (addr_t *)&guest_pdp) == -1) {
-		    PrintError("Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
+		    PrintError(info->vm_info, info, "Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
 			       (void *)guest_pdpe_pa);
 		    return -1;
 		}
@@ -1169,7 +1169,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 			    if ((ret == callback(info, PAGE_1GB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
 				return (ret == -1) ? -1 : PAGE_1GB;
 			    }
-			    PrintError("1 Gigabyte Pages not supported\n");
+			    PrintError(info->vm_info, info, "1 Gigabyte Pages not supported\n");
 			    return 0;
 			}
 		    case PT_ENTRY_PAGE:
@@ -1178,7 +1178,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 			    addr_t guest_pte_pa = 0;
 
 			    if (v3_gpa_to_hva(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
-				PrintError("Could not get virtual address of guest PDE64 (PA=%p)\n", 
+				PrintError(info->vm_info, info, "Could not get virtual address of guest PDE64 (PA=%p)\n", 
 					   (void *)guest_pde_pa);
 				return -1;
 			    }
@@ -1210,7 +1210,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 					addr_t page_pa;
 	      
 					if (v3_gpa_to_hva(info, guest_pte_pa, (addr_t *)&guest_pte) == -1) {
-					    PrintError("Could not get virtual address of guest PTE64 (PA=%p)\n", 
+					    PrintError(info->vm_info, info, "Could not get virtual address of guest PTE64 (PA=%p)\n", 
 						       (void *)guest_pte_pa);
 					    return -1;
 					}
@@ -1244,7 +1244,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
     }
 
     // should never get here
-    PrintError("End of drill function (guest 64)... Should never have gotten here...\n");
+    PrintError(info->vm_info, info, "End of drill function (guest 64)... Should never have gotten here...\n");
     return -1;
 }
 
@@ -1261,12 +1261,12 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
     int ret = 0;
 
     if (!callback) {
-	PrintError("Call back was not specified\n");
+	PrintError(info->vm_info, info, "Call back was not specified\n");
 	return -1;
     }
 
     if (v3_gpa_to_hva(info, guest_pde_pa, (addr_t *)&guest_pde) == -1) {
-	PrintError("Could not get virtual address of Guest PDE32 (PA=%p)\n", 
+	PrintError(info->vm_info, info, "Could not get virtual address of Guest PDE32 (PA=%p)\n", 
 		   (void *)guest_pde_pa);
 	return -1;
     }
@@ -1283,7 +1283,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 		addr_t large_page_va = 0;
 
 		if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
-		    PrintDebug("Could not get virtual address of Guest 4MB Page (PA=%p)\n", 
+		    PrintDebug(info->vm_info, info,"Could not get virtual address of Guest 4MB Page (PA=%p)\n", 
 			       (void *)large_page_pa);
 		    // We'll let it through for data pages because they may be unmapped or hooked
 		    large_page_va = 0;
@@ -1299,7 +1299,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 		pte32_t * tmp_pte = NULL;
 
 		if (v3_gpa_to_hva(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
-		    PrintError("Could not get virtual address of Guest PTE32 (PA=%p)\n", 
+		    PrintError(info->vm_info, info, "Could not get virtual address of Guest PTE32 (PA=%p)\n", 
 			       (void *)pte_pa);
 		    return -1;
 		}
@@ -1314,7 +1314,7 @@ int v3_walk_guest_pt_32(struct guest_info * info,  v3_reg_t guest_cr3,
 			addr_t page_va = 0;
 
 			if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
-			    PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
+			    PrintDebug(info->vm_info, info, "Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
 				       (void *)page_pa);
 			    // We'll let it through for data pages because they may be unmapped or hooked
 			    page_va = 0;
@@ -1346,12 +1346,12 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
     int ret = 0;
 
     if (!callback) {
-	PrintError("Call back was not specified\n");
+	PrintError(info->vm_info, info, "Call back was not specified\n");
 	return -1;
     }
 
     if (v3_gpa_to_hva(info, guest_pdpe_pa, (addr_t *)&guest_pdpe) == -1) {
-	PrintError("Could not get virtual address of Guest PDPE32PAE (PA=%p)\n", 
+	PrintError(info->vm_info, info, "Could not get virtual address of Guest PDPE32PAE (PA=%p)\n", 
 		   (void *)guest_pdpe_pa);
 	return -1;
     }
@@ -1367,7 +1367,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 	    pde32pae_t * tmp_pde = NULL;
 
 	    if (v3_gpa_to_hva(info, pde_pa, (addr_t *)&tmp_pde) == -1) {
-		PrintError("Could not get virtual address of Guest PDE32PAE (PA=%p)\n", 
+		PrintError(info->vm_info, info, "Could not get virtual address of Guest PDE32PAE (PA=%p)\n", 
 			   (void *)pde_pa);
 		return -1;
 	    }
@@ -1384,7 +1384,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 			addr_t large_page_va = 0;
 	    
 			if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
-			    PrintDebug("Could not get virtual address of Guest 2MB Page (PA=%p)\n", 
+			    PrintDebug(info->vm_info, info,"Could not get virtual address of Guest 2MB Page (PA=%p)\n", 
 				       (void *)large_page_pa);
 			    // We'll let it through for data pages because they may be unmapped or hooked
 			    large_page_va = 0;
@@ -1400,7 +1400,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 			pte32pae_t * tmp_pte = NULL;
 	    
 			if (v3_gpa_to_hva(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
-			    PrintError("Could not get virtual address of Guest PTE32PAE (PA=%p)\n", 
+			    PrintError(info->vm_info, info, "Could not get virtual address of Guest PTE32PAE (PA=%p)\n", 
 				       (void *)pte_pa);
 			    return -1;
 			}
@@ -1415,7 +1415,7 @@ int v3_walk_guest_pt_32pae(struct guest_info * info,  v3_reg_t guest_cr3,
 				addr_t page_va = 0;
 		
 				if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
-				    PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
+				    PrintDebug(info->vm_info, info,"Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
 					       (void *)page_pa);
 				    // We'll let it through for data pages because they may be unmapped or hooked
 				    page_va = 0;
@@ -1453,12 +1453,12 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
     int ret = 0;
 
     if (!callback) {
-	PrintError("Call back was not specified\n");
+	PrintError(info->vm_info, info, "Call back was not specified\n");
 	return -1;
     }
 
     if (v3_gpa_to_hva(info, guest_pml_pa, (addr_t *)&guest_pml) == -1) {
-	PrintError("Could not get virtual address of Guest PML464 (PA=%p)\n", 
+	PrintError(info->vm_info, info, "Could not get virtual address of Guest PML464 (PA=%p)\n", 
 		   (void *)guest_pml);
 	return -1;
     }
@@ -1475,7 +1475,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
       
       
 	    if (v3_gpa_to_hva(info, pdpe_pa, (addr_t *)&tmp_pdpe) == -1) {
-		PrintError("Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
+		PrintError(info->vm_info, info, "Could not get virtual address of Guest PDPE64 (PA=%p)\n", 
 			   (void *)pdpe_pa);
 		return -1;
 	    }
@@ -1492,7 +1492,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 			addr_t large_page_va = 0;
 
 			if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
-			    PrintDebug("Could not get virtual address of Guest 1GB page (PA=%p)\n", 
+			    PrintDebug(info->vm_info, info,"Could not get virtual address of Guest 1GB page (PA=%p)\n", 
 				       (void *)large_page_pa);
 			    // We'll let it through for data pages because they may be unmapped or hooked
 			    large_page_va = 0;
@@ -1508,7 +1508,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 			pde64_t * tmp_pde = NULL;
 	    
 			if (v3_gpa_to_hva(info, pde_pa, (addr_t *)&tmp_pde) == -1) {
-			    PrintError("Could not get virtual address of Guest PDE64 (PA=%p)\n", 
+			    PrintError(info->vm_info, info, "Could not get virtual address of Guest PDE64 (PA=%p)\n", 
 				       (void *)pde_pa);
 			    return -1;
 			}
@@ -1525,7 +1525,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 				    addr_t large_page_va = 0;
 		  
 				    if (v3_gpa_to_hva(info, large_page_pa, &large_page_va) == -1) {
-					PrintDebug("Could not get virtual address of Guest 2MB page (PA=%p)\n", 
+					PrintDebug(info->vm_info, info,"Could not get virtual address of Guest 2MB page (PA=%p)\n", 
 						   (void *)large_page_pa);
 					// We'll let it through for data pages because they may be unmapped or hooked
 					large_page_va = 0;
@@ -1541,7 +1541,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 				    pte64_t * tmp_pte = NULL;
 		  
 				    if (v3_gpa_to_hva(info, pte_pa, (addr_t *)&tmp_pte) == -1) {
-					PrintError("Could not get virtual address of Guest PTE64 (PA=%p)\n", 
+					PrintError(info->vm_info, info, "Could not get virtual address of Guest PTE64 (PA=%p)\n", 
 						   (void *)pte_pa);
 					return -1;
 				    }
@@ -1556,7 +1556,7 @@ int v3_walk_guest_pt_64(struct guest_info * info,  v3_reg_t guest_cr3,
 					    addr_t page_va = 0;
 		      
 					    if (v3_gpa_to_hva(info, page_pa, &page_va) == -1) {
-						PrintDebug("Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
+						PrintDebug(info->vm_info, info,"Could not get virtual address of Guest 4KB Page (PA=%p)\n", 
 							   (void *)page_pa);
 						// We'll let it through for data pages because they may be unmapped or hooked
 						page_va = 0;
@@ -1596,7 +1596,7 @@ int v3_walk_host_pt_32(struct guest_info * info, v3_reg_t host_cr3,
     int ret = 0;
 
     if (!callback) {
-	PrintError("Call back was not specified\n");
+	PrintError(info->vm_info, info, "Call back was not specified\n");
 	return -1;
     }
 
@@ -1655,7 +1655,7 @@ int v3_walk_host_pt_32pae(struct guest_info * info, v3_reg_t host_cr3,
     int ret = 0;
 
     if (!callback) {
-	PrintError("Callback was not specified\n");
+	PrintError(info->vm_info, info, "Callback was not specified\n");
 	return -1;
     }
   
@@ -1725,7 +1725,7 @@ int v3_walk_host_pt_64(struct guest_info * info, v3_reg_t host_cr3,
     int ret = 0;
 
     if (!callback) {
-	PrintError("Callback was not specified\n");
+	PrintError(info->vm_info, info, "Callback was not specified\n");
 	return -1;
     }
 

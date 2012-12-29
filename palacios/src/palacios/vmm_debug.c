@@ -98,7 +98,7 @@ static int core_handler(struct guest_info * core, uint32_t cmd) {
 
 static int evt_handler(struct v3_vm_info * vm, struct v3_debug_event * evt, void * priv_data) {
 
-    V3_Print("Debug Event Handler for core %d\n", evt->core_id);
+    V3_Print(vm, VCORE_NONE,"Debug Event Handler for core %d\n", evt->core_id);
 
     if (evt->core_id == -1) {
 	int i = 0;
@@ -134,11 +134,11 @@ void v3_print_segments(struct v3_segments * segs) {
     seg_ptr=(struct v3_segment *)segs;
   
     char *seg_names[] = {"CS", "DS" , "ES", "FS", "GS", "SS" , "LDTR", "GDTR", "IDTR", "TR", NULL};
-    V3_Print("Segments\n");
+    V3_Print(VM_NONE, VCORE_NONE, "Segments\n");
 
     for (i = 0; seg_names[i] != NULL; i++) {
 
-	V3_Print("\t%s: Sel=%x, base=%p, limit=%x (long_mode=%d, db=%d)\n", seg_names[i], seg_ptr[i].selector, 
+	V3_Print(VM_NONE, VCORE_NONE, "\t%s: Sel=%x, base=%p, limit=%x (long_mode=%d, db=%d)\n", seg_names[i], seg_ptr[i].selector, 
 		   (void *)(addr_t)seg_ptr[i].base, seg_ptr[i].limit,
 		   seg_ptr[i].long_mode, seg_ptr[i].db);
 
@@ -156,10 +156,10 @@ void v3_print_ctrl_regs(struct guest_info * core) {
 
     reg_ptr = (v3_reg_t *)regs;
 
-    V3_Print("Ctrl Regs:\n");
+    V3_Print(core->vm_info, core,"Ctrl Regs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	V3_Print("\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
+        V3_Print(core->vm_info, core, "\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
     }
 
 
@@ -188,12 +188,12 @@ static int v3_print_disassembly(struct guest_info * core) {
     /* start disassembly 64 bytes before current RIP, continue 32 bytes after */
     rip = (addr_t) core->rip - 64;
     while ((int) (rip - core->rip) < 32) {
-	V3_Print("disassembly step\n");
+	V3_Print(info->vm_info, info, "disassembly step\n");
 
     	/* always print RIP, even if the instructions before were bad */
     	if (!passed_rip && rip >= core->rip) {
     	    if (rip != core->rip) {
-    	    	V3_Print("***** bad disassembly up to this point *****\n");
+    	    	V3_Print(info->vm_info, info, "***** bad disassembly up to this point *****\n");
     	    	rip = core->rip;
     	    }
     	    passed_rip = 1;
@@ -222,16 +222,16 @@ static int v3_print_disassembly(struct guest_info * core) {
 void v3_print_guest_state(struct guest_info * core) {
     addr_t linear_addr = 0; 
 
-    V3_Print("RIP: %p\n", (void *)(addr_t)(core->rip));
+    V3_Print(core->vm_info, core, "RIP: %p\n", (void *)(addr_t)(core->rip));
     linear_addr = get_addr_linear(core, core->rip, &(core->segments.cs));
-    V3_Print("RIP Linear: %p\n", (void *)linear_addr);
+    V3_Print(core->vm_info, core, "RIP Linear: %p\n", (void *)linear_addr);
 
-    V3_Print("NumExits: %u\n", (uint32_t)core->num_exits);
+    V3_Print(core->vm_info, core, "NumExits: %u\n", (uint32_t)core->num_exits);
 
-    V3_Print("IRQ STATE: started=%d, pending=%d\n", 
+    V3_Print(core->vm_info, core, "IRQ STATE: started=%d, pending=%d\n", 
 	     core->intr_core_state.irq_started, 
 	     core->intr_core_state.irq_pending);
-    V3_Print("EXCP STATE: err_code_valid=%d, err_code=%x\n", 
+    V3_Print(core->vm_info, core, "EXCP STATE: err_code_valid=%d, err_code=%x\n", 
 	     core->excp_state.excp_error_code_valid, 
 	     core->excp_state.excp_error_code);
 
@@ -240,10 +240,10 @@ void v3_print_guest_state(struct guest_info * core) {
     v3_print_ctrl_regs(core);
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
-	V3_Print("Shadow Paging Guest Registers:\n");
-	V3_Print("\tGuest CR0=%p\n", (void *)(addr_t)(core->shdw_pg_state.guest_cr0));
-	V3_Print("\tGuest CR3=%p\n", (void *)(addr_t)(core->shdw_pg_state.guest_cr3));
-	V3_Print("\tGuest EFER=%p\n", (void *)(addr_t)(core->shdw_pg_state.guest_efer.value));
+	V3_Print(core->vm_info, core, "Shadow Paging Guest Registers:\n");
+	V3_Print(core->vm_info, core, "\tGuest CR0=%p\n", (void *)(addr_t)(core->shdw_pg_state.guest_cr0));
+	V3_Print(core->vm_info, core, "\tGuest CR3=%p\n", (void *)(addr_t)(core->shdw_pg_state.guest_cr3));
+	V3_Print(core->vm_info, core, "\tGuest EFER=%p\n", (void *)(addr_t)(core->shdw_pg_state.guest_efer.value));
 	// CR4
     }
     v3_print_GPRs(core);
@@ -265,10 +265,10 @@ void v3_print_arch_state(struct guest_info * core) {
 void v3_print_guest_state_all(struct v3_vm_info * vm) {
     int i = 0;
 
-    V3_Print("VM Core states for %s\n", vm->name);
+    V3_Print(vm, VCORE_NONE,"VM Core states for %s\n", vm->name);
 
     for (i = 0; i < 80; i++) {
-	V3_Print("-");
+      V3_Print(vm, VCORE_NONE, "-");
     }
 
     for (i = 0; i < vm->num_cores; i++) {
@@ -276,10 +276,10 @@ void v3_print_guest_state_all(struct v3_vm_info * vm) {
     }
     
     for (i = 0; i < 80; i++) {
-	V3_Print("-");
+	V3_Print(vm, VCORE_NONE, "-");
     }
 
-    V3_Print("\n");    
+    V3_Print(vm, VCORE_NONE, "\n");    
 }
 
 
@@ -292,32 +292,32 @@ void v3_print_stack(struct guest_info * core) {
 
     linear_addr = get_addr_linear(core, core->vm_regs.rsp, &(core->segments.ss));
  
-    V3_Print("Stack at %p:\n", (void *)linear_addr);
+    V3_Print(core->vm_info, core, "Stack at %p:\n", (void *)linear_addr);
    
     if (core->mem_mode == PHYSICAL_MEM) {
 	if (v3_gpa_to_hva(core, linear_addr, &host_addr) == -1) {
-	    PrintError("Could not translate Stack address\n");
+	    PrintError(core->vm_info, core, "Could not translate Stack address\n");
 	    return;
 	}
     } else if (core->mem_mode == VIRTUAL_MEM) {
 	if (v3_gva_to_hva(core, linear_addr, &host_addr) == -1) {
-	    PrintError("Could not translate Virtual Stack address\n");
+	    PrintError(core->vm_info, core, "Could not translate Virtual Stack address\n");
 	    return;
 	}
     }
     
-    V3_Print("Host Address of rsp = 0x%p\n", (void *)host_addr);
+    V3_Print(core->vm_info, core, "Host Address of rsp = 0x%p\n", (void *)host_addr);
  
     // We start i at one because the current stack pointer points to an unused stack element
     for (i = 0; i <= 24; i++) {
 
 	if (cpu_mode == REAL) {
-	    V3_Print("\t0x%.4x\n", *((uint16_t *)host_addr + (i * 2)));
+	    V3_Print(core->vm_info, core, "\t0x%.4x\n", *((uint16_t *)host_addr + (i * 2)));
 	} else if (cpu_mode == LONG) {
-	    V3_Print("\t%p\n", (void *)*(addr_t *)(host_addr + (i * 8)));
+	    V3_Print(core->vm_info, core, "\t%p\n", (void *)*(addr_t *)(host_addr + (i * 8)));
 	} else {
 	    // 32 bit stacks...
-	    V3_Print("\t0x%.8x\n", *(uint32_t *)(host_addr + (i * 4)));
+	    V3_Print(core->vm_info, core, "\t0x%.8x\n", *(uint32_t *)(host_addr + (i * 4)));
 	}
     }
 
@@ -330,8 +330,8 @@ void v3_print_backtrace(struct guest_info * core) {
     v3_cpu_mode_t cpu_mode = v3_get_vm_cpu_mode(core);
     struct v3_cfg_file * system_map = v3_cfg_get_file(core->vm_info, "System.map");
 
-    V3_Print("Performing Backtrace for Core %d\n", core->vcpu_id);
-    V3_Print("\tRSP=%p, RBP=%p\n", (void *)core->vm_regs.rsp, (void *)core->vm_regs.rbp);
+    V3_Print(core->vm_info, core, "Performing Backtrace for Core %d\n", core->vcpu_id);
+    V3_Print(core->vm_info, core, "\tRSP=%p, RBP=%p\n", (void *)core->vm_regs.rsp, (void *)core->vm_regs.rbp);
 
     gla_rbp = get_addr_linear(core, core->vm_regs.rbp, &(core->segments.ss));
 
@@ -344,12 +344,12 @@ void v3_print_backtrace(struct guest_info * core) {
 
 	if (core->mem_mode == PHYSICAL_MEM) {
 	    if (v3_gpa_to_hva(core, gla_rbp, &hva_rbp) == -1) {
-		PrintError("Could not translate Stack address\n");
+		PrintError(core->vm_info, core, "Could not translate Stack address\n");
 		return;
 	    }
 	} else if (core->mem_mode == VIRTUAL_MEM) {
 	    if (v3_gva_to_hva(core, gla_rbp, &hva_rbp) == -1) {
-		PrintError("Could not translate Virtual Stack address\n");
+		PrintError(core->vm_info, core, "Could not translate Virtual Stack address\n");
 		return;
 	    }
 	}
@@ -405,18 +405,18 @@ void v3_print_backtrace(struct guest_info * core) {
 	}
 
 	if (cpu_mode == REAL) {
-	    V3_Print("Next RBP=0x%.4x, RIP=0x%.4x (%s)\n", 
+	    V3_Print(core->vm_info, core, "Next RBP=0x%.4x, RIP=0x%.4x (%s)\n", 
 		     *(uint16_t *)hva_rbp,*(uint16_t *)hva_rip, 
 		     sym_name);
 	    
 	    gla_rbp = *(uint16_t *)hva_rbp;
 	} else if (cpu_mode == LONG) {
-	    V3_Print("Next RBP=%p, RIP=%p (%s)\n", 
+	    V3_Print(core->vm_info, core, "Next RBP=%p, RIP=%p (%s)\n", 
 		     (void *)*(uint64_t *)hva_rbp, (void *)*(uint64_t *)hva_rip,
 		     sym_name);
 	    gla_rbp = *(uint64_t *)hva_rbp;
 	} else {
-	    V3_Print("Next RBP=0x%.8x, RIP=0x%.8x (%s)\n", 
+	    V3_Print(core->vm_info, core, "Next RBP=0x%.8x, RIP=0x%.8x (%s)\n", 
 		     *(uint32_t *)hva_rbp, *(uint32_t *)hva_rip,
 		     sym_name);
 	    gla_rbp = *(uint32_t *)hva_rbp;
@@ -436,10 +436,10 @@ void v3_print_GPRs(struct guest_info * core) {
 
     reg_ptr = (v3_reg_t *)regs;
 
-    V3_Print("32 bit GPRs:\n");
+    V3_Print(info->vm_info, info, "32 bit GPRs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	V3_Print("\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
+	V3_Print(info->vm_info, info, "\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
     }
 }
 
@@ -454,10 +454,10 @@ void v3_print_GPRs(struct guest_info * core) {
 
     reg_ptr = (v3_reg_t *)regs;
 
-    V3_Print("64 bit GPRs:\n");
+    V3_Print(core->vm_info, core, "64 bit GPRs:\n");
 
     for (i = 0; reg_names[i] != NULL; i++) {
-	V3_Print("\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
+	V3_Print(core->vm_info, core, "\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
     }
 }
 

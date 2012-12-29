@@ -30,7 +30,7 @@ struct timer_state {
 
 /*
   static int irq_handler(uint_t irq, struct vm_device * dev) {
-  PrintDebug("Timer interrupt\n");
+  PrintDebug(info->vm_info, info, "Timer interrupt\n");
   return 0;
 
   }
@@ -58,14 +58,14 @@ static int timer_init(struct guest_info * vm, void * cfg_data) {
     timer = (struct timer_state *)V3_Malloc( sizeof(struct timer_state));
 
     if (!timer) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(info->vm_info, info, "Cannot allocate in init\n");
 	return -1;
     }
 
     struct vm_device * dev = v3_allocate_device("TIMER", &dev_ops, timer);
     
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", "TIMER");
+	PrintError(info->vm_info, info, "Could not attach device %s\n", "TIMER");
         return -1;
     }
 

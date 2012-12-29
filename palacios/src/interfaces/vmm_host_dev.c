@@ -32,16 +32,16 @@ v3_host_dev_t v3_host_dev_open(char *impl,
 			       v3_guest_dev_t gdev,
 			       struct v3_vm_info *vm)
 {					       
-    V3_ASSERT(host_dev_hooks != NULL);
-    V3_ASSERT(host_dev_hooks->open != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->open != NULL);
 
     return host_dev_hooks->open(impl,bus,gdev,vm->host_priv_data);
 }
 
 int v3_host_dev_close(v3_host_dev_t hdev) 
 {
-    V3_ASSERT(host_dev_hooks);
-    V3_ASSERT(host_dev_hooks->close);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->close);
 
     return host_dev_hooks->close(hdev);
 }
@@ -51,8 +51,8 @@ uint64_t v3_host_dev_read_io(v3_host_dev_t hdev,
 			     void *dst,
 			     uint64_t len)
 {
-    V3_ASSERT(host_dev_hooks != NULL);
-    V3_ASSERT(host_dev_hooks->read_io != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->read_io != NULL);
     
     return host_dev_hooks->read_io(hdev,port,dst,len);
 }
@@ -62,8 +62,8 @@ uint64_t v3_host_dev_write_io(v3_host_dev_t hdev,
 			      void *src,
 			      uint64_t len)
 {
-    V3_ASSERT(host_dev_hooks != NULL);
-    V3_ASSERT(host_dev_hooks->write_io != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->write_io != NULL);
     
     return host_dev_hooks->write_io(hdev,port,src,len);
 }
@@ -73,8 +73,8 @@ uint64_t v3_host_dev_read_mem(v3_host_dev_t hdev,
 			      void *dst,
 			      uint64_t len)
 {
-    V3_ASSERT(host_dev_hooks != NULL);
-    V3_ASSERT(host_dev_hooks->read_mem != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->read_mem != NULL);
     
     return host_dev_hooks->read_mem(hdev,(void*)gpa,dst,len);
 }
@@ -84,8 +84,8 @@ uint64_t v3_host_dev_write_mem(v3_host_dev_t hdev,
 			      void *src,
 			      uint64_t len)
 {
-    V3_ASSERT(host_dev_hooks != NULL);
-    V3_ASSERT(host_dev_hooks->write_mem != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->write_mem != NULL);
     
     return host_dev_hooks->write_mem(hdev,(void*)gpa,src,len);
 }
@@ -95,8 +95,8 @@ uint64_t v3_host_dev_read_config(v3_host_dev_t hdev,
 				 void *dst,
 				 uint64_t len)
 {
-    V3_ASSERT(host_dev_hooks != NULL);
-    V3_ASSERT(host_dev_hooks->read_config);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->read_config);
 
     return host_dev_hooks->read_config(hdev,offset,dst,len);
 }
@@ -106,8 +106,8 @@ uint64_t v3_host_dev_write_config(v3_host_dev_t hdev,
 				  void *src,
 				  uint64_t len)
 {
-    V3_ASSERT(host_dev_hooks != NULL);
-    V3_ASSERT(host_dev_hooks->write_config);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->write_config);
     
     return host_dev_hooks->write_config(hdev,offset,src,len);
 
@@ -116,8 +116,8 @@ uint64_t v3_host_dev_write_config(v3_host_dev_t hdev,
 
 int v3_host_dev_ack_irq(v3_host_dev_t hdev, uint8_t irq)
 {
-    V3_ASSERT(host_dev_hooks != NULL);
-    V3_ASSERT(host_dev_hooks->ack_irq);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->ack_irq);
 
     return host_dev_hooks->ack_irq(hdev,irq);
 }
@@ -185,7 +185,7 @@ uint64_t v3_host_dev_write_guest_mem(v3_host_dev_t  hostdev,
 
 void V3_Init_Host_Device_Support(struct v3_host_dev_hooks * hooks) {
     host_dev_hooks = hooks;
-    PrintDebug("V3 host device interface inited\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "V3 host device interface inited\n");
 
     return;
 }

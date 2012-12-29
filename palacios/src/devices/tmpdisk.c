@@ -32,7 +32,7 @@ struct blk_state {
 static uint64_t blk_get_capacity(void * private_data) {
     struct blk_state * blk = (struct blk_state *)private_data;
 
-    //  PrintDebug("SymBlk: Getting Capacity %d\n", (uint32_t)(blk->capacity));
+    //  PrintDebug(info->vm_info, info, "SymBlk: Getting Capacity %d\n", (uint32_t)(blk->capacity));
 
     return blk->capacity;
 }
@@ -42,10 +42,10 @@ static uint64_t blk_get_capacity(void * private_data) {
 static int blk_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct blk_state * blk = (struct blk_state *)private_data;
 
-    //    PrintDebug("TmpDisk Reading %d bytes to %p (lba=%p)\n", (uint32_t)num_bytes, buf, (void *)(addr_t)lba);
+    //    PrintDebug(info->vm_info, info, "TmpDisk Reading %d bytes to %p (lba=%p)\n", (uint32_t)num_bytes, buf, (void *)(addr_t)lba);
 
     if (lba + num_bytes > blk->capacity) {
-	PrintError("TMPDISK Read past end of disk\n");
+	PrintError(VM_NONE, VCORE_NONE, "TMPDISK Read past end of disk\n");
 	return -1;
     }
 
@@ -60,10 +60,10 @@ static int blk_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
 static int blk_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct blk_state * blk = (struct blk_state *)private_data;
 
-    //    PrintDebug("TmpDisk Writing %d bytes to %p (lba=%p)\n", (uint32_t)num_bytes, buf, (void *)(addr_t)lba);
+    //    PrintDebug(VM_NONE, VCORE_NONE, "TmpDisk Writing %d bytes to %p (lba=%p)\n", (uint32_t)num_bytes, buf, (void *)(addr_t)lba);
 
     if (lba + num_bytes > blk->capacity) {
-	PrintError("TMPDISK Write past end of disk\n");
+	PrintError(VM_NONE, VCORE_NONE, "TMPDISK Write past end of disk\n");
 	return -1;
     }
 
@@ -104,17 +104,17 @@ static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     uint64_t capacity = atoi(v3_cfg_val(cfg, "size")) * 1024 * 1024;
     
     if (!frontend_cfg) {
-	PrintError("Frontend Configuration not present\n");
+	PrintError(vm, VCORE_NONE, "Frontend Configuration not present\n");
 	return -1;
     }
 
-    PrintDebug("Intializing TMPDISK (capacity=%d)\n", (uint32_t)capacity);
+    PrintDebug(vm, VCORE_NONE, "Intializing TMPDISK (capacity=%d)\n", (uint32_t)capacity);
 
 
     blk = (struct blk_state *)V3_Malloc(sizeof(struct blk_state));
 
     if (!blk) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -123,7 +123,7 @@ static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     blk->blk_base_addr = (addr_t)V3_AllocPages(blk->capacity / 4096);
 
     if (!blk->blk_base_addr) { 
-	PrintError("Cannot allocate block space\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate block space\n");
 	V3_Free(blk);
 	return -1;
     }
@@ -135,14 +135,14 @@ static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, blk);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(blk);
 	return -1;
     }
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, blk) == -1) {
-	PrintError("Could not connect %s to frontend %s\n", 
+	PrintError(vm, VCORE_NONE, "Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	v3_remove_device(dev);
 	return -1;

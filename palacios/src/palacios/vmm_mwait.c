@@ -30,7 +30,7 @@
 //
 int v3_handle_mwait(struct guest_info * info) 
 {
-    PrintDebug("Raising undefined opcode due to mwait instruction\n");
+    PrintDebug(info->vm_info, info, "Raising undefined opcode due to mwait instruction\n");
 
     v3_raise_exception(info, UD_EXCEPTION );
 
@@ -42,7 +42,7 @@ int v3_handle_mwait(struct guest_info * info)
 //
 int v3_handle_monitor(struct guest_info * info) 
 {
-    PrintDebug("Raising undefined opcode due to monitor instruction\n");
+    PrintDebug(info->vm_info, info, "Raising undefined opcode due to monitor instruction\n");
 
     v3_raise_exception(info, UD_EXCEPTION );
 

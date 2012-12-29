@@ -95,7 +95,7 @@ char * v3_cfg_val(v3_cfg_tree_t * tree, char * tag) {
     char * val = NULL;
 
     if ((child_entry != NULL) && (attrib != NULL)) {
-	PrintError("Duplicate Configuration parameters present for %s\n", tag);
+	PrintError(VM_NONE, VCORE_NONE, "Duplicate Configuration parameters present for %s\n", tag);
 	return NULL;
     }
 
@@ -151,25 +151,25 @@ static struct v3_config * parse_config(void * cfg_blob) {
     v3_cfg_tree_t * file_tree = NULL;
     int version=-1;
 
-    V3_Print("cfg data at %p\n", cfg_blob);
+    V3_Print(VM_NONE, VCORE_NONE, "cfg data at %p\n", cfg_blob);
 
     if (memcmp(cfg_blob, COOKIE_V0, COOKIE_LEN) == 0) {
         version = 0;
     } else if (memcmp(cfg_blob, COOKIE_V1, COOKIE_LEN) == 0) { 
         version = 1;
     } else {
-	PrintError("Invalid Configuration Header Or Unknown Version\n");
+	PrintError(VM_NONE, VCORE_NONE, "Invalid Configuration Header Or Unknown Version\n");
 	return NULL;
     } 
 
-    V3_Print("Handling Palacios Image Format, Version 0x%x\n",version);
+    V3_Print(VM_NONE, VCORE_NONE, "Handling Palacios Image Format, Version 0x%x\n",version);
 
     offset += COOKIE_LEN;
 
     cfg = (struct v3_config *)V3_Malloc(sizeof(struct v3_config));
 
     if (!cfg) {
-	PrintError("Unable to allocate while parsing\n");
+	PrintError(VM_NONE, VCORE_NONE, "Unable to allocate while parsing\n");
 	return NULL;
     }
 
@@ -180,7 +180,7 @@ static struct v3_config * parse_config(void * cfg_blob) {
     cfg->file_table = v3_create_htable(0, file_hash_fn, file_eq_fn);
 
     if (!(cfg->file_table)) {
-	PrintError("Unable to allocate hash table while parsing\n");
+	PrintError(VM_NONE, VCORE_NONE, "Unable to allocate hash table while parsing\n");
 	V3_Free(cfg);
 	return NULL;
     }
@@ -196,10 +196,10 @@ static struct v3_config * parse_config(void * cfg_blob) {
     // This is hideous, but the file formats are still very close
     if (version==0) { 
 	files_v0 = (struct file_idx_table_v0 *)(cfg_blob + offset);
-	V3_Print("Number of files in cfg: %d\n", (uint32_t)(files_v0->num_files));
+	V3_Print(VM_NONE, VCORE_NONE, "Number of files in cfg: %d\n", (uint32_t)(files_v0->num_files));
     } else {
 	files_v1 = (struct file_idx_table_v1 *)(cfg_blob + offset);
-	V3_Print("Number of files in cfg: %d\n", (uint32_t)(files_v1->num_files));
+	V3_Print(VM_NONE, VCORE_NONE, "Number of files in cfg: %d\n", (uint32_t)(files_v1->num_files));
     }
 
 
@@ -214,13 +214,13 @@ static struct v3_config * parse_config(void * cfg_blob) {
 	file = (struct v3_cfg_file *)V3_Malloc(sizeof(struct v3_cfg_file));
 	
 	if (!file) {
-	    PrintError("Could not allocate file structure\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Could not allocate file structure\n");
 	    v3_free_htable(cfg->file_table,0,0);
 	    V3_Free(cfg);
 	    return NULL;
 	}
 
-	V3_Print("File index=%d id=%s\n", idx, id);
+	V3_Print(VM_NONE, VCORE_NONE, "File index=%d id=%s\n", idx, id);
 
 	strncpy(file->tag, id, V3_MAX_TAG_LEN);
 
@@ -231,8 +231,8 @@ static struct v3_config * parse_config(void * cfg_blob) {
 	    file->data = cfg_blob + hdr->offset;
 	    file->hash = 0;
 	    
-	    V3_Print("Storing file data offset = %d, size=%d\n", (uint32_t)hdr->offset, hdr->size);
-	    V3_Print("file data at %p\n", file->data);
+	    V3_Print(VM_NONE, VCORE_NONE, "Storing file data offset = %d, size=%d\n", (uint32_t)hdr->offset, hdr->size);
+	    V3_Print(VM_NONE, VCORE_NONE, "file data at %p\n", file->data);
 
 	} else if (version==1) { 
 	    struct file_hdr_v1 * hdr = &(files_v1->hdrs[idx]);
@@ -242,30 +242,30 @@ static struct v3_config * parse_config(void * cfg_blob) {
 	    file->data = cfg_blob + hdr->offset;
 	    file->hash = hdr->hash;
 
-	    V3_Print("Storing file data offset = %d, size=%d\n", (uint32_t)hdr->offset, hdr->size);
-	    V3_Print("file data at %p\n", file->data);
-	    V3_Print("Checking file data integrity...\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "Storing file data offset = %d, size=%d\n", (uint32_t)hdr->offset, hdr->size);
+	    V3_Print(VM_NONE, VCORE_NONE, "file data at %p\n", file->data);
+	    V3_Print(VM_NONE, VCORE_NONE, "Checking file data integrity...\n");
 	    if ((hash = v3_hash_buffer(file->data, file->size)) != file->hash) {
-		PrintError("File data corrupted! (orig hash=0x%lx, new=0x%lx\n",
+		PrintError(VM_NONE, VCORE_NONE, "File data corrupted! (orig hash=0x%lx, new=0x%lx\n",
 			   file->hash, hash);
 		return NULL;
 	    }
-	    V3_Print("File data OK\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "File data OK\n");
 	    
 	}
 	    
 	    
 	list_add( &(file->file_node), &(cfg->file_list));
 
-	V3_Print("Keying file to name\n");
+	V3_Print(VM_NONE, VCORE_NONE, "Keying file to name\n");
 	v3_htable_insert(cfg->file_table, (addr_t)(file->tag), (addr_t)(file));
 
-	V3_Print("Iterating to next file\n");
+	V3_Print(VM_NONE, VCORE_NONE, "Iterating to next file\n");
 
 	file_tree = v3_cfg_next_branch(file_tree);
     }
 
-    V3_Print("Configuration parsed successfully\n");
+    V3_Print(VM_NONE, VCORE_NONE, "Configuration parsed successfully\n");
 
     return cfg;
 }
@@ -285,8 +285,8 @@ static inline uint32_t get_alignment(char * align_str) {
     
 #ifndef V3_CONFIG_ALIGNED_PG_ALLOC
     if (alignment != PAGE_SIZE_4KB) {
-	PrintError("Aligned page allocations are not supported in this host (requested alignment=%d)\n", alignment);
-	PrintError("Ignoring alignment request\n");
+	PrintError(VM_NONE, VCORE_NONE, "Aligned page allocations are not supported in this host (requested alignment=%d)\n", alignment);
+	PrintError(VM_NONE, VCORE_NONE, "Ignoring alignment request\n");
     }
 #endif 
 
@@ -303,15 +303,15 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 
 
     if (!memory_str) {
-	PrintError("Memory is a required configuration parameter\n");
+	PrintError(VM_NONE, VCORE_NONE, "Memory is a required configuration parameter\n");
 	return -1;
     }
     
-    PrintDebug("Memory=%s\n", memory_str);
+    PrintDebug(VM_NONE, VCORE_NONE, "Memory=%s\n", memory_str);
     if (align_str) {
-	 PrintDebug("Alignment=%s\n", align_str);
+	 PrintDebug(VM_NONE, VCORE_NONE, "Alignment=%s\n", align_str);
     } else {
-	 PrintDebug("Alignment defaulted to 4KB.\n");
+	 PrintDebug(VM_NONE, VCORE_NONE, "Alignment defaulted to 4KB.\n");
     }
 
     // Amount of ram the Guest will have, always in MB
@@ -319,12 +319,12 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     vm->mem_align = get_alignment(align_str);
 
 
-    PrintDebug("Alignment for %lu bytes of memory computed as 0x%x\n", vm->mem_size, vm->mem_align);
+    PrintDebug(VM_NONE, VCORE_NONE, "Alignment for %lu bytes of memory computed as 0x%x\n", vm->mem_size, vm->mem_align);
 
     if (strcasecmp(vm_class, "PC") == 0) {
 	vm->vm_class = V3_PC_VM;
     } else {
-	PrintError("Invalid VM class\n");
+	PrintError(VM_NONE, VCORE_NONE, "Invalid VM class\n");
 	return -1;
     }
 
@@ -342,7 +342,7 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 #endif
 
     if (v3_init_vm(vm) == -1) {
-	PrintError("Failed to initialize VM\n");
+	PrintError(VM_NONE, VCORE_NONE, "Failed to initialize VM\n");
 	return -1;
     }
 
@@ -352,7 +352,7 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 	sched_hz = atoi(schedule_hz_str);
     }
 
-    PrintDebug("CPU_KHZ = %d, schedule_freq=%p\n", V3_CPU_KHZ(), 
+    PrintDebug(VM_NONE, VCORE_NONE, "CPU_KHZ = %d, schedule_freq=%p\n", V3_CPU_KHZ(), 
 	       (void *)(addr_t)sched_hz);
 
     vm->yield_cycle_period = (V3_CPU_KHZ() * 1000) / sched_hz;
@@ -368,7 +368,7 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
     v3_cfg_tree_t * pg_tree = v3_cfg_subtree(vm_tree, "paging");
     char * pg_mode          = v3_cfg_val(pg_tree, "mode");
     
-    PrintDebug("Paging mode specified as %s\n", pg_mode);
+    PrintDebug(info->vm_info, info, "Paging mode specified as %s\n", pg_mode);
 
     if (pg_mode) {
 	if ((strcasecmp(pg_mode, "nested") == 0)) {
@@ -377,21 +377,21 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
 		(v3_mach_type == V3_VMX_EPT_CPU) ||
 		(v3_mach_type == V3_VMX_EPT_UG_CPU)) {
 		
-		V3_Print("Setting paging mode to NESTED\n");
+		V3_Print(info->vm_info, info, "Setting paging mode to NESTED\n");
 	    	info->shdw_pg_mode = NESTED_PAGING;
 	    } else {
-		PrintError("Nested paging not supported on this hardware. Defaulting to shadow paging\n");
+		PrintError(info->vm_info, info, "Nested paging not supported on this hardware. Defaulting to shadow paging\n");
 	    	info->shdw_pg_mode = SHADOW_PAGING;
 	    }
 	} else if ((strcasecmp(pg_mode, "shadow") == 0)) {
-	    V3_Print("Setting paging mode to SHADOW\n");
+	    V3_Print(info->vm_info, info, "Setting paging mode to SHADOW\n");
 	    info->shdw_pg_mode = SHADOW_PAGING;
 	} else {
-	    PrintError("Invalid paging mode (%s) specified in configuration. Defaulting to shadow paging\n", pg_mode);
+	    PrintError(info->vm_info, info, "Invalid paging mode (%s) specified in configuration. Defaulting to shadow paging\n", pg_mode);
 	    info->shdw_pg_mode = SHADOW_PAGING;
 	}
     } else {
-	V3_Print("No paging type specified in configuration. Defaulting to shadow paging\n");
+	V3_Print(info->vm_info, info, "No paging type specified in configuration. Defaulting to shadow paging\n");
 	info->shdw_pg_mode = SHADOW_PAGING;
     }
 
@@ -399,7 +399,7 @@ static int determine_paging_mode(struct guest_info * info, v3_cfg_tree_t * core_
     if (v3_cfg_val(pg_tree, "large_pages") != NULL) {
 	if (strcasecmp(v3_cfg_val(pg_tree, "large_pages"), "true") == 0) {
 	    info->use_large_pages = 1;
-	    PrintDebug("Use of large pages in memory virtualization enabled.\n");
+	    PrintDebug(info->vm_info, info, "Use of large pages in memory virtualization enabled.\n");
 	}
     }
     return 0;
@@ -411,17 +411,17 @@ static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
     }
 
     if (v3_init_core(info) == -1) {
-	PrintError("Error Initializing Core\n");
+	PrintError(info->vm_info, info, "Error Initializing Core\n");
 	return -1;
     }
 
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (pre_config_pc_core(info, core_cfg) == -1) {
-	    PrintError("PC Post configuration failure\n");
+	    PrintError(info->vm_info, info, "PC Post configuration failure\n");
 	    return -1;
 	}
     } else {
-	PrintError("Invalid VM Class\n");
+	PrintError(info->vm_info, info, "Invalid VM Class\n");
 	return -1;
     }
 
@@ -436,18 +436,18 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     // Configure the memory map for the guest
     if (setup_memory_map(vm, cfg) == -1) {
-	PrintError("Setting up guest memory map failed...\n");
+        PrintError(vm, VCORE_NONE,"Setting up guest memory map failed...\n");
 	return -1;
     }
 
 
     if (vm->vm_class == V3_PC_VM) {
 	if (post_config_pc(vm, cfg) == -1) {
-	    PrintError("PC Post configuration failure\n");
+	    PrintError(vm, VCORE_NONE,"PC Post configuration failure\n");
 	    return -1;
 	}
     } else {
-	PrintError("Invalid VM Class\n");
+	PrintError(vm, VCORE_NONE,"Invalid VM Class\n");
 	return -1;
     }
 
@@ -456,7 +456,7 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
      * Initialize configured devices
      */
     if (setup_devices(vm, cfg) == -1) {
-	PrintError("Failed to setup devices\n");
+	PrintError(vm, VCORE_NONE,"Failed to setup devices\n");
 	return -1;
     }
 
@@ -471,12 +471,12 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
      * Initialize configured extensions 
      */
     if (setup_extensions(vm, cfg) == -1) {
-	PrintError("Failed to setup extensions\n");
+	PrintError(vm, VCORE_NONE,"Failed to setup extensions\n");
 	return -1;
     }
 
     if (v3_setup_performance_tuning(vm, cfg) == -1) { 
-	PrintError("Failed to configure performance tuning parameters\n");
+	PrintError(vm, VCORE_NONE,"Failed to configure performance tuning parameters\n");
 	return -1;
     }
 
@@ -492,17 +492,17 @@ static int post_config_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
  
     if (v3_init_core_extensions(info) == -1) {
-        PrintError("Error intializing extension core states\n");
+        PrintError(info->vm_info, info, "Error intializing extension core states\n");
         return -1;
     }
 
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (post_config_pc_core(info, cfg) == -1) {
-	    PrintError("PC Post configuration failure\n");
+	    PrintError(info->vm_info, info, "PC Post configuration failure\n");
 	    return -1;
 	}
     } else {
-	PrintError("Invalid VM Class\n");
+	PrintError(info->vm_info, info, "Invalid VM Class\n");
 	return -1;
     }
 
@@ -517,7 +517,7 @@ static struct v3_vm_info * allocate_guest(int num_cores) {
     struct v3_vm_info * vm = V3_Malloc(guest_state_size);
 
     if (!vm) {
-	PrintError("Unable to allocate space for guest data structures\n");
+        PrintError(VM_NONE, VCORE_NONE, "Unable to allocate space for guest data structures\n");
 	return NULL;
     }
 
@@ -548,36 +548,36 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     v3_cfg_tree_t * per_core_cfg = NULL;
 
     if (v3_mach_type == V3_INVALID_CPU) {
-	PrintError("Configuring guest on invalid CPU\n");
+	PrintError(VM_NONE, VCORE_NONE, "Configuring guest on invalid CPU\n");
 	return NULL;
     }
 
     cfg_data = parse_config(cfg_blob);
 
     if (!cfg_data) {
-	PrintError("Could not parse configuration\n");
+	PrintError(VM_NONE, VCORE_NONE, "Could not parse configuration\n");
 	return NULL;
     }
 
     cores_cfg = v3_cfg_subtree(cfg_data->cfg, "cores");
 
     if (!cores_cfg) {
-	PrintError("Could not find core configuration (new config format required)\n");
+	PrintError(VM_NONE, VCORE_NONE, "Could not find core configuration (new config format required)\n");
 	return NULL;
     }
 
     num_cores = atoi(v3_cfg_val(cores_cfg, "count"));
     if (num_cores == 0) {
-	PrintError("No cores specified in configuration\n");
+	PrintError(VM_NONE, VCORE_NONE, "No cores specified in configuration\n");
 	return NULL;
     }
 
-    V3_Print("Configuring %d cores\n", num_cores);
+    V3_Print(VM_NONE, VCORE_NONE, "Configuring %d cores\n", num_cores);
 
     vm = allocate_guest(num_cores);    
 
     if (!vm) {
-	PrintError("Could not allocate %d core guest\n", vm->num_cores);
+	PrintError(VM_NONE, VCORE_NONE, "Could not allocate %d core guest\n", vm->num_cores);
 	return NULL;
     }
 
@@ -585,14 +585,14 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 
     vm->cfg_data = cfg_data;
 
-    V3_Print("Preconfiguration\n");
+    V3_Print(vm, VCORE_NONE, "Preconfiguration\n");
 
     if (pre_config_vm(vm, vm->cfg_data->cfg) == -1) {
-	PrintError("Error in preconfiguration\n");
+	PrintError(vm, VCORE_NONE, "Error in preconfiguration\n");
 	return NULL;
     }
 
-    V3_Print("Per core configuration\n");
+    V3_Print(vm, VCORE_NONE, "Per core configuration\n");
     per_core_cfg = v3_cfg_subtree(cores_cfg, "core");
 
     // per core configuration
@@ -604,7 +604,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	info->core_cfg_data = per_core_cfg;
 
 	if (pre_config_core(info, per_core_cfg) == -1) {
-	    PrintError("Error in core %d preconfiguration\n", i);
+	    PrintError(vm, VCORE_NONE, "Error in core %d preconfiguration\n", i);
 	    return NULL;
 	}
 
@@ -613,10 +613,10 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     }
 
 
-    V3_Print("Post Configuration\n");
+    V3_Print(vm, VCORE_NONE, "Post Configuration\n");
 
     if (post_config_vm(vm, vm->cfg_data->cfg) == -1) {
-	PrintError("Error in postconfiguration\n");
+        PrintError(vm, VCORE_NONE, "Error in postconfiguration\n");
 	return NULL;
     }
 
@@ -632,7 +632,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	per_core_cfg = v3_cfg_next_branch(per_core_cfg);
     }
 
-    V3_Print("Configuration successfull\n");
+    V3_Print(vm, VCORE_NONE, "Configuration successfull\n");
 
     return vm;
 }
@@ -662,7 +662,7 @@ static int setup_memory_map(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     
 	if (v3_add_shadow_mem(vm, V3_MEM_CORE_ANY, start_addr, end_addr, host_addr) == -1) {
-	    PrintError("Could not map memory region: %p-%p => %p\n", 
+	    PrintError(vm, VCORE_NONE,"Could not map memory region: %p-%p => %p\n", 
 		       (void *)start_addr, (void *)end_addr, (void *)host_addr);
 	    return -1;
 	}
@@ -681,14 +681,14 @@ static int setup_extensions(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	char * ext_name = v3_cfg_val(extension, "name");
 
         if (!ext_name) {
-            PrintError("Extension has no name\n");
+     	    PrintError(vm, VCORE_NONE, "Extension has no name\n");
             return -1;
         }
 
-	V3_Print("Configuring extension %s\n", ext_name);
+	V3_Print(vm, VCORE_NONE, "Configuring extension %s\n", ext_name);
 
 	if (v3_add_extension(vm, ext_name, extension) == -1) {
-	    PrintError("Error adding extension %s\n", ext_name);
+	    PrintError(vm, VCORE_NONE, "Error adding extension %s\n", ext_name);
 	    return -1;
 	}
 
@@ -706,10 +706,10 @@ static int setup_devices(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     while (device) {
 	char * dev_class = v3_cfg_val(device, "class");
 
-	V3_Print("configuring device %s\n", dev_class);
+	V3_Print(vm, VCORE_NONE, "configuring device %s\n", dev_class);
 
 	if (v3_create_device(vm, dev_class, device) == -1) {
-	    PrintError("Error creating device %s\n", dev_class);
+	    PrintError(vm, VCORE_NONE, "Error creating device %s\n", dev_class);
 	    return -1;
 	}
 	

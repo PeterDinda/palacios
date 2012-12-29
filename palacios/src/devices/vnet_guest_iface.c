@@ -73,7 +73,7 @@ static int handle_header_query_hcall(struct guest_info * info, uint_t hcall_id, 
     struct v3_vnet_header vnet_header;
 
     if (hcall_id != VNET_HEADER_QUERY_HCALL) { 
-	PrintError("Unknown hcall 0x%x in vnet_stub\n",hcall_id);
+	PrintError(info->vm_info, info, "Unknown hcall 0x%x in vnet_stub\n",hcall_id);
 	return -1;
     }
 
@@ -84,19 +84,19 @@ static int handle_header_query_hcall(struct guest_info * info, uint_t hcall_id, 
     recv = info->vm_regs.r8;
 
     if (v3_read_gva_memory(info,src_mac_gva,6,src_mac)!=6) { 
-	PrintError("Cannot read src mac in query\n");
+	PrintError(info->vm_info, info, "Cannot read src mac in query\n");
 	info->vm_regs.rax=-1;
 	return 0;
     }
 
     if (v3_read_gva_memory(info,(addr_t)dest_mac_gva,6,dest_mac)!=6) { 
-	PrintError("Cannot read src mac in query\n");
+	PrintError(info->vm_info, info, "Cannot read src mac in query\n");
 	info->vm_regs.rax=-1;
 	return 0;
     }
 
     if (v3_vnet_query_header(src_mac,dest_mac,recv,&vnet_header) < 0 ) { 
-	PrintError("Failed to lookup header\n");
+	PrintError(info->vm_info, info, "Failed to lookup header\n");
 	info->vm_regs.rax=-1;
 	return 0;
     }
@@ -104,7 +104,7 @@ static int handle_header_query_hcall(struct guest_info * info, uint_t hcall_id, 
     copy_len = (sizeof(vnet_header)<header_len) ? sizeof(vnet_header) : header_len;
 
     if (v3_write_gva_memory(info,header_ptr_gva,copy_len,(uchar_t*)&vnet_header) != copy_len) { 
-	PrintError("Failed to write back header\n");
+	PrintError(info->vm_info, info, "Failed to write back header\n");
 	info->vm_regs.rax=-1;
 	return 0;
     }
@@ -128,12 +128,12 @@ static int dev_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 {
     char * name = v3_cfg_val(cfg, "name");
 
-    PrintDebug("VNET guest interface: Initializing as device: %s\n", name);
+    PrintDebug(vm, VCORE_NONE, "VNET guest interface: Initializing as device: %s\n", name);
 
     struct vm_device * dev = v3_add_device(vm, name, &dev_ops, NULL);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", name);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", name);
 	return -1;
     }
 

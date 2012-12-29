@@ -138,7 +138,7 @@ static int get_desc_count(struct virtio_queue * q, int index) {
 static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * sym_state) {
     struct virtio_queue * q = sym_state->cur_queue;
     
-    PrintDebug("SYMMOD: VIRTIO SYMMOD Kick on loader queue\n");
+    PrintDebug(core->vm_info, core, "SYMMOD: VIRTIO SYMMOD Kick on loader queue\n");
 
     while (q->cur_avail_idx != q->avail->index) {
 	struct vring_desc * cmd_desc = NULL;
@@ -154,7 +154,7 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 	cmd_desc = &(q->desc[desc_idx]);
 	
 	if (v3_gpa_to_hva(core, cmd_desc->addr_gpa, (addr_t *)&cmd) == -1) {
-	    PrintError("Could not translate SYMMOD header address\n");
+	    PrintError(core->vm_info, core, "Could not translate SYMMOD header address\n");
 	    return -1;
 	}
  
@@ -168,17 +168,17 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 	    uint32_t offset = 0;
     
 
-	    PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
+	    PrintDebug(core->vm_info, core, "Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
     
 	    if (desc_cnt < 3) {
-		PrintError("Symmod loads must include at least 3 descriptors (cnt=%d)\n", desc_cnt);
+		PrintError(core->vm_info, core, "Symmod loads must include at least 3 descriptors (cnt=%d)\n", desc_cnt);
 		return -1;
 	    }
 	
 	    name_desc = &(q->desc[desc_idx]);
 
 	    if (v3_gpa_to_hva(core, name_desc->addr_gpa, (addr_t *)&name) == -1) {
-		PrintError("Could not translate SYMMOD header address\n");
+		PrintError(core->vm_info, core, "Could not translate SYMMOD header address\n");
 		return -1;
 	    }
 
@@ -193,16 +193,16 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 		buf_desc = &(q->desc[desc_idx]);
 
 		if (v3_gpa_to_hva(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
-		    PrintError("Could not translate buffer address\n");
+		    PrintError(core->vm_info, core, "Could not translate buffer address\n");
 		    return -1;
 		}
 
 		memcpy(buf, capsule->start_addr + offset, buf_desc->length);
-		PrintDebug("Copying module to virtio buffers: SRC=%p, DST=%p, len=%d\n",
+		PrintDebug(core->vm_info, core, "Copying module to virtio buffers: SRC=%p, DST=%p, len=%d\n",
 			   (void *)(capsule->start_addr + offset), (void *)buf, buf_desc->length);
 
 		if (tmp_status != 0) {
-		    PrintError("Error loading module segment\n");
+		    PrintError(core->vm_info, core, "Error loading module segment\n");
 		    status = tmp_status;
 		}
 
@@ -212,21 +212,21 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 		desc_idx = buf_desc->next;
 	    }
 	} else {
-	    PrintError("Invalid SYMMOD Loader command\n");
+	    PrintError(core->vm_info, core, "Invalid SYMMOD Loader command\n");
 	    return -1;
 	}
 
 	status_desc = &(q->desc[desc_idx]);
 
 	if (v3_gpa_to_hva(core, status_desc->addr_gpa, (addr_t *)&status_ptr) == -1) {
-	    PrintError("SYMMOD Error could not translate status address\n");
+	    PrintError(core->vm_info, core, "SYMMOD Error could not translate status address\n");
 	    return -1;
 	}
 
 	xfer_len += status_desc->length;
 	*status_ptr = status;
 
-	PrintDebug("Transferred %d bytes (xfer_len)\n", xfer_len);
+	PrintDebug(core->vm_info, core, "Transferred %d bytes (xfer_len)\n", xfer_len);
 	q->used->ring[q->used->index % QUEUE_SIZE].id = q->avail->ring[q->cur_avail_idx % QUEUE_SIZE];
 	q->used->ring[q->used->index % QUEUE_SIZE].length = xfer_len; // set to total inbound xfer length
 
@@ -237,7 +237,7 @@ static int handle_xfer_kick(struct guest_info * core, struct virtio_sym_state * 
 
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("Raising IRQ %d\n",  sym_state->pci_dev->config_header.intr_line);
+	PrintDebug(core->vm_info, core, "Raising IRQ %d\n",  sym_state->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(sym_state->pci_bus, sym_state->pci_dev, 0);
 	sym_state->virtio_cfg.pci_isr = 1;
     }
@@ -254,7 +254,7 @@ static int handle_notification_kick(struct guest_info * core, struct virtio_sym_
     struct virtio_queue * q = &(sym_state->queue[NOTIFY_QUEUE]);
     struct hashtable_iter * capsule_iter = NULL;
 
-    PrintDebug("SYMMOD: VIRTIO SYMMOD Kick on notification queue\n");
+    PrintDebug(core->vm_info, core, "SYMMOD: VIRTIO SYMMOD Kick on notification queue\n");
 
     capsule_iter = v3_create_htable_iter(sym_state->symmod_state->capsule_table);
 
@@ -268,7 +268,7 @@ static int handle_notification_kick(struct guest_info * core, struct virtio_sym_
 	capsule = (struct v3_sym_capsule *)v3_htable_get_iter_value(capsule_iter);
 
 
-	PrintDebug("SYMMOD: Advertising Capsule %s\n", capsule->name);
+	PrintDebug(core->vm_info, core, "SYMMOD: Advertising Capsule %s\n", capsule->name);
 
 	if (capsule->type != V3_SYMMOD_LNX) {
 	    continue;
@@ -277,14 +277,14 @@ static int handle_notification_kick(struct guest_info * core, struct virtio_sym_
 
 
 	if (q->cur_avail_idx == q->avail->index) {
-	    PrintError("Notification Queue Too SMALL\n");
+	    PrintError(core->vm_info, core, "Notification Queue Too SMALL\n");
 	    return -1;
 	}
 
 	hdr_desc = &(q->desc[desc_idx]);
 
 	if (v3_gpa_to_hva(core, hdr_desc->addr_gpa, (addr_t *)&hdr) == -1) {
-	    PrintError("Could not translate SYMMOD header address\n");
+	    PrintError(core->vm_info, core, "Could not translate SYMMOD header address\n");
 	    return -1;
 	}
 
@@ -306,7 +306,7 @@ static int handle_notification_kick(struct guest_info * core, struct virtio_sym_
 
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("Raising IRQ %d\n",  sym_state->pci_dev->config_header.intr_line);
+	PrintDebug(core->vm_info, core, "Raising IRQ %d\n",  sym_state->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(sym_state->pci_bus, sym_state->pci_dev, 0);
 	sym_state->virtio_cfg.pci_isr = 1;
     }
@@ -321,15 +321,15 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
     int port_idx = port % sym_state->io_range_size;
 
 
-    PrintDebug("SYMMOD: VIRTIO SYMMOD Write for port %d len=%d, value=%x\n", 
+    PrintDebug(core->vm_info, core, "SYMMOD: VIRTIO SYMMOD Write for port %d len=%d, value=%x\n", 
 	       port, length, *(uint32_t *)src);
-    PrintDebug("SYMMOD: port idx=%d\n", port_idx);
+    PrintDebug(core->vm_info, core, "SYMMOD: port idx=%d\n", port_idx);
 
 
     switch (port_idx) {
 	case GUEST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Illegal write length for guest features\n");
+		PrintError(core->vm_info, core, "Illegal write length for guest features\n");
 		return -1;
 	    }
 	    
@@ -353,32 +353,32 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 		sym_state->cur_queue->ring_used_addr = (sym_state->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
 
 		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_desc_addr, (addr_t *)&(sym_state->cur_queue->desc)) == -1) {
-		    PrintError("Could not translate ring descriptor address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
 		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_avail_addr, (addr_t *)&(sym_state->cur_queue->avail)) == -1) {
-		    PrintError("Could not translate ring available address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring available address\n");
 		    return -1;
 		}
 
 
 		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_used_addr, (addr_t *)&(sym_state->cur_queue->used)) == -1) {
-		    PrintError("Could not translate ring used address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring used address\n");
 		    return -1;
 		}
 
-		PrintDebug("SYMMOD: RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
+		PrintDebug(core->vm_info, core, "SYMMOD: RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
 			   (void *)(sym_state->cur_queue->ring_desc_addr),
 			   (void *)(sym_state->cur_queue->ring_avail_addr),
 			   (void *)(sym_state->cur_queue->ring_used_addr));
 
-		PrintDebug("SYMMOD: RingDesc=%p, Avail=%p, Used=%p\n", 
+		PrintDebug(core->vm_info, core, "SYMMOD: RingDesc=%p, Avail=%p, Used=%p\n", 
 			   sym_state->cur_queue->desc, sym_state->cur_queue->avail, sym_state->cur_queue->used);
 
 	    } else {
-		PrintError("Illegal write length for page frame number\n");
+		PrintError(core->vm_info, core, "Illegal write length for page frame number\n");
 		return -1;
 	    }
 	    break;
@@ -386,7 +386,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 	    sym_state->virtio_cfg.vring_queue_selector = *(uint16_t *)src;
 
 	    if (sym_state->virtio_cfg.vring_queue_selector > NUM_QUEUES) {
-		PrintError("Virtio Symbiotic device has no qeueues. Selected %d\n", 
+		PrintError(core->vm_info, core, "Virtio Symbiotic device has no qeueues. Selected %d\n", 
 			   sym_state->virtio_cfg.vring_queue_selector);
 		return -1;
 	    }
@@ -397,11 +397,11 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 	case VRING_Q_NOTIFY_PORT: {
 	    uint16_t queue_idx = *(uint16_t *)src;
 	    
-	    PrintDebug("SYMMOD: Handling Kick\n");
+	    PrintDebug(core->vm_info, core, "SYMMOD: Handling Kick\n");
 	    
 	    if (queue_idx == 0) {
 		if (handle_notification_kick(core, sym_state) == -1) {
-		    PrintError("Could not handle Notification Kick\n");
+		    PrintError(core->vm_info, core, "Could not handle Notification Kick\n");
 		    return -1;
 		}
 		
@@ -409,11 +409,11 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 		
 	    } else if (queue_idx == 1) {
 		if (handle_xfer_kick(core, sym_state) == -1) {
-		    PrintError("Could not handle Symbiotic Notification\n");
+		    PrintError(core->vm_info, core, "Could not handle Symbiotic Notification\n");
 		    return -1;
 		}
 	    } else {
-		PrintError("Kick on invalid queue (%d)\n", queue_idx);
+		PrintError(core->vm_info, core, "Kick on invalid queue (%d)\n", queue_idx);
 		return -1;
 	    }
 	    
@@ -423,7 +423,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 	    sym_state->virtio_cfg.status = *(uint8_t *)src;
 
 	    if (sym_state->virtio_cfg.status == 0) {
-		PrintDebug("SYMMOD: Resetting device\n");
+		PrintDebug(core->vm_info, core, "SYMMOD: Resetting device\n");
 		virtio_reset(sym_state);
 	    }
 
@@ -447,13 +447,13 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
     int port_idx = port % sym_state->io_range_size;
 
 /*
-    PrintDebug("SYMMOD: VIRTIO SYMBIOTIC Read  for port %d (index =%d), length=%d\n", 
+    PrintDebug(core->vm_info, core, "SYMMOD: VIRTIO SYMBIOTIC Read  for port %d (index =%d), length=%d\n", 
 	       port, port_idx, length);
 */
     switch (port_idx) {
 	case HOST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Illegal read length for host features\n");
+		PrintError(core->vm_info, core, "Illegal read length for host features\n");
 		return -1;
 	    }
 
@@ -462,7 +462,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 	    break;
 	case VRING_PG_NUM_PORT:
 	    if (length != 4) {
-		PrintError("Illegal read length for page frame number\n");
+		PrintError(core->vm_info, core, "Illegal read length for page frame number\n");
 		return -1;
 	    }
 
@@ -471,7 +471,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 	    break;
 	case VRING_SIZE_PORT:
 	    if (length != 2) {
-		PrintError("Illegal read length for vring size\n");
+		PrintError(core->vm_info, core, "Illegal read length for vring size\n");
 		return -1;
 	    }
 		
@@ -481,7 +481,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 	case VIRTIO_STATUS_PORT:
 	    if (length != 1) {
-		PrintError("Illegal read length for status\n");
+		PrintError(core->vm_info, core, "Illegal read length for status\n");
 		return -1;
 	    }
 
@@ -502,10 +502,10 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 		memcpy(dst, cfg_ptr + cfg_offset, length);
 
-		V3_Print("Reading SymConfig at idx %d (val=%x)\n", cfg_offset, *(uint32_t *)cfg_ptr);
+		V3_Print(core->vm_info, core, "Reading SymConfig at idx %d (val=%x)\n", cfg_offset, *(uint32_t *)cfg_ptr);
 		
 	    } else {
-		PrintError("Read of Unhandled Virtio Read\n");
+		PrintError(core->vm_info, core, "Read of Unhandled Virtio Read\n");
 		return -1;
 	    }
 	  
@@ -525,15 +525,15 @@ static int virtio_load_capsule(struct v3_vm_info * vm, struct v3_sym_capsule * m
 
 
     if (strlen(mod->name) >= 32) {
-	PrintError("Capsule name is too long... (%d bytes) limit is 32\n", (uint32_t)strlen(mod->name));
+	PrintError(vm, VCORE_NONE, "Capsule name is too long... (%d bytes) limit is 32\n", (uint32_t)strlen(mod->name));
 	return -1;
     }
 
-    PrintDebug("SYMMOD: VIRTIO SYMMOD Loader: Loading Capsule (size=%d)\n", mod->size);
+    PrintDebug(vm, VCORE_NONE, "SYMMOD: VIRTIO SYMMOD Loader: Loading Capsule (size=%d)\n", mod->size);
 
     //queue is not set yet
     if (q->ring_avail_addr == 0) {
-	PrintError("Queue is not set\n");
+	PrintError(vm, VCORE_NONE, "Queue is not set\n");
 	return -1;
     }
 
@@ -543,17 +543,17 @@ static int virtio_load_capsule(struct v3_vm_info * vm, struct v3_sym_capsule * m
 	struct symmod_hdr * notifier = NULL;
 	struct vring_desc * notifier_desc = NULL;
 
-	PrintDebug("SYMMOD: Descriptor index=%d\n", q->cur_avail_idx % q->queue_size);
+	PrintDebug(vm, VCORE_NONE, "SYMMOD: Descriptor index=%d\n", q->cur_avail_idx % q->queue_size);
 
 	notifier_desc = &(q->desc[notifier_idx]);
 
-	PrintDebug("SYMMOD: Notifier Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
+	PrintDebug(vm, VCORE_NONE, "SYMMOD: Notifier Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
 		   notifier_desc, (void *)(addr_t)(notifier_desc->addr_gpa), 
 		   notifier_desc->length, notifier_desc->flags, 
 		   notifier_desc->next);	
 
 	if (v3_gpa_to_hva(&(vm->cores[0]), notifier_desc->addr_gpa, (addr_t *)&(notifier)) == -1) {
-	    PrintError("Could not translate receive buffer address\n");
+	    PrintError(vm, VCORE_NONE, "Could not translate receive buffer address\n");
 	    return -1;
 	}
 
@@ -578,7 +578,7 @@ static int virtio_load_capsule(struct v3_vm_info * vm, struct v3_sym_capsule * m
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("SYMMOD: Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
+	PrintDebug(vm, VCORE_NONE, "SYMMOD: Raising IRQ %d\n",  virtio->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(virtio->pci_bus, virtio->pci_dev, 0);
 	virtio->virtio_cfg.pci_isr = 0x1;
     }
@@ -614,17 +614,17 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_device * pci_dev = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
 
-    PrintDebug("SYMMOD: Initializing VIRTIO Symbiotic Module device\n");
+    PrintDebug(vm, VCORE_NONE, "SYMMOD: Initializing VIRTIO Symbiotic Module device\n");
 
     if (pci_bus == NULL) {
-	PrintError("VirtIO devices require a PCI Bus");
+	PrintError(vm, VCORE_NONE, "VirtIO devices require a PCI Bus");
 	return -1;
     }
     
     virtio_state  = (struct virtio_sym_state *)V3_Malloc(sizeof(struct virtio_sym_state));
 
     if (!virtio_state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -639,7 +639,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(virtio_state);
 	return -1;
     }
@@ -686,7 +686,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 					 NULL, NULL, NULL, NULL, virtio_state);
 
 	if (!pci_dev) {
-	    PrintError("Could not register PCI Device\n");
+	    PrintError(vm, VCORE_NONE, "Could not register PCI Device\n");
 	    v3_remove_device(dev);
 	    return -1;
 	}
@@ -712,7 +712,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
     
 
-    V3_Print("SYMMOD: %d available sym modules\n", virtio_state->sym_cfg.avail_mods);
+    V3_Print(vm, VCORE_NONE, "SYMMOD: %d available sym modules\n", virtio_state->sym_cfg.avail_mods);
 
     virtio_reset(virtio_state);
 

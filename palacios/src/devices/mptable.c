@@ -466,7 +466,7 @@ static int write_mptable(void * target, uint32_t numcores, int have_ioapic, int 
 	  
 	  cur += sizeof(struct mp_table_io_interrupt_assignment);
 	  
-	  //V3_Print("PCI0, slot %d, irq %d maps to irq %d\n",slot,intr,dst_irq);
+	  //V3_Print(VM_NONE, VCORE_NONE, "PCI0, slot %d, irq %d maps to irq %d\n",slot,intr,dst_irq);
 	}
       }
     }
@@ -475,7 +475,7 @@ static int write_mptable(void * target, uint32_t numcores, int have_ioapic, int 
 
     header->base_table_length = (cur - (uint8_t *)header);
 
-    V3_Print("MPtable size: %u\n",header->base_table_length);
+    V3_Print(VM_NONE, VCORE_NONE,  "MPtable size: %u\n",header->base_table_length);
 
     // checksum calculation
     header->checksum = 0;
@@ -519,53 +519,53 @@ static int mptable_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     int have_ioapic = find_first_peer_device_of_class(cfg,"ioapic")!=NULL;
 
     if (!have_apic) { 
-      PrintError("Attempt to instantiate MPTABLE but machine has no apics!\n");
+      PrintError(vm, VCORE_NONE,  "Attempt to instantiate MPTABLE but machine has no apics!\n");
       return -1;
     }
 
     if (!have_ioapic) { 
-      PrintError("Attempt to instantiate MPTABLE without ioapic - will try, but this won't end well\n");
+      PrintError(vm, VCORE_NONE,  "Attempt to instantiate MPTABLE without ioapic - will try, but this won't end well\n");
     }
 
     if (have_pci && (!have_piix3 || !have_ioapic)) { 
-      PrintError("Attempt to instantiate MPTABLE with a PCI Bus, but without either a piix3 or an ioapic\n");
+      PrintError(vm, VCORE_NONE,  "Attempt to instantiate MPTABLE with a PCI Bus, but without either a piix3 or an ioapic\n");
       return -1;
     }
       
     if (v3_gpa_to_hva(&(vm->cores[0]), BIOS_MP_TABLE_DEFAULT_LOCATION, (addr_t *)&target) == -1) { 
-	PrintError("Cannot inject mptable due to unmapped bios!\n");
+	PrintError(vm, VCORE_NONE,  "Cannot inject mptable due to unmapped bios!\n");
 	return -1;
     }
     
     if (!check_for_cookie(target)) { 
-	PrintError("Cookie mismatch in writing mptable, aborting (probably wrong guest BIOS).\n");
+	PrintError(vm, VCORE_NONE, "Cookie mismatch in writing mptable, aborting (probably wrong guest BIOS).\n");
 	return -1;
     }
 
     if (vm->num_cores > 32) { 
-	PrintError("No support for >32 cores in writing MP table, aborting.\n");
+	PrintError(vm, VCORE_NONE,  "No support for >32 cores in writing MP table, aborting.\n");
 	return -1;
     }
 
-    V3_Print("Constructing mptable for %u cores at %p\n", vm->num_cores, target);
+    V3_Print(vm, VCORE_NONE, "Constructing mptable for %u cores at %p\n", vm->num_cores, target);
 
     if (write_pointer(target, BIOS_MP_TABLE_DEFAULT_LOCATION + sizeof(struct mp_floating_pointer)) == -1) { 
-	PrintError("Unable to write mptable floating pointer, aborting.\n");
+	PrintError(vm, VCORE_NONE, "Unable to write mptable floating pointer, aborting.\n");
 	return -1;
     }
 
     if (!check_pointer(target)) { 
-	PrintError("Failed to inject mptable floating pointer correctly --- checksum fails\n");
+	PrintError(vm, VCORE_NONE,  "Failed to inject mptable floating pointer correctly --- checksum fails\n");
 	return -1;
     }
 
     if (write_mptable(target + sizeof(struct mp_floating_pointer), vm->num_cores, have_ioapic, have_pci)) {
-	PrintError("Cannot inject mptable configuration header and entries\n");
+	PrintError(vm, VCORE_NONE, "Cannot inject mptable configuration header and entries\n");
 	return -1;
     }
 
     if (!check_table(target + sizeof(struct mp_floating_pointer))) { 
-	PrintError("Failed to inject mptable configuration header and entries correctly --- checksum fails\n");
+	PrintError(vm, VCORE_NONE,  "Failed to inject mptable configuration header and entries correctly --- checksum fails\n");
 	return -1;
     }
 

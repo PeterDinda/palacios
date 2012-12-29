@@ -58,8 +58,8 @@ struct vnet_host_hooks {
 
     /* duplicate part from os_hooks */
     void (*yield_cpu)(void); 
-    void (*print)(const char * format, ...)
-  	__attribute__ ((format (printf, 1, 2)));
+    void (*print)(void *vm , int core, const char * format, ...)
+  	__attribute__ ((format (printf, 3, 4)));
   
     void *(*allocate_pages)(int num_pages, unsigned int alignment);
     void (*free_pages)(void * page, int num_pages);
@@ -217,17 +217,17 @@ static inline void vnet_reset_timer(struct vnet_timer * timer,
 	if(level <= net_debug) {					\
 	    extern struct vnet_host_hooks * host_hooks;			\
 	    if ((host_hooks) && (host_hooks)->print) {			\
-	    	(host_hooks)->print((fmt), ##args);			\
+	      (host_hooks)->print(0, -1, (fmt), ##args);			\
 	    }								\
 	}								\
     } while (0)	
 
 
-#define Vnet_Debug(fmt, args...)					\
+#define Vnet_Debug(fmt, args...) 				\
     do {								\
 	    extern struct vnet_host_hooks * host_hooks;			\
 	    if ((host_hooks) && (host_hooks)->print) {			\
-	    	(host_hooks)->print((fmt), ##args);			\
+	      (host_hooks)->print(0, -1, (fmt), ##args);			\
 	    }			       					\
     } while (0)	
 

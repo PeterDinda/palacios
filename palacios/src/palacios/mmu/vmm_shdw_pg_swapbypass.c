@@ -139,12 +139,12 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core);
 static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
     struct swapbypass_vm_state * swap_state = (struct swapbypass_vm_state *)(vm->shdw_impl.impl_data);
 
-    V3_Print("%sSymbiotic Swap:\n", hdr);
-    V3_Print("%s\tRead faults=%d\n", hdr, swap_state->read_faults);
-    V3_Print("%s\tWrite faults=%d\n", hdr, swap_state->write_faults);
-    V3_Print("%s\tMapped Pages=%d\n", hdr, swap_state->mapped_pages);
-    V3_Print("%s\tFlushes=%d\n", hdr, swap_state->flushes);
-    V3_Print("%s\tlist size=%d\n", hdr, swap_state->list_size);
+    V3_Print(vm, VCORE_NONE, "%sSymbiotic Swap:\n", hdr);
+    V3_Print(vm, VCORE_NONE, "%s\tRead faults=%d\n", hdr, swap_state->read_faults);
+    V3_Print(vm, VCORE_NONE, "%s\tWrite faults=%d\n", hdr, swap_state->write_faults);
+    V3_Print(vm, VCORE_NONE, "%s\tMapped Pages=%d\n", hdr, swap_state->mapped_pages);
+    V3_Print(vm, VCORE_NONE, "%s\tFlushes=%d\n", hdr, swap_state->flushes);
+    V3_Print(vm, VCORE_NONE, "%s\tlist size=%d\n", hdr, swap_state->list_size);
 }
 #endif
 
@@ -161,11 +161,11 @@ static int get_vaddr_perms(struct guest_info * info, addr_t vaddr, pte32_t * gue
 
     // symcall to check if page is in cache or on swap disk
     if (v3_sym_call3(info, SYMCALL_MEM_LOOKUP, (uint64_t *)&vaddr, (uint64_t *)&pte_val, (uint64_t *)page_perms) == -1) {
-	PrintError("Sym call error?? that's weird... \n");
+	PrintError(info->vm_info, info, "Sym call error?? that's weird... \n");
 	return -1;
     }
 
-    //    V3_Print("page perms = %x\n", *(uint32_t *)page_perms);
+    //    V3_Print(info->vm_info, info, "page perms = %x\n", *(uint32_t *)page_perms);
 
     if (vaddr == 0) {
 	return 1;
@@ -198,7 +198,7 @@ static addr_t map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t
 
 
     if (swp_page_ptr == NULL) {
-	//	PrintError("Swapped out page not found on swap device\n");
+	//	PrintError(vm, VCORE_NONE, "Swapped out page not found on swap device\n");
 	return 0;
     }
 
@@ -208,7 +208,7 @@ static addr_t map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t
 	shdw_ptr_list = (struct list_head *)V3_Malloc(sizeof(struct list_head));
 
 	if (!shdw_ptr_list) {
-	    PrintError("Cannot allocate\n");
+	    PrintError(vm, VCORE_NONE, "Cannot allocate\n");
 	    return 0;
 	}
 
@@ -222,7 +222,7 @@ static addr_t map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t
     shdw_ptr = (struct shadow_pointer *)V3_Malloc(sizeof(struct shadow_pointer));
 
     if (shdw_ptr == NULL) {
-	PrintError("MEMORY LEAK\n");
+	PrintError(vm, VCORE_NONE, "MEMORY LEAK\n");
 #ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
 	telemetry_cb(vm, NULL, "");
 #endif
@@ -261,7 +261,7 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
 
 
 	if (page_tail->cr3 != cur_cr3) {
-	    PrintDebug("Reusing old shadow Page: %p (cur_CR3=%p)(page_cr3=%p) \n",
+	    PrintDebug(core->vm_info, core, "Reusing old shadow Page: %p (cur_CR3=%p)(page_cr3=%p) \n",
 		       (void *)(addr_t)page_tail->page_pa, 
 		       (void *)(addr_t)cur_cr3, 
 		       (void *)(addr_t)(page_tail->cr3));
@@ -280,18 +280,18 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
     page_tail = (struct shadow_page_data *)V3_Malloc(sizeof(struct shadow_page_data));
 
     if (!page_tail) {
-	PrintError("Cannot allocate\n");
-	return -1;
+	PrintError(core->vm_info, core, "Cannot allocate\n");
+	return NULL;
     }
 
     page_tail->page_pa = (addr_t)V3_AllocPages(1);
 
     if (!page_tail->page_pa) {
-	PrintError("Cannot allocate page\n");
+	PrintError(core->vm_info, core, "Cannot allocate page\n");
 	return NULL;
     }
 
-    PrintDebug("Allocating new shadow Page: %p (cur_cr3=%p)\n", 
+    PrintDebug(core->vm_info, core, "Allocating new shadow Page: %p (cur_cr3=%p)\n", 
 	       (void *)(addr_t)page_tail->page_pa, 
 	       (void *)(addr_t)cur_cr3);
 
@@ -358,14 +358,14 @@ int v3_swap_flush(struct v3_vm_info * vm) {
     struct swapbypass_vm_state * swap_state = (struct swapbypass_vm_state *)(vm->shdw_impl.impl_data);
     struct hashtable_iter * ht_iter = v3_create_htable_iter(swap_state->shdw_ptr_ht);
 
-    //    PrintDebug("Flushing Symbiotic Swap table\n");
+    //    PrintDebug(vm, VCORE_NONE, "Flushing Symbiotic Swap table\n");
 
 #ifdef V3_CONFIG_SWAPBYPASS_TELEMETRY
     swap_state->flushes++;
 #endif
 
     if (!ht_iter) {
-	PrintError("NULL iterator in swap flush!! Probably will crash soon...\n");
+	PrintError(vm, VCORE_NONE, "NULL iterator in swap flush!! Probably will crash soon...\n");
     }
 
     while (ht_iter->entry) {
@@ -378,7 +378,7 @@ int v3_swap_flush(struct v3_vm_info * vm) {
 	
 	list_for_each_entry_safe(shdw_ptr, tmp_shdw_ptr, shdw_ptr_list, node) {
 	    if (shdw_ptr == NULL) {
-		PrintError("Null shadow pointer in swap flush!! Probably crashing soon...\n");
+		PrintError(vm, VCORE_NONE, "Null shadow pointer in swap flush!! Probably crashing soon...\n");
 	    }
 
 	    // Trigger faults for next shadow access
@@ -418,7 +418,7 @@ static int sb_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     impl_state->impl_data = sb_state;
 
-    PrintDebug("Initialized SwapBypass\n");
+    PrintDebug(vm, VCORE_NONE, "Initialized SwapBypass\n");
 
 
     return 0;
@@ -432,12 +432,12 @@ static int sb_local_init(struct guest_info * core) {
     struct v3_shdw_pg_state * state = &(core->shdw_pg_state);
     struct swapbypass_local_state * swapbypass_state = NULL;
 
-    V3_Print("SWAPBYPASS local initialization\n");
+    V3_Print(core->vm_info, core, "SWAPBYPASS local initialization\n");
 
     swapbypass_state = (struct swapbypass_local_state *)V3_Malloc(sizeof(struct swapbypass_local_state));
 
     if (!swapbypass_state) {
-	PrintError("Cannot allocate\n");
+	PrintError(core->vm_info, core, "Cannot allocate\n");
 	return -1;
     }
 
@@ -462,7 +462,7 @@ static int sb_activate_shdw_pt(struct guest_info * core) {
 	case LONG_16_COMPAT:
 	    return activate_shadow_pt_64(core);
 	default:
-	    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 	    return -1;
     }
 
@@ -488,7 +488,7 @@ static int sb_handle_pf(struct guest_info * core, addr_t fault_addr, pf_error_t 
 		return handle_shadow_pagefault_64(core, fault_addr, error_code);
 		break;
 	    default:
-		PrintError("Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+		PrintError(core->vm_info, core, "Unhandled CPU Mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 		return -1;
 	}
 }
@@ -506,7 +506,7 @@ static int sb_handle_invlpg(struct guest_info * core, addr_t vaddr) {
 	case LONG_16_COMPAT:
 	    return handle_shadow_invlpg_64(core, vaddr);
 	default:
-	    PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 	    return -1;
     }
 }

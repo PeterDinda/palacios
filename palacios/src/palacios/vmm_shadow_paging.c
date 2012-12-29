@@ -100,17 +100,17 @@ int V3_init_shdw_paging() {
 
 
     while (tmp_impl != __stop__v3_shdw_pg_impls) {
-	V3_Print("Registering Shadow Paging Impl (%s)\n", (*tmp_impl)->name);
+	V3_Print(VM_NONE, VCORE_NONE, "Registering Shadow Paging Impl (%s)\n", (*tmp_impl)->name);
 
 	if (v3_htable_search(master_shdw_pg_table, (addr_t)((*tmp_impl)->name))) {
-	    PrintError("Multiple instances of shadow paging impl (%s)\n", (*tmp_impl)->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Multiple instances of shadow paging impl (%s)\n", (*tmp_impl)->name);
 	    return -1;
 	}
 
 	if (v3_htable_insert(master_shdw_pg_table, 
 			     (addr_t)((*tmp_impl)->name),
 			     (addr_t)(*tmp_impl)) == 0) {
-	    PrintError("Could not register shadow paging impl (%s)\n", (*tmp_impl)->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not register shadow paging impl (%s)\n", (*tmp_impl)->name);
 	    return -1;
 	}
 
@@ -138,7 +138,7 @@ static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr
     for (i = 0; i < vm->num_cores; i++) {
 	struct guest_info * core = &(vm->cores[i]);
 
-	V3_Print("%s Guest Page faults: %d\n", hdr, core->shdw_pg_state.guest_faults);
+	V3_Print(vm, core, "%s Guest Page faults: %d\n", hdr, core->shdw_pg_state.guest_faults);
     }
 }
 #endif
@@ -155,7 +155,7 @@ int v3_init_shdw_pg_state(struct guest_info * core) {
     state->guest_efer.value = 0x0LL;
 
     if (impl->local_init(core) == -1) {
-	PrintError("Error in Shadow paging local initialization (%s)\n", impl->name);
+	PrintError(core->vm_info, core, "Error in Shadow paging local initialization (%s)\n", impl->name);
 	return -1;
     }
 
@@ -173,7 +173,7 @@ int v3_deinit_shdw_pg_state(struct guest_info * core) {
     struct v3_shdw_pg_impl * impl = core->vm_info->shdw_impl.current_impl;
 
     if (impl->local_deinit(core) == -1) {
-	PrintError("Error deinitializing shadow paging state\n");
+	PrintError(core->vm_info, core, "Error deinitializing shadow paging state\n");
 	return -1;
     }
 
@@ -190,9 +190,9 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
     char * pg_strat = v3_cfg_val(pg_cfg, "strategy");
     struct v3_shdw_pg_impl * impl = NULL;
    
-    PrintDebug("Checking if shadow paging requested.\n");
+    PrintDebug(vm, VCORE_NONE, "Checking if shadow paging requested.\n");
     if ((pg_mode != NULL) && (strcasecmp(pg_mode, "nested") == 0)) {
-	PrintDebug("Nested paging specified - not initializing shadow paging.\n");
+	PrintDebug(vm, VCORE_NONE, "Nested paging specified - not initializing shadow paging.\n");
 	return 0;
     }
 
@@ -200,12 +200,12 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
 	pg_strat = (char *)default_strategy;
     }
 	
-    V3_Print("Initialization of Shadow Paging implementation\n");
+    V3_Print(vm, VCORE_NONE,"Initialization of Shadow Paging implementation\n");
 
     impl = (struct v3_shdw_pg_impl *)v3_htable_search(master_shdw_pg_table, (addr_t)pg_strat);
 
     if (impl == NULL) {
-	PrintError("Could not find shadow paging impl (%s)\n", pg_strat);
+	PrintError(vm, VCORE_NONE, "Could not find shadow paging impl (%s)\n", pg_strat);
 	return -1;
     }
 
@@ -214,7 +214,7 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
     impl_state->current_impl = impl;
 
     if (impl->init(vm, pg_cfg) == -1) {
-	PrintError("Could not initialize Shadow paging implemenation (%s)\n", impl->name);
+	PrintError(vm, VCORE_NONE, "Could not initialize Shadow paging implemenation (%s)\n", impl->name);
 	return -1;
     }
 
@@ -233,7 +233,7 @@ int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
     }
 
     if (impl->deinit(vm) == -1) {
-	PrintError("Error deinitializing shadow paging implementation\n");
+	PrintError(vm, VCORE_NONE,"Error deinitializing shadow paging implementation\n");
 	return -1;
     }
 
@@ -318,7 +318,7 @@ int v3_handle_shadow_pagefault(struct guest_info * core, addr_t fault_addr, pf_e
 	
 	rc = impl->handle_pagefault(core, fault_addr, error_code);
     } else {
-	PrintError("Invalid Memory mode\n");
+	PrintError(core->vm_info, core, "Invalid Memory mode\n");
 	rc = -1;
     }
     
@@ -340,7 +340,7 @@ int v3_handle_shadow_invlpg(struct guest_info * core) {
     if (v3_get_vm_mem_mode(core) != VIRTUAL_MEM) {
 	// Paging must be turned on...
 	// should handle with some sort of fault I think
-	PrintError("ERROR: INVLPG called in non paged mode\n");
+	PrintError(core->vm_info, core, "ERROR: INVLPG called in non paged mode\n");
 	return -1;
     }
 
@@ -351,19 +351,19 @@ int v3_handle_shadow_invlpg(struct guest_info * core) {
     }
 
     if (ret == -1) {
-	PrintError("Could not read instruction into buffer\n");
+	PrintError(core->vm_info, core, "Could not read instruction into buffer\n");
 	return -1;
     }
 
     if (v3_decode(core, (addr_t)instr, &dec_instr) == -1) {
-	PrintError("Decoding Error\n");
+	PrintError(core->vm_info, core, "Decoding Error\n");
 	return -1;
     }
   
     if ((dec_instr.op_type != V3_OP_INVLPG) || 
 	(dec_instr.num_operands != 1) ||
 	(dec_instr.dst_operand.type != MEM_OPERAND)) {
-	PrintError("Decoder Error: Not a valid INVLPG instruction...\n");
+	PrintError(core->vm_info, core, "Decoder Error: Not a valid INVLPG instruction...\n");
 	return -1;
     }
 
@@ -456,7 +456,7 @@ int v3_register_shadow_paging_event_callback(struct v3_vm_info *vm,
     struct event_callback *ec = V3_Malloc(sizeof(struct event_callback));
 
     if (!ec) { 
-	PrintError("Unable to allocate for a shadow paging event callback\n");
+	PrintError(vm, VCORE_NONE, "Unable to allocate for a shadow paging event callback\n");
 	return -1;
     }
     
@@ -488,7 +488,7 @@ int v3_unregister_shadow_paging_event_callback(struct v3_vm_info *vm,
 	}
     }
     
-    PrintError("No callback found!\n");
+    PrintError(vm, VCORE_NONE, "No callback found!\n");
     
     return -1;
 }

@@ -112,14 +112,14 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
     if (!frontend_cfg || !(v3_cfg_val(frontend_cfg, "tag"))) { 
-	PrintError("No frontend config specified, or frontend has no tag\n");
+	PrintError(vm, VCORE_NONE, "No frontend config specified, or frontend has no tag\n");
 	return -1;
     }
 
     vnetnic = (struct vnet_nic_state *)V3_Malloc(sizeof(struct vnet_nic_state));
 
     if (!vnetnic) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -127,7 +127,7 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, vnetnic);
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(vnetnic);
 	return -1;
     }
@@ -137,19 +137,19 @@ static int vnet_nic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &(vnetnic->net_ops), frontend_cfg, vnetnic) == -1) {
-	PrintError("Could not connect %s to frontend %s\n", 
+	PrintError(vm, VCORE_NONE, "Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	v3_remove_device(dev);
 	return -1;
     }
 
-    PrintDebug("Vnet-nic: Connect %s to frontend %s\n", 
+    PrintDebug(vm, VCORE_NONE, "Vnet-nic: Connect %s to frontend %s\n", 
 	       dev_id, v3_cfg_val(frontend_cfg, "tag"));
 
     if ((vnet_dev_id = v3_vnet_add_dev(vm, vnetnic->net_ops.config.fnt_mac, 
 				       &vnet_dev_ops, vnetnic->net_ops.config.quote, 
 				       vnetnic->net_ops.config.poll, (void *)vnetnic)) == -1) {
-	PrintError("Vnet-nic device %s fails to registered to VNET\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Vnet-nic device %s fails to registered to VNET\n", dev_id);
 	
 	v3_remove_device(dev);
 	return 0;

@@ -28,7 +28,7 @@ struct vnet_thread * vnet_start_thread(int (*func)(void *), void *arg, char * na
     	struct vnet_thread * thread = Vnet_Malloc(sizeof(struct vnet_thread));
 
 	if (!thread) {
-	    PrintError("Cannot allocate space to create a vnet thread\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Cannot allocate space to create a vnet thread\n");
 	    return NULL;
 	}
 
@@ -51,7 +51,7 @@ struct vnet_timer * vnet_create_timer(unsigned long interval,
 	struct vnet_timer * timer = Vnet_Malloc(sizeof(struct vnet_timer));
 
 	if (!timer) {
-	    PrintError("Cannot allocate space to create a vnet timer\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Cannot allocate space to create a vnet timer\n");
 	    return NULL;
 	}
 

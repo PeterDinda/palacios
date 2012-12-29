@@ -46,7 +46,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     int page_size = PAGE_SIZE_4KB;
 
     if (region == NULL) {
-	PrintError("%s: invalid region, addr=%p\n", __FUNCTION__, (void *)fault_addr);
+	PrintError(core->vm_info, core, "%s: invalid region, addr=%p\n", __FUNCTION__, (void *)fault_addr);
 	return -1;
     }
 
@@ -58,7 +58,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 	page_size = v3_get_max_page_size(core, fault_addr, LONG);
     }
 
-    PrintDebug("Using page size of %dKB\n", page_size / 1024);
+    PrintDebug(core->vm_info, core, "Using page size of %dKB\n", page_size / 1024);
 
  
     // Lookup the correct PML address based on the PAGING MODE
@@ -116,7 +116,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 		}
 
 		if (v3_gpa_to_hpa(core, fault_addr, &host_addr) == -1) {
-		    PrintError("Error Could not translate fault addr (%p)\n", (void *)fault_addr);
+		    PrintError(core->vm_info, core, "Error Could not translate fault addr (%p)\n", (void *)fault_addr);
 		    return -1;
 		}
 
@@ -166,7 +166,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 	    }
 
     	    if (v3_gpa_to_hpa(core, fault_addr, &host_addr) == -1) {
-		PrintError("Error Could not translate fault addr (%p)\n", (void *)fault_addr);
+		PrintError(core->vm_info, core, "Error Could not translate fault addr (%p)\n", (void *)fault_addr);
 		return -1;
    	    }
 

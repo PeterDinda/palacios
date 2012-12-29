@@ -62,15 +62,15 @@ static int init_exec_hooks_core (struct guest_info * core, void * priv_data, voi
 	hooks->bin_table = v3_create_htable(0, exec_hash_fn, exec_eq_fn);
 
     if (hooks->bin_table == NULL) {
-        PrintError("Problem creating execve hash table\n");
+        PrintError(core->vm_info, core, "Problem creating execve hash table\n");
         return -1;
     }
 
     if (core->cpu_mode == LONG || core->cpu_mode == LONG_32_COMPAT) {
-        PrintDebug("Hooking execve 64\n");
+        PrintDebug(core->vm_info, core, "Hooking execve 64\n");
         v3_hook_syscall(core, SYS64_EXECVE, v3_execve_handler, NULL);
     } else {
-        PrintDebug("Hooking execve, cpu mode: %x\n", core->cpu_mode);
+        PrintDebug(core->vm_info, core, "Hooking execve, cpu mode: %x\n", core->cpu_mode);
         v3_hook_syscall(core, SYS32_EXECVE, v3_execve_handler, NULL);
     }
     return 0;
@@ -101,7 +101,7 @@ int v3_hook_executable (struct v3_vm_info * vm,
     addr_t key;
 
     if (!hook) {
-	PrintError("Cannot allocate in hooking exec\n");
+        PrintError(vm, VCORE_NONE, "Cannot allocate in hooking exec\n");
 	return -1;
     }
     
@@ -129,12 +129,12 @@ int v3_unhook_executable (struct v3_vm_info * vm, const uchar_t * binfile) {
     if ((hook = (struct exec_hook*)v3_htable_search(hooks->bin_table, key)) != NULL) {
         free_hook(vm, hook);
     } else {
-        PrintError("Could not unhook executable '%s'\n", binfile);
+        PrintError(vm, VCORE_NONE,  "Could not unhook executable '%s'\n", binfile);
         return -1;
     }
 
     if (v3_htable_remove(hooks->bin_table, key, 0) == (addr_t)NULL) {
-        PrintError("Error trying to remove key from htable: v3_unhook_executable\n");
+        PrintError(vm, VCORE_NONE,  "Error trying to remove key from htable: v3_unhook_executable\n");
         return -1;
     }
 
@@ -169,7 +169,7 @@ int v3_execve_handler (struct guest_info * core, uint_t syscall_nr, void * priv_
     }
 
     if (ret == -1) {
-        PrintError("Error translating file path in sysexecve handler\n");
+        PrintError(core->vm_info, core, "Error translating file path in sysexecve handler\n");
         return 0;
     }
 
@@ -178,7 +178,7 @@ int v3_execve_handler (struct guest_info * core, uint_t syscall_nr, void * priv_
         
         ret = hook->handler(core, hook->priv_data);
        if (ret == -1) {
-            PrintDebug("Error handling execve hook\n");
+            PrintDebug(core->vm_info, core, "Error handling execve hook\n");
             return -1;
        }
 

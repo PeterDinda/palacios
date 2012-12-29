@@ -28,8 +28,8 @@ struct v3_keyed_stream_hooks * keyed_stream_hooks = 0;
 
 v3_keyed_stream_t     v3_keyed_stream_open(char *url, v3_keyed_stream_open_t open_type)
 {
-    V3_ASSERT(keyed_stream_hooks != NULL);
-    V3_ASSERT(keyed_stream_hooks->open != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks->open != NULL);
 
     return keyed_stream_hooks->open(url,open_type);
 }
@@ -38,8 +38,8 @@ v3_keyed_stream_t     v3_keyed_stream_open(char *url, v3_keyed_stream_open_t ope
 	
 void                  v3_keyed_stream_close(v3_keyed_stream_t stream)
 {
-    V3_ASSERT(keyed_stream_hooks != NULL);
-    V3_ASSERT(keyed_stream_hooks->close != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks->close != NULL);
 
     return keyed_stream_hooks->close(stream);
 
@@ -48,16 +48,16 @@ void                  v3_keyed_stream_close(v3_keyed_stream_t stream)
 
 void v3_keyed_stream_preallocate_hint_key(v3_keyed_stream_t stream, char *key, uint64_t size)
 {
-    V3_ASSERT(keyed_stream_hooks != NULL);
-    V3_ASSERT(keyed_stream_hooks->preallocate_hint_key != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks->preallocate_hint_key != NULL);
 
     return keyed_stream_hooks->preallocate_hint_key(stream,key,size);
 }
 
 v3_keyed_stream_key_t v3_keyed_stream_open_key(v3_keyed_stream_t stream, char *key)
 {
-    V3_ASSERT(keyed_stream_hooks != NULL);
-    V3_ASSERT(keyed_stream_hooks->open_key != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks->open_key != NULL);
 
     return keyed_stream_hooks->open_key(stream,key);
 }
@@ -65,8 +65,8 @@ v3_keyed_stream_key_t v3_keyed_stream_open_key(v3_keyed_stream_t stream, char *k
 
 void                  v3_keyed_stream_close_key(v3_keyed_stream_t stream,  char *key)
 {
-    V3_ASSERT(keyed_stream_hooks != NULL);
-    V3_ASSERT(keyed_stream_hooks->close_key != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks->close_key != NULL);
 
     return keyed_stream_hooks->close_key(stream,key);
 }
@@ -79,8 +79,8 @@ sint64_t              v3_keyed_stream_write_key(v3_keyed_stream_t stream,
 						void *buf, 
 						sint64_t len)
 {
-    V3_ASSERT(keyed_stream_hooks != NULL);
-    V3_ASSERT(keyed_stream_hooks->write_key != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks->write_key != NULL);
 
     return keyed_stream_hooks->write_key(stream,key,tag,taglen,buf,len);
 }
@@ -92,8 +92,8 @@ sint64_t              v3_keyed_stream_read_key(v3_keyed_stream_t stream,
 					       void *buf, 
 					       sint64_t len)
 {
-    V3_ASSERT(keyed_stream_hooks != NULL);
-    V3_ASSERT(keyed_stream_hooks->read_key != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, keyed_stream_hooks->read_key != NULL);
 
     return keyed_stream_hooks->read_key(stream,key,tag,taglen,buf,len);
 }
@@ -102,7 +102,7 @@ sint64_t              v3_keyed_stream_read_key(v3_keyed_stream_t stream,
 
 void V3_Init_Keyed_Streams(struct v3_keyed_stream_hooks * hooks) {
     keyed_stream_hooks = hooks;
-    PrintDebug("V3 keyed stream support inited\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "V3 keyed stream support inited\n");
 
     return;
 }

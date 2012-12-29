@@ -46,7 +46,7 @@ struct vm_device * v3_create_dma() {
     dma = (struct dma_state *)V3_Malloc(sizeof(struct dma_state));
 
     if (!dma) {
-	PrintError("Cannot allocate\n");
+	PrintError(info->vm_info, info, "Cannot allocate\n");
 	return NULL;
     }
 

@@ -38,7 +38,7 @@ void     v3_strategy_driven_yield(struct guest_info *core, uint64_t time_since_l
 		v3_yield(core,-1);
 	    }
 	default:
-	    PrintError("Unknown yield strategy (%d) using GREEDY\n",core->vm_info->perf_options.yield_strategy.strategy);
+	    PrintError(core->vm_info, core, "Unknown yield strategy (%d) using GREEDY\n",core->vm_info->perf_options.yield_strategy.strategy);
 	    v3_yield(core,-1);
 	    break;
     }
@@ -76,27 +76,27 @@ static void set_yield(struct v3_vm_info *vm, v3_cfg_tree_t *cfg)
     if (t) { 
 	if (!strcasecmp(t,"greedy")) { 
 	    vm->perf_options.yield_strategy.strategy = V3_YIELD_STRATEGY_GREEDY;
-	    V3_Print("Setting yield strategy to GREEDY\n");
+	    V3_Print(vm, VCORE_NONE, "Setting yield strategy to GREEDY\n");
 	} else if (!strcasecmp(t, "friendly")) { 
 	    vm->perf_options.yield_strategy.strategy = V3_YIELD_STRATEGY_FRIENDLY;
-	    V3_Print("Setting yield strategy to FRIENDLY\n");
+	    V3_Print(vm, VCORE_NONE, "Setting yield strategy to FRIENDLY\n");
 	} else if (!strcasecmp(t, "adaptive")) { 
 	    vm->perf_options.yield_strategy.strategy = V3_YIELD_STRATEGY_ADAPTIVE;
-	    V3_Print("Setting yield strategy to ADAPTIVE\n");
+	    V3_Print(vm, VCORE_NONE, "Setting yield strategy to ADAPTIVE\n");
 	} else {
-	    V3_Print("Unknown yield strategy '%s', using default\n",t);
+	    V3_Print(vm, VCORE_NONE, "Unknown yield strategy '%s', using default\n",t);
 	}
     } else {
-	V3_Print("Yield strategy not given, using default\n");
+	V3_Print(vm, VCORE_NONE, "Yield strategy not given, using default\n");
     }
 
     t = v3_cfg_val(cfg, "threshold");
     
     if (t) { 
 	vm->perf_options.yield_strategy.threshold_usec = atoi(t);
-	V3_Print("Setting yield threshold to %llu\n",vm->perf_options.yield_strategy.threshold_usec);
+	V3_Print(vm, VCORE_NONE, "Setting yield threshold to %llu\n",vm->perf_options.yield_strategy.threshold_usec);
     } else {
-	V3_Print("Yield threshold not given, using default\n");
+	V3_Print(vm, VCORE_NONE, "Yield threshold not given, using default\n");
     }
 
 
@@ -104,9 +104,9 @@ static void set_yield(struct v3_vm_info *vm, v3_cfg_tree_t *cfg)
     
     if (t) { 
 	vm->perf_options.yield_strategy.time_usec = atoi(t);
-	V3_Print("Setting yield time to %llu\n",vm->perf_options.yield_strategy.time_usec);
+	V3_Print(vm, VCORE_NONE, "Setting yield time to %llu\n",vm->perf_options.yield_strategy.time_usec);
     } else {
-	V3_Print("Yield time not given, using default\n");
+	V3_Print(vm, VCORE_NONE, "Yield time not given, using default\n");
     }
     
     
@@ -135,7 +135,7 @@ int      v3_setup_performance_tuning(struct v3_vm_info *vm, v3_cfg_tree_t *cfg)
     v3_cfg_tree_t *t = v3_cfg_subtree(cfg,"perftune");
     
     if (!t) { 
-	V3_Print("No performance tuning tree - using defaults\n");
+	V3_Print(vm, VCORE_NONE,  "No performance tuning tree - using defaults\n");
 	set_yield_defaults(vm);
 	return 0;
     }
@@ -145,12 +145,12 @@ int      v3_setup_performance_tuning(struct v3_vm_info *vm, v3_cfg_tree_t *cfg)
     while (t) {
 	char *id = v3_cfg_val(t,"name");
 	if (!id) { 
-	    V3_Print("Skipping performance parameter group without name\n");
+	    V3_Print(vm, VCORE_NONE,  "Skipping performance parameter group without name\n");
 	} else {
 	    if (!strcasecmp(id,"yield")) { 
 		set_yield(vm,t);
 	    } else {
-		V3_Print("Skipping unknown performance parameter group\n");
+		V3_Print(vm, VCORE_NONE,  "Skipping unknown performance parameter group\n");
 	    }
 	}
 	t = v3_cfg_next_branch(t);

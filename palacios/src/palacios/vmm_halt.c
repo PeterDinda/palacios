@@ -41,7 +41,7 @@ int v3_handle_halt(struct guest_info * info)
     } else {
 	uint64_t start_cycles;
 	
-	PrintDebug("CPU Yield\n");
+	PrintDebug(info->vm_info, info, "CPU Yield\n");
 
 	start_cycles  = v3_get_host_time(&info->time_state);
 
@@ -70,7 +70,7 @@ int v3_handle_halt(struct guest_info * info)
 
 	}
 
-	/* V3_Print("palacios: done with halt\n"); */
+	/* V3_Print(info->vm_info, info, "palacios: done with halt\n"); */
 	
 	info->rip += 1;
     }

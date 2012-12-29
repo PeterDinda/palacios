@@ -21,16 +21,11 @@
 #define __VMM_H__
 
 
-/*#include <palacios/vm_guest.h>*/
-
-struct guest_info;
 
 
 #ifdef __V3VEE__
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
-
-//#include <palacios/vmm_types.h>
 #include <palacios/vmm_string.h>
 
 
@@ -38,32 +33,24 @@ struct guest_info;
 
 /* utility definitions */
 
+#define VM_NONE ((struct v3_vm_info *)0)
+#define VCORE_NONE ((struct guest_info *)0)
 
-#define V3_Print(fmt, args...)					\
-    do {							\
-	extern struct v3_os_hooks * os_hooks;			\
-	if ((os_hooks) && (os_hooks)->print) {			\
-	    (os_hooks)->print((fmt), ##args);			\
-	}							\
-    } while (0)	
+void    *v3_get_host_vm(struct v3_vm_info *);
+int      v3_get_vcore(struct guest_info *);
 
-
-#define PrintDebug(fmt, args...)			\
-    do {						\
-	extern struct v3_os_hooks * os_hooks;		\
-	if ((os_hooks) && (os_hooks)->print) {	\
-	    (os_hooks)->print((fmt), ##args);	\
-	}						\
-    } while (0)						
+#define V3_Print(vm, vcore, fmt, args...) 	\
+  do {								\
+    extern struct v3_os_hooks * os_hooks;			\
+    if ((os_hooks) && (os_hooks)->print) {			\
+      (os_hooks)->print(v3_get_host_vm(vm), v3_get_vcore(vcore), (fmt), ##args); \
+    }									\
+  } while (0)	
 
 
-#define PrintError(fmt, args...)					\
-    do {								\
-	extern struct v3_os_hooks * os_hooks;				\
-	if ((os_hooks) && (os_hooks)->print) {			\
-	    (os_hooks)->print("%s(%d): " fmt, __FILE__, __LINE__, ##args); \
-	}								\
-    } while (0)						
+#define PrintDebug(vm, vcore, fmt, args...)   V3_Print(vm, vcore, "DEBUG: " fmt, ##args)
+
+#define PrintError(vm, vcore, fmt, args...)  V3_Print(vm, vcore, "ERROR at %s(%d): " fmt, __FILE__, __LINE__, ##args)
 
 
 
@@ -126,7 +113,7 @@ struct guest_info;
 	    if ((os_hooks) && (os_hooks)->malloc) {	\
 		var = (os_hooks)->malloc(size);		\
 	    }						\
-	    if (!var) PrintError("MALLOC FAILURE. Memory LEAK!!\n");	\
+	    if (!var) PrintError(VM_NONE,VCORE_NONE,"MALLOC FAILURE. Memory LEAK!!\n"); \
 	    var;					\
 	})
 
@@ -228,11 +215,11 @@ struct guest_info;
 /* ** */
 
 
-#define V3_ASSERT(x)							\
+#define V3_ASSERT(vm, vcore, x)						\
     do {								\
 	extern struct v3_os_hooks * os_hooks; 				\
 	if (!(x)) {							\
-	    PrintDebug("Failed assertion in %s: %s at %s, line %d, RA=%lx\n", \
+	  PrintDebug(vm, vcore, "Failed assertion in %s: %s at %s, line %d, RA=%lx\n", \
 		       __func__, #x, __FILE__, __LINE__,		\
 		       (ulong_t) __builtin_return_address(0));		\
 	    while(1){							\
@@ -305,8 +292,12 @@ struct v3_vm_info;
 
 /* This will contain function pointers that provide OS services */
 struct v3_os_hooks {
-    void (*print)(const char * format, ...)
-  	__attribute__ ((format (printf, 1, 2)));
+  // the vm pointer is the host os's "priv_data" from v3_create_vm
+  // if vm is null, this is a general palacios printout
+  // if vm is not null, and vcore is negative, this is a general print form the vm
+  // if vm is not null, and vcore is non-negative, this is a print from a specific vcore
+    void (*print)(void *vm, int vcore, const char * format, ...)
+  	__attribute__ ((format (printf, 3, 4)));
   
     void *(*allocate_pages)(int num_pages, unsigned int alignment);
     void (*free_pages)(void * page, int num_pages);

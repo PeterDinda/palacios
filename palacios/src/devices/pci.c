@@ -170,19 +170,19 @@ static void pci_dump_state(struct pci_internal * pci_state) {
     struct rb_node * node = v3_rb_first(&(pci_state->bus_list[0].devices));
     struct pci_device * tmp_dev = NULL;
     
-    PrintDebug("===PCI: Dumping state Begin ==========\n");
+    PrintDebug(core->vm_info, core, "===PCI: Dumping state Begin ==========\n");
     
     do {
 	tmp_dev = rb_entry(node, struct pci_device, dev_tree_node);
 
-  	PrintDebug("PCI Device Number: %d (%s):\n", tmp_dev->dev_num,  tmp_dev->name);
-	PrintDebug("irq = %d\n", tmp_dev->config_header.intr_line);
-	PrintDebug("Vend ID: 0x%x\n", tmp_dev->config_header.vendor_id);
-	PrintDebug("Device ID: 0x%x\n", tmp_dev->config_header.device_id);
+  	PrintDebug(core->vm_info, core, "PCI Device Number: %d (%s):\n", tmp_dev->dev_num,  tmp_dev->name);
+	PrintDebug(core->vm_info, core, "irq = %d\n", tmp_dev->config_header.intr_line);
+	PrintDebug(core->vm_info, core, "Vend ID: 0x%x\n", tmp_dev->config_header.vendor_id);
+	PrintDebug(core->vm_info, core, "Device ID: 0x%x\n", tmp_dev->config_header.device_id);
 
     } while ((node = v3_rb_next(node)));
     
-    PrintDebug("====PCI: Dumping state End==========\n");
+    PrintDebug(core->vm_info, core, "====PCI: Dumping state End==========\n");
 }
 
 #endif
@@ -195,11 +195,11 @@ static int get_free_dev_num(struct pci_bus * bus) {
     int i, j;
 
     for (i = 0; i < sizeof(bus->dev_map); i++) {
-	PrintDebug("i=%d\n", i);
+	PrintDebug(core->vm_info, core, "i=%d\n", i);
 	if (bus->dev_map[i] != 0xff) {
 	    // availability
 	    for (j = 0; j < 8; j++) {
-		PrintDebug("\tj=%d\n", j);
+		PrintDebug(core->vm_info, core, "\tj=%d\n", j);
 		if (!(bus->dev_map[i] & (0x1 << j))) {
 		    return ((i * 8) + j);
 		}
@@ -312,14 +312,14 @@ int v3_pci_hook_config_range(struct pci_device * pci,
     
 
     if (find_cfg_range_hook(pci, start, length)) {
-	PrintError("Tried to hook an already hooked config region\n");
+	PrintError(VM_NONE, VCORE_NONE, "Tried to hook an already hooked config region\n");
 	return -1;
     }
     
     hook = V3_Malloc(sizeof(struct cfg_range_hook));
 
     if (!hook) {
-	PrintError("Could not allocate range hook\n");
+	PrintError(VM_NONE, VCORE_NONE, "Could not allocate range hook\n");
 	return -1;
     }
 
@@ -427,7 +427,7 @@ int cap_write(struct pci_device * pci, uint32_t offset, void * src, uint_t lengt
     int msix_was_enabled = 0;
 
 
-    V3_Print("CAP write trapped (val=%x, cfg_offset=%d, write_offset=%d)\n", *(uint32_t *)src, offset, write_offset);
+    V3_Print(VM_NONE, VCORE_NONE, "CAP write trapped (val=%x, cfg_offset=%d, write_offset=%d)\n", *(uint32_t *)src, offset, write_offset);
 
     if (cap_type == PCI_CAP_MSI) {
 	struct msi_msg_ctrl * msg_ctrl = cap_ptr;
@@ -449,10 +449,10 @@ int cap_write(struct pci_device * pci, uint32_t offset, void * src, uint_t lengt
 	if (cap_type == PCI_CAP_MSI) {
 	    struct msi_msg_ctrl * msg_ctrl = cap_ptr;
 
-	    V3_Print("MSI Cap Ctrl=%x\n", *(uint16_t *)pci->msi_cap);
-	    V3_Print("MSI ADDR=%x\n", *(uint32_t *)(cap_ptr + 2));
-	    V3_Print("MSI HI ADDR=%x\n", *(uint32_t *)(cap_ptr + 6));
-	    V3_Print("MSI Data=%x\n", *(uint16_t *)(cap_ptr + 10));
+	    V3_Print(VM_NONE, VCORE_NONE, "MSI Cap Ctrl=%x\n", *(uint16_t *)pci->msi_cap);
+	    V3_Print(VM_NONE, VCORE_NONE, "MSI ADDR=%x\n", *(uint32_t *)(cap_ptr + 2));
+	    V3_Print(VM_NONE, VCORE_NONE, "MSI HI ADDR=%x\n", *(uint32_t *)(cap_ptr + 6));
+	    V3_Print(VM_NONE, VCORE_NONE, "MSI Data=%x\n", *(uint16_t *)(cap_ptr + 10));
 
 	    if (msg_ctrl->cap_64bit) {
 		if (msg_ctrl->per_vect_mask) {
@@ -492,7 +492,7 @@ int cap_write(struct pci_device * pci, uint32_t offset, void * src, uint_t lengt
 	if (cap_type == PCI_CAP_MSI) {
 	    struct msi_msg_ctrl * msg_ctrl = cap_ptr;
 	    
-	    V3_Print("msi_was_enabled=%d, msi_is_enabled=%d\n", msi_was_enabled,  msg_ctrl->msi_enable);
+	    V3_Print(VM_NONE, VCORE_NONE, "msi_was_enabled=%d, msi_is_enabled=%d\n", msi_was_enabled,  msg_ctrl->msi_enable);
 
 	    if ((msg_ctrl->msi_enable == 1) && (msi_was_enabled == 0)) {
 		pci->irq_type = IRQ_MSI;
@@ -577,19 +577,19 @@ static int init_pci_cap(struct pci_device * pci, pci_cap_type_t cap_type, uint_t
 static int scan_pci_caps(struct pci_device * pci) {
     uint_t cap_offset = pci->config_header.cap_ptr;
         
-    V3_Print("Scanning for Capabilities (cap_offset=%d)\n", cap_offset);
+    V3_Print(VM_NONE, VCORE_NONE, "Scanning for Capabilities (cap_offset=%d)\n", cap_offset);
 
     while (cap_offset != 0) {
 	uint8_t id = pci->config_space[cap_offset];
 	uint8_t next = pci->config_space[cap_offset + 1];
 
-	V3_Print("Found Capability 0x%x at offset %d (0x%x)\n", 
+	V3_Print(VM_NONE, VCORE_NONE, "Found Capability 0x%x at offset %d (0x%x)\n", 
 		 id, cap_offset, cap_offset);
 
 	struct pci_cap * cap = V3_Malloc(sizeof(struct pci_cap));
 
 	if (!cap) {
-	    PrintError("Error allocating PCI CAP info\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Error allocating PCI CAP info\n");
 	    return -1;
 	}
 	memset(cap, 0, sizeof(struct pci_cap));
@@ -613,7 +613,7 @@ static int scan_pci_caps(struct pci_device * pci) {
     // Hook Cap pointer to return cached config space value
     if (v3_pci_hook_config_range(pci, 0x34, 1, 
 				 NULL, NULL, NULL) == -1) {
-	PrintError("Could not hook cap pointer\n");
+	PrintError(VM_NONE, VCORE_NONE, "Could not hook cap pointer\n");
 	return -1;
     }
     
@@ -651,7 +651,7 @@ int v3_pci_enable_capability(struct pci_device * pci, pci_cap_type_t cap_type) {
     }
 
 
-    V3_Print("Found Capability %x at %x (%d)\n", cap_type, cap->offset, cap->offset);
+    V3_Print(VM_NONE, VCORE_NONE, "Found Capability %x at %x (%d)\n", cap_type, cap->offset, cap->offset);
 
     // found the capability
 
@@ -698,11 +698,11 @@ int v3_pci_enable_capability(struct pci_device * pci, pci_cap_type_t cap_type) {
     }
 
 
-    V3_Print("Hooking capability range (offset=%d, size=%d)\n", cap->offset, size);
+    V3_Print(VM_NONE, VCORE_NONE, "Hooking capability range (offset=%d, size=%d)\n", cap->offset, size);
 
     if (v3_pci_hook_config_range(pci, cap->offset, size + 2, 
 				 cap_write, NULL, cap) == -1) {
-	PrintError("Could not hook config range (start=%d, size=%d)\n", 
+	PrintError(VM_NONE, VCORE_NONE, "Could not hook config range (start=%d, size=%d)\n", 
 		   cap->offset + 2, size);
 	return -1;
     }
@@ -724,10 +724,10 @@ static int addr_port_read(struct guest_info * core, ushort_t port, void * dst, u
     int reg_offset = port & 0x3;
     uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
 
-    PrintDebug("Reading PCI Address Port (%x): %x len=%d\n", port, pci_state->addr_reg.val, length);
+    PrintDebug(core->vm_info, core, "Reading PCI Address Port (%x): %x len=%d\n", port, pci_state->addr_reg.val, length);
 
     if (reg_offset + length > 4) {
-	PrintError("Invalid Address port write\n");
+	PrintError(core->vm_info, core, "Invalid Address port write\n");
 	return -1;
     }
 
@@ -743,14 +743,14 @@ static int addr_port_write(struct guest_info * core, ushort_t port, void * src, 
     uint8_t * reg_addr = ((uint8_t *)&(pci_state->addr_reg.val)) + reg_offset;
 
     if (reg_offset + length > 4) {
-	PrintError("Invalid Address port write\n");
+	PrintError(core->vm_info, core, "Invalid Address port write\n");
 	return -1;
     }
 
     // Set address register
     memcpy(reg_addr, src, length);
 
-    PrintDebug("Writing PCI Address Port(%x): AddrReg=%x (op_val = %x, len=%d) \n", port, pci_state->addr_reg.val, *(uint32_t *)src, length);
+    PrintDebug(core->vm_info, core, "Writing PCI Address Port(%x): AddrReg=%x (op_val = %x, len=%d) \n", port, pci_state->addr_reg.val, *(uint32_t *)src, length);
 
     return length;
 }
@@ -776,7 +776,7 @@ static int data_port_read(struct guest_info * core, uint16_t port, void * dst, u
 	return length;
     } 
 
-    PrintDebug("Reading PCI Data register. bus = %d, dev = %d, fn = %d, reg = %d (%x), cfg_reg = %x\n", 
+    PrintDebug(core->vm_info, core, "Reading PCI Data register. bus = %d, dev = %d, fn = %d, reg = %d (%x), cfg_reg = %x\n", 
 	       pci_state->addr_reg.bus_num, 
 	       pci_state->addr_reg.dev_num, 
 	       pci_state->addr_reg.fn_num,
@@ -801,7 +801,7 @@ static int data_port_read(struct guest_info * core, uint16_t port, void * dst, u
 	} else {
 	    if (pci_dev->config_read) {
 		if (pci_dev->config_read(pci_dev, reg_num + i, cfg_dst, 1, pci_dev->priv_data) != 0) {
-		    PrintError("Error in config_read from PCI device (%s)\n", pci_dev->name);
+		    PrintError(core->vm_info, core, "Error in config_read from PCI device (%s)\n", pci_dev->name);
 		}
 	    }
 
@@ -812,7 +812,7 @@ static int data_port_read(struct guest_info * core, uint16_t port, void * dst, u
 
     memcpy(dst, &(pci_dev->config_space[reg_num]), length);
 	    
-    PrintDebug("\tVal=%x, len=%d\n", *(uint32_t *)dst, length);
+    PrintDebug(core->vm_info, core, "\tVal=%x, len=%d\n", *(uint32_t *)dst, length);
 
     return length;
 }
@@ -826,7 +826,7 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
     int bar_num = (bar_offset - 0x10) / 4;
     uint32_t new_val = *(uint32_t *)src;
     
-    PrintDebug("Updating BAR Register  (Dev=%s) (bar=%d) (old_val=0x%x) (new_val=0x%x)\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Updating BAR Register  (Dev=%s) (bar=%d) (old_val=0x%x) (new_val=0x%x)\n", 
 	       pci_dev->name, bar_num, bar->val, new_val);
 
     // Cache the changes locally
@@ -834,7 +834,7 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 
     if (bar->type == PCI_BAR_PASSTHROUGH) {
         if (bar->bar_write(bar_num, (void *)(pci_dev->config_space + bar_offset), bar->private_data) == -1) {
-	    PrintError("Error in Passthrough bar write operation\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Error in Passthrough bar write operation\n");
 	    return -1;
 	}
 	
@@ -849,18 +849,18 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 	case PCI_BAR_IO: {
 	    int i = 0;
 
-	    PrintDebug("\tRehooking %d IO ports from base 0x%x to 0x%x for %d ports\n",
+	    PrintDebug(VM_NONE, VCORE_NONE, "\tRehooking %d IO ports from base 0x%x to 0x%x for %d ports\n",
 		       bar->num_ports, PCI_IO_BASE(bar->val), PCI_IO_BASE(new_val),
 		       bar->num_ports);
 		
 	    // only do this if pci device is enabled....
 	    if (!(pci_dev->config_header.status & 0x1)) {
-		PrintError("PCI Device IO space not enabled\n");
+		PrintError(VM_NONE, VCORE_NONE, "PCI Device IO space not enabled\n");
 	    }
 
 	    for (i = 0; i < bar->num_ports; i++) {
 
-		PrintDebug("Rehooking PCI IO port (old port=%u) (new port=%u)\n",  
+		PrintDebug(VM_NONE, VCORE_NONE, "Rehooking PCI IO port (old port=%u) (new port=%u)\n",  
 			   PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
 
 		v3_unhook_io_port(pci_dev->vm, PCI_IO_BASE(bar->val) + i);
@@ -869,7 +869,7 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 				    bar->io_read, bar->io_write, 
 				    bar->private_data) == -1) {
 
-		    PrintError("Could not hook PCI IO port (old port=%u) (new port=%u)\n",  
+		    PrintError(VM_NONE, VCORE_NONE, "Could not hook PCI IO port (old port=%u) (new port=%u)\n",  
 			       PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
 		    v3_print_io_map(pci_dev->vm);
 		    return -1;
@@ -888,7 +888,7 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 				 PCI_MEM32_BASE(new_val) + (bar->num_pages * PAGE_SIZE_4KB),
 				 bar->mem_read, bar->mem_write, pci_dev->priv_data);
 	    } else {
-		PrintError("Write hooks not supported for PCI\n");
+		PrintError(VM_NONE, VCORE_NONE, "Write hooks not supported for PCI\n");
 		return -1;
 	    }
 
@@ -897,12 +897,12 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 	    break;
 	}
 	case PCI_BAR_NONE: {
-	    PrintDebug("Reprogramming an unsupported BAR register (Dev=%s) (bar=%d) (val=%x)\n", 
+	    PrintDebug(VM_NONE, VCORE_NONE, "Reprogramming an unsupported BAR register (Dev=%s) (bar=%d) (val=%x)\n", 
 		       pci_dev->name, bar_num, new_val);
 	    break;
 	}
 	default:
-	    PrintError("Invalid Bar Reg updated (bar=%d)\n", bar_num);
+	    PrintError(VM_NONE, VCORE_NONE, "Invalid Bar Reg updated (bar=%d)\n", bar_num);
 	    return -1;
     }
 
@@ -921,7 +921,7 @@ static int data_port_write(struct guest_info * core, uint16_t port, void * src, 
 	return length;
     }
 
-    PrintDebug("Writing PCI Data register. bus = %d, dev = %d, fn = %d, reg = %d (0x%x) addr_reg = 0x%x (val=0x%x, len=%d)\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Writing PCI Data register. bus = %d, dev = %d, fn = %d, reg = %d (0x%x) addr_reg = 0x%x (val=0x%x, len=%d)\n", 
 	       pci_state->addr_reg.bus_num, 
 	       pci_state->addr_reg.dev_num, 
 	       pci_state->addr_reg.fn_num,
@@ -933,7 +933,7 @@ static int data_port_write(struct guest_info * core, uint16_t port, void * src, 
     pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num, pci_state->addr_reg.fn_num);
     
     if (pci_dev == NULL) {
-	PrintError("Writing configuration space for non-present device (dev_num=%d)\n", 
+	PrintError(VM_NONE, VCORE_NONE, "Writing configuration space for non-present device (dev_num=%d)\n", 
 		   pci_state->addr_reg.dev_num); 
 	return -1;
     }
@@ -993,7 +993,7 @@ static int exp_rom_write(struct pci_device * pci_dev, uint32_t offset,
 	return 0;
     }
 
-    PrintError("Expansion ROM update not handled. Will appear to not Exist\n");
+    PrintError(VM_NONE, VCORE_NONE, "Expansion ROM update not handled. Will appear to not Exist\n");
 
     return 0;
 }
@@ -1109,7 +1109,7 @@ static int pci_save_extended(struct v3_chkpt *chkpt, char *id, void * private_da
     ctx = v3_chkpt_open_ctx(chkpt,id);
 
     if (!ctx) { 
-      PrintError("Unable to open base context on save\n");
+      PrintError(VM_NONE, VCORE_NONE, "Unable to open base context on save\n");
       goto savefailout;
     }
 
@@ -1128,7 +1128,7 @@ static int pci_save_extended(struct v3_chkpt *chkpt, char *id, void * private_da
 	ctx = v3_chkpt_open_ctx(chkpt, buf);
 	
 	if (!ctx) { 
-	  PrintError("Failed to open context for %s\n", buf);
+	  PrintError(VM_NONE, VCORE_NONE, "Failed to open context for %s\n", buf);
 	  goto savefailout;
 	}
 
@@ -1145,7 +1145,7 @@ static int pci_save_extended(struct v3_chkpt *chkpt, char *id, void * private_da
 	    ctx = v3_chkpt_open_ctx(chkpt, buf);
 	    
 	    if (!ctx) { 
-	      PrintError("Failed to open context for device\n");
+	      PrintError(VM_NONE, VCORE_NONE, "Failed to open context for device\n");
 	      goto savefailout;
 	    }
 	    
@@ -1167,7 +1167,7 @@ static int pci_save_extended(struct v3_chkpt *chkpt, char *id, void * private_da
     return 0;
     
  savefailout:
-    PrintError("Failed to save PCI\n");
+    PrintError(VM_NONE, VCORE_NONE, "Failed to save PCI\n");
     if (ctx) { v3_chkpt_close_ctx(ctx); }
     return -1;
 
@@ -1183,7 +1183,7 @@ static int pci_load_extended(struct v3_chkpt *chkpt, char *id, void * private_da
     ctx = v3_chkpt_open_ctx(chkpt,id);
 
     if (!ctx) { 
-      PrintError("Unable to open base context on load\n");
+      PrintError(VM_NONE, VCORE_NONE, "Unable to open base context on load\n");
       goto loadfailout;
     }
 
@@ -1202,7 +1202,7 @@ static int pci_load_extended(struct v3_chkpt *chkpt, char *id, void * private_da
 	ctx = v3_chkpt_open_ctx(chkpt, buf);
 	
 	if (!ctx) { 
-	  PrintError("Failed to open context for %s\n", buf);
+	  PrintError(VM_NONE, VCORE_NONE, "Failed to open context for %s\n", buf);
 	  goto loadfailout;
 	}
 
@@ -1219,7 +1219,7 @@ static int pci_load_extended(struct v3_chkpt *chkpt, char *id, void * private_da
 	    ctx = v3_chkpt_open_ctx(chkpt, buf);
 	    
 	    if (!ctx) { 
-	      PrintError("Failed to open context for device\n");
+	      PrintError(VM_NONE, VCORE_NONE, "Failed to open context for device\n");
 	      goto loadfailout;
 	    }
 
@@ -1240,7 +1240,7 @@ static int pci_load_extended(struct v3_chkpt *chkpt, char *id, void * private_da
     return 0;
 
  loadfailout:
-    PrintError("Failed to load PCI\n");
+    PrintError(VM_NONE, VCORE_NONE, "Failed to load PCI\n");
     if (ctx) { v3_chkpt_close_ctx(ctx); }
     return -1;
     
@@ -1267,7 +1267,7 @@ static int pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_internal * pci_state = V3_Malloc(sizeof(struct pci_internal));
 
     if (!pci_state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -1275,12 +1275,12 @@ static int pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");
     int ret = 0;
     
-    PrintDebug("PCI internal at %p\n",(void *)pci_state);
+    PrintDebug(vm, VCORE_NONE, "PCI internal at %p\n",(void *)pci_state);
     
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, pci_state);
     
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(pci_state);
 	return -1;
     }
@@ -1291,7 +1291,7 @@ static int pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     init_pci_busses(pci_state);
     
-    PrintDebug("Sizeof config header=%d\n", (int)sizeof(struct pci_config_header));
+    PrintDebug(vm, VCORE_NONE, "Sizeof config header=%d\n", (int)sizeof(struct pci_config_header));
     
     for (i = 0; i < 4; i++) {
 	ret |= v3_dev_hook_io(dev, CONFIG_ADDR_PORT + i, &addr_port_read, &addr_port_write);
@@ -1299,7 +1299,7 @@ static int pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
     
     if (ret != 0) {
-	PrintError("Error hooking PCI IO ports\n");
+	PrintError(vm, VCORE_NONE, "Error hooking PCI IO ports\n");
 	v3_remove_device(dev);
 	return -1;
     }
@@ -1336,7 +1336,7 @@ static inline int init_bars(struct v3_vm_info * vm, struct pci_device * pci_dev)
 		    if (v3_hook_io_port(vm, bar->default_base_port + j,
 					bar->io_read, bar->io_write, 
 					bar->private_data) == -1) {
-			PrintError("Could not hook default io port %x\n", bar->default_base_port + j);
+			PrintError(vm, VCORE_NONE, "Could not hook default io port %x\n", bar->default_base_port + j);
 			return -1;
 		    }
 		}
@@ -1362,7 +1362,7 @@ static inline int init_bars(struct v3_vm_info * vm, struct pci_device * pci_dev)
 				 bar->mem_read, bar->mem_write, pci_dev->priv_data);
 	    } else if (bar->mem_write) {
 		// write hook
-		PrintError("Write hooks not supported for PCI devices\n");
+		PrintError(vm, VCORE_NONE, "Write hooks not supported for PCI devices\n");
 		return -1;
 		/*
 		  v3_hook_write_mem(pci_dev->vm_dev->vm, bar->default_base_addr, 
@@ -1378,7 +1378,7 @@ static inline int init_bars(struct v3_vm_info * vm, struct pci_device * pci_dev)
 	    *(uint32_t *)(pci_dev->config_space + bar_offset) = bar->val;
 
 	} else if (bar->type == PCI_BAR_MEM24) {
-	    PrintError("16 Bit memory ranges not supported (reg: %d)\n", i);
+	    PrintError(vm, VCORE_NONE, "16 Bit memory ranges not supported (reg: %d)\n", i);
 	    return -1;
 	} else if (bar->type == PCI_BAR_NONE) {
 	    bar->val = 0x00000000;
@@ -1390,7 +1390,7 @@ static inline int init_bars(struct v3_vm_info * vm, struct pci_device * pci_dev)
 	    bar->bar_init(i, &(bar->val), bar->private_data);
 
 	} else {
-	    PrintError("Invalid BAR type for bar #%d\n", i);
+	    PrintError(vm, VCORE_NONE, "Invalid BAR type for bar #%d\n", i);
 	    return -1;
 	}
 
@@ -1487,7 +1487,7 @@ int v3_pci_raise_acked_irq(struct vm_device * pci_bus, struct pci_device * dev, 
        struct msi_data * data = NULL;   
        
        if (dev->bar[bar_idx].type != PCI_BAR_MEM32) {
-	   PrintError("Non 32bit MSIX BAR registers are not supported\n");
+	   PrintError(VM_NONE, VCORE_NONE, "Non 32bit MSIX BAR registers are not supported\n");
 	   return -1;
        }
 
@@ -1495,7 +1495,7 @@ int v3_pci_raise_acked_irq(struct vm_device * pci_bus, struct pci_device * dev, 
        msix_table_gpa += dev->msix_cap->table_offset;
 
        if (v3_gpa_to_hva(&(dev->vm->cores[0]), msix_table_gpa, (void *)&(msix_table)) != 0) {
-	   PrintError("Could not translate MSIX Table GPA (%p)\n", (void *)msix_table_gpa);
+	   PrintError(VM_NONE, VCORE_NONE, "Could not translate MSIX Table GPA (%p)\n", (void *)msix_table_gpa);
 	   return -1;
        }
        
@@ -1514,7 +1514,7 @@ int v3_pci_raise_acked_irq(struct vm_device * pci_bus, struct pci_device * dev, 
        
 
 
-       V3_Print("Decode MSIX\n");
+       V3_Print(VM_NONE, VCORE_NONE, "Decode MSIX\n");
 
        v3_apic_send_ipi(dev->vm, &ipi, dev->apic_dev);
 
@@ -1560,22 +1560,22 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     int i;
 
     if (dev_num > MAX_BUS_DEVICES) {
-	PrintError("Requested Invalid device number (%d)\n", dev_num);
+	PrintError(VM_NONE, VCORE_NONE, "Requested Invalid device number (%d)\n", dev_num);
 	return NULL;
     }
 
     if (dev_num == PCI_AUTO_DEV_NUM) {
-	PrintDebug("Searching for free device number\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "Searching for free device number\n");
 	if ((dev_num = get_free_dev_num(bus)) == -1) {
-	    PrintError("No more available PCI slots on bus %d\n", bus->bus_num);
+	    PrintError(VM_NONE, VCORE_NONE, "No more available PCI slots on bus %d\n", bus->bus_num);
 	    return NULL;
 	}
     }
     
-    PrintDebug("Checking for PCI Device\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Checking for PCI Device\n");
 
     if (get_device(bus, dev_num, fn_num) != NULL) {
-	PrintError("PCI Device already registered at slot %d on bus %d\n", 
+	PrintError(VM_NONE, VCORE_NONE, "PCI Device already registered at slot %d on bus %d\n", 
 		   dev_num, bus->bus_num);
 	return NULL;
     }
@@ -1584,7 +1584,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     pci_dev = (struct pci_device *)V3_Malloc(sizeof(struct pci_device));
 
     if (pci_dev == NULL) {
-	PrintError("Could not allocate pci device\n");
+	PrintError(VM_NONE, VCORE_NONE, "Could not allocate pci device\n");
 	return NULL;
     }
 
@@ -1601,7 +1601,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	    pci_dev->config_header.header_type = 0x80;
 	    break;
 	default:
-	    PrintError("Unhandled PCI Device Type: %d\n", dev_type);
+	    PrintError(VM_NONE, VCORE_NONE, "Unhandled PCI Device Type: %d\n", dev_type);
 	    return NULL;
     }
 
@@ -1641,14 +1641,14 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	}
     }
 
-    V3_Print("Scanning for Capabilities\n");
+    V3_Print(VM_NONE, VCORE_NONE, "Scanning for Capabilities\n");
 
     // scan for caps
     scan_pci_caps(pci_dev);
 
     pci_dev->irq_type = IRQ_INTX;
 
-    V3_Print("Caps scanned\n");
+    V3_Print(VM_NONE, VCORE_NONE, "Caps scanned\n");
 
     // hook important regions
     v3_pci_hook_config_range(pci_dev, 0x30, 4, exp_rom_write, NULL, NULL);  // ExpRom
@@ -1695,7 +1695,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     }
 
     if (init_bars(pci->vm, pci_dev) == -1) {
-	PrintError("could not initialize bar registers\n");
+	PrintError(VM_NONE, VCORE_NONE, "could not initialize bar registers\n");
 	return NULL;
     }
 

@@ -38,11 +38,11 @@ static int io_read(struct guest_info * core, uint16_t port, void * dst, uint_t l
     uint32_t magic = (uint32_t)(core->vm_regs.rax);
     uint32_t cmd = (uint32_t)(core->vm_regs.rcx);
 
-    PrintError("VMWARE IO READ of size %d (command=%d)\n", length, cmd);
+    PrintError(core->vm_info, core, "VMWARE IO READ of size %d (command=%d)\n", length, cmd);
 
     
     if (magic != VMWARE_MAGIC) {
-	PrintError("Invalid VMWARE MAgic number in Persona interface, ignoring for now\n");
+	PrintError(core->vm_info, core, "Invalid VMWARE MAgic number in Persona interface, ignoring for now\n");
 	return length;
     }
     
@@ -52,7 +52,7 @@ static int io_read(struct guest_info * core, uint16_t port, void * dst, uint_t l
 	core->vm_regs.rax = cpu_hz & 0x00000000ffffffffLL;
 	core->vm_regs.rbx = (cpu_hz >> 32) & 0x00000000ffffffffLL;
     } else {
-	PrintError("Unhandled VMWARE IO operation\n");
+	PrintError(core->vm_info, core, "Unhandled VMWARE IO operation\n");
 	return -1;
     }
 
@@ -62,7 +62,7 @@ static int io_read(struct guest_info * core, uint16_t port, void * dst, uint_t l
 
 static int io_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
 
-    PrintError("VMWARE IO PORT WRITE\n");
+    PrintError(core->vm_info, core, "VMWARE IO PORT WRITE\n");
     return -1;
 }
 
@@ -87,7 +87,7 @@ static int vmware_cpuid_handler(struct guest_info * core, uint32_t cpuid,
 
 static int vmware_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data) {
 
-    V3_Print("Using VMWARE virtualization persona\n");
+    V3_Print(vm, VCORE_NONE, "Using VMWARE virtualization persona\n");
 
 /*
     v3_cpuid_add_fields(vm, 0x00000001, 

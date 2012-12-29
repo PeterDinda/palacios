@@ -63,7 +63,7 @@ static int cursor_update(uint_t x, uint_t y, void *private_data)
     struct cons_state *state = (struct cons_state *) dev->private_data;
     uint_t offset;
 
-    PrintDebug("cursor_update(%d, %d, %p)\n", x, y, private_data);
+    PrintDebug(VM_NONE, VCORE_NONE, "cursor_update(%d, %d, %p)\n", x, y, private_data);
 
     /* avoid out-of-range coordinates */
     if (x < 0) x = 0;
@@ -74,13 +74,13 @@ static int cursor_update(uint_t x, uint_t y, void *private_data)
     
     /* adjust cursor */	
     if (v3_console_set_cursor(state->cons, x, y) < 0) {
-	PrintError("set cursor (0x%p, %d, %d) failed\n", state->cons, x, y);
+	PrintError(VM_NONE, VCORE_NONE, "set cursor (0x%p, %d, %d) failed\n", state->cons, x, y);
 	return -1;
     }
     
     /* done with console update */
     if (v3_console_update(state->cons) < 0) {
-	PrintError("console update (0x%p) failed\n", state->cons);
+	PrintError(VM_NONE, VCORE_NONE, "console update (0x%p) failed\n", state->cons);
 	return -1;
     }
     
@@ -96,11 +96,11 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
     uint_t cur_y = y;
     
     if (length > (state->rows * state->cols * BYTES_PER_COL)) {
-	PrintError("Screen update larger than curses framebuffer\n");
+	PrintError(VM_NONE, VCORE_NONE, "Screen update larger than curses framebuffer\n");
 	return 0;
     }
 
-    PrintDebug("screen_update(%d, %d, %d, %p)\n", x, y, length, private_data);
+    PrintDebug(VM_NONE, VCORE_NONE, "screen_update(%d, %d, %d, %p)\n", x, y, length, private_data);
 
     /* grab frame buffer */
     v3_cons_get_fb(state->frontend_dev, state->framebuf, offset, length);
@@ -115,7 +115,7 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
 	
 	/* update current character */
 	if (v3_console_set_char(state->cons, cur_x, cur_y, col[0], col[1]) < 0) {
-	    PrintError("set cursor (0x%p, %d, %d, %d, %d) failed\n", 
+	    PrintError(VM_NONE, VCORE_NONE, "set cursor (0x%p, %d, %d, %d, %d) failed\n", 
 		       state->cons, cur_x, cur_y, col[1], col[0]);
 	    return -1;
 	}
@@ -128,7 +128,7 @@ static int screen_update(uint_t x, uint_t y, uint_t length, void * private_data)
     
     /* done with console update */
     if (v3_console_update(state->cons) < 0) {
-	PrintError("console update(0x%p) failed\n", state->cons);
+	PrintError(VM_NONE, VCORE_NONE, "console update(0x%p) failed\n", state->cons);
 	return -1;
     }
     
@@ -139,7 +139,7 @@ static int scroll(int rows, void * private_data) {
     struct vm_device *dev = (struct vm_device *)private_data;
     struct cons_state *state = (struct cons_state *)dev->private_data;
 
-    PrintDebug("scroll(%d, %p)\n", rows, private_data);
+    PrintDebug(VM_NONE, VCORE_NONE, "scroll(%d, %p)\n", rows, private_data);
 
     if (rows < 0) {
 	/* simply update the screen */
@@ -149,13 +149,13 @@ static int scroll(int rows, void * private_data) {
     if (rows > 0) {
 	/* scroll requested number of lines*/		
 	if (v3_console_scroll(state->cons, rows) < 0) {
-	    PrintError("console scroll (0x%p, %u) failed\n", state->cons, rows);
+	    PrintError(VM_NONE, VCORE_NONE, "console scroll (0x%p, %u) failed\n", state->cons, rows);
 	    return -1;
 	}
 
 	/* done with console update */
 	if (v3_console_update(state->cons) < 0) {
-	    PrintError("console update (0x%p) failed\n", state->cons);
+	    PrintError(VM_NONE, VCORE_NONE, "console update (0x%p) failed\n", state->cons);
 	    return -1;
 	}
     }
@@ -167,17 +167,17 @@ static int set_text_resolution(int cols, int rows, void * private_data) {
     struct vm_device *dev = (struct vm_device *)private_data;
     struct cons_state *state = (struct cons_state *)dev->private_data;
 
-    PrintDebug("set_text_resolution(%d, %d, %p)\n", cols, rows, private_data);
+    PrintDebug(VM_NONE, VCORE_NONE, "set_text_resolution(%d, %d, %p)\n", cols, rows, private_data);
 
     /* store resolution for internal use */
-    V3_ASSERT(cols >= 1);
-    V3_ASSERT(rows >= 1);
+    V3_ASSERT(VM_NONE, VCORE_NONE, cols >= 1);
+    V3_ASSERT(VM_NONE, VCORE_NONE, rows >= 1);
     state->cols = cols;
     state->rows = rows;
 
     /* set notification regarding resolution change */
     if (v3_console_set_text_resolution(state->cons, cols, rows) < 0) {
-	PrintError("console set_text_resolution (0x%p, %u, %u) failed\n", state->cons, cols, rows);
+	PrintError(VM_NONE, VCORE_NONE, "console set_text_resolution (0x%p, %u, %u) failed\n", state->cons, cols, rows);
 	return -1;
     }
 
@@ -223,19 +223,19 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     /* read configuration */
     frontend_cfg = v3_cfg_subtree(cfg, "frontend");
     if (!frontend_cfg) {
-	PrintError("No frontend specification for curses console.\n");
+	PrintError(vm, VCORE_NONE, "No frontend specification for curses console.\n");
 	return -1;
     }
 
     frontend_tag = v3_cfg_val(frontend_cfg, "tag");
     if (!frontend_tag) {
-	PrintError("No frontend device tag specified for curses console.\n");
+	PrintError(vm, VCORE_NONE, "No frontend device tag specified for curses console.\n");
 	return -1;
     }
 
     frontend = v3_find_dev(vm, frontend_tag);
     if (!frontend) {
-	PrintError("Could not find frontend device %s for curses console.\n",
+	PrintError(vm, VCORE_NONE, "Could not find frontend device %s for curses console.\n",
 		  frontend_tag);
 	return -1;
     } 
@@ -244,7 +244,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     state = (struct cons_state *)V3_Malloc(sizeof(struct cons_state));
 
     if (!state) {
-	PrintError("Cannot allocate curses state\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate curses state\n");
 	V3_Free(state);
 	return -1;
     }
@@ -255,7 +255,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     state->framebuf = V3_Malloc(state->cols * state->rows * BYTES_PER_COL);
 
     if (!state->framebuf) {
-	PrintError("Cannot allocate frame buffer\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate frame buffer\n");
 	V3_Free(state);
 	return -1;
     }
@@ -264,7 +264,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     state->cons = v3_console_open(vm, state->cols, state->rows);
 
     if (!state->cons) {
-	PrintError("Could not open console\n");
+	PrintError(vm, VCORE_NONE, "Could not open console\n");
 	V3_Free(state->framebuf);
 	V3_Free(state);
 	return -1;
@@ -274,7 +274,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(state->framebuf);
 	V3_Free(state);
 	return -1;

@@ -195,7 +195,7 @@ static inline v3_reg_t get_gpr_mask(struct guest_info * info) {
 	case LONG:
 	    return 0xffffffffffffffffLL;
 	default:
-	    PrintError("Unsupported Address Mode\n");
+  	    PrintError(info->vm_info, info, "Unsupported Address Mode\n");
 	    return -1;
     }
 }
@@ -228,7 +228,7 @@ static inline addr_t get_addr_linear(struct guest_info * info, addr_t addr, stru
 	}
 	case LONG_16_COMPAT:
 	default:
-	    PrintError("Unsupported CPU Mode: %d\n", info->cpu_mode);
+	  PrintError(info->vm_info, info,"Unsupported CPU Mode: %d\n", info->cpu_mode);
 	    return -1;
     }
 }

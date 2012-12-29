@@ -88,7 +88,7 @@ static int v3_plant_code (struct guest_info * core, struct v3_code_inject_info *
     inject->old_code = (char*)V3_Malloc(size);
 
     if (!inject->old_code) {
-	PrintError("Cannot allocate in planting code\n");
+	PrintError(core->vm_info, core, "Cannot allocate in planting code\n");
 	return -1;
     }
 
@@ -108,7 +108,7 @@ static int v3_restore_pre_mmap_state (struct guest_info * core, struct v3_code_i
     addr_t rip_hva, mmap_gva;
 
     if ((mmap_gva = (addr_t)core->vm_regs.rbx) < 0) {
-        PrintError("Error running mmap in guest: v3_restore_pre_mmap_state\n");
+        PrintError(core->vm_info, core, "Error running mmap in guest: v3_restore_pre_mmap_state\n");
         return -1;
     }
 
@@ -118,7 +118,7 @@ static int v3_restore_pre_mmap_state (struct guest_info * core, struct v3_code_i
 						get_addr_linear(core, (addr_t)inject->rip, &(core->segments.cs)),
 						&rip_hva);
     if (ret == -1) {
-		PrintError("Error translating RIP address: v3_restore_pre_mmap_state\n");
+		PrintError(core->vm_info, core, "Error translating RIP address: v3_restore_pre_mmap_state\n");
 		return -1;
     }
 
@@ -143,7 +143,7 @@ static int v3_restore_pre_inject_state (struct guest_info * core, struct v3_code
 						get_addr_linear(core, (addr_t)inject->rip, &(core->segments.cs)),
 						&rip_hva);
     if (ret == -1) {
-		PrintError("Error translating RIP address: v3_pre_inject_state\n");
+		PrintError(core->vm_info, core, "Error translating RIP address: v3_pre_inject_state\n");
 		return -1;
     }
 
@@ -179,14 +179,14 @@ static int inject_code_finish (struct guest_info * core, unsigned int hcall_id, 
     if (v3_gva_to_hva(core, 
                         get_addr_linear(core, (addr_t)inject->rip, &(core->segments.cs)),
                         &hva) == -1) {
-        PrintError("No mapping in shadow page table: inject_code_finish\n");
+        PrintError(core->vm_info, core, "No mapping in shadow page table: inject_code_finish\n");
         return -1;
     }
 
     inject->old_code = V3_Malloc(MUNMAP_SIZE);
 
     if (!inject->old_code) {
-        PrintError("Problem mallocing old code segment\n");
+        PrintError(core->vm_info, core, "Problem mallocing old code segment\n");
         return -1;
     }
 
@@ -215,14 +215,14 @@ static int munmap_finish (struct guest_info * core, unsigned int hcall_id, void 
     addr_t hva;
 
     if (core->vm_regs.rbx < 0) {
-        PrintError("Problem munmapping injected code\n");
+        PrintError(core->vm_info, core, "Problem munmapping injected code\n");
         return -1;
     }
 
     if (v3_gva_to_hva(core, 
                         get_addr_linear(core, (addr_t)inject->rip, &(core->segments.cs)),
                         &hva) == -1) {
-        PrintError("No mapping in shadow page table: inject_code_finish\n");
+        PrintError(core->vm_info, core, "No mapping in shadow page table: inject_code_finish\n");
         return -1;
     }
 
@@ -261,7 +261,7 @@ static int mmap_pf_handler (struct guest_info * core, unsigned int hcall_id, voi
 	if (v3_gva_to_hva(core, 
 						get_addr_linear(core, gva, &(core->segments.ds)),
 						&hva) == -1) {
-        PrintError("No mapping in shadow page table: mmap_pf_handler\n");
+        PrintError(core->vm_info, core, "No mapping in shadow page table: mmap_pf_handler\n");
         return -1;
     }
     
@@ -275,7 +275,7 @@ static int mmap_pf_handler (struct guest_info * core, unsigned int hcall_id, voi
         if (v3_gva_to_hva(core, 
                             get_addr_linear(core, inject->rip, &(core->segments.cs)),
                             &hva) == -1) {
-            PrintError("No mapping for old RIP in shadow page table: mmap_pf_handler: %p\n", (void*)inject->rip);
+            PrintError(core->vm_info, core, "No mapping for old RIP in shadow page table: mmap_pf_handler: %p\n", (void*)inject->rip);
             return -1;
         }
 
@@ -288,7 +288,7 @@ static int mmap_pf_handler (struct guest_info * core, unsigned int hcall_id, voi
         if (v3_gva_to_hva(core, 
                             get_addr_linear(core, core->rip, &(core->segments.cs)),
                             &hva) == -1) {
-            PrintError("No mapping for new RIP in shadow page table: mmap_pf_handler: %p\n", (void*)core->rip);
+            PrintError(core->vm_info, core, "No mapping for new RIP in shadow page table: mmap_pf_handler: %p\n", (void*)core->rip);
             return -1;
         }
 
@@ -369,7 +369,7 @@ static addr_t v3_get_dyn_entry (struct guest_info * core, addr_t elf_gva, addr_t
     phdr = (ElfW(Phdr)*)(elf_hva + ehdr->e_phoff);
     phdr_cursor = phdr;
 
-    //PrintDebug("num phdrs: %d\n", ehdr->e_phnum);
+    //PrintDebug(core->vm_info, core, "num phdrs: %d\n", ehdr->e_phnum);
     for (i = 0; i < ehdr->e_phnum; i++, phdr_cursor++) {
         if (phdr_cursor->p_type == PT_DYNAMIC) {
             num_dyn = phdr_cursor->p_filesz / sizeof(ElfW(Dyn));
@@ -377,7 +377,7 @@ static addr_t v3_get_dyn_entry (struct guest_info * core, addr_t elf_gva, addr_t
 
             // make sure this addr is paged in 
             if (v3_gva_to_gpa(core, elf_gva + phdr_cursor->p_offset, &hva) == -1) {
-                PrintError("Dynamic segment isn't paged in\n");
+                PrintError(core->vm_info, core, "Dynamic segment isn't paged in\n");
                 return 0;
             }
 
@@ -405,25 +405,25 @@ static int v3_do_resolve (struct guest_info * core, addr_t elf_gva, addr_t elf_h
     addr_t got_gva, symtab_gva, strtab_gva;
 
     if ((got_gva = v3_get_dyn_entry(core, elf_gva, elf_hva, DT_PLTGOT)) == 0) {
-        PrintError("Problem getting at PLTGOT in v3_do_resolve\n");
+        PrintError(core->vm_info, core, "Problem getting at PLTGOT in v3_do_resolve\n");
         return -1;
     }
 
 
     if ((strtab_gva = v3_get_dyn_entry(core, elf_gva, elf_hva, DT_STRTAB)) == 0) {
-        PrintError("Problem getting at PLTGOT in v3_do_resolve\n");
+        PrintError(core->vm_info, core, "Problem getting at PLTGOT in v3_do_resolve\n");
         return -1;
     }
 
     if ((symtab_gva = v3_get_dyn_entry(core, elf_gva, elf_hva, DT_SYMTAB)) == 0) {
-        PrintError("Problem getting at PLTGOT in v3_do_resolve\n");
+        PrintError(core->vm_info, core, "Problem getting at PLTGOT in v3_do_resolve\n");
         return -1;
     }
 
 
-    PrintDebug("Got gva: %p\n", (void*)got_gva);
-    PrintDebug("Symtab gva: %p\n", (void*)symtab_gva);
-    PrintDebug("Strtab gva: %p\n", (void*)strtab_gva);
+    PrintDebug(core->vm_info, core, "Got gva: %p\n", (void*)got_gva);
+    PrintDebug(core->vm_info, core, "Symtab gva: %p\n", (void*)symtab_gva);
+    PrintDebug(core->vm_info, core, "Strtab gva: %p\n", (void*)strtab_gva);
     return 0;
 }
 
@@ -437,7 +437,7 @@ static int v3_do_cont (struct guest_info * core, struct v3_code_inject_info * in
 
     // page fault wasn't handled by kernel??
     if (ret == -1) {
-        PrintError("ERROR: no mapping in guest page table!\n");
+        PrintError(core->vm_info, core, "ERROR: no mapping in guest page table!\n");
         return -1;
     }
 
@@ -447,7 +447,7 @@ static int v3_do_cont (struct guest_info * core, struct v3_code_inject_info * in
 
     // this should never happen...
 	if (ret == -1) {
-        PrintError("ERROR: no mapping in shadow page table\n");
+        PrintError(core->vm_info, core, "ERROR: no mapping in shadow page table\n");
         return -1;
 	}
     
@@ -461,14 +461,14 @@ static int v3_do_cont (struct guest_info * core, struct v3_code_inject_info * in
         err_code.user = 1;
 
         if (v3_inject_guest_pf(core, check, err_code) < 0) {
-            PrintError("Problem injecting pf\n");
+            PrintError(core->vm_info, core, "Problem injecting pf\n");
             return -1;
         }
 
         return E_NEED_PF;
     }
 
-    PrintDebug("Found ELF!\n");
+    PrintDebug(core->vm_info, core, "Found ELF!\n");
     V3_Free(inject->cont);
     inject->cont = NULL;
     return v3_do_resolve(core, check, hva);
@@ -496,7 +496,7 @@ int v3_do_inject (struct guest_info * core, struct v3_code_inject_info * inject,
 						get_addr_linear(core, (addr_t)core->rip, &(core->segments.cs)),
 						&rip_hva);
 	if (ret == -1) {
-		PrintError("Error translating RIP address in v3_do_inject\n");
+		PrintError(core->vm_info, core, "Error translating RIP address in v3_do_inject\n");
 		return -1;
 	}
 
@@ -511,28 +511,28 @@ int v3_do_inject (struct guest_info * core, struct v3_code_inject_info * inject,
         // need to page in
         if (ret == -1) {
 
-            PrintDebug("Found a page we need to fault in\n");
+            PrintDebug(core->vm_info, core, "Found a page we need to fault in\n");
             inject->cont = (struct v3_cont *)V3_Malloc(sizeof(struct v3_cont));
 
 	    if (!inject->cont) {
-		PrintError("Cannot allocate in doing inject\n");
+		PrintError(core->vm_info, core, "Cannot allocate in doing inject\n");
 		return -1;
 	    }
 
             ret = v3_gva_to_gpa(core, elf_gva, &elf_hva);
 
             if (ret == -1) {
-                PrintDebug("no mapping in guest page table\n");
+                PrintDebug(core->vm_info, core, "no mapping in guest page table\n");
             }
 
             inject->cont->check_addr = elf_gva;
             inject->cont->cont_func = v3_do_cont;
             err_code.user = 1;
 
-            PrintDebug("Injecting pf for addr: %p\n", (void*) elf_gva);
+            PrintDebug(core->vm_info, core, "Injecting pf for addr: %p\n", (void*) elf_gva);
 
             if (v3_inject_guest_pf(core, elf_gva, err_code) < 0) {
-                PrintError("Problem injecting pf\n");
+                PrintError(core->vm_info, core, "Problem injecting pf\n");
                 return -1;
             }
 
@@ -540,7 +540,7 @@ int v3_do_inject (struct guest_info * core, struct v3_code_inject_info * inject,
         }
 
         if (strncmp(elf_magic, (char*)elf_hva, ELF_MAG_SIZE) == 0) {
-            PrintDebug("Found elf_magic!\n");
+            PrintDebug(core->vm_info, core, "Found elf_magic!\n");
             break;
         }
 
@@ -551,17 +551,17 @@ int v3_do_inject (struct guest_info * core, struct v3_code_inject_info * inject,
     inject->cont = NULL;
     return v3_do_resolve(core, elf_gva, elf_hva);
 
-    PrintDebug("Planting code\n");
+    PrintDebug(core->vm_info, core, "Planting code\n");
     v3_plant_code(core, inject, (char*)rip_hva, mmap_code, MMAP_SIZE);
 
-    PrintDebug("Saving register context\n");
-    PrintDebug("First 8 bytes 0x%lx\n", *(long*)rip_hva);
+    PrintDebug(core->vm_info, core, "Saving register context\n");
+    PrintDebug(core->vm_info, core, "First 8 bytes 0x%lx\n", *(long*)rip_hva);
     /* may need to save v3_ctrl registers too... */
     memcpy(&inject->regs, &core->vm_regs, sizeof(struct v3_gprs));
     inject->rip = core->rip;
 
     /* jump to injected code */
-    PrintDebug("Jumping to injected code\n");
+    PrintDebug(core->vm_info, core, "Jumping to injected code\n");
 	return 0;
 }
 
@@ -581,7 +581,7 @@ int v3_do_static_inject (struct guest_info * core, struct v3_code_inject_info * 
 						get_addr_linear(core, (addr_t)core->rip, &(core->segments.cs)),
 						&rip_hva);
 	if (ret == -1) {
-		PrintError("Error translating RIP address: v3_do_static_inject\n");
+		PrintError(core->vm_info, core, "Error translating RIP address: v3_do_static_inject\n");
 		return -1;
 	}
 
@@ -608,7 +608,7 @@ int v3_do_static_inject (struct guest_info * core, struct v3_code_inject_info * 
                                 get_addr_linear(core, (addr_t)inject->rip, &(core->segments.cs)),
                                 &rip_hva);
             if (ret == -1) {
-                PrintError("Error translating RIP address: v3_do_static_inject\n");
+                PrintError(core->vm_info, core, "Error translating RIP address: v3_do_static_inject\n");
                 return -1;
             }
 
@@ -624,7 +624,7 @@ int v3_do_static_inject (struct guest_info * core, struct v3_code_inject_info * 
 
             // inject the first page fault for the code block
             if (v3_inject_guest_pf(core, region_gva, err_code) < 0) {
-                PrintError("Problem injecting page fault in v3_do_static_inject\n");
+                PrintError(core->vm_info, core, "Problem injecting page fault in v3_do_static_inject\n");
                 return -1;
             }
 
@@ -634,7 +634,7 @@ int v3_do_static_inject (struct guest_info * core, struct v3_code_inject_info * 
             return 0;
         }
         default:
-            PrintError("Invalid mmap state\n");
+            PrintError(core->vm_info, core, "Invalid mmap state\n");
             return -1;
     }
 	return 0;
@@ -653,7 +653,7 @@ int v3_handle_guest_inject (struct guest_info * core, void * priv_data) {
 
     /* eventually this should turn into a mutex lock */
     if (current_inject) {
-        PrintError("An inject is already in progress\n");
+        PrintError(core->vm_info, core, "An inject is already in progress\n");
         return -1;
     } else {
         current_inject = inject;
@@ -680,13 +680,13 @@ int v3_insert_code_inject (void * ginfo, void * code, int size,
     struct v3_code_inject_info * inject;
 
     if (!injects->active) {
-        PrintError("Code injection has not been initialized\n");
+        PrintError(vm, VCORE_NONE, "Code injection has not been initialized\n");
         return -1;
     }
 
     inject = V3_Malloc(sizeof(struct v3_code_inject_info));
     if (!inject) {
-        PrintError("Error allocating inject info in v3_insert_code_inject\n");
+        PrintError(vm, VCORE_NONE, "Error allocating inject info in v3_insert_code_inject\n");
         return -1;
     }
 
@@ -712,10 +712,10 @@ int v3_insert_code_inject (void * ginfo, void * code, int size,
 
 int v3_remove_code_inject (struct v3_vm_info * vm, struct v3_code_inject_info * inject) {
 
-    PrintDebug("Removing and freeing code inject\n");
+    PrintDebug(vm, VCORE_NONE, "Removing and freeing code inject\n");
     if (inject->is_exec_hooked) {
         if (v3_unhook_executable(vm, inject->bin_file) < 0) {
-            PrintError("Problem unhooking executable in v3_remove_code_inject\n");
+            PrintError(vm, VCORE_NONE, "Problem unhooking executable in v3_remove_code_inject\n");
             return -1;
         }
     }

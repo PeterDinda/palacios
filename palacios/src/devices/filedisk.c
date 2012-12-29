@@ -39,13 +39,13 @@ struct disk_state {
 static int write_all(v3_file_t fd, char * buf, uint64_t offset, uint64_t length) {
     uint64_t bytes_written = 0;
     
-    PrintDebug("Writing %llu bytes\n", length - bytes_written);
+    PrintDebug(VM_NONE, VCORE_NONE, "Writing %llu bytes\n", length - bytes_written);
     while (bytes_written < length) {
 	int tmp_bytes = v3_file_write(fd, buf + bytes_written, length - bytes_written, offset + bytes_written);
-	PrintDebug("Wrote %d bytes\n", tmp_bytes);
+	PrintDebug(VM_NONE, VCORE_NONE, "Wrote %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes <= 0 ) {
-	    PrintError("Write failed\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Write failed\n");
 	    return -1;
 	}
 	
@@ -59,13 +59,13 @@ static int write_all(v3_file_t fd, char * buf, uint64_t offset, uint64_t length)
 static int read_all(v3_file_t fd, char * buf, uint64_t offset, uint64_t length) {
     uint64_t bytes_read = 0;
     
-    PrintDebug("Reading %llu bytes\n", length - bytes_read);
+    PrintDebug(VM_NONE, VCORE_NONE, "Reading %llu bytes\n", length - bytes_read);
     while (bytes_read < length) {
 	int tmp_bytes = v3_file_read(fd, buf + bytes_read, length - bytes_read, offset + bytes_read);
-	PrintDebug("Read %d bytes\n", tmp_bytes);
+	PrintDebug(VM_NONE, VCORE_NONE, "Read %d bytes\n", tmp_bytes);
 	
 	if (tmp_bytes <= 0) {
-	    PrintError("Read failed\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Read failed\n");
 	    return -1;
 	}
 	
@@ -78,10 +78,10 @@ static int read_all(v3_file_t fd, char * buf, uint64_t offset, uint64_t length) 
 static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Reading %llu bytes from %p to %p\n", num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
+    PrintDebug(VM_NONE, VCORE_NONE, "Reading %llu bytes from %llu to 0x%p\n", num_bytes, lba, buf);
 
     if (lba + num_bytes > disk->capacity) {
-	PrintError("Out of bounds read: lba=%llu, num_bytes=%llu, capacity=%llu\n",
+	PrintError(VM_NONE, VCORE_NONE, "Out of bounds read: lba=%llu, num_bytes=%llu, capacity=%llu\n",
 		   lba, num_bytes, disk->capacity);
 	return -1;
     }
@@ -93,10 +93,10 @@ static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_
 static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Writing %llu bytes from %p to %p\n", num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
+    PrintDebug(VM_NONE, VCORE_NONE, "Writing %llu bytes from 0x%p to %llu\n", num_bytes,  buf, lba);
 
     if (lba + num_bytes > disk->capacity) {
-	PrintError("Out of bounds read: lba=%llu, num_bytes=%llu, capacity=%llu\n",
+	PrintError(VM_NONE, VCORE_NONE, "Out of bounds read: lba=%llu, num_bytes=%llu, capacity=%llu\n",
 		   lba, num_bytes, disk->capacity);
 	return -1;
     }
@@ -109,7 +109,7 @@ static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private
 static uint64_t get_capacity(void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Querying FILEDISK capacity %llu\n", disk->capacity);
+    PrintDebug(VM_NONE, VCORE_NONE, "Querying FILEDISK capacity %llu\n", disk->capacity);
 
     return disk->capacity;
 }
@@ -153,14 +153,14 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
     if (path == NULL) {
-	PrintError("Missing path (%s) for %s\n", path, dev_id);
+	PrintError(vm, VCORE_NONE, "Missing path (%s) for %s\n", path, dev_id);
 	return -1;
     }
 
     disk = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
 
     if (disk == NULL) {
-	PrintError("Could not allocate disk\n");
+	PrintError(vm, VCORE_NONE, "Could not allocate disk\n");
 	return -1;
     }
 
@@ -169,7 +169,7 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, disk);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(disk);
 	return -1;
     }
@@ -178,21 +178,21 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     disk->fd = v3_file_open(vm, path, flags);
 
     if (disk->fd == NULL) {
-	PrintError("Could not open file disk:%s\n", path);
+	PrintError(vm, VCORE_NONE, "Could not open file disk:%s\n", path);
 	v3_remove_device(dev);
 	return -1;
     }
 
     disk->capacity = v3_file_size(disk->fd);
 
-    V3_Print("Registering FILEDISK %s (path=%s, fd=%lu, size=%llu, writeable=%d)\n",
+    V3_Print(vm, VCORE_NONE, "Registering FILEDISK %s (path=%s, fd=%lu, size=%llu, writeable=%d)\n",
 	     dev_id, path, (addr_t)disk->fd, disk->capacity,
 	     flags & FILE_OPEN_MODE_WRITE);
 
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, disk) == -1) {
-	PrintError("Could not connect %s to frontend %s\n", 
+	PrintError(vm, VCORE_NONE, "Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	v3_remove_device(dev);
 	return -1;

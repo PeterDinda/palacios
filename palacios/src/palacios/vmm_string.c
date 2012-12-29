@@ -73,7 +73,7 @@ void * memmove(void * dst, const void * src, size_t n) {
     uint8_t * tmp = (uint8_t *)V3_Malloc(n);
 
     if (!tmp) {
-	PrintError("Cannot allocate in built-in memmove\n");
+	PrintError(info->vm_info, info, "Cannot allocate in built-in memmove\n");
 	return NULL;
     }
     
@@ -292,7 +292,7 @@ char * strdup(const char * s1) {
     ret = V3_Malloc(strlen(s1) + 1);
 
     if (!ret) {
-	PrintError("Cannot allocate in built-in strdup\n");
+        PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in built-in strdup\n");
 	return NULL;
     }
 

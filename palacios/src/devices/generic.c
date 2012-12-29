@@ -98,7 +98,7 @@ static int generic_write_port_passthrough(struct guest_info * core,
 	    break;
 #endif
 	default:
-	    PrintError("generic (%s): unknown forwarding type\n", state->name);
+	    PrintError(core->vm_info, core, "generic (%s): unknown forwarding type\n", state->name);
 	    return -1;
 	    break;
     }
@@ -113,22 +113,22 @@ static int generic_write_port_print_and_passthrough(struct guest_info * core, ui
     struct generic_internal *state = (struct generic_internal *) priv_data;
 #endif
 
-    PrintDebug("generic (%s): writing 0x%x bytes to port 0x%x using %s ...", state->name,
+    PrintDebug(core->vm_info, core, "generic (%s): writing 0x%x bytes to port 0x%x using %s ...", state->name,
 	       length, port,
 	       state->forward_type == GENERIC_PHYSICAL ? "physical" :
 	       state->forward_type == GENERIC_HOST ? "host" : "UNKNOWN");
 
-    PrintDebug("generic (%s): writing 0x", state->name);
+    PrintDebug(core->vm_info, core, "generic (%s): writing 0x", state->name);
 
     for (i = 0; i < length; i++) { 
-	PrintDebug("%x", ((uint8_t *)src)[i]);
+	PrintDebug(core->vm_info, core, "%x", ((uint8_t *)src)[i]);
     }
   
-    PrintDebug(" to port 0x%x ... ", port);
+    PrintDebug(core->vm_info, core, " to port 0x%x ... ", port);
 
     rc=generic_write_port_passthrough(core,port,src,length,priv_data);
 
-    PrintDebug(" done\n");
+    PrintDebug(core->vm_info, core, " done\n");
   
     return rc;
 }
@@ -170,7 +170,7 @@ static int generic_read_port_passthrough(struct guest_info * core,
 	    break;
 #endif
 	default:
-	    PrintError("generic (%s): unknown forwarding type\n", state->name);
+	    PrintError(core->vm_info, core, "generic (%s): unknown forwarding type\n", state->name);
 	    return -1;
 	    break;
     }
@@ -187,20 +187,20 @@ static int generic_read_port_print_and_passthrough(struct guest_info * core, uin
     struct generic_internal *state = (struct generic_internal *) priv_data;
 #endif
 
-    PrintDebug("generic (%s): reading 0x%x bytes from port 0x%x using %s ...", state->name, length, port,
+    PrintDebug(core->vm_info, core, "generic (%s): reading 0x%x bytes from port 0x%x using %s ...", state->name, length, port,
 	       state->forward_type == GENERIC_PHYSICAL ? "physical" :
 	       state->forward_type == GENERIC_HOST ? "host" : "UNKNOWN");
 
 
     rc=generic_read_port_passthrough(core,port,src,length,priv_data);
 
-    PrintDebug(" done ... read 0x");
+    PrintDebug(core->vm_info, core, " done ... read 0x");
 
     for (i = 0; i < rc; i++) { 
-	PrintDebug("%x", ((uint8_t *)src)[i]);
+	PrintDebug(core->vm_info, core, "%x", ((uint8_t *)src)[i]);
     }
 
-    PrintDebug("\n");
+    PrintDebug(core->vm_info, core, "\n");
 
     return rc;
 }
@@ -221,13 +221,13 @@ static int generic_read_port_print_and_ignore(struct guest_info * core, uint16_t
     struct generic_internal *state = (struct generic_internal *) priv_data;
 #endif
 
-    PrintDebug("generic (%s): reading 0x%x bytes from port 0x%x using %s ...", state->name, length, port,
+    PrintDebug(core->vm_info, core, "generic (%s): reading 0x%x bytes from port 0x%x using %s ...", state->name, length, port,
 	       state->forward_type == GENERIC_PHYSICAL ? "physical" :
 	       state->forward_type == GENERIC_HOST ? "host" : "UNKNOWN");
 
 
     memset((uint8_t *)src, 0, length);
-    PrintDebug(" ignored (return zeroed buffer)\n");
+    PrintDebug(core->vm_info, core, " ignored (return zeroed buffer)\n");
 
     return length;
 }
@@ -246,18 +246,18 @@ static int generic_write_port_print_and_ignore(struct guest_info * core, uint16_
     struct generic_internal *state = (struct generic_internal *) priv_data;
 #endif
 
-    PrintDebug("generic (%s): writing 0x%x bytes to port 0x%x using %s ", state->name, length, port,
+    PrintDebug(core->vm_info, core, "generic (%s): writing 0x%x bytes to port 0x%x using %s ", state->name, length, port,
 	       state->forward_type == GENERIC_PHYSICAL ? "physical" :
 	       state->forward_type == GENERIC_HOST ? "host" : "UNKNOWN");
     
     memset((uint8_t *)src, 0, length);
-    PrintDebug(" ignored - data was: 0x");
+    PrintDebug(core->vm_info, core, " ignored - data was: 0x");
 
     for (i = 0; i < length; i++) { 
-	PrintDebug("%x", ((uint8_t *)src)[i]);
+	PrintDebug(core->vm_info, core, "%x", ((uint8_t *)src)[i]);
     }
     
-    PrintDebug("\n");
+    PrintDebug(core->vm_info, core, "\n");
 
     return length;
 }
@@ -288,7 +288,7 @@ static int generic_write_mem_passthrough(struct guest_info * core,
 	    break;
 #endif
 	default:
-	    PrintError("generic (%s): unknown forwarding type\n", state->name);
+	    PrintError(core->vm_info, core, "generic (%s): unknown forwarding type\n", state->name);
 	    return -1;
 	    break;
     }
@@ -305,14 +305,14 @@ static int generic_write_mem_print_and_passthrough(struct guest_info * core,
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 #endif
 
-    PrintDebug("generic (%s): writing %u bytes to GPA 0x%p via %s ... ", state->name,
+    PrintDebug(core->vm_info, core, "generic (%s): writing %u bytes to GPA 0x%p via %s ... ", state->name,
 	       len,(void*)gpa,
 	       state->forward_type == GENERIC_PHYSICAL ? "physical" : 
 	       state->forward_type == GENERIC_HOST ? "host" : "UNKNOWN");
     
     int rc = generic_write_mem_passthrough(core,gpa,src,len,priv);
 
-    PrintDebug("done\n");
+    PrintDebug(core->vm_info, core, "done\n");
     
     return rc;
 }
@@ -337,7 +337,7 @@ static int generic_write_mem_print_and_ignore(struct guest_info * core,
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 #endif
 
-    PrintDebug("generic (%s): ignoring write of %u bytes to GPA 0x%p via %s", state->name,
+    PrintDebug(core->vm_info, core, "generic (%s): ignoring write of %u bytes to GPA 0x%p via %s", state->name,
 	       len,(void*)gpa,
 	       state->forward_type == GENERIC_PHYSICAL ? "physical" : 
 	       state->forward_type == GENERIC_HOST ? "host" : "UNKNOWN");
@@ -369,7 +369,7 @@ static int generic_read_mem_passthrough(struct guest_info * core,
 	    break;
 #endif
 	default:
-	    PrintError("generic (%s): unknown forwarding type\n", state->name);
+	    PrintError(core->vm_info, core, "generic (%s): unknown forwarding type\n", state->name);
 	    break;
     }
     
@@ -387,14 +387,14 @@ static int generic_read_mem_print_and_passthrough(struct guest_info * core,
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 #endif
 
-    PrintDebug("generic (%s): attempting to read %u bytes from GPA 0x%p via %s ... ", state->name,
+    PrintDebug(core->vm_info, core, "generic (%s): attempting to read %u bytes from GPA 0x%p via %s ... ", state->name,
 	       len,(void*)gpa,
 	       state->forward_type == GENERIC_PHYSICAL ? "physical" : 
 	       state->forward_type == GENERIC_HOST ? "host" : "UNKNOWN");
     
     int rc = generic_read_mem_passthrough(core,gpa,dst,len,priv);
 
-    PrintDebug("done - read %d bytes\n", rc);
+    PrintDebug(core->vm_info, core, "done - read %d bytes\n", rc);
     
     return rc;
 }
@@ -410,14 +410,14 @@ static int generic_read_mem_ignore(struct guest_info * core,
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 #endif
 
-    PrintDebug("generic (%s): ignoring attempt to read %u bytes from GPA 0x%p via %s ... ", state->name,
+    PrintDebug(core->vm_info, core, "generic (%s): ignoring attempt to read %u bytes from GPA 0x%p via %s ... ", state->name,
 	       len,(void*)gpa,
 	       state->forward_type == GENERIC_PHYSICAL ? "physical" : 
 	       state->forward_type == GENERIC_HOST ? "host" : "UNKNOWN");
 
     memset((uint8_t *)dst, 0, len);
 
-    PrintDebug("returning zeros\n");
+    PrintDebug(core->vm_info, core, "returning zeros\n");
 
     return len;
 }
@@ -437,7 +437,7 @@ static int generic_read_mem_print_and_ignore(struct guest_info * core,
 static int generic_free(struct generic_internal * state) {
     int i;
     
-    PrintDebug("generic (%s): deinit_device\n", state->name);
+    PrintDebug(VM_NONE,VCORE_NONE, "generic (%s): deinit_device\n", state->name);
     
 #ifdef V3_CONFIG_HOST_DEVICE
     if (state->host_dev) { 
@@ -450,7 +450,7 @@ static int generic_free(struct generic_internal * state) {
     // We need to handle unhooking memory regions    
     for (i=0;i<state->num_mem_hooks;i++) {
 	if (v3_unhook_mem(state->dev->vm,V3_MEM_CORE_ANY,state->mem_hook[i])<0) { 
-	    PrintError("generic (%s): unable to unhook memory starting at 0x%p\n", state->name,(void*)(state->mem_hook[i]));
+	    PrintError(VM_NONE,VCORE_NONE , "generic (%s): unable to unhook memory starting at 0x%p\n", state->name,(void*)(state->mem_hook[i]));
 	    return -1;
 	}
     }
@@ -475,7 +475,7 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
 
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 
-    PrintDebug("generic (%s): adding port range 0x%x to 0x%x as %s\n", state->name,
+    PrintDebug(VM_NONE, VCORE_NONE, "generic (%s): adding port range 0x%x to 0x%x as %s\n", state->name,
 	       start, end, 
 	       (mode == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : 
 	       (mode == GENERIC_PRINT_AND_IGNORE) ? "print-and-ignore" :
@@ -488,7 +488,7 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
 		if (v3_dev_hook_io(dev, i, 
 				   &generic_read_port_print_and_passthrough, 
 				   &generic_write_port_print_and_passthrough) == -1) { 
-		    PrintError("generic (%s): can't hook port 0x%x (already hooked?)\n", state->name, i);
+		    PrintError(VM_NONE, VCORE_NONE, "generic (%s): can't hook port 0x%x (already hooked?)\n", state->name, i);
 		    return -1;
 		}
 		break;
@@ -497,7 +497,7 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
 		if (v3_dev_hook_io(dev, i, 
 				   &generic_read_port_print_and_ignore, 
 				   &generic_write_port_print_and_ignore) == -1) { 
-		    PrintError("generic (%s): can't hook port 0x%x (already hooked?)\n", state->name, i);
+		    PrintError(VM_NONE, VCORE_NONE, "generic (%s): can't hook port 0x%x (already hooked?)\n", state->name, i);
 		    return -1;
 		}
 		break;
@@ -505,7 +505,7 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
 		if (v3_dev_hook_io(dev, i, 
 				   &generic_read_port_passthrough, 
 				   &generic_write_port_passthrough) == -1) { 
-		    PrintError("generic (%s): can't hook port 0x%x (already hooked?)\n", state->name, i);
+		    PrintError(VM_NONE, VCORE_NONE, "generic (%s): can't hook port 0x%x (already hooked?)\n", state->name, i);
 		    return -1;
 		}
 		break;
@@ -513,12 +513,12 @@ static int add_port_range(struct vm_device * dev, uint_t start, uint_t end, gene
 		if (v3_dev_hook_io(dev, i, 
 				   &generic_read_port_ignore, 
 				   &generic_write_port_ignore) == -1) { 
-		    PrintError("generic (%s): can't hook port 0x%x (already hooked?)\n", state->name, i);
+		    PrintError(VM_NONE, VCORE_NONE, "generic (%s): can't hook port 0x%x (already hooked?)\n", state->name, i);
 		    return -1;
 		}
 		break;
 	    default:
-		PrintError("generic (%s): huh?\n", state->name);
+		PrintError(VM_NONE, VCORE_NONE, "generic (%s): huh?\n", state->name);
 		break;
 	}
     }
@@ -531,7 +531,7 @@ static int add_mem_range(struct vm_device * dev, addr_t start, addr_t end, gener
 
     struct generic_internal *state = (struct generic_internal *) dev->private_data;
 
-    PrintDebug("generic (%s): adding memory range 0x%p to 0x%p as %s\n", state->name,
+    PrintDebug(VM_NONE, VCORE_NONE, "generic (%s): adding memory range 0x%p to 0x%p as %s\n", state->name,
 	       (void*)start, (void*)end, 
 	       (mode == GENERIC_PRINT_AND_PASSTHROUGH) ? "print-and-passthrough" : 
 	       (mode == GENERIC_PRINT_AND_IGNORE) ? "print-and-ignore" :
@@ -543,7 +543,7 @@ static int add_mem_range(struct vm_device * dev, addr_t start, addr_t end, gener
 	    if (v3_hook_full_mem(dev->vm, V3_MEM_CORE_ANY, start, end+1, 
 				 &generic_read_mem_print_and_passthrough, 
 				 &generic_write_mem_print_and_passthrough, dev) == -1) { 
-		PrintError("generic (%s): can't hook memory region 0x%p to 0x%p\n", state->name,(void*)start,(void*)end);
+		PrintError(VM_NONE, VCORE_NONE, "generic (%s): can't hook memory region 0x%p to 0x%p\n", state->name,(void*)start,(void*)end);
 		return -1;
 	    }
 	    break;
@@ -552,7 +552,7 @@ static int add_mem_range(struct vm_device * dev, addr_t start, addr_t end, gener
 	    if (v3_hook_full_mem(dev->vm, V3_MEM_CORE_ANY, start, end+1, 
 				 &generic_read_mem_print_and_ignore, 
 				 &generic_write_mem_print_and_ignore, dev) == -1) { 
-		PrintError("generic (%s): can't hook memory region 0x%p to 0x%p\n", state->name,(void*)start,(void*)end);
+		PrintError(VM_NONE, VCORE_NONE, "generic (%s): can't hook memory region 0x%p to 0x%p\n", state->name,(void*)start,(void*)end);
 		return -1;
 	    }
 	    break;
@@ -561,7 +561,7 @@ static int add_mem_range(struct vm_device * dev, addr_t start, addr_t end, gener
 	    if (v3_hook_full_mem(dev->vm, V3_MEM_CORE_ANY, start, end+1, 
 				 &generic_read_mem_passthrough, 
 				 &generic_write_mem_passthrough, dev) == -1) { 
-		PrintError("generic (%s): can't hook memory region 0x%p to 0x%p\n", state->name,(void*)start,(void*)end);
+		PrintError(VM_NONE, VCORE_NONE, "generic (%s): can't hook memory region 0x%p to 0x%p\n", state->name,(void*)start,(void*)end);
 		return -1;
 	    }
 	    break;
@@ -570,12 +570,12 @@ static int add_mem_range(struct vm_device * dev, addr_t start, addr_t end, gener
 	    if (v3_hook_full_mem(dev->vm, V3_MEM_CORE_ANY, start, end+1, 
 				 &generic_read_mem_ignore, 
 				 &generic_write_mem_ignore, dev) == -1) { 
-		PrintError("generic (%s): can't hook memory region 0x%p to 0x%p\n", state->name,(void*)start,(void*)end);
+		PrintError(VM_NONE, VCORE_NONE, "generic (%s): can't hook memory region 0x%p to 0x%p\n", state->name,(void*)start,(void*)end);
 		return -1;
 	    }
 	    break;
 	default:
-	    PrintError("generic (%s): huh?\n",state->name);
+	    PrintError(VM_NONE, VCORE_NONE, "generic (%s): huh?\n",state->name);
 	    break;
     }
     
@@ -595,26 +595,25 @@ static int osdebug_hcall(struct guest_info *core, uint_t hcall_id, void * priv_d
     addr_t msg_gpa = core->vm_regs.rbx;
     int buf_is_va = core->vm_regs.rdx;
     int i;
-    uint8_t c;
-
-    PrintDebug("generic (%s): handling hypercall (len=%d) as sequence of port writes\n",
+    uint8_t c; 
+    PrintDebug(core->vm_info, core, "generic (%s): handling hypercall (len=%d) as sequence of port writes\n",
 	       state->name, msg_len);
 
 
     for (i=0;i<msg_len;i++) { 
 	if (buf_is_va == 1) {
 	    if (v3_read_gva_memory(core, msg_gpa+i, 1, &c) != 1) {
-		PrintError("generic (%s): could not read debug message\n",state->name);
+		PrintError(core->vm_info, core, "generic (%s): could not read debug message\n",state->name);
 		return -1;
 	    }
 	} else {
 	    if (v3_read_gpa_memory(core, msg_gpa+i, 1, &c) != 1) { 
-		PrintError("generic (%s): Could not read debug message\n",state->name);
+		PrintError(core->vm_info, core, "generic (%s): Could not read debug message\n",state->name);
 		return -1;
 	    }
 	}
 	if (generic_write_port_print_and_passthrough(core,0xc0c0,&c,1,priv_data)!=1) { 
-	    PrintError("generic (%s): write port passthrough failed\n",state->name);
+	    PrintError(core->vm_info, core, "generic (%s): write port passthrough failed\n",state->name);
 	    return -1;
 	}
     }	
@@ -673,7 +672,7 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state = (struct generic_internal *)V3_Malloc(sizeof(struct generic_internal));
 
     if (state == NULL) {
-	PrintError("generic (%s): could not allocate generic state\n",dev_id);
+	PrintError(vm, VCORE_NONE, "generic (%s): could not allocate generic state\n",dev_id);
 	return -1;
     }
     
@@ -689,12 +688,12 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 #ifdef V3_CONFIG_HOST_DEVICE
 	    state->forward_type=GENERIC_HOST;
 #else
-	    PrintError("generic (%s): cannot configure host device since host device support is not built in\n", state->name);
+	    PrintError(vm, VCORE_NONE, "generic (%s): cannot configure host device since host device support is not built in\n", state->name);
 	    V3_Free(state);
 	    return -1;
 #endif
 	} else {
-	    PrintError("generic (%s): unknown forwarding type \"%s\"\n", state->name, forward);
+	    PrintError(vm, VCORE_NONE, "generic (%s): unknown forwarding type \"%s\"\n", state->name, forward);
 	    V3_Free(state);
 	    return -1;
 	}
@@ -703,7 +702,7 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("generic: could not attach device %s\n", state->name);
+	PrintError(vm, VCORE_NONE, "generic: could not attach device %s\n", state->name);
 	V3_Free(state);
 	return -1;
     }
@@ -714,23 +713,23 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 #ifdef V3_CONFIG_HOST_DEVICE
     if (state->forward_type==GENERIC_HOST) { 
 	if (!host_dev) { 
-	    PrintError("generic (%s): host forwarding requested, but no host device given\n", state->name);
+	    PrintError(vm, VCORE_NONE, "generic (%s): host forwarding requested, but no host device given\n", state->name);
 	    v3_remove_device(dev);
 	    return -1;
 	} else {
 	    state->host_dev = v3_host_dev_open(host_dev,V3_BUS_CLASS_DIRECT,dev,vm);
 	    if (!(state->host_dev)) { 
-		PrintError("generic (%s): unable to open host device \"%s\"\n", state->name,host_dev);
+		PrintError(vm, VCORE_NONE, "generic (%s): unable to open host device \"%s\"\n", state->name,host_dev);
 		v3_remove_device(dev);
 		return -1;
 	    } else {
-		PrintDebug("generic (%s): successfully attached host device \"%s\"\n", state->name,host_dev);
+		PrintDebug(vm, VCORE_NONE, "generic (%s): successfully attached host device \"%s\"\n", state->name,host_dev);
 	    }
 	}
     }
 #endif
 
-    PrintDebug("generic (%s): init_device\n", state->name);
+    PrintDebug(vm, VCORE_NONE, "generic (%s): init_device\n", state->name);
 
     // scan port list....
     while (port_cfg) {
@@ -747,14 +746,14 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	} else if (strcasecmp(mode_str, "ignore") == 0) {
 	    mode = GENERIC_IGNORE;
 	} else {
-	    PrintError("generic (%s): invalid mode %s in adding ports\n", state->name, mode_str);
+	    PrintError(vm, VCORE_NONE, "generic (%s): invalid mode %s in adding ports\n", state->name, mode_str);
 	    v3_remove_device(dev);
 	    return -1;
 	}
 	
 	
 	if (add_port_range(dev, start, end, mode) == -1) {
-	    PrintError("generic (%s): could not add port range 0x%x to 0x%x\n", state->name, start, end);
+	    PrintError(vm, VCORE_NONE, "generic (%s): could not add port range 0x%x to 0x%x\n", state->name, start, end);
 	    v3_remove_device(dev);
 	    return -1;
 	}
@@ -778,19 +777,19 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	} else if (strcasecmp(mode_str, "ignore") == 0) {
 	    mode = GENERIC_IGNORE;
 	} else {
-	    PrintError("generic (%s): invalid mode %s for adding memory\n", state->name, mode_str);
+	    PrintError(vm, VCORE_NONE, "generic (%s): invalid mode %s for adding memory\n", state->name, mode_str);
 	    v3_remove_device(dev);
 	    return -1;
 	}
 
 	if (state->num_mem_hooks>=MAX_MEM_HOOKS) { 
-	    PrintError("generic (%s): cannot add another memory hook (increase MAX_MEM_HOOKS)\n", state->name);
+	    PrintError(vm, VCORE_NONE, "generic (%s): cannot add another memory hook (increase MAX_MEM_HOOKS)\n", state->name);
 	    v3_remove_device(dev);
 	    return -1;
 	}
 	
 	if (add_mem_range(dev, start, end, mode) == -1) {
-	    PrintError("generic (%s): could not add memory range 0x%p to 0x%p\n", state->name, (void*)start, (void*)end);
+	    PrintError(vm, VCORE_NONE, "generic (%s): could not add memory range 0x%p to 0x%p\n", state->name, (void*)start, (void*)end);
 	    v3_remove_device(dev);
 	    return -1;
 	}
@@ -804,12 +803,12 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 #if 1
     // hack for os debug testing
     if (strcasecmp(state->name,"os debug")==0) { 
-	PrintDebug("generic (%s): adding hypercall for os debug device\n", state->name);
+	PrintDebug(vm, VCORE_NONE, "generic (%s): adding hypercall for os debug device\n", state->name);
 	v3_register_hypercall(vm,0xc0c0,osdebug_hcall,state);
     }
 #endif
     
-    PrintDebug("generic (%s): initialization complete\n", state->name);
+    PrintDebug(vm, VCORE_NONE, "generic (%s): initialization complete\n", state->name);
 
     return 0;
 }

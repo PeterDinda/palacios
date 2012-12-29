@@ -190,7 +190,7 @@ int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid,
 
     if ((~rax_mask & rax) || (~rbx_mask & rbx) ||
 	(~rcx_mask & rcx) || (~rdx_mask & rdx)) {
-	PrintError("Invalid cpuid reg value (mask overrun)\n");
+	PrintError(vm, VCORE_NONE, "Invalid cpuid reg value (mask overrun)\n");
 	return -1;
     }
 
@@ -199,7 +199,7 @@ int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid,
 	struct masked_cpuid * mask = V3_Malloc(sizeof(struct masked_cpuid));
 
 	if (!mask) {
-	    PrintError("Unable to alocate space for cpu id mask\n");
+	    PrintError(vm, VCORE_NONE, "Unable to alocate space for cpu id mask\n");
 	    return -1;
 	}
 
@@ -215,7 +215,7 @@ int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid,
 	mask->rdx = rdx;
 
 	if (v3_hook_cpuid(vm, cpuid, mask_hook, mask) == -1) {
-	    PrintError("Error hooking cpuid %d\n", cpuid);
+	    PrintError(vm, VCORE_NONE, "Error hooking cpuid %d\n", cpuid);
 	    V3_Free(mask);
 	    return -1;
 	}
@@ -224,7 +224,7 @@ int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid,
 	uint32_t tmp_val = 0;
 
 	if (hook->hook_fn != mask_hook) {
-	    PrintError("trying to add fields to a fully hooked cpuid (%d)\n", cpuid);
+	    PrintError(vm, VCORE_NONE, "trying to add fields to a fully hooked cpuid (%d)\n", cpuid);
 	    return -1;
 	}
 	
@@ -234,7 +234,7 @@ int v3_cpuid_add_fields(struct v3_vm_info * vm, uint32_t cpuid,
 	    (mask->rbx_mask & rbx_mask) || 
 	    (mask->rcx_mask & rcx_mask) || 
 	    (mask->rdx_mask & rdx_mask)) {
-	    PrintError("Trying to add fields that have already been masked\n");
+	    PrintError(vm, VCORE_NONE, "Trying to add fields that have already been masked\n");
 	    return -1;
 	}
 
@@ -268,7 +268,7 @@ int v3_unhook_cpuid(struct v3_vm_info * vm, uint32_t cpuid) {
     struct v3_cpuid_hook * hook = get_cpuid_hook(vm, cpuid);
 
     if (hook == NULL) {
-	PrintError("Could not find cpuid to unhook (0x%x)\n", cpuid);
+	PrintError(vm, VCORE_NONE, "Could not find cpuid to unhook (0x%x)\n", cpuid);
 	return -1;
     }
 
@@ -288,14 +288,14 @@ int v3_hook_cpuid(struct v3_vm_info * vm, uint32_t cpuid,
     struct v3_cpuid_hook * hook = NULL;
 
     if (hook_fn == NULL) {
-	PrintError("CPUID hook requested with null handler\n");
+	PrintError(vm, VCORE_NONE, "CPUID hook requested with null handler\n");
 	return -1;
     }
 
     hook = (struct v3_cpuid_hook *)V3_Malloc(sizeof(struct v3_cpuid_hook));
 
     if (!hook) {
-	PrintError("Cannot allocate memory to hook cpu id\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate memory to hook cpu id\n");
 	return -1;
     }
 
@@ -304,7 +304,7 @@ int v3_hook_cpuid(struct v3_vm_info * vm, uint32_t cpuid,
     hook->hook_fn = hook_fn;
 
     if (insert_cpuid_hook(vm, hook)) {
-	PrintError("Could not hook cpuid 0x%x (already hooked)\n", cpuid);
+	PrintError(vm, VCORE_NONE, "Could not hook cpuid 0x%x (already hooked)\n", cpuid);
 	V3_Free(hook);
 	return -1;
     }
@@ -316,10 +316,10 @@ int v3_handle_cpuid(struct guest_info * info) {
     uint32_t cpuid = info->vm_regs.rax;
     struct v3_cpuid_hook * hook = get_cpuid_hook(info->vm_info, cpuid);
 
-    //PrintDebug("CPUID called for 0x%x\n", cpuid);
+    //PrintDebug(info->vm_info, info, "CPUID called for 0x%x\n", cpuid);
 
     if (hook == NULL) {
-	//PrintDebug("Calling passthrough handler\n");
+	//PrintDebug(info->vm_info, info, "Calling passthrough handler\n");
 	// call the passthrough handler
 	v3_cpuid(cpuid, 
 		 (uint32_t *)&(info->vm_regs.rax), 
@@ -327,7 +327,7 @@ int v3_handle_cpuid(struct guest_info * info) {
 		 (uint32_t *)&(info->vm_regs.rcx), 
 		 (uint32_t *)&(info->vm_regs.rdx));
     } else {
-	//	PrintDebug("Calling hook function\n");
+	//	PrintDebug(info->vm_info, info, "Calling hook function\n");
 
 	if (hook->hook_fn(info, cpuid, 
 			  (uint32_t *)&(info->vm_regs.rax), 
@@ -335,12 +335,12 @@ int v3_handle_cpuid(struct guest_info * info) {
 			  (uint32_t *)&(info->vm_regs.rcx), 
 			  (uint32_t *)&(info->vm_regs.rdx), 
 			  hook->private_data) == -1) {
-	    PrintError("Error in cpuid handler for 0x%x\n", cpuid);
+	    PrintError(info->vm_info, info, "Error in cpuid handler for 0x%x\n", cpuid);
 	    return -1;
 	}
     }
 
-    //    PrintDebug("Cleaning up register contents\n");
+    //    PrintDebug(info->vm_info, info, "Cleaning up register contents\n");
 
     info->vm_regs.rax &= 0x00000000ffffffffLL;
     info->vm_regs.rbx &= 0x00000000ffffffffLL;

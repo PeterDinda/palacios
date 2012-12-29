@@ -33,13 +33,13 @@ struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name,
 				  void * guest_stream_data) {
     struct v3_stream * stream = NULL;
 
-    V3_ASSERT(stream_hooks != NULL);
-    V3_ASSERT(stream_hooks->open != NULL);
+    V3_ASSERT(vm, VCORE_NONE, stream_hooks != NULL);
+    V3_ASSERT(vm, VCORE_NONE, stream_hooks->open != NULL);
 
     stream = V3_Malloc(sizeof(struct v3_stream));
 
     if (!stream) {
-	PrintError("Cannot allocate in opening a stream\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in opening a stream\n");
 	return NULL;
     }
 
@@ -51,15 +51,15 @@ struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name,
 }
 
 uint64_t v3_stream_output(struct v3_stream * stream, uint8_t * buf, uint32_t len) {
-    V3_ASSERT(stream_hooks != NULL);
-    V3_ASSERT(stream_hooks->output != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, stream_hooks->output != NULL);
 
     return stream_hooks->output(stream, buf, len);
 }
 
 void v3_stream_close(struct v3_stream * stream) {
-    V3_ASSERT(stream_hooks != NULL);
-    V3_ASSERT(stream_hooks->close != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, stream_hooks != NULL);
+    V3_ASSERT(VM_NONE, VCORE_NONE, stream_hooks->close != NULL);
 
     stream_hooks->close(stream);
 
@@ -70,7 +70,7 @@ void v3_stream_close(struct v3_stream * stream) {
 
 void V3_Init_Stream(struct v3_stream_hooks * hooks) {
     stream_hooks = hooks;
-    PrintDebug("V3 stream inited\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "V3 stream inited\n");
 
     return;
 }

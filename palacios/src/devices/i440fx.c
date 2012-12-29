@@ -18,6 +18,7 @@
  */
 
 #include <palacios/vmm.h>
+#include <palacios/vm_guest.h>
 #include <palacios/vmm_dev_mgr.h>
 #include <devices/pci.h>
 
@@ -32,12 +33,12 @@ struct i440_state {
 
 
 static int io_read(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
-    PrintError("Unhandled read on port %x\n", port);
+    PrintError(core->vm_info, core, "Unhandled read on port %x\n", port);
     return -1;
 }
 
 static int io_write(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
-    PrintError("Unhandled write on port %x\n", port);
+    PrintError(core->vm_info, core, "Unhandled write on port %x\n", port);
     return -1;
 }
 
@@ -72,14 +73,14 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     int ret = 0;
 
     if (!pci) {
-	PrintError("could not find PCI Device\n");
+	PrintError(vm, VCORE_NONE, "could not find PCI Device\n");
 	return -1;
     }
 
     state = (struct i440_state *)V3_Malloc(sizeof(struct i440_state));
 
     if (!state) {
-	PrintError("Cannot allocate state\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate state\n");
 	return -1;
     }
 
@@ -88,7 +89,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
     }
@@ -100,7 +101,7 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     /*
     if (ret != 0) {
-	PrintError("Error hooking i440FX io ports\n");
+	PrintError(vm, VCORE_NONE, "Error hooking i440FX io ports\n");
 	v3_remove_device(dev);
 	return -1;
     }

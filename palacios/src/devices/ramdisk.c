@@ -35,10 +35,10 @@ struct disk_state {
 static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Reading %d bytes from %p to %p\n", (uint32_t)num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
+    PrintDebug(VM_NONE, VCORE_NONE, "Reading %d bytes from %p to %p\n", (uint32_t)num_bytes, (uint8_t *)(disk->disk_image + lba), buf);
 
     if (lba + num_bytes > disk->capacity) {
-	PrintError("read out of bounds:  lba=%llu (%p), num_bytes=%llu, capacity=%d (%p)\n", 
+	PrintError(VM_NONE, VCORE_NONE, "read out of bounds:  lba=%llu (%p), num_bytes=%llu, capacity=%d (%p)\n", 
 		   lba, (void *)(addr_t)lba, num_bytes, disk->capacity, (void *)(addr_t)disk->capacity);
 	return -1;
     }
@@ -52,10 +52,10 @@ static int read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_
 static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Writing %d bytes from %p to %p\n", (uint32_t)num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
+    PrintDebug(VM_NONE, VCORE_NONE, "Writing %d bytes from %p to %p\n", (uint32_t)num_bytes,  buf, (uint8_t *)(disk->disk_image + lba));
 
     if (lba + num_bytes > disk->capacity) {
-	PrintError("write out of bounds: lba=%llu (%p), num_bytes=%llu, capacity=%d (%p)\n", 
+	PrintError(VM_NONE, VCORE_NONE, "write out of bounds: lba=%llu (%p), num_bytes=%llu, capacity=%d (%p)\n", 
 		   lba, (void *)(addr_t)lba, num_bytes, disk->capacity, (void *)(addr_t)disk->capacity);
 	return -1;
     }
@@ -70,7 +70,7 @@ static int write(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private
 static uint64_t get_capacity(void * private_data) {
     struct disk_state * disk = (struct disk_state *)private_data;
 
-    PrintDebug("Querying RAMDISK capacity %d\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Querying RAMDISK capacity %d\n", 
 	       (uint32_t)(disk->capacity));
 
     return disk->capacity;
@@ -107,14 +107,14 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
 
     if (!filename) {
-	PrintError("Missing filename (%s) for %s\n", filename, dev_id);
+	PrintError(vm, VCORE_NONE, "Missing filename (%s) for %s\n", filename, dev_id);
 	return -1;
     }
 
     file = v3_cfg_get_file(vm, filename);
 
     if (!file) {
-	PrintError("Invalid ramdisk file: %s\n", filename);
+	PrintError(vm, VCORE_NONE, "Invalid ramdisk file: %s\n", filename);
 	return -1;
     }
 
@@ -122,7 +122,7 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     disk = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
 
     if (!disk) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -130,14 +130,14 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     disk->disk_image = file->data;
     disk->capacity = file->size;
-    PrintDebug("Registering RAMDISK at %p (size=%d)\n", 
+    PrintDebug(vm, VCORE_NONE, "Registering RAMDISK at %p (size=%d)\n", 
 	       (void *)file->data, (uint32_t)file->size);
 
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, disk);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(disk);
 	return -1;
     }
@@ -145,7 +145,7 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, disk) == -1) {
-	PrintError("Could not connect %s to frontend %s\n", 
+	PrintError(vm, VCORE_NONE, "Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	v3_remove_device(dev);
 	return -1;

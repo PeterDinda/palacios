@@ -62,7 +62,7 @@ static void print_arg (struct  guest_info * core, v3_reg_t reg, uint8_t argnum) 
     addr_t hva;
     int ret = 0;
     
-    PrintDebug("\t ARG%d: INT - %ld\n", argnum, (long) reg);
+    PrintDebug(core->vm_info, core, "\t ARG%d: INT - %ld\n", argnum, (long) reg);
 
     if (core->mem_mode == PHYSICAL_MEM) {
         ret = v3_gpa_to_hva(core, get_addr_linear(core, reg, &(core->segments.ds)), &hva);
@@ -71,27 +71,27 @@ static void print_arg (struct  guest_info * core, v3_reg_t reg, uint8_t argnum) 
         ret = v3_gva_to_hva(core, get_addr_linear(core, reg, &(core->segments.ds)), &hva);
     }
 
-    PrintDebug("\t       STR - ");
+    PrintDebug(core->vm_info, core, "\t       STR - ");
     if (ret == -1) {
-        PrintDebug("\n");
+        PrintDebug(core->vm_info, core, "\n");
         return;
     }
         
     uint32_t c = max(MAX_CHARS, 4096 - (hva % 4096));
     int i = 0;
     for (; i < c && *((char*)(hva + i)) != 0; i++) {
-        PrintDebug("%c", *((char*)(hva + i)));
+        PrintDebug(core->vm_info, core, "%c", *((char*)(hva + i)));
     }
-    PrintDebug("\n");
+    PrintDebug(core->vm_info, core, "\n");
 }
 
 
 static void print_syscall (uint8_t is64, struct guest_info * core) {
 
     if (is64) {
-        PrintDebug("Syscall #%ld: \"%s\"\n", (long)core->vm_regs.rax, get_linux_syscall_name64(core->vm_regs.rax));
+        PrintDebug(core->vm_info, core, "Syscall #%ld: \"%s\"\n", (long)core->vm_regs.rax, get_linux_syscall_name64(core->vm_regs.rax));
     } else {
-        PrintDebug("Syscall #%ld: \"%s\"\n", (long)core->vm_regs.rax, get_linux_syscall_name32(core->vm_regs.rax));
+        PrintDebug(core->vm_info, core, "Syscall #%ld: \"%s\"\n", (long)core->vm_regs.rax, get_linux_syscall_name32(core->vm_regs.rax));
     }
 
     print_arg(core, core->vm_regs.rbx, 1);
@@ -116,7 +116,7 @@ int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_da
     if (hook == NULL) {
 #ifdef V3_CONFIG_EXT_SYSCALL_PASSTHROUGH
         if (v3_hook_passthrough_syscall(core, syscall_nr) == -1) {
-            PrintDebug("Error hooking passthrough syscall\n");
+            PrintDebug(core->vm_info, core, "Error hooking passthrough syscall\n");
             return -1;
         }
         hook = syscall_hooks[syscall_nr];
@@ -140,7 +140,7 @@ int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_da
                         inject_node);
 
             if (inject == NULL) {
-                PrintError("Problem getting inject from inject list\n");
+                PrintError(core->vm_info, core, "Problem getting inject from inject list\n");
                 return -1;
             }
 
@@ -150,7 +150,7 @@ int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_da
             // do the inject and don't fall over if there's an inject already in
             // progress
             if ((ret = v3_handle_guest_inject(core, (void*)inject)) == -1) {
-                PrintError("Could not run code injection: v3_syscall_handler\n");
+                PrintError(core->vm_info, core, "Could not run code injection: v3_syscall_handler\n");
                 return 0;
             } else {
                 return ret; 
@@ -163,7 +163,7 @@ int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_da
     
     err = hook->handler(core, syscall_nr, hook->priv_data);
     if (err == -1) {
-        PrintDebug("V3 Syscall Handler: Error in syscall hook\n");
+        PrintDebug(core->vm_info, core, "V3 Syscall Handler: Error in syscall hook\n");
         return -1;
     }
 
@@ -179,7 +179,7 @@ int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_da
 static int v3_handle_lstar_write (struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
     syscall_info.target_addr = (uint64_t) ((((uint64_t)src.hi) << 32) | src.lo);
     
-    PrintDebug("LSTAR Write: %p\n", (void*)syscall_info.target_addr); 
+    PrintDebug(core->vm_info, core, "LSTAR Write: %p\n", (void*)syscall_info.target_addr); 
     core->msrs.lstar = syscall_info.target_addr;
     return 0;
 }
@@ -187,7 +187,7 @@ static int v3_handle_lstar_write (struct guest_info * core, uint_t msr, struct v
 
 // virtualize the lstar
 static int v3_handle_lstar_read (struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
-    PrintDebug("LSTAR Read\n");
+    PrintDebug(core->vm_info, core, "LSTAR Read\n");
     dst->value = syscall_info.target_addr;
     return 0;
 }
@@ -200,9 +200,9 @@ static int syscall_setup (struct guest_info * core, unsigned int hcall_id, void 
 	syscall_map_gva = (addr_t)core->vm_regs.rcx;
 	ssa_gva = (addr_t)core->vm_regs.rdx;
 
-	PrintDebug("syscall setup hypercall:\n");
-	PrintDebug("\t&syscall_stub (rbx): %p\n\t&syscall_map (rcx): %p\n", (void*)syscall_stub, (void*)syscall_map_gva);
-	PrintDebug("\t&ssa (rdx): %p\n", (void*)ssa_gva);
+	PrintDebug(core->vm_info, core, "syscall setup hypercall:\n");
+	PrintDebug(core->vm_info, core, "\t&syscall_stub (rbx): %p\n\t&syscall_map (rcx): %p\n", (void*)syscall_stub, (void*)syscall_map_gva);
+	PrintDebug(core->vm_info, core, "\t&ssa (rdx): %p\n", (void*)ssa_gva);
 
 	// the guest vitual address of the asm syscall handling routine
 	syscall_info.syscall_stub = syscall_stub;
@@ -210,17 +210,17 @@ static int syscall_setup (struct guest_info * core, unsigned int hcall_id, void 
 	
 	// now get the hva of the system call map so we can manipulate it in the VMM
 	if (v3_gva_to_hva(core, get_addr_linear(core, syscall_map_gva, &(core->segments.ds)), &syscall_map_hva) == 1) {
-		PrintError("Problem translating gva to hva for syscall map\n");
+		PrintError(core->vm_info, core, "Problem translating gva to hva for syscall map\n");
 		return -1;
 	}
 	
 	if (v3_gva_to_hva(core, get_addr_linear(core, ssa_gva, &(core->segments.ds)), &ssa_hva) == 1) {
-		PrintError("Problem translating gva to hva for syscall map\n");
+		PrintError(core->vm_info, core, "Problem translating gva to hva for syscall map\n");
 		return -1;
 	}
 	
-	PrintDebug("\t&syscall_map (hva): %p\n", (void*) syscall_map_hva);
-	PrintDebug("\t&ssa (hva): %p\n", (void*) ssa_hva);
+	PrintDebug(core->vm_info, core, "\t&syscall_map (hva): %p\n", (void*) syscall_map_hva);
+	PrintDebug(core->vm_info, core, "\t&ssa (hva): %p\n", (void*) ssa_hva);
 
 	syscall_info.syscall_map = (uint8_t*)syscall_map_hva;
 	syscall_info.ssa = ssa_hva;
@@ -237,7 +237,7 @@ static int syscall_setup (struct guest_info * core, unsigned int hcall_id, void 
 static int syscall_cleanup (struct guest_info * core, unsigned int hcall_id, void * priv_data) {
 
     core->msrs.lstar = syscall_info.target_addr;
-    PrintDebug("original syscall entry point restored\n");
+    PrintDebug(core->vm_info, core, "original syscall entry point restored\n");
     return 0;
 }
 
@@ -245,7 +245,7 @@ static int syscall_cleanup (struct guest_info * core, unsigned int hcall_id, voi
 static int sel_syscall_handle (struct guest_info * core, unsigned int hcall_id, void * priv_data) {
 	struct v3_gprs regs;
 	
-	PrintDebug("caught a selectively exited syscall\n");
+	PrintDebug(core->vm_info, core, "caught a selectively exited syscall\n");
 	
     /* setup registers for handler routines. They should be in the same state
      * as when the system call was originally invoked */
@@ -263,14 +263,14 @@ static int sel_syscall_handle (struct guest_info * core, unsigned int hcall_id, 
 
 // TODO: make these three functions guest-dependent
 int v3_syscall_on (void * ginfo, uint8_t syscall_nr) {
-    PrintDebug("Enabling exiting for syscall #%d\n", syscall_nr);
+    PrintDebug(VM_NONE, VCORE_NONE, "Enabling exiting for syscall #%d\n", syscall_nr);
     syscall_info.syscall_map[syscall_nr] = 1;
     return 0;
 }
 
 
 int v3_syscall_off (void * ginfo, uint8_t syscall_nr) {
-    PrintDebug("Disabling exiting for syscall #%d\n", syscall_nr);
+    PrintDebug(VM_NONE, VCORE_NONE, "Disabling exiting for syscall #%d\n", syscall_nr);
     syscall_info.syscall_map[syscall_nr] = 0;
     return 0;
 }
@@ -297,18 +297,18 @@ static int init_syscall_hijack (struct v3_vm_info * vm, v3_cfg_tree_t * cfg, voi
 
 #ifdef V3_CONFIG_EXT_SYSCALL_INSTR
 static int v3_handle_lstar_write (struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
-    PrintDebug("KCH: LSTAR Write\n");
-    //PrintDebug("\tvalue: 0x%x%x\n", src.hi, src.lo);
+    PrintDebug(core->vm_info, core, "KCH: LSTAR Write\n");
+    //PrintDebug(core->vm_info, core, "\tvalue: 0x%x%x\n", src.hi, src.lo);
     syscall_info.target_addr = (uint64_t) ((((uint64_t)src.hi) << 32) | src.lo);
     
     // Set LSTAR value seen by hardware while the guest is running
-    PrintDebug("replacing with %lx\n", SYSCALL_MAGIC_ADDR);
+    PrintDebug(core->vm_info, core, "replacing with %lx\n", SYSCALL_MAGIC_ADDR);
     core->msrs.lstar = SYSCALL_MAGIC_ADDR;
     return 0;
 }
 
 static int v3_handle_lstar_read (struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
-    PrintDebug("KCH: LSTAR Read\n");
+    PrintDebug(core->vm_info, core, "KCH: LSTAR Read\n");
     dst->value = syscall_info.target_addr;
     return 0;
 }
@@ -363,12 +363,12 @@ int v3_hook_syscall (struct guest_info * core,
 
     
     if (hook == NULL) {
-	PrintError("Cannot allocate for syscall hook\n");
+	PrintError(core->vm_info, core, "Cannot allocate for syscall hook\n");
         return -1;
     }
 
     if (get_syscall_hook(core, syscall_nr) != NULL) {
-        PrintError("System Call #%d already hooked\n", syscall_nr);
+        PrintError(core->vm_info, core, "System Call #%d already hooked\n", syscall_nr);
         return -1;
     }
 
@@ -377,7 +377,7 @@ int v3_hook_syscall (struct guest_info * core,
 
     syscall_hooks[syscall_nr] = hook;
 
-    PrintDebug("Hooked Syscall #%d\n", syscall_nr);
+    PrintDebug(core->vm_info, core, "Hooked Syscall #%d\n", syscall_nr);
 
     return 0;
 }
@@ -394,10 +394,10 @@ int v3_hook_passthrough_syscall (struct guest_info * core, uint_t syscall_nr) {
     int rc = v3_hook_syscall(core, syscall_nr, passthrough_syscall_handler, NULL);
 
     if (rc) {
-        PrintError("failed to hook syscall 0x%x for passthrough (guest=0x%p)\n", syscall_nr, (void *)core);
+        PrintError(core->vm_info, core, "failed to hook syscall 0x%x for passthrough (guest=0x%p)\n", syscall_nr, (void *)core);
         return -1;
     } else {
-        PrintDebug("hooked syscall 0x%x for passthrough (guest=0x%p)\n", syscall_nr, (void *)core);
+        PrintDebug(core->vm_info, core, "hooked syscall 0x%x for passthrough (guest=0x%p)\n", syscall_nr, (void *)core);
         return 0;
     }
 

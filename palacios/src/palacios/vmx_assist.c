@@ -111,23 +111,23 @@ int v3_vmxassist_ctx_switch(struct guest_info * info) {
 
 
     if (v3_gpa_to_hva(info, VMXASSIST_START, (addr_t *)&hdr) == -1) {
-        PrintError("Could not translate address for vmxassist header\n");
+        PrintError(info->vm_info, info, "Could not translate address for vmxassist header\n");
         return -1;
     }
 
     if (hdr->magic != VMXASSIST_MAGIC) {
-        PrintError("VMXASSIST_MAGIC field is invalid\n");
+        PrintError(info->vm_info, info, "VMXASSIST_MAGIC field is invalid\n");
         return -1;
     }
 
 
     if (v3_gpa_to_hva(info, (addr_t)(hdr->old_ctx_gpa), (addr_t *)&(old_ctx)) == -1) {
-        PrintError("Could not translate address for VMXASSIST old context\n");
+        PrintError(info->vm_info, info, "Could not translate address for VMXASSIST old context\n");
         return -1;
     }
 
     if (v3_gpa_to_hva(info, (addr_t)(hdr->new_ctx_gpa), (addr_t *)&(new_ctx)) == -1) {
-        PrintError("Could not translate address for VMXASSIST new context\n");
+        PrintError(info->vm_info, info, "Could not translate address for VMXASSIST new context\n");
         return -1;
     }
 
@@ -182,7 +182,7 @@ static void load_segment(struct vmx_assist_segment * vmx_assist_seg, struct v3_s
 static void vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx) {
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
-    PrintDebug("Writing from RIP: 0x%p\n", (void *)(addr_t)info->rip);
+    PrintDebug(info->vm_info, info, "Writing from RIP: 0x%p\n", (void *)(addr_t)info->rip);
     
     ctx->eip = info->rip;
     ctx->esp = info->vm_regs.rsp;
@@ -213,7 +213,7 @@ static void vmx_save_world_ctx(struct guest_info * info, struct vmx_assist_conte
 static void vmx_restore_world_ctx(struct guest_info * info, struct vmx_assist_context * ctx) {
     struct vmx_data * vmx_info = (struct vmx_data *)(info->vmm_data);
 
-    PrintDebug("ctx rip: %p\n", (void *)(addr_t)ctx->eip);
+    PrintDebug(info->vm_info, info, "ctx rip: %p\n", (void *)(addr_t)ctx->eip);
     
     info->rip = ctx->eip;
     info->vm_regs.rsp = ctx->esp;
@@ -307,7 +307,7 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 	addr_t vmxassist_gdt = 0;
 
 	if (v3_gpa_to_hva(core, VMXASSIST_GDT, &vmxassist_gdt) == -1) {
-	    PrintError("Could not find VMXASSIST GDT destination\n");
+	    PrintError(core->vm_info, core, "Could not find VMXASSIST GDT destination\n");
 	    return -1;
 	}
 
@@ -338,10 +338,10 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 	int i = 0;
 	pde32_4MB_t * pde = NULL;
 
-	PrintError("Setting up internal VMXASSIST page tables\n");
+	PrintError(core->vm_info, core, "Setting up internal VMXASSIST page tables\n");
 
 	if (v3_gpa_to_hva(core, VMXASSIST_1to1_PT, (addr_t *)(&pde)) == -1) {
-	    PrintError("Could not find VMXASSIST 1to1 PT destination\n");
+	    PrintError(core->vm_info, core, "Could not find VMXASSIST 1to1 PT destination\n");
 	    return -1;
 	}
 
@@ -354,7 +354,7 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 	    pde[i].large_page = 1;
 	    pde[i].page_base_addr = PAGE_BASE_ADDR_4MB(i * PAGE_SIZE_4MB);
 
-	    //	    PrintError("PDE %d: %x\n", i, *(uint32_t *)&(pde[i]));
+	    //	    PrintError(core->vm_info, core, "PDE %d: %x\n", i, *(uint32_t *)&(pde[i]));
 	}
 
 	core->ctrl_regs.cr3 = VMXASSIST_1to1_PT;
@@ -369,7 +369,7 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 	addr_t vmxassist_dst = 0;
 
 	if (v3_gpa_to_hva(core, VMXASSIST_START, &vmxassist_dst) == -1) {
-	    PrintError("Could not find VMXASSIST destination\n");
+	    PrintError(core->vm_info, core, "Could not find VMXASSIST destination\n");
 	    return -1;
 	}
 

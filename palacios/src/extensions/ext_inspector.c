@@ -40,7 +40,7 @@ static int init_inspector(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** p
     struct v3_inspector_state * state = V3_Malloc(sizeof(struct v3_inspector_state));
 
     if (!state) {
-	PrintError("Cannot allocate state in inspector\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate state in inspector\n");
 	return -1;
     }
 

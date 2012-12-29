@@ -114,12 +114,12 @@ static int ata_read(struct ide_internal * ide, struct ide_channel * channel, uin
 	drive->hd_state.accessed = 1;
     }
 
-    PrintDebug("Reading Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
+    PrintDebug(VM_NONE, VCORE_NONE,"Reading Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
 
     int ret = drive->ops->read(dst, drive->current_lba * HD_SECTOR_SIZE, sect_cnt * HD_SECTOR_SIZE, drive->private_data);
     
     if (ret == -1) {
-	PrintError("IDE: Error reading HD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
+	PrintError(VM_NONE, VCORE_NONE,"IDE: Error reading HD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
 	return -1;
     }
 
@@ -130,12 +130,12 @@ static int ata_read(struct ide_internal * ide, struct ide_channel * channel, uin
 static int ata_write(struct ide_internal * ide, struct ide_channel * channel, uint8_t * src, uint_t sect_cnt) {
     struct ide_drive * drive = get_selected_drive(channel);
 
-    PrintDebug("Writing Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
+    PrintDebug(VM_NONE, VCORE_NONE,"Writing Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
 
     int ret = drive->ops->write(src, drive->current_lba * HD_SECTOR_SIZE, sect_cnt * HD_SECTOR_SIZE, drive->private_data);
 
     if (ret == -1) {
-	PrintError("IDE: Error writing HD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
+	PrintError(VM_NONE, VCORE_NONE,"IDE: Error writing HD block (LBA=%p)\n", (void *)(addr_t)(drive->current_lba));
 	return -1;
     }
 
@@ -169,7 +169,7 @@ static int ata_get_lba(struct ide_internal * ide, struct ide_channel * channel, 
 
     if ((lba_addr.addr + sect_cnt) > 
 	drive->ops->get_capacity(drive->private_data) / HD_SECTOR_SIZE) {
-	PrintError("IDE: request size exceeds disk capacity (lba=%d) (sect_cnt=%d) (ReadEnd=%d) (capacity=%p)\n", 
+	PrintError(VM_NONE, VCORE_NONE,"IDE: request size exceeds disk capacity (lba=%d) (sect_cnt=%d) (ReadEnd=%d) (capacity=%p)\n", 
 		   lba_addr.addr, sect_cnt, 
 		   lba_addr.addr + (sect_cnt * HD_SECTOR_SIZE),
 		   (void *)(addr_t)(drive->ops->get_capacity(drive->private_data)));
@@ -194,7 +194,7 @@ static int ata_read_sectors(struct ide_internal * ide,  struct ide_channel * cha
 
     
     if (ata_read(ide, channel, drive->data_buf, 1) == -1) {
-	PrintError("Could not read disk sector\n");
+	PrintError(VM_NONE, VCORE_NONE,"Could not read disk sector\n");
 	return -1;
     }
 
@@ -214,7 +214,7 @@ static int ata_read_sectors(struct ide_internal * ide,  struct ide_channel * cha
 
     ide_raise_irq(ide, channel);
 
-    PrintDebug("Returning from read sectors\n");
+    PrintDebug(VM_NONE, VCORE_NONE,"Returning from read sectors\n");
 
     return 0;
 }
@@ -226,7 +226,7 @@ static int ata_read_sectors_ext(struct ide_internal * ide, struct ide_channel * 
     // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
     //uint32_t sector_count = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
-    PrintError("Extended Sector read not implemented\n");
+    PrintError(VM_NONE, VCORE_NONE, "Extended Sector read not implemented\n");
 
     return -1;
 }

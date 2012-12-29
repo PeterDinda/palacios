@@ -87,7 +87,7 @@ int v3_hook_host_event(struct v3_vm_info * vm,
 
     hook = (struct v3_host_event_hook *)V3_Malloc(sizeof(struct v3_host_event_hook));
     if (hook == NULL) {
-	PrintError("Could not allocate event hook\n");
+        PrintError(vm, VCORE_NONE,"Could not allocate event hook\n");
 	return -1;
     }
 

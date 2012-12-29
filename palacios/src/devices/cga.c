@@ -227,7 +227,7 @@ struct video_internal {
 static void refresh_screen(struct video_internal * state) {
     uint_t screen_size;
     
-    PrintDebug("Screen config: framebuf=0x%x-0x%x, gres=%dx%d, tres=%dx%d, %s mode\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Screen config: framebuf=0x%x-0x%x, gres=%dx%d, tres=%dx%d, %s mode\n", 
     	(unsigned) state->activefb_addr, 
     	(unsigned) state->activefb_addr + state->activefb_len, 
 	state->hres,
@@ -242,14 +242,14 @@ static void refresh_screen(struct video_internal * state) {
     if (state->reschanged) {
         /* resolution change message will trigger update */
 	state->reschanged = 0;
-	PrintDebug("Video: set_text_resolution(%d, %d)\n", 
+	PrintDebug(VM_NONE, VCORE_NONE, "Video: set_text_resolution(%d, %d)\n", 
     	    state->hchars, state->vchars);
 	if (state->ops && state->ops->set_text_resolution) {
     	    state->ops->set_text_resolution(state->hchars, state->vchars, state->private_data);
     	}
     } else {
         /* send update for full buffer */
-	PrintDebug("Video: update_screen(0, 0, %d * %d * %d)\n", state->vchars, state->hchars, BYTES_PER_COL);
+	PrintDebug(VM_NONE, VCORE_NONE, "Video: update_screen(0, 0, %d * %d * %d)\n", state->vchars, state->hchars, BYTES_PER_COL);
 	screen_size = state->vchars * state->hchars * BYTES_PER_COL;
 	if (state->ops) {
     	    state->ops->update_screen(0, 0, screen_size, state->private_data);
@@ -280,7 +280,7 @@ static void registers_updated(struct video_internal * state) {
 	state->activefb_addr = activefb_addr;
 	state->activefb_len = activefb_len;
 	state->dirty = 1;
-	PrintVerbose("Video: need refresh (activefb=0x%x-0x%x)\n", 
+	PrintVerbose(VM_NONE, VCORE_NONE, "Video: need refresh (activefb=0x%x-0x%x)\n", 
 	    activefb_addr, activefb_addr + activefb_len);
     } 
     
@@ -288,7 +288,7 @@ static void registers_updated(struct video_internal * state) {
     if (state->graphmode != misc->gm) {
 	state->graphmode = misc->gm;
 	state->dirty = 1;
-	PrintVerbose("Video: need refresh (graphmode=%d)\n", state->graphmode);
+	PrintVerbose(VM_NONE, VCORE_NONE, "Video: need refresh (graphmode=%d)\n", state->graphmode);
     }
 
     /* graphics resolution */
@@ -296,7 +296,7 @@ static void registers_updated(struct video_internal * state) {
 	vres = (state->misc_outp_reg.vsp) ? 480 : 400;
     } else {
 	if (!state->misc_outp_reg.vsp) {
-    	    PrintError("Video: reserved value in misc_outp_reg (0x%x)\n", 
+    	    PrintError(VM_NONE, VCORE_NONE, "Video: reserved value in misc_outp_reg (0x%x)\n", 
 		*(uint8_t *) &state->misc_outp_reg);
 	}
     	vres = 350;
@@ -307,14 +307,14 @@ static void registers_updated(struct video_internal * state) {
     if (state->vres != vres) {
 	state->vres = vres;
 	state->reschanged = 1;
-	PrintVerbose("Video: need refresh (vres=%d)\n", vres);
+	PrintVerbose(VM_NONE, VCORE_NONE, "Video: need refresh (vres=%d)\n", vres);
     }
     
     switch (state->misc_outp_reg.cs) {
         case 0: hres = 640; break;
         case 1: hres = 720; break;
 	default:
-		PrintError("Video: reserved value in misc_outp_reg (0x%x)\n", 
+		PrintError(VM_NONE, VCORE_NONE, "Video: reserved value in misc_outp_reg (0x%x)\n", 
 			*(uint8_t *) &state->misc_outp_reg);
 		hres = 640;
 		break;
@@ -325,7 +325,7 @@ static void registers_updated(struct video_internal * state) {
     if (state->hres != hres) {
 	state->hres = hres;
 	state->reschanged = 1;
-	PrintVerbose("Video: need refresh (hres=%d)\n", hres);
+	PrintVerbose(VM_NONE, VCORE_NONE, "Video: need refresh (hres=%d)\n", hres);
     }
 
     /* text resolution */
@@ -341,7 +341,7 @@ static void registers_updated(struct video_internal * state) {
 	state->hchars = hchars;
 	state->vchars = vchars;
 	state->reschanged = 1;
-	PrintVerbose("Video: need refresh (hchars=%d, vchars=%d)\n", hchars, vchars);
+	PrintVerbose(VM_NONE, VCORE_NONE, "Video: need refresh (hchars=%d, vchars=%d)\n", hchars, vchars);
     }
     
     /* resolution change implies refresh needed */
@@ -391,19 +391,19 @@ static void registers_initialize(struct video_internal * state) {
     state->misc_outp_reg.hsp = 1;    
     
     /* sequencer registers */
-    V3_ASSERT(sizeof(seq_defaults) == sizeof(state->seq_data_regs));
+    V3_ASSERT(VM_NONE, VCORE_NONE, sizeof(seq_defaults) == sizeof(state->seq_data_regs));
     memcpy(state->seq_data_regs, seq_defaults, sizeof(state->seq_data_regs));    
     
     /* CRT controller registers */
-    V3_ASSERT(sizeof(crtc_defaults) == sizeof(state->crtc_data_regs));
+    V3_ASSERT(VM_NONE, VCORE_NONE, sizeof(crtc_defaults) == sizeof(state->crtc_data_regs));
     memcpy(state->crtc_data_regs, crtc_defaults, sizeof(state->crtc_data_regs));    
     
     /* graphics controller registers */
-    V3_ASSERT(sizeof(graphc_defaults) == sizeof(state->graphc_data_regs));
+    V3_ASSERT(VM_NONE, VCORE_NONE, sizeof(graphc_defaults) == sizeof(state->graphc_data_regs));
     memcpy(state->graphc_data_regs, graphc_defaults, sizeof(state->graphc_data_regs));    
     
     /* attribute controller registers */
-    V3_ASSERT(sizeof(attrc_defaults) == sizeof(state->attrc_data_regs));
+    V3_ASSERT(VM_NONE, VCORE_NONE, sizeof(attrc_defaults) == sizeof(state->attrc_data_regs));
     memcpy(state->attrc_data_regs, attrc_defaults, sizeof(state->attrc_data_regs));    
     
     /* initialize auxilary fields */
@@ -470,10 +470,10 @@ static int video_write_mem(struct guest_info * core, addr_t guest_addr, void * d
     uint_t length_adjusted, screen_pos, x, y;
     addr_t framebuf_offset, framebuf_offset_screen, screen_offset;
     
-    V3_ASSERT(guest_addr >= START_ADDR);
-    V3_ASSERT(guest_addr < END_ADDR);
+    V3_ASSERT(core->vm_info, core, guest_addr >= START_ADDR);
+    V3_ASSERT(core->vm_info, core, guest_addr < END_ADDR);
     
-    PrintVerbose("Video: write(%p, 0x%lx, %d)\n", 
+    PrintVerbose(core->vm_info, core, "Video: write(%p, 0x%lx, %d)\n", 
        (void *)guest_addr, 
 	get_value(state->framebuf + (guest_addr - START_ADDR), length),
 	length);
@@ -526,7 +526,7 @@ static int video_write_mem(struct guest_info * core, addr_t guest_addr, void * d
     x = screen_pos % state->hchars;
     y = screen_pos / state->hchars;
     if (y >= state->vchars) return length;
-    PrintVerbose("Video: update_screen(%d, %d, %d)\n", x, y, length_adjusted);
+    PrintVerbose(core->vm_info, core, "Video: update_screen(%d, %d, %d)\n", x, y, length_adjusted);
     state->ops->update_screen(x, y, length_adjusted, state->private_data);
 
     return length;
@@ -538,17 +538,17 @@ static void debug_port(struct video_internal * video_state, const char *function
 
     /* report any unexpected guest behaviour, it may explain failures */
     if (portrange != 0x3c0 && portrange != video_state->iorange) {
-	PrintError("Video %s: got bad port 0x%x\n", function, port);
+	PrintError(VM_NONE, VCORE_NONE, "Video %s: got bad port 0x%x\n", function, port);
     }
 
     if (!video_state->passthrough && length > maxlength) {
-    	PrintError("Video %s: got bad length %d\n", function, length);
+    	PrintError(VM_NONE, VCORE_NONE, "Video %s: got bad length %d\n", function, length);
     }
-    V3_ASSERT(length >= 1);
+    V3_ASSERT(VM_NONE, VCORE_NONE, length >= 1);
 }
 
 static void handle_port_read(struct video_internal * video_state, const char *function, uint16_t port, void *dest, uint_t length, uint_t maxlength) {
-    PrintVerbose("Video %s: in%c(0x%x): 0x%lx\n", function, opsize_char(length), port, get_value(dest, length));
+    PrintVerbose(VM_NONE, VCORE_NONE, "Video %s: in%c(0x%x): 0x%lx\n", function, opsize_char(length), port, get_value(dest, length));
     debug_port(video_state, function, port, length, maxlength);
 
     if (video_state->passthrough) {
@@ -557,7 +557,7 @@ static void handle_port_read(struct video_internal * video_state, const char *fu
 }
 
 static void handle_port_write(struct video_internal * video_state, const char *function, uint16_t port, const void *src, uint_t length, uint_t maxlength) {
-    PrintVerbose("Video %s: out%c(0x%x, 0x%lx)\n", function, opsize_char(length), port, get_value(src, length));
+    PrintVerbose(VM_NONE, VCORE_NONE, "Video %s: out%c(0x%x, 0x%lx)\n", function, opsize_char(length), port, get_value(src, length));
     debug_port(video_state, function, port, length, maxlength);
 
     if (video_state->passthrough) {
@@ -569,7 +569,7 @@ static int notimpl_port_read(struct video_internal * video_state, const char *fu
     memset(dest, 0xff, length);
     handle_port_read(video_state, function, port, dest, length, 1);
     if (!video_state->passthrough) {
-    	PrintError("Video %s: not implemented\n", function);
+    	PrintError(VM_NONE, VCORE_NONE, "Video %s: not implemented\n", function);
     }
     return length;
 }
@@ -577,7 +577,7 @@ static int notimpl_port_read(struct video_internal * video_state, const char *fu
 static int notimpl_port_write(struct video_internal * video_state, const char *function, uint16_t port, const void *src, uint_t length) {
     handle_port_write(video_state, function, port, src, length, 1);
     if (!video_state->passthrough) {
-    	PrintError("Video %s: not implemented\n", function);
+    	PrintError(VM_NONE, VCORE_NONE, "Video %s: not implemented\n", function);
     }
     return length;
 }
@@ -596,7 +596,7 @@ static int misc_outp_write(struct guest_info * core, uint16_t port, void * src, 
     struct video_internal * video_state = priv_data;
     handle_port_write(video_state, __FUNCTION__, port, src, length, 1);
 
-    PrintDebug("Video: misc_outp=0x%x\n", *(uint8_t *) src);
+    PrintDebug(core->vm_info, core, "Video: misc_outp=0x%x\n", *(uint8_t *) src);
     video_state->misc_outp_reg = *(struct misc_outp_reg *) src;
     registers_updated(video_state);
 
@@ -642,7 +642,7 @@ static int seq_data_read(struct guest_info * core, uint16_t port, void * dest, u
     if (index < SEQ_REG_COUNT) {
     	*(uint8_t *) dest = video_state->seq_data_regs[index];
     } else {
-    	PrintError("Video %s: index %d out of range\n", __FUNCTION__, video_state->seq_index_reg);
+    	PrintError(core->vm_info, core, "Video %s: index %d out of range\n", __FUNCTION__, video_state->seq_index_reg);
     	*(uint8_t *) dest = 0;
     }
 
@@ -657,11 +657,11 @@ static int seq_data_write(struct guest_info * core, uint16_t port, void * src, u
     handle_port_write(video_state, __FUNCTION__, port, src, length, 1);
 
     if (index < SEQ_REG_COUNT) {
-    	PrintDebug("Video: seq[%d]=0x%x\n", index, val);
+    	PrintDebug(core->vm_info, core, "Video: seq[%d]=0x%x\n", index, val);
     	video_state->seq_data_regs[index] = val;
     	registers_updated(video_state);
     } else {
-    	PrintError("Video %s: index %d out of range\n", __FUNCTION__, video_state->seq_index_reg);
+    	PrintError(core->vm_info, core, "Video %s: index %d out of range\n", __FUNCTION__, video_state->seq_index_reg);
     }
 
     return length;    
@@ -708,7 +708,7 @@ static int crtc_data_write(struct guest_info * core, uint16_t port, void * src, 
 
     handle_port_write(video_state, __FUNCTION__, port, src, length, 1);
     if (length != 1) {
-	PrintError("Invalid write length for port 0x%x\n", port);
+	PrintError(core->vm_info, core, "Invalid write length for port 0x%x\n", port);
 	return -1;
     }
 
@@ -734,7 +734,7 @@ static int crtc_data_write(struct guest_info * core, uint16_t port, void * src, 
 	        diff = (screen_offset - video_state->screen_offset) / video_state->hchars;
 		refresh = 0;
 	    }
-	    PrintVerbose("Video: screen_offset=%d, video_state->screen_offset=%d, video_state->hchars=%d, diff=%d, refresh=%d\n",
+	    PrintVerbose(core->vm_info, core, "Video: screen_offset=%d, video_state->screen_offset=%d, video_state->hchars=%d, diff=%d, refresh=%d\n",
 		screen_offset, video_state->screen_offset, video_state->hchars, diff, refresh);
 
 	    // Update the true offset value
@@ -743,9 +743,9 @@ static int crtc_data_write(struct guest_info * core, uint16_t port, void * src, 
 	    if (refresh || video_state->dirty) {
 		refresh_screen(video_state);
 	    } else if (diff && video_state->ops) {
-	        PrintVerbose("Video: scroll(%d)\n", diff);
+	        PrintVerbose(core->vm_info, core, "Video: scroll(%d)\n", diff);
 		if (video_state->ops->scroll(diff, video_state->private_data) == -1) {
-		    PrintError("Error sending scroll event\n");
+		    PrintError(core->vm_info, core, "Error sending scroll event\n");
 		    return -1;
 		}
 	    }
@@ -761,17 +761,17 @@ static int crtc_data_write(struct guest_info * core, uint16_t port, void * src, 
 		((uint16_t) video_state->crtc_data_regs[CRTC_REGIDX_CURSOR_LOC_LOW]);
 	    x = video_state->cursor_offset % video_state->hchars;
 	    y = (video_state->cursor_offset - video_state->screen_offset) / video_state->hchars;
-	    PrintVerbose("Video: video_state->cursor_offset=%d, x=%d, y=%d\n",
+	    PrintVerbose(core->vm_info, core, "Video: video_state->cursor_offset=%d, x=%d, y=%d\n",
 		video_state->cursor_offset, x, y);
 
 	    if (video_state->dirty) {
 		refresh_screen(video_state);
 	    }
 	    
-	    PrintVerbose("Video: set cursor(%d, %d)\n", x, y);
+	    PrintVerbose(core->vm_info, core, "Video: set cursor(%d, %d)\n", x, y);
 	    if (video_state->ops) {
 		if (video_state->ops->update_cursor(x, y, video_state->private_data) == -1) {
-		    PrintError("Error updating cursor\n");
+		    PrintError(core->vm_info, core, "Error updating cursor\n");
 		    return -1;
 		}
 	    } 
@@ -779,7 +779,7 @@ static int crtc_data_write(struct guest_info * core, uint16_t port, void * src, 
 	    break;
 	}
 	default:
-	    PrintDebug("Video: crtc[%d]=0x%x\n", index, val);
+	    PrintDebug(core->vm_info, core, "Video: crtc[%d]=0x%x\n", index, val);
 	    break;
     }
 
@@ -804,7 +804,7 @@ static int crtc_index_write(struct guest_info * core, uint16_t port, void * src,
 
     handle_port_write(video_state, __FUNCTION__, port, src, length, 2);
     if (length > 2) {
-	PrintError("Invalid write length for crtc index register port: %d (0x%x)\n",
+	PrintError(core->vm_info, core, "Invalid write length for crtc index register port: %d (0x%x)\n",
 		   port, port);
 	return -1;
     }
@@ -834,7 +834,7 @@ static int graphc_data_read(struct guest_info * core, uint16_t port, void * dest
     if (index < GRAPHC_REG_COUNT) {
     	*(uint8_t *) dest = video_state->graphc_data_regs[index];
     } else {
-    	PrintError("Video %s: index %d out of range\n", __FUNCTION__, video_state->graphc_index_reg);
+    	PrintError(core->vm_info, core, "Video %s: index %d out of range\n", __FUNCTION__, video_state->graphc_index_reg);
     	*(uint8_t *) dest = 0;
     }
 
@@ -849,11 +849,11 @@ static int graphc_data_write(struct guest_info * core, uint16_t port, void * src
     handle_port_write(video_state, __FUNCTION__, port, src, length, 1);
 
     if (index < GRAPHC_REG_COUNT) {
-    	PrintDebug("Video: graphc[%d]=0x%x\n", index, val);
+    	PrintDebug(core->vm_info, core, "Video: graphc[%d]=0x%x\n", index, val);
     	video_state->graphc_data_regs[index] = val;
     	registers_updated(video_state);
     } else {
-    	PrintError("Video %s: index %d out of range\n", __FUNCTION__, video_state->graphc_index_reg);
+    	PrintError(core->vm_info, core, "Video %s: index %d out of range\n", __FUNCTION__, video_state->graphc_index_reg);
     }
 
     return length;    
@@ -891,7 +891,7 @@ static int attrc_data_read(struct guest_info * core, uint16_t port, void * dest,
     if (index < ATTRC_REG_COUNT) {
     	*(uint8_t *) dest = video_state->attrc_data_regs[index];
     } else {
-    	PrintError("Video %s: index %d out of range\n", __FUNCTION__, video_state->attrc_index_reg);
+    	PrintError(core->vm_info, core, "Video %s: index %d out of range\n", __FUNCTION__, video_state->attrc_index_reg);
     	*(uint8_t *) dest = 0;
     }
 
@@ -906,10 +906,10 @@ static int attrc_data_write(struct guest_info * core, uint16_t port, void * src,
     handle_port_write(video_state, __FUNCTION__, port, src, length, 1);
 
     if (index < ATTRC_REG_COUNT) {
-    	PrintDebug("Video: attrc[%d]=0x%x\n", index, val);
+    	PrintDebug(core->vm_info, core, "Video: attrc[%d]=0x%x\n", index, val);
     	video_state->attrc_data_regs[index] = val;
     } else {
-    	PrintError("Video %s: index %d out of range\n", __FUNCTION__, video_state->attrc_index_reg);
+    	PrintError(core->vm_info, core, "Video %s: index %d out of range\n", __FUNCTION__, video_state->attrc_index_reg);
     }
 
     return length;    
@@ -989,7 +989,7 @@ static int dac_data_read(struct guest_info * core, uint16_t port, void * dest, u
     /* update palette */
     index = (unsigned) video_state->dac_indexr_reg * DAC_COLOR_COUNT + 
     	video_state->dac_indexr_color;
-    V3_ASSERT(index < DAC_REG_COUNT);
+    V3_ASSERT(core->vm_info, core, index < DAC_REG_COUNT);
     *(uint8_t *) dest = video_state->dac_data_regs[index];
     
     /* move on to next entry/color */
@@ -1010,7 +1010,7 @@ static int dac_data_write(struct guest_info * core, uint16_t port, void * src, u
     /* update palette */
     index = (unsigned) video_state->dac_indexw_reg * DAC_COLOR_COUNT + 
     	video_state->dac_indexw_color;
-    V3_ASSERT(index < DAC_REG_COUNT);
+    V3_ASSERT(core->vm_info, core, index < DAC_REG_COUNT);
     video_state->dac_data_regs[index] = *(uint8_t *) src;
     
     /* move on to next entry/color */
@@ -1070,12 +1070,12 @@ int v3_cons_get_fb_text(struct video_internal * state, uint8_t * dst, uint_t off
     uint_t framebuf_offset, len1, len2;
     uint_t screen_byte_offset = state->screen_offset * BYTES_PER_COL;
 
-    PrintVerbose("Video: getfb o=%d l=%d so=%d aa=0x%x al=0x%x hc=%d vc=%d\n",
+    PrintVerbose(VM_NONE, VCORE_NONE, "Video: getfb o=%d l=%d so=%d aa=0x%x al=0x%x hc=%d vc=%d\n",
     	offset, length, state->screen_offset, 
     	(unsigned) state->activefb_addr, (unsigned) state->activefb_len,
     	state->hchars, state->vchars);
-    V3_ASSERT(state->activefb_addr >= START_ADDR);
-    V3_ASSERT(state->activefb_addr + state->activefb_len <= END_ADDR);
+    V3_ASSERT(VM_NONE, VCORE_NONE, state->activefb_addr >= START_ADDR);
+    V3_ASSERT(VM_NONE, VCORE_NONE, state->activefb_addr + state->activefb_len <= END_ADDR);
 
     /* Copy memory with wrapping (should be configurable, but where else to get the data?) */
     framebuf = state->framebuf + (state->activefb_addr - START_ADDR);
@@ -1102,7 +1102,7 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
 static int cga_free(struct video_internal * video_state) {
 
     if (video_state->framebuf_pa) {
-	PrintError("Freeing framebuffer PA %p\n", (void *)(video_state->framebuf_pa));
+	PrintError(VM_NONE, VCORE_NONE, "Freeing framebuffer PA %p\n", (void *)(video_state->framebuf_pa));
 	V3_FreePages((void *)(video_state->framebuf_pa), (FRAMEBUF_SIZE / 4096));
     }
 
@@ -1158,7 +1158,7 @@ static int cga_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     return 0;
 
  savefailout:
-    PrintError("Failed to save CGA\n");
+    PrintError(VM_NONE, VCORE_NONE, "Failed to save CGA\n");
     return -1;
 
 }
@@ -1208,7 +1208,7 @@ static int cga_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     return 0;
 
  loadfailout:
-    PrintError("Failed to load cga\n");
+    PrintError(VM_NONE, VCORE_NONE, "Failed to load cga\n");
     return -1;
 
 }
@@ -1231,12 +1231,12 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * passthrough_str = v3_cfg_val(cfg, "passthrough");
     int ret = 0;
     
-    PrintDebug("video: init_device\n");
+    PrintDebug(vm, VCORE_NONE, "video: init_device\n");
 
     video_state = (struct video_internal *)V3_Malloc(sizeof(struct video_internal));
 
     if (!video_state) {
-	PrintError("Cannot allocate space for CGA state\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate space for CGA state\n");
 	return -1;
     }
 
@@ -1245,7 +1245,7 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, video_state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(video_state);
 	return -1;
     }
@@ -1255,7 +1255,7 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     video_state->framebuf_pa = (addr_t)V3_AllocPages(FRAMEBUF_SIZE / 4096);
 
     if (!video_state->framebuf_pa) { 
-	PrintError("Cannot allocate frame buffer\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate frame buffer\n");
 	V3_Free(video_state);
 	return -1;
     }
@@ -1264,7 +1264,7 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     memset(video_state->framebuf, 0, FRAMEBUF_SIZE);
 
-    PrintDebug("PA of array: %p\n", (void *)(video_state->framebuf_pa));
+    PrintDebug(vm, VCORE_NONE, "PA of array: %p\n", (void *)(video_state->framebuf_pa));
 
     if ((passthrough_str != NULL) &&
 	(strcasecmp(passthrough_str, "enable") == 0)) {;
@@ -1273,16 +1273,16 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 
     if (video_state->passthrough) {
-	PrintDebug("Enabling CGA Passthrough\n");
+	PrintDebug(vm, VCORE_NONE, "Enabling CGA Passthrough\n");
 	if (v3_hook_write_mem(vm, V3_MEM_CORE_ANY, START_ADDR, END_ADDR, 
 			      START_ADDR, &video_write_mem, dev) == -1) {
-	    PrintError("\n\nVideo Hook failed.\n\n");
+	    PrintError(vm, VCORE_NONE, "\n\nVideo Hook failed.\n\n");
 	    return -1;
 	}
     } else {
 	if (v3_hook_write_mem(vm, V3_MEM_CORE_ANY, START_ADDR, END_ADDR, 
 			      video_state->framebuf_pa, &video_write_mem, dev) == -1) {
-	    PrintError("\n\nVideo Hook failed.\n\n");
+	    PrintError(vm, VCORE_NONE, "\n\nVideo Hook failed.\n\n");
 	    return -1;
 	}
     }
@@ -1322,7 +1322,7 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     ret |= v3_dev_hook_io(dev, 0x3c6, &dac_pelmask_read, &dac_pelmask_write);
 
     if (ret != 0) {
-	PrintError("Error allocating VGA IO ports\n");
+	PrintError(vm, VCORE_NONE, "Error allocating VGA IO ports\n");
 	v3_remove_device(dev);
 	return -1;
     }

@@ -130,7 +130,7 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
 	    break;
 	case LONG:
 	    if (state->mmode != XED_MACHINE_MODE_LONG_64) {
-		PrintDebug("Setting decoder to long mode\n");
+		PrintDebug(info->vm_info, info, "Setting decoder to long mode\n");
 		//      state->mmode = XED_MACHINE_MODE_LONG_64;
 		//xed_state_set_machine_mode(state, XED_MACHINE_MODE_LONG_64);
 		xed_state_init(state,
@@ -140,7 +140,7 @@ static int set_decoder_mode(struct guest_info * info, xed_state_t * state) {
 	    }
 	    break;
 	default:
-	    PrintError("Unsupported CPU mode: %d\n", info->cpu_mode);
+	    PrintError(info->vm_info, info, "Unsupported CPU mode: %d\n", info->cpu_mode);
 	    return -1;
     }
     return 0;
@@ -169,7 +169,7 @@ int v3_init_decoder(struct guest_info * info) {
     xed_state_t * decoder_state = (xed_state_t *)V3_Malloc(sizeof(xed_state_t));
 
     if (!decoder_state) {
-	PrintError("Cannot allocate in initializing decoder\n");
+	PrintError(info->vm_info, info, "Cannot allocate in initializing decoder\n");
 	return -1;
     }
 
@@ -199,19 +199,19 @@ static int decode_string_op(struct guest_info * info,
 			    xed_decoded_inst_t * xed_instr,  const xed_inst_t * xi,
 			    struct x86_instr * instr) {
 
-    PrintDebug("String operation\n");
+    PrintDebug(info->vm_info, info, "String operation\n");
 
     if (instr->op_type == V3_OP_MOVS) {
 	instr->num_operands = 2;
 
 	if (get_memory_operand(info, xed_instr, 0, &(instr->dst_operand)) == -1) {
-	    PrintError("Could not get Destination memory operand\n");
+	    PrintError(info->vm_info, info, "Could not get Destination memory operand\n");
 	    return -1;
 	}
 
 
 	if (get_memory_operand(info, xed_instr, 1, &(instr->src_operand)) == -1) {
-	    PrintError("Could not get Source memory operand\n");
+	    PrintError(info->vm_info, info, "Could not get Source memory operand\n");
 	    return -1;
 	}
 
@@ -232,7 +232,7 @@ static int decode_string_op(struct guest_info * info,
 	instr->num_operands = 2;
 
 	if (get_memory_operand(info, xed_instr, 0, &(instr->dst_operand)) == -1) {
-	    PrintError("Could not get Destination memory operand\n");
+	    PrintError(info->vm_info, info, "Could not get Destination memory operand\n");
 	    return -1;
 	}
 
@@ -257,7 +257,7 @@ static int decode_string_op(struct guest_info * info,
 	}
 
     } else {
-	PrintError("Unhandled String OP\n");
+	PrintError(info->vm_info, info, "Unhandled String OP\n");
 	return -1;
     }
 
@@ -275,7 +275,7 @@ int v3_disasm(struct guest_info * info, void *instr_ptr, addr_t * rip, int mark)
 
     /* disassemble the specified instruction */
     if (set_decoder_mode(info, info->decoder_state) == -1) {
-	PrintError("Could not set decoder mode\n");
+	PrintError(info->vm_info, info, "Could not set decoder mode\n");
 	return -1;
     }
 
@@ -286,27 +286,27 @@ int v3_disasm(struct guest_info * info, void *instr_ptr, addr_t * rip, int mark)
 			   XED_MAX_INSTRUCTION_BYTES);
 
     if (xed_error != XED_ERROR_NONE) {
-	PrintError("Xed error: %s\n", xed_error_enum_t2str(xed_error));
+	PrintError(info->vm_info, info, "Xed error: %s\n", xed_error_enum_t2str(xed_error));
 	return -1;
     }
 
     /* obtain string representation in AT&T syntax */
     if (!xed_format_att(&xed_instr, buffer, sizeof(buffer), *rip)) {
-	PrintError("Xed error: cannot disaaemble\n");
+	PrintError(info->vm_info, info, "Xed error: cannot disaaemble\n");
 	return -1;
     }
 
     /* print address, opcode bytes and the disassembled instruction */
     length = xed_decoded_inst_get_length(&xed_instr);
-    V3_Print("0x%p %c ", (void *) *rip, mark ? '*' : ' ');
+    V3_Print(info->vm_info, info, "0x%p %c ", (void *) *rip, mark ? '*' : ' ');
     for (i = 0; i < length; i++) {
     	unsigned char b = ((unsigned char *) instr_ptr)[i];
-    	V3_Print("%x%x ", b >> 4, b & 0xf);
+    	V3_Print(info->vm_info, info, "%x%x ", b >> 4, b & 0xf);
     }
     while (i++ < 8) {
-    	V3_Print("   ");
+    	V3_Print(info->vm_info, info, "   ");
     }
-    V3_Print("%s\n", buffer);
+    V3_Print(info->vm_info, info, "%s\n", buffer);
 
     /* move on to next instruction */
     *rip += length;
@@ -325,7 +325,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     v3_get_prefixes((uchar_t *)instr_ptr, &(instr->prefixes));
 
     if (set_decoder_mode(info, info->decoder_state) == -1) {
-	PrintError("Could not set decoder mode\n");
+	PrintError(info->vm_info, info, "Could not set decoder mode\n");
 	return -1;
     }
 
@@ -337,7 +337,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 
     if (xed_error != XED_ERROR_NONE) {
-	PrintError("Xed error: %s\n", xed_error_enum_t2str(xed_error));
+	PrintError(info->vm_info, info, "Xed error: %s\n", xed_error_enum_t2str(xed_error));
 	return -1;
     }
 
@@ -351,12 +351,12 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 #ifdef V3_CONFIG_DEBUG_DECODER
     xed_iclass_enum_t iclass = xed_decoded_inst_get_iclass(&xed_instr);
 
-    PrintDebug("iform=%s, iclass=%s\n", xed_iform_enum_t2str(iform), xed_iclass_enum_t2str(iclass));
+    PrintDebug(info->vm_info, info, "iform=%s, iclass=%s\n", xed_iform_enum_t2str(iform), xed_iclass_enum_t2str(iclass));
 #endif
 
 
     if ((instr->op_type = get_opcode(iform)) == V3_INVALID_OP) {
-	PrintError("Could not get opcode. (iform=%s)\n", xed_iform_enum_t2str(iform));
+	PrintError(info->vm_info, info, "Could not get opcode. (iform=%s)\n", xed_iform_enum_t2str(iform));
 	return -1;
     }
 
@@ -374,7 +374,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
     /*
       if (instr->num_operands > 3) {
-      PrintDebug("Special Case Not Handled (more than 3 operands) (iform=%s)\n", xed_iform_enum_t2str(iform)
+      PrintDebug(info->vm_info, info, "Special Case Not Handled (more than 3 operands) (iform=%s)\n", xed_iform_enum_t2str(iform)
       return -1;
       // special case
       } else if (instr->num_operands == 3) {
@@ -384,14 +384,14 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
       if ((!xed_operand_is_register(op_enum)) ||
       (!is_flags_reg(xed_decoded_inst_get_reg(&xed_instr, op_enum)))) {
       // special case
-      PrintError("Special Case not handled (iform=%s)\n", xed_iform_enum_t2str(iform));
+      PrintError(info->vm_info, info, "Special Case not handled (iform=%s)\n", xed_iform_enum_t2str(iform));
       return -1;
       }
       }
     */
 
-    //PrintDebug("Number of operands: %d\n", instr->num_operands);
-    //PrintDebug("INSTR length: %d\n", instr->instr_length);
+    //PrintDebug(info->vm_info, info, "Number of operands: %d\n", instr->num_operands);
+    //PrintDebug(info->vm_info, info, "INSTR length: %d\n", instr->instr_length);
 
     // set first operand
     if (instr->num_operands >= 1) {
@@ -418,7 +418,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 						&(v3_op->size));
 
 	    if (v3_reg_type == -1) {
-		PrintError("First operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+		PrintError(info->vm_info, info, "First operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
 		v3_op->type = INVALID_OPERAND;
 		return -1;
 	    } else if (v3_reg_type == SEGMENT_REGISTER) {
@@ -433,9 +433,9 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 		case XED_OPERAND_MEM0:
 		    {
-			PrintDebug("Memory operand (1)\n");
+			PrintDebug(info->vm_info, info, "Memory operand (1)\n");
 			if (get_memory_operand(info, &xed_instr, 0, v3_op) == -1) {
-			    PrintError("Could not get first memory operand\n");
+			    PrintError(info->vm_info, info, "Could not get first memory operand\n");
 			    return -1;
 			}
 		    }
@@ -444,7 +444,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 		case XED_OPERAND_MEM1:
 		case XED_OPERAND_IMM1:
 		    // illegal
-		    PrintError("Illegal Operand Order\n");
+		    PrintError(info->vm_info, info, "Illegal Operand Order\n");
 		    return -1;
 
 
@@ -453,7 +453,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
                 v3_op->size = xed_decoded_inst_get_immediate_width(&xed_instr);
 
                 if (v3_op->size > 4) {
-                    PrintError("Unhandled 64 bit immediates\n");
+                    PrintError(info->vm_info, info, "Unhandled 64 bit immediates\n");
                     return -1;
                 }
                 v3_op->operand = xed_decoded_inst_get_unsigned_immediate(&xed_instr);
@@ -466,12 +466,12 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 		case XED_OPERAND_PTR:
 		case XED_OPERAND_RELBR:
 		default:
-		    PrintError("Unhandled Operand Type\n");
+		    PrintError(info->vm_info, info, "Unhandled Operand Type\n");
 		    return -1;
 	    }
 	}
 
-//	V3_Print("Operand 0 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+//	V3_Print(info->vm_info, info, "Operand 0 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
 
 
 	if (xed_operand_read(op)) {
@@ -509,7 +509,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 						&(v3_op->operand), 
 						&(v3_op->size));
 	    if (v3_reg_type == -1) {
-		PrintError("Second operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+		PrintError(info->vm_info, info, "Second operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
 		v3_op->type = INVALID_OPERAND;
 		return -1;
 	    } else if (v3_reg_type == SEGMENT_REGISTER) {
@@ -523,9 +523,9 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 		case XED_OPERAND_MEM0:
 		    {
-			PrintDebug("Memory operand (2)\n");
+			PrintDebug(info->vm_info, info, "Memory operand (2)\n");
 			if (get_memory_operand(info, &xed_instr, 0, v3_op) == -1) {
-			    PrintError("Could not get first memory operand\n");
+			    PrintError(info->vm_info, info, "Could not get first memory operand\n");
 			    return -1;
 			}
 		    }
@@ -536,7 +536,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 			instr->src_operand.size = xed_decoded_inst_get_immediate_width(&xed_instr);
 
 			if (instr->src_operand.size > 4) {
-			    PrintError("Unhandled 64 bit immediates\n");
+			    PrintError(info->vm_info, info, "Unhandled 64 bit immediates\n");
 			    return -1;
 			}
 			instr->src_operand.operand = xed_decoded_inst_get_unsigned_immediate(&xed_instr);
@@ -549,19 +549,19 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 		case XED_OPERAND_MEM1:
 		case XED_OPERAND_IMM1:
 		    // illegal
-		    PrintError("Illegal Operand Order\n");
+		    PrintError(info->vm_info, info, "Illegal Operand Order\n");
 		    return -1;
 	
 		case XED_OPERAND_AGEN:
 		case XED_OPERAND_PTR:
 		case XED_OPERAND_RELBR:
 		default:
-		    PrintError("Unhandled Operand Type\n");
+		    PrintError(info->vm_info, info, "Unhandled Operand Type\n");
 		    return -1;
 	    }
 	}
 
-//	V3_Print("Operand 1 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+//	V3_Print(info->vm_info, info, "Operand 1 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
 
 	if (xed_operand_read(op)) {
 	    v3_op->read = 1;
@@ -589,7 +589,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 						&(instr->third_operand.size));
 
 	    if (v3_reg_type == -1) {
-		PrintError("Third operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
+		PrintError(info->vm_info, info, "Third operand is an Unhandled Operand: %s\n", xed_reg_enum_t2str(xed_reg));
 		instr->third_operand.type = INVALID_OPERAND;
 		return -1;
 	    } else if (v3_reg_type == SEGMENT_REGISTER) {
@@ -600,7 +600,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
 	    instr->third_operand.type = REG_OPERAND;
 
-	    PrintDebug("Operand 2 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
+	    PrintDebug(info->vm_info, info, "Operand 2 mode: %s\n", xed_operand_action_enum_t2str(xed_operand_rw(op)));
 
 
 	    if (xed_operand_read(op)) {
@@ -612,7 +612,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 	    }
 
 	} else {
-	    PrintError("Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
+	    PrintError(info->vm_info, info, "Unhandled third operand type %s\n", xed_operand_type_enum_t2str(op_type));
 	    instr->num_operands = 2;
 	}
     }
@@ -642,10 +642,10 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
     v3_cpu_mode_t cpu_mode = v3_get_vm_cpu_mode(info);
     // struct v3_segment * seg_reg;
 
-    PrintDebug("Xed mode = %s\n", xed_machine_mode_enum_t2str(xed_state_get_machine_mode(info->decoder_state)));
-    PrintDebug("Address width: %s\n",
+    PrintDebug(info->vm_info, info, "Xed mode = %s\n", xed_machine_mode_enum_t2str(xed_state_get_machine_mode(info->decoder_state)));
+    PrintDebug(info->vm_info, info, "Address width: %s\n",
 	       xed_address_width_enum_t2str(xed_state_get_address_width(info->decoder_state)));
-    PrintDebug("Stack Address width: %s\n",
+    PrintDebug(info->vm_info, info, "Stack Address width: %s\n",
 	       xed_address_width_enum_t2str(xed_state_get_stack_address_width(info->decoder_state)));
 
   
@@ -656,7 +656,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
     if (xed_seg != XED_REG_INVALID) {
 	struct v3_segment *tmp_segment;
 	if (xed_reg_to_v3_reg(info, xed_seg, (addr_t *)&tmp_segment, &(mem_op.segment_size)) == -1) {
-	    PrintError("Unhandled Segment Register\n");
+	    PrintError(info->vm_info, info, "Unhandled Segment Register\n");
 	    return -1;
 	}
 	mem_op.segment = tmp_segment->base;
@@ -666,7 +666,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
     if (xed_base != XED_REG_INVALID) {
 	addr_t base_reg;
 	if (xed_reg_to_v3_reg(info, xed_base, &base_reg, &(mem_op.base_size)) == -1) {
-	    PrintError("Unhandled Base register\n");
+	    PrintError(info->vm_info, info, "Unhandled Base register\n");
 	    return -1;
 	}
 	mem_op.base = *(addr_t *)base_reg;
@@ -679,7 +679,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
 	addr_t index_reg;
     
 	if (xed_reg_to_v3_reg(info, xed_idx, &index_reg, &(mem_op.index_size)) == -1) {
-	    PrintError("Unhandled Index Register\n");
+	    PrintError(info->vm_info, info, "Unhandled Index Register\n");
 	    return -1;
 	}
 
@@ -705,12 +705,12 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
   
   
 
-    PrintDebug("Struct: Seg=%p (size=%d), base=%p, index=%p, scale=%p, displacement=%p (size=%d)\n", 
+    PrintDebug(info->vm_info, info, "Struct: Seg=%p (size=%d), base=%p, index=%p, scale=%p, displacement=%p (size=%d)\n", 
 	       (void *)mem_op.segment, mem_op.segment_size, (void*)mem_op.base, (void *)mem_op.index, 
 	       (void *)mem_op.scale, (void *)(addr_t)mem_op.displacement, mem_op.displacement_size);
 
 
-    PrintDebug("operand size: %d\n", operand->size);
+    PrintDebug(info->vm_info, info, "operand size: %d\n", operand->size);
 
     seg = MASK(mem_op.segment, mem_op.segment_size);
     base = MASK(mem_op.base, mem_op.base_size);
@@ -727,7 +727,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
     displacement = ((sllong_t)displacement) >> (64 - mem_op.displacement_size * 8);
     
 
-    PrintDebug("Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
+    PrintDebug(info->vm_info, info, "Seg=%p, base=%p, index=%p, scale=%p, displacement=%p\n", 
 	       (void *)seg, (void *)base, (void *)index, (void *)scale, (void *)(addr_t)displacement);
   
     if (cpu_mode == REAL) {
@@ -743,7 +743,7 @@ static int get_memory_operand(struct guest_info * info,  xed_decoded_inst_t * xe
 static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg, 
 			     addr_t * v3_reg, uint_t * reg_len) {
 
-    PrintDebug("Xed Register: %s\n", xed_reg_enum_t2str(xed_reg));
+    PrintDebug(info->vm_info, info, "Xed Register: %s\n", xed_reg_enum_t2str(xed_reg));
 
     switch (xed_reg) {
 	case XED_REG_INVALID:
@@ -1150,7 +1150,7 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg,
 	case XED_REG_LDTR:
 	case XED_REG_IDTR:
 	case XED_REG_TR:
-	    PrintError("Segment selector operand... Don't know how to handle this...\n");
+	    PrintError(info->vm_info, info, "Segment selector operand... Don't know how to handle this...\n");
 	    return -1;
 
 	    /* 

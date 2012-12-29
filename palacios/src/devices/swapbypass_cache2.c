@@ -148,13 +148,13 @@ static inline void * get_swap_entry(uint32_t pg_index, void * private_data) {
 	return NULL;
     }
 
-    PrintDebug("Getting swap entry for index %d\n", pg_index);
+    PrintDebug(info->vm_info, info, "Getting swap entry for index %d\n", pg_index);
 
     entry = (struct cache_entry *)v3_htable_search(swap->entry_ht, swap_index);
 
     if (entry != NULL) {
 	uint32_t cache_index = get_cache_entry_index(swap, entry);
-	PrintDebug("Found cached entry (%d)\n", cache_index);
+	PrintDebug(info->vm_info, info, "Found cached entry (%d)\n", cache_index);
 	pg_addr = swap->cache + (cache_index * 4096);
     }
 
@@ -208,7 +208,7 @@ static int buf_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
     swap->io_flag = 0;
 
     if (length % 4096) {
-	PrintError("Swapping in length that is not a page multiple\n");
+	PrintError(VM_NONE, VCORE_NONE, "Swapping in length that is not a page multiple\n");
     }
 
     if (swap->disabled) {
@@ -216,11 +216,11 @@ static int buf_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
     }
 
 
-    PrintDebug("SymSwap: Reading %d bytes to %p (lba=%p)\n", (uint32_t)num_bytes, buf, (void *)(addr_t)lba);
+    PrintDebug(VM_NONE, VCORE_NONE, "SymSwap: Reading %d bytes to %p (lba=%p)\n", (uint32_t)num_bytes, buf, (void *)(addr_t)lba);
 	
 
     if (length % 4096) {
-	PrintError("Swapping in length that is not a page multiple\n");
+	PrintError(VM_NONE, VCORE_NONE, "Swapping in length that is not a page multiple\n");
 	return -1;
     }
 
@@ -248,7 +248,7 @@ static int buf_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
 		v3_swap_in_notify(swap->vm, get_swap_index_from_offset(offset + i), swap->hdr.info.type);
 	    }	    
 
-	    PrintDebug("Searching for swap index %d\n", swap_index);
+	    PrintDebug(VM_NONE, VCORE_NONE, "Searching for swap index %d\n", swap_index);
 
 	    entry = (struct cache_entry *)v3_htable_search(swap->entry_ht, (addr_t)swap_index);
 
@@ -256,15 +256,15 @@ static int buf_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
 		
 		cache_index = get_cache_entry_index(swap, entry);
 		
-		PrintDebug("Reading from cache entry %d\n", cache_index);
+		PrintDebug(VM_NONE, VCORE_NONE, "Reading from cache entry %d\n", cache_index);
 
 		memcpy(buf, swap->cache + (cache_index * 4096), 4096);
 
 	    } else {
-		PrintDebug("Reading from disk offset = %p\n", (void *)(addr_t)offset); 
+		PrintDebug(VM_NONE, VCORE_NONE, "Reading from disk offset = %p\n", (void *)(addr_t)offset); 
 
 		if (read_disk(buf, offset, 4096, swap) == -1) {
-		    PrintError("Error reading disk\n");
+		    PrintError(VM_NONE, VCORE_NONE, "Error reading disk\n");
 		    return -1;
 		}
 	    }
@@ -284,7 +284,7 @@ static int buf_read(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * priv
 static int flush_cache(struct swap_state * swap, int num_to_flush) {
     int i;
 
-    PrintDebug("Flushing %d pages\n", num_to_flush);
+    PrintDebug(VM_NONE, VCORE_NONE, "Flushing %d pages\n", num_to_flush);
 
     for (i = 0; i < num_to_flush; i++) {
 	struct cache_entry * entry = NULL;
@@ -293,10 +293,10 @@ static int flush_cache(struct swap_state * swap, int num_to_flush) {
  	entry = list_first_entry(&(swap->entry_list), struct cache_entry, cache_node);
 
 	entry_index = get_cache_entry_index(swap, entry);
-	PrintDebug("Flushing cache entry %d\n", entry_index);
+	PrintDebug(VM_NONE, VCORE_NONE, "Flushing cache entry %d\n", entry_index);
 
 	if (write_disk(swap->cache + (entry_index * 4096), entry->disk_index, 4096, swap) == -1) {
-	    PrintError("Error in disk write\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Error in disk write\n");
 	    return -1;
 	}
 
@@ -340,7 +340,7 @@ static int buf_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
 
 
     /*
-      PrintDebug("SymSwap: Writing %d bytes to %p from %p\n", length, 
+      PrintDebug(VM_NONE, VCORE_NONE, "SymSwap: Writing %d bytes to %p from %p\n", length, 
       (void *)(swap->swap_space + offset), buf);
     */
 
@@ -354,24 +354,24 @@ static int buf_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
 	memcpy(&(swap->hdr), buf, sizeof(union swap_header));
 
 
-	PrintError("Swap Type=%d (magic=%s)\n", swap->hdr.info.type, swap->hdr.magic.magic);
+	PrintError(VM_NONE, VCORE_NONE, "Swap Type=%d (magic=%s)\n", swap->hdr.info.type, swap->hdr.magic.magic);
 
 	if (swap->symbiotic == 1) {
 	    if (v3_register_swap_disk(swap->vm, swap->hdr.info.type, &swap_ops, swap) == -1) {
-		PrintError("Error registering symbiotic swap disk\n");
+		PrintError(VM_NONE, VCORE_NONE, "Error registering symbiotic swap disk\n");
 		return -1;
 	    }
 
-	    PrintError("Swap disk registered\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Swap disk registered\n");
 	}
 
 
 	if (write_disk(buf, lba, num_bytes, swap) == -1) {
-	    PrintError("Error writing swap header to disk\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Error writing swap header to disk\n");
 	    return -1;
 	}
 
-	PrintDebug("Wrote header to disk\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "Wrote header to disk\n");
 
 	return 0;
     }
@@ -388,7 +388,7 @@ static int buf_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
 	swap->pages_out += length / 4096;
 #endif
 
-	PrintDebug("available cache space = %d, pages written = %d\n", avail_space, written_pages);
+	PrintDebug(VM_NONE, VCORE_NONE, "available cache space = %d, pages written = %d\n", avail_space, written_pages);
 
 	if (avail_space < written_pages) {
 	    flush_cache(swap, written_pages - avail_space);
@@ -417,7 +417,7 @@ static int buf_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
 	    
 	    cache_index = get_cache_entry_index(swap, new_entry);
 	    
-	    PrintDebug("Writing to cache entry %d\n", cache_index);
+	    PrintDebug(VM_NONE, VCORE_NONE, "Writing to cache entry %d\n", cache_index);
 
 	    memcpy(swap->cache + (cache_index * 4096), buf, 4096);
 
@@ -425,7 +425,7 @@ static int buf_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
 	}
     } else {
 	if (write_disk(buf, lba, num_bytes, swap) == -1) {
-	    PrintError("Error writing swap header to disk\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Error writing swap header to disk\n");
 	    return -1;
 	}
     }
@@ -443,7 +443,7 @@ static int swap_write(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * p
     int idx = lba % 4096;
 
     if (num_bytes != 512) {
-	PrintError("Write for %d bytes\n", (uint32_t)num_bytes);
+	PrintError(VM_NONE, VCORE_NONE, "Write for %d bytes\n", (uint32_t)num_bytes);
 	return -1;
     }
 
@@ -468,13 +468,13 @@ static int swap_read(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
     
 
     if (num_bytes != 512) {
-	PrintError("Read for %d bytes\n", (uint32_t)num_bytes);
+	PrintError(VM_NONE, VCORE_NONE, "Read for %d bytes\n", (uint32_t)num_bytes);
 	return -1;
     }
 
     if (idx == 0) {
 	if (buf_read(read_buf, lba - idx, 4096, private_data) == -1) {
-	    PrintError("Error reading buffer\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Error reading buffer\n");
 	    return -1;
 	}
     }
@@ -485,7 +485,7 @@ static int swap_read(uint8_t * buf,  uint64_t lba, uint64_t num_bytes, void * pr
 }
 
 
-static int swap_free(struct vm_device * dev) {
+static int swap_free(void * dev) {
     return -1;
 }
 
@@ -500,9 +500,6 @@ static struct v3_dev_blk_ops blk_ops = {
 
 static struct v3_device_ops dev_ops = {
     .free = swap_free,
-    .reset = NULL,
-    .start = NULL,
-    .stop = NULL,
 };
 
 
@@ -510,11 +507,11 @@ static struct v3_device_ops dev_ops = {
 static void telemetry_cb(struct v3_vm_info * vm, void * private_data, char * hdr) {
     struct swap_state * swap = (struct swap_state *)private_data;
 
-    V3_Print("%sSwap Device:\n", hdr);
-    V3_Print("%s\tPages Swapped in=%d\n", hdr, swap->pages_in);
-    V3_Print("%s\tPages Swapped out=%d\n", hdr, swap->pages_out);
-    V3_Print("%s\tPages Written to Disk=%d\n", hdr, swap->disk_writes);
-    V3_Print("%s\tPages Read from Disk=%d\n", hdr, swap->disk_reads);
+    V3_Print(vm, VCORE_NONE, "%sSwap Device:\n", hdr);
+    V3_Print(vm, VCORE_NONE, "%s\tPages Swapped in=%d\n", hdr, swap->pages_in);
+    V3_Print(vm, VCORE_NONE, "%s\tPages Swapped out=%d\n", hdr, swap->pages_out);
+    V3_Print(vm, VCORE_NONE, "%s\tPages Written to Disk=%d\n", hdr, swap->disk_writes);
+    V3_Print(vm, VCORE_NONE, "%s\tPages Read from Disk=%d\n", hdr, swap->disk_reads);
 }
 #endif
 
@@ -532,16 +529,16 @@ static int connect_fn(struct v3_vm_info * vm,
     int i;
 
     if (!frontend_cfg) {
-	PrintError("Initializing sym swap without a frontend device\n");
+	PrintError(vm, VCORE_NONE, "Initializing sym swap without a frontend device\n");
 	return -1;
     }
 
-    PrintError("Creating Swap filter (cache size=%dMB)\n", cache_size / (1024 * 1024));
+    PrintError(vm, VCORE_NONE, "Creating Swap filter (cache size=%dMB)\n", cache_size / (1024 * 1024));
 
     swap = (struct swap_state *)V3_Malloc(sizeof(struct swap_state));
 
     if (!swap) {
-	PrintError("Cannot allocate in connect\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in connect\n");
 	return -1;
     }
 
@@ -568,7 +565,7 @@ static int connect_fn(struct v3_vm_info * vm,
 	swap->entry_map = (struct cache_entry *)V3_Malloc(sizeof(struct cache_entry) * (cache_size / 4096));
 
 	if (!swap->entry_map) {
-	    PrintError("Cannot allocate in connect\n");
+	    PrintError(vm, VCORE_NONE, "Cannot allocate in connect\n");
 	    return -1;
 	}
 
@@ -584,7 +581,7 @@ static int connect_fn(struct v3_vm_info * vm,
 	swap->cache_base_addr = (addr_t)V3_AllocPages(swap->cache_size / 4096);
 
 	if (!swap->cache_base_addr) { 
-	    PrintError("Cannot allocate cache space\n");
+	    PrintError(vm, VCORE_NONE, "Cannot allocate cache space\n");
 	    V3_Free(swap);
 	    return -1;
 	}
@@ -596,7 +593,7 @@ static int connect_fn(struct v3_vm_info * vm,
 
     if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &blk_ops, frontend_cfg, swap) == -1) {
-	PrintError("Could not connect to frontend %s\n", 
+	PrintError(vm, VCORE_NONE, "Could not connect to frontend %s\n", 
 		    v3_cfg_val(frontend_cfg, "tag"));
 	return -1;
     }
@@ -623,12 +620,12 @@ static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, NULL);
 
     if (v3_attach_device(vm, dev) == -1) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	return -1;
     }
 
     if (v3_dev_add_blk_frontend(vm, dev_id, connect_fn, NULL) == -1) {
-	PrintError("Could not register %s as block frontend\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not register %s as block frontend\n", dev_id);
 	return -1;
     }
 

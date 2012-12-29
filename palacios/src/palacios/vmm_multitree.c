@@ -57,11 +57,11 @@ struct v3_mtree * v3_mtree_create_node(struct v3_mtree * root, char * name) {
     struct v3_mtree * ret = NULL;
 
 
-    PrintDebug("Creating Node %s\n", name);
+    PrintDebug(VM_NONE, VCORE_NONE, "Creating Node %s\n", name);
 
 
     if (!node) {
-	PrintError("Cannot allocate multitree node\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate multitree node\n");
 	return NULL;
     }
 
@@ -69,16 +69,16 @@ struct v3_mtree * v3_mtree_create_node(struct v3_mtree * root, char * name) {
     strncpy(node->name, name, V3_MTREE_NAME_LEN);
 
     if ((ret = __insert_mtree_node(root, node))) {
-	PrintError("Insertion failure\n");
+	PrintError(VM_NONE, VCORE_NONE, "Insertion failure\n");
 	V3_Free(node);
 	return NULL;
     }
 
-    PrintDebug("Node (%s)=%p, root=%p, root->child=%p\n", node->name, node, root, root->child.rb_node);
+    PrintDebug(VM_NONE, VCORE_NONE, "Node (%s)=%p, root=%p, root->child=%p\n", node->name, node, root, root->child.rb_node);
 
     v3_rb_insert_color(&(node->tree_node), &(root->child));
 
-    PrintDebug("balanced\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "balanced\n");
 
     return node;
 }
@@ -87,7 +87,7 @@ struct v3_mtree * v3_mtree_create_node(struct v3_mtree * root, char * name) {
 struct v3_mtree * v3_mtree_create_subtree(struct v3_mtree * root, char * name) {
     struct v3_mtree * node = NULL;
 
-    PrintDebug("Creating Subtree %s\n", name);
+    PrintDebug(VM_NONE, VCORE_NONE, "Creating Subtree %s\n", name);
     node = v3_mtree_create_node(root, name);
 
     if (node == NULL) {
@@ -104,7 +104,7 @@ struct v3_mtree * v3_mtree_create_value(struct v3_mtree * root, char * name,
 					uint64_t size, void * value) {
     struct v3_mtree * node  = NULL;
 
-    PrintDebug("Creating value %s\n", name);    
+    PrintDebug(VM_NONE, VCORE_NONE, "Creating value %s\n", name);    
     node = v3_mtree_create_node(root, name);
 
     if (node == NULL) {
@@ -124,7 +124,7 @@ struct v3_mtree * v3_mtree_find_node(struct v3_mtree * root, char * name) {
     struct v3_mtree * tmp_node = NULL;
 
     if (root->subtree == 0) {
-	PrintError("Searching for node on a non-root mtree (search=%s), root=%s\n", name, root->name);
+	PrintError(VM_NONE, VCORE_NONE, "Searching for node on a non-root mtree (search=%s), root=%s\n", name, root->name);
 	return NULL;
     }
    

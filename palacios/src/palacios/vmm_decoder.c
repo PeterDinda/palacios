@@ -191,40 +191,40 @@ static const ullong_t mask_8 = 0xffffffffffffffffLL;
 	})
 
 void v3_print_instr(struct x86_instr * instr) {
-    V3_Print("Instr: %s (Len: %d)\n", op_type_to_str(instr->op_type), instr->instr_length);
+    V3_Print(VM_NONE, VCORE_NONE, "Instr: %s (Len: %d)\n", op_type_to_str(instr->op_type), instr->instr_length);
 
-    V3_Print("Prefixes= %x\n", instr->prefixes.val);
+    V3_Print(VM_NONE, VCORE_NONE, "Prefixes= %x\n", instr->prefixes.val);
 
     if (instr->is_str_op) {
-	V3_Print("String OP (len=%d)\n", (uint32_t)instr->str_op_length);
+	V3_Print(VM_NONE, VCORE_NONE, "String OP (len=%d)\n", (uint32_t)instr->str_op_length);
     }
 
-    V3_Print("Number of operands: %d\n", instr->num_operands);
+    V3_Print(VM_NONE, VCORE_NONE, "Number of operands: %d\n", instr->num_operands);
 
     if (instr->num_operands > 0) {
-	V3_Print("Src Operand (%s)\n", operand_type_to_str(instr->src_operand.type));
-	V3_Print("\tLen=%d (Addr: %p)\n", instr->src_operand.size, 
+	V3_Print(VM_NONE, VCORE_NONE, "Src Operand (%s)\n", operand_type_to_str(instr->src_operand.type));
+	V3_Print(VM_NONE, VCORE_NONE, "\tLen=%d (Addr: %p)\n", instr->src_operand.size, 
 		 (void *)instr->src_operand.operand);
 	if (instr->src_operand.type == REG_OPERAND) {
-	    V3_Print("\tVal: 0x%llx\n", MASK(*(uint64_t *)(instr->src_operand.operand), instr->src_operand.size));
+	    V3_Print(VM_NONE, VCORE_NONE, "\tVal: 0x%llx\n", MASK(*(uint64_t *)(instr->src_operand.operand), instr->src_operand.size));
 	}
     }
 
     if (instr->num_operands > 1) {
-	V3_Print("Dst Operand (%s)\n", operand_type_to_str(instr->dst_operand.type));
-	V3_Print("\tLen=%d (Addr: %p)\n", instr->dst_operand.size, 
+	V3_Print(VM_NONE, VCORE_NONE, "Dst Operand (%s)\n", operand_type_to_str(instr->dst_operand.type));
+	V3_Print(VM_NONE, VCORE_NONE, "\tLen=%d (Addr: %p)\n", instr->dst_operand.size, 
 		 (void *)instr->dst_operand.operand);
 	if (instr->dst_operand.type == REG_OPERAND) {
-	    V3_Print("\tVal: 0x%llx\n", MASK(*(uint64_t *)(instr->dst_operand.operand), instr->dst_operand.size));
+	    V3_Print(VM_NONE, VCORE_NONE, "\tVal: 0x%llx\n", MASK(*(uint64_t *)(instr->dst_operand.operand), instr->dst_operand.size));
 	}
     }
 
     if (instr->num_operands > 2) {
-	V3_Print("Third Operand (%s)\n", operand_type_to_str(instr->third_operand.type));
-	V3_Print("\tLen=%d (Addr: %p)\n", instr->third_operand.size, 
+	V3_Print(VM_NONE, VCORE_NONE, "Third Operand (%s)\n", operand_type_to_str(instr->third_operand.type));
+	V3_Print(VM_NONE, VCORE_NONE, "\tLen=%d (Addr: %p)\n", instr->third_operand.size, 
 		 (void *)instr->third_operand.operand);
 	if (instr->third_operand.type == REG_OPERAND) {
-	    V3_Print("\tVal: 0x%llx\n", MASK(*(uint64_t *)(instr->third_operand.operand), instr->third_operand.size));
+	    V3_Print(VM_NONE, VCORE_NONE, "\tVal: 0x%llx\n", MASK(*(uint64_t *)(instr->third_operand.operand), instr->third_operand.size));
 	}
     }
 }

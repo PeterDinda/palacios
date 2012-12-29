@@ -1,0 +1,120 @@
+#!/usr/bin/perl -w
+
+use Getopt::Long;
+
+$debug=0;
+$error=0;
+$telemetry=0;
+$skipunnamed=0;
+$skipgeneral=0;
+$targetvcore=-1;
+$format=0;
+$any=0;
+$stream=0;
+
+&GetOptions("skipunnamed"=>\$skipunnamed,
+	    "skipgeneral"=>\$skipgeneral,
+	    "debug"=>\$debug,
+	    "error"=>\$error,
+	    "telemetry"=>\$telemetry,
+	    "format"=>\$format,
+	    "stream"=>\$stream,
+	    "vcore=i"=>\$targetvcore);
+
+
+$#ARGV==0 or die "v3_info [--skipunnamed] [--skipgeneral] [--debug] [--error]\n".
+                 "        [--telemetry] [--vcore=num] [--format] [--stream] vmname|_\n\n".
+  "Filter palacios output in dmesg\n".
+  "given a vmname, the default is to show the general output\n".
+  "for that vm, plus any general output from palacios.\n".
+  "the vm name \"_\" means VMs of any name.\n\n".
+  "  --skipunnamed : do not show non-VM specific output\n".
+  "  --skipgeneral : do not show general output (V3_Print)\n".
+  "  --debug       : show debug output (PrintDebug)\n".
+  "  --error       : show error output (PrintError)\n".
+  "  --telemetry   : show telemetry output\n".
+  "  --vcore=num   : show only output for specified vcore\n".
+  "  --stream      : attempt to stream from /proc/kmsg\n".
+  "  --format      : reformat output into a convenient form\n\n";
+
+  
+  
+
+$vmname = shift;
+if ($vmname eq "_") { 
+  $any=1;
+} else {
+  $any=0;
+}
+
+if ($stream) {
+  open(DMESG, "cat /proc/kmsg |");
+} else {
+  open(DMESG,"dmesg |");
+}
+
+while ($line = <DMESG>) {
+  $origline=$line;
+  $timestamp=-1;
+  $pcore=-1;
+  $vm="NONE";
+  $vcore=-1;
+
+  if ($line =~ /^\[(.*)\]\s+(.*)$/) { 
+    $timestamp = $1;
+    $line = $2;
+  }
+      
+  
+  if ($line =~/^palacios\s+\(pcore\s+(\d+)\)\:\s+(.*)/) { 
+    # Unnamed output
+    next if $skipunnamed;
+    next if ($targetvcore!=-1);
+    $pcore=$1;
+    $line=$2;
+  } elsif ($line =~/^palacios\s+\(pcore\s+(\d+)\s+vm\s+(\S+)\s+vcore\s+(\d+)\):\s+(.*)$/) {
+    # core-specific output
+    $pcore=$1;
+    $vm=$2;
+    $vcore=$3;
+    $line=$4;
+    next if (!$any && !($vm eq $vmname));
+    next if ($targetvcore!=-1 && $vcore!=$targetvcore);
+  } elsif ($line =~ /^palacios\s+\(pcore\s+(\d+)\s+vm\s+(\S+)\):\s+(.*)$/) { 
+    $pcore=$1;
+    $vm=$2;
+    $line=$3;
+    next if (!$any & !($vm eq $vmname));
+    next if ($targetvcore!=-1);
+  } else {
+    next;
+  }
+   
+  if ($line =~ /^DEBUG:\s+.*$/) {
+    next if !$debug;
+  } elsif ($line =~ /^ERROR:\s+.*$/) { 
+    next if !$error;
+  } elsif ($line =~ /^telem\.\d+\>.*$/) {
+    next if !$telemetry;
+  } else {
+    next if $skipgeneral;
+  }
+
+  if ($format) { 
+    if ($timestamp!=-1) { 
+      print "$timestamp\t";
+    }
+    print "$pcore\t";
+    print "$vm\t";
+    if ($vcore==-1) { 
+      print "NONE\t";
+    } else {
+      print "$vcore\t";
+    }
+    print $line,"\n";
+  } else {
+    print $origline;
+  }
+}
+
+close(DMESG);

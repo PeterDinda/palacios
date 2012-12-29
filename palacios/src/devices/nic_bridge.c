@@ -42,7 +42,7 @@ static int bridge_send(uint8_t * buf, uint32_t len,
     
 #ifdef V3_CONFIG_DEBUG_NIC_BRIDGE
     {
-    	PrintDebug("NIC Bridge: send pkt size: %d\n", len);
+    	PrintDebug(VM_NONE, VCORE_NONE, "NIC Bridge: send pkt size: %d\n", len);
     	v3_hexdump(buf, len, NULL, 0);
     }
 #endif
@@ -55,7 +55,7 @@ static int packet_input(struct v3_packet * packet_state, uint8_t * pkt, uint32_t
     
 #ifdef V3_CONFIG_DEBUG_NIC_BRIDGE
     {
-    	PrintDebug("NIC Bridge: recv pkt size: %d\n", size);
+    	PrintDebug(VM_NONE, VCORE_NONE, "NIC Bridge: recv pkt size: %d\n", size);
     	v3_hexdump(pkt, size, NULL, 0);
     }
 #endif
@@ -96,7 +96,7 @@ static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     bridge = (struct nic_bridge_state *)V3_Malloc(sizeof(struct nic_bridge_state));
 
     if (!bridge) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -105,7 +105,7 @@ static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, bridge);
     
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(bridge);
 	return -1;
     }
@@ -115,13 +115,13 @@ static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     
     if (v3_dev_connect_net(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			   &(bridge->net_ops), frontend_cfg, bridge) == -1) {
-	PrintError("Could not connect %s to frontend %s\n", 
+	PrintError(vm, VCORE_NONE, "Could not connect %s to frontend %s\n", 
 		   dev_id, v3_cfg_val(frontend_cfg, "tag"));
 	v3_remove_device(dev);
 	return -1;
     }
     
-    PrintDebug("NIC-Bridge: Connect %s to frontend %s\n", 
+    PrintDebug(vm, VCORE_NONE, "NIC-Bridge: Connect %s to frontend %s\n", 
 	       dev_id, v3_cfg_val(frontend_cfg, "tag"));
     
     bridge->packet_state = v3_packet_connect(vm, host_nic, 
@@ -130,7 +130,7 @@ static int nic_bridge_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 					     (void *)bridge);
     
     if(bridge->packet_state == NULL){
-	PrintError("NIC-Bridge: Error to connect to host ethernet device\n");
+	PrintError(vm, VCORE_NONE, "NIC-Bridge: Error to connect to host ethernet device\n");
 	return -1;
     }
     

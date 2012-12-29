@@ -8,7 +8,7 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 
-#include <interfaces/vmm_mcheck.h>
+//#include <interfaces/vmm_mcheck.h>
 
 #include "palacios.h"
 #include "vm.h"
@@ -16,6 +16,12 @@
 
 #define SCRUBBER_MCE 0x1
 #define V3_VM_INJECT_SCRUBBER_MCE (10224+20)
+
+/* Missing the vmm_mcheck.h header file */
+
+struct v3_vm_info;
+
+int v3_mcheck_inject_scrubber_mce(struct v3_vm_info *info, int cpu, uint64_t dst);
 
 static int inject_mce(struct v3_guest * guest, unsigned int cmd, unsigned long arg,
                       void * priv_data)

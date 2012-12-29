@@ -13,12 +13,12 @@ static inline int activate_shadow_pt_32(struct guest_info * core) {
     }
 
     shdw_page = shadow_page_get_page(core, (addr_t)(guest_cr3->pdt_base_addr), 2, 0, 0, 0, 0);
-    PrintDebug("act shdw pt: gcr3 %p\n",(void *)BASE_TO_PAGE_ADDR(guest_cr3->pdt_base_addr));
+    PrintDebug(info->vm_info, info, "act shdw pt: gcr3 %p\n",(void *)BASE_TO_PAGE_ADDR(guest_cr3->pdt_base_addr));
 
     shdw_page->cr3 = shdw_page->page_pa;
     
     shadow_cr3->pdt_base_addr = PAGE_BASE_ADDR_4KB(shdw_page->page_pa);
-    PrintDebug( "Created new shadow page table %p\n", (void *)BASE_TO_PAGE_ADDR(shadow_cr3->pdt_base_addr));
+    PrintDebug(info->vm_info, info, "Created new shadow page table %p\n", (void *)BASE_TO_PAGE_ADDR(shadow_cr3->pdt_base_addr));
   
     shadow_cr3->pwt = guest_cr3->pwt;
     shadow_cr3->pcd = guest_cr3->pcd;
@@ -38,7 +38,7 @@ static inline int activate_shadow_pt_32(struct guest_info * core) {
  */
 
 static inline int fix_read_pf_32(pte32_t * shadow_pte, uint_t vmm_info) {
-    PrintDebug("\trdipf, start vmm_info %d\n",vmm_info);
+    PrintDebug(info->vm_info, info, "\trdipf, start vmm_info %d\n",vmm_info);
     if((vmm_info & PT_USER_MASK) && !(shadow_pte->user_page)) {
 	shadow_pte->user_page = 1;
 	shadow_pte->writable = 0;
@@ -55,27 +55,27 @@ static inline int fix_write_pf_32(struct guest_info * core, pte32_t * shadow_pte
     struct shadow_page_cache_data * page;
     *write_pt = 0;
 
-    PrintDebug("\twripf, start vmm_info %d\n",vmm_info);
+    PrintDebug(info->vm_info, info, "\twripf, start vmm_info %d\n",vmm_info);
 	
     if(shadow_pte->writable) {
 	return 0;
     }
 
-    PrintDebug("\twrpf: pass writable\n");
+    PrintDebug(info->vm_info, info, "\twrpf: pass writable\n");
 	
     writable_shadow = vmm_info & PT_WRITABLE_MASK;
 
-    PrintDebug("\twrpf: writable_shadow %d\n",writable_shadow);
+    PrintDebug(info->vm_info, info, "\twrpf: writable_shadow %d\n",writable_shadow);
 	
     if(user) {
 	if(!(vmm_info & PT_USER_MASK) || !writable_shadow) {
-	    PrintDebug("\twrpf: 1st usr chk\n");
+	    PrintDebug(info->vm_info, info, "\twrpf: 1st usr chk\n");
 	    return 0;
 	}
     } else {
 	if(!writable_shadow) {
 	    guest_cr0 = (struct cr0_32 *)&(core->shdw_pg_state.guest_cr0);
-	    PrintDebug("\twrpf: wp %d\n",guest_cr0->wp);
+	    PrintDebug(info->vm_info, info, "\twrpf: wp %d\n",guest_cr0->wp);
 
 	    if (guest_cr0->wp) {
 	        return 0;
@@ -86,7 +86,7 @@ static inline int fix_write_pf_32(struct guest_info * core, pte32_t * shadow_pte
 			
     if (guest_pte->present == 0) { 
 	memset((void *)shadow_pte, 0, sizeof(uint32_t));
-	PrintDebug("\twrpf: guest non present\n");
+	PrintDebug(info->vm_info, info, "\twrpf: guest non present\n");
 	return 0;
     }
 
@@ -95,13 +95,13 @@ static inline int fix_write_pf_32(struct guest_info * core, pte32_t * shadow_pte
 	    shadow_zap_page(core,page);
 	}
 
-	PrintDebug("\twrpf: zap\n");
+	PrintDebug(info->vm_info, info, "\twrpf: zap\n");
 
     } else if((page = shadow_page_lookup_page(core, guest_fn,0))  != NULL)  {
 	if ((page = shadow_page_lookup_page(core, guest_fn,0)) != NULL) {
 	    guest_pte->dirty = 1;
 	    *write_pt = 1;
-	    PrintDebug("\twrpf: write need\n");
+	    PrintDebug(info->vm_info, info, "\twrpf: write need\n");
 	    return 0;
 	}
     }	
@@ -111,7 +111,7 @@ static inline int fix_write_pf_32(struct guest_info * core, pte32_t * shadow_pte
 	
     rmap_add(core, (addr_t)shadow_pte);
 	
-    PrintDebug("\twrpf: on writable\n");
+    PrintDebug(info->vm_info, info, "\twrpf: on writable\n");
     return 1;
 }
 
@@ -134,11 +134,11 @@ static inline int handle_shadow_pagefault_32(struct guest_info * core, addr_t fa
     pde32_t * guest_pde = NULL;
     pde32_t * shadow_pde = (pde32_t *)&(shadow_pd[PDE32_INDEX(fault_addr)]);
 
-    PrintDebug("Shadow page fault handler: %p\n", (void*) fault_addr );
-    PrintDebug("Handling PDE32 Fault\n");
+    PrintDebug(info->vm_info, info, "Shadow page fault handler: %p\n", (void*) fault_addr );
+    PrintDebug(info->vm_info, info, "Handling PDE32 Fault\n");
 
     if (guest_pa_to_host_va(core, guest_cr3, (addr_t*)&guest_pd) == -1) {
-	PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
+	PrintError(info->vm_info, info, "Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
 	return -1;
     } 
 
@@ -153,10 +153,10 @@ static inline int handle_shadow_pagefault_32(struct guest_info * core, addr_t fa
   
     /* Was the page fault caused by the Guest's page tables? */
     if (v3_is_guest_pf(guest_pde_access, shadow_pde_access) == 1) {
-	PrintDebug("Injecting PDE pf to guest: (guest access error=%d) (shdw access error=%d)  (pf error code=%d)\n", 
+	PrintDebug(info->vm_info, info, "Injecting PDE pf to guest: (guest access error=%d) (shdw access error=%d)  (pf error code=%d)\n", 
 		   *(uint_t *)&guest_pde_access, *(uint_t *)&shadow_pde_access, *(uint_t *)&error_code);
 	if (v3_inject_guest_pf(core, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
+	    PrintError(info->vm_info, info, "Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
 	return 0;
@@ -168,11 +168,11 @@ static inline int handle_shadow_pagefault_32(struct guest_info * core, addr_t fa
 	// 
 	// PDE Entry marked non user
 	//
-	PrintDebug("Shadow Paging User access error (shadow_pde_access=0x%x, guest_pde_access=0x%x)\n", 
+	PrintDebug(info->vm_info, info, "Shadow Paging User access error (shadow_pde_access=0x%x, guest_pde_access=0x%x)\n", 
 		   shadow_pde_access, guest_pde_access);
 	
 	if (v3_inject_guest_pf(core, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
+	    PrintError(info->vm_info, info, "Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
 	return 0;
@@ -186,11 +186,11 @@ static inline int handle_shadow_pagefault_32(struct guest_info * core, addr_t fa
 	       (shadow_pde_access != PT_ACCESS_OK)) {
     	// inject page fault in guest
 	if (v3_inject_guest_pf(core, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
+	    PrintError(info->vm_info, info, "Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
-	PrintDebug("Unknown Error occurred (shadow_pde_access=%d)\n", shadow_pde_access);
-	PrintDebug("Manual Says to inject page fault into guest\n");
+	PrintDebug(info->vm_info, info, "Unknown Error occurred (shadow_pde_access=%d)\n", shadow_pde_access);
+	PrintDebug(info->vm_info, info, "Manual Says to inject page fault into guest\n");
 	return 0;
     }
 
@@ -245,18 +245,18 @@ static inline int handle_shadow_pagefault_32(struct guest_info * core, addr_t fa
     if (guest_pde->large_page == 0) {
 	if (guest_pa_to_host_va(core, BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr), (addr_t*)&guest_pt) == -1) {
 	    // Machine check the guest
-	    PrintDebug("Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
+	    PrintDebug(info->vm_info, info, "Invalid Guest PTE Address: 0x%p\n", (void *)BASE_TO_PAGE_ADDR(guest_pde->pt_base_addr));
 	    v3_raise_exception(core, MC_EXCEPTION);
 	    return 0;
 	}
 
 	if (handle_pte_shadow_pagefault_32(core, fault_addr, error_code, shadow_pt, guest_pt)  == -1) {
-	    PrintError("Error handling Page fault caused by PTE\n");
+	    PrintError(info->vm_info, info, "Error handling Page fault caused by PTE\n");
 	    return -1;
 	}
     } else {
 	if (handle_4MB_shadow_pagefault_32(core, fault_addr, error_code, shadow_pt, (pde32_4MB_t *)guest_pde) == -1) {
-	    PrintError("Error handling large pagefault\n");
+	    PrintError(info->vm_info, info, "Error handling large pagefault\n");
 	    return -1;
 	}	
     }
@@ -278,7 +278,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
 
     if (shdw_reg == NULL) {
 	// Inject a machine check in the guest
-	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
+	PrintDebug(info->vm_info, info, "Invalid Guest Address in page table (0x%p)\n", (void *)guest_pa);
 	v3_raise_exception(core, MC_EXCEPTION);
 	return 0;
     }
@@ -293,13 +293,13 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
     /* Was the page fault caused by the Guest's page tables? */
     if (v3_is_guest_pf(guest_pte_access, shadow_pte_access) == 1) {
 
-	PrintDebug("Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", 
+	PrintDebug(info->vm_info, info, "Access error injecting pf to guest (guest access error=%d) (pf error code=%d)\n", 
 		   guest_pte_access, *(uint_t*)&error_code);
 	
 
 	//   inject:
 	if (v3_inject_guest_pf(core, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
+	    PrintError(info->vm_info, info, "Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}	
 
@@ -311,14 +311,14 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
     if (shadow_pte_access == PT_ACCESS_OK) {
 	// Inconsistent state...
 	// Guest Re-Entry will flush page tables and everything should now work
-	PrintDebug("Inconsistent state... Guest re-entry should flush tlb\n");
+	PrintDebug(info->vm_info, info, "Inconsistent state... Guest re-entry should flush tlb\n");
 	return 0;
     }
 
 
     if (shadow_pte_access == PT_ACCESS_NOT_PRESENT) {
 	// Page Table Entry Not Present
-	PrintDebug("guest_pa =%p\n", (void *)guest_pa);
+	PrintDebug(info->vm_info, info, "guest_pa =%p\n", (void *)guest_pa);
 
 	if ((shdw_reg->host_type == SHDW_REGION_ALLOCATED) ||
 	    (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK)) {
@@ -326,7 +326,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
       
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
 
-	    PrintDebug("\tMapping shadow page (%p)\n", (void *)BASE_TO_PAGE_ADDR(shadow_pte->page_base_addr));
+	    PrintDebug(info->vm_info, info, "\tMapping shadow page (%p)\n", (void *)BASE_TO_PAGE_ADDR(shadow_pte->page_base_addr));
       
 	    shadow_pte->present = guest_pte->present;
 	    shadow_pte->user_page = guest_pte->user_page;
@@ -359,7 +359,7 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
 	    // Page fault handled by hook functions
 
 	    if (v3_handle_mem_full_hook(core, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
-		PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
+		PrintError(info->vm_info, info, "Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 		return -1;
 	    }
 	}
@@ -368,11 +368,11 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
 
 	if (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK) {
 	    if (v3_handle_mem_wr_hook(core, fault_addr, guest_pa, shdw_reg, error_code) == -1) {
-		PrintError("Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
+		PrintError(info->vm_info, info, "Special Page fault handler returned error for address: %p\n",  (void *)fault_addr);
 		return -1;
 	    }
 	} else {
-	    PrintDebug("Shadow PTE Write Error\n");
+	    PrintDebug(info->vm_info, info, "Shadow PTE Write Error\n");
 	    shadow_pte->writable = guest_pte->writable;
 	}
 
@@ -382,12 +382,12 @@ static int handle_pte_shadow_pagefault_32(struct guest_info * core, addr_t fault
     } else {
 	// Inject page fault into the guest	
 	if (v3_inject_guest_pf(core, fault_addr, error_code) == -1) {
-	    PrintError("Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
+	    PrintError(info->vm_info, info, "Could not inject guest page fault for vaddr %p\n", (void *)fault_addr);
 	    return -1;
 	}
 
-	PrintError("PTE Page fault fell through... Not sure if this should ever happen\n");
-	PrintError("Manual Says to inject page fault into guest\n");
+	PrintError(info->vm_info, info, "PTE Page fault fell through... Not sure if this should ever happen\n");
+	PrintError(info->vm_info, info, "Manual Says to inject page fault into guest\n");
 	return -1;
     }
 
@@ -405,15 +405,15 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * core,
     addr_t guest_fault_pa = BASE_TO_PAGE_ADDR_4MB(large_guest_pde->page_base_addr) + PAGE_OFFSET_4MB(fault_addr);  
 
 
-    PrintDebug("Handling 4MB fault (guest_fault_pa=%p) (error_code=%x)\n", (void *)guest_fault_pa, *(uint_t*)&error_code);
-    PrintDebug("ShadowPT=%p, LargeGuestPDE=%p\n", shadow_pt, large_guest_pde);
+    PrintDebug(info->vm_info, info, "Handling 4MB fault (guest_fault_pa=%p) (error_code=%x)\n", (void *)guest_fault_pa, *(uint_t*)&error_code);
+    PrintDebug(info->vm_info, info, "ShadowPT=%p, LargeGuestPDE=%p\n", shadow_pt, large_guest_pde);
 
     struct v3_mem_region * shdw_reg = v3_get_mem_region(core->vm_info, core->vcpu_id, guest_fault_pa);
 
  
     if (shdw_reg == NULL) {
 	// Inject a machine check in the guest
-	PrintDebug("Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
+	PrintDebug(info->vm_info, info, "Invalid Guest Address in page table (0x%p)\n", (void *)guest_fault_pa);
 	v3_raise_exception(core, MC_EXCEPTION);
 	return -1;
     }
@@ -421,7 +421,7 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * core,
     if (shadow_pte_access == PT_ACCESS_OK) {
 	// Inconsistent state...
 	// Guest Re-Entry will flush tables and everything should now workd
-	PrintDebug("Inconsistent state... Guest re-entry should flush tlb\n");
+	PrintDebug(info->vm_info, info, "Inconsistent state... Guest re-entry should flush tlb\n");
 	return 0;
     }
 
@@ -435,7 +435,7 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * core,
 
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
 
-	    PrintDebug("\tMapping shadow page (%p)\n", (void *)BASE_TO_PAGE_ADDR(shadow_pte->page_base_addr));
+	    PrintDebug(info->vm_info, info, "\tMapping shadow page (%p)\n", (void *)BASE_TO_PAGE_ADDR(shadow_pte->page_base_addr));
 
 	    shadow_pte->present = 1;
 
@@ -460,7 +460,7 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * core,
       
 	} else {
 	    if (v3_handle_mem_full_hook(core, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
-		PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
+		PrintError(info->vm_info, info, "Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
 		return -1;
 	    }
 	}
@@ -469,18 +469,18 @@ static int handle_4MB_shadow_pagefault_32(struct guest_info * core,
 	if (shdw_reg->host_type == SHDW_REGION_WRITE_HOOK) {
 
 	    if (v3_handle_mem_wr_hook(core, fault_addr, guest_fault_pa, shdw_reg, error_code) == -1) {
-		PrintError("Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
+		PrintError(info->vm_info, info, "Special Page Fault handler returned error for address: %p\n", (void *)fault_addr);
 		return -1;
 	    }
 	}
 
     } else {
-	PrintError("Error in large page fault handler...\n");
-	PrintError("This case should have been handled at the top level handler\n");
+	PrintError(info->vm_info, info, "Error in large page fault handler...\n");
+	PrintError(info->vm_info, info, "This case should have been handled at the top level handler\n");
 	return -1;
     }
 
-    PrintDebug("Returning from large page fault handler\n");
+    PrintDebug(info->vm_info, info, "Returning from large page fault handler\n");
     return 0;
 }
 
@@ -505,7 +505,7 @@ static inline int handle_shadow_invlpg_32(struct guest_info * core, addr_t vaddr
     pde32_t * guest_pde;
 
     if (guest_pa_to_host_va(core, guest_cr3, (addr_t*)&guest_pd) == -1) {
-	PrintError("Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
+	PrintError(info->vm_info, info, "Invalid Guest PDE Address: 0x%p\n",  (void *)guest_cr3);
 	return -1;
     }
   
@@ -513,12 +513,12 @@ static inline int handle_shadow_invlpg_32(struct guest_info * core, addr_t vaddr
   
     if (guest_pde->large_page == 1) {
 	shadow_pde->present = 0;
-	PrintDebug("Invalidating Large Page\n");
+	PrintDebug(info->vm_info, info, "Invalidating Large Page\n");
     } else if (shadow_pde->present == 1) {
 	pte32_t * shadow_pt = (pte32_t *)(addr_t)BASE_TO_PAGE_ADDR_4KB(shadow_pde->pt_base_addr);
 	pte32_t * shadow_pte = (pte32_t *) V3_VAddr( (void*) &shadow_pt[PTE32_INDEX(vaddr)] );
     
-	PrintDebug("Setting not present\n");
+	PrintDebug(info->vm_info, info, "Setting not present\n");
     
 	shadow_pte->present = 0;
     }

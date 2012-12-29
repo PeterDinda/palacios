@@ -28,22 +28,22 @@ static struct v3_file_hooks * file_hooks = NULL;
 
 void V3_Init_File(struct v3_file_hooks * hooks) {
     file_hooks = hooks;
-    V3_Print("V3 file interface intialized\n");
+    V3_Print(VM_NONE, VCORE_NONE, "V3 file interface intialized\n");
     return;
 }
 
 
 int v3_mkdir(char * path, uint16_t permissions, uint8_t recursive) {
-    V3_ASSERT(file_hooks);
-    V3_ASSERT(file_hooks->mkdir);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks->mkdir);
     
     return file_hooks->mkdir(path, permissions, recursive);
 }
 
 v3_file_t v3_file_open(struct v3_vm_info * vm, char * path, uint8_t mode) {
     void * priv_data = NULL;
-    V3_ASSERT(file_hooks);
-    V3_ASSERT(file_hooks->open);
+    V3_ASSERT(vm, VCORE_NONE, file_hooks);
+    V3_ASSERT(vm, VCORE_NONE, file_hooks->open);
     
     if (vm) {
 	priv_data = vm->host_priv_data;
@@ -53,30 +53,30 @@ v3_file_t v3_file_open(struct v3_vm_info * vm, char * path, uint8_t mode) {
 }
 
 int v3_file_close(v3_file_t file) {
-    V3_ASSERT(file_hooks);
-    V3_ASSERT(file_hooks->close);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks->close);
     
     return file_hooks->close(file);
 }
 
 uint64_t v3_file_size(v3_file_t file) {
-    V3_ASSERT(file_hooks);
-    V3_ASSERT(file_hooks->size);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks->size);
     
     return file_hooks->size(file);
 }
 
 uint64_t v3_file_read(v3_file_t file, uint8_t * buf, uint64_t len, uint64_t off) {
-    V3_ASSERT(file_hooks);
-    V3_ASSERT(file_hooks->read);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks->read);
     
     return file_hooks->read(file, buf, len, off);
 }
 
 
 uint64_t v3_file_write(v3_file_t file, uint8_t * buf, uint64_t len, uint64_t off) {
-    V3_ASSERT(file_hooks);
-    V3_ASSERT(file_hooks->write);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks);
+    V3_ASSERT(VM_NONE, VCORE_NONE, file_hooks->write);
     
     return file_hooks->write(file, buf, len, off);
 }

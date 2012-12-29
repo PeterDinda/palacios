@@ -50,7 +50,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     struct vmx_basic_exit_info * basic_info = (struct vmx_basic_exit_info *)&(exit_info->exit_reason);
 
     /*
-      PrintError("Handling VMX_EXIT: %s (%u), %lu (0x%lx)\n", 
+      PrintError(info->vm_info, info, "Handling VMX_EXIT: %s (%u), %lu (0x%lx)\n", 
       v3_vmx_exit_code_to_str(exit_info->exit_reason),
       exit_info->exit_reason, 
       exit_info->exit_qual, exit_info->exit_qual);
@@ -62,15 +62,15 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
     if (basic_info->entry_error == 1) {
 	switch (basic_info->reason) {
 	    case VMX_EXIT_INVALID_GUEST_STATE:
-		PrintError("VM Entry failed due to invalid guest state\n");
-		PrintError("Printing VMCS: (NOTE: This VMCS may not belong to the correct guest)\n");
+		PrintError(info->vm_info, info, "VM Entry failed due to invalid guest state\n");
+		PrintError(info->vm_info, info, "Printing VMCS: (NOTE: This VMCS may not belong to the correct guest)\n");
 		v3_print_vmcs();
 		break;
 	    case VMX_EXIT_INVALID_MSR_LOAD:
-		PrintError("VM Entry failed due to error loading MSRs\n");
+		PrintError(info->vm_info, info, "VM Entry failed due to error loading MSRs\n");
 		break;
 	    default:
-		PrintError("Entry failed for unknown reason (%d)\n", basic_info->reason);
+		PrintError(info->vm_info, info, "Entry failed for unknown reason (%d)\n", basic_info->reason);
 		break;
 	}
 	
@@ -93,23 +93,23 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             // JRL: Change "0x0e" to a macro value
             if ((uint8_t)exit_info->int_info == 14) {
 #ifdef V3_CONFIG_DEBUG_SHADOW_PAGING
-                PrintDebug("Page Fault at %p error_code=%x\n", (void *)exit_info->exit_qual, *(uint32_t *)&error_code);
+                PrintDebug(info->vm_info, info, "Page Fault at %p error_code=%x\n", (void *)exit_info->exit_qual, *(uint32_t *)&error_code);
 #endif
 
                 if (info->shdw_pg_mode == SHADOW_PAGING) {
                     if (v3_handle_shadow_pagefault(info, (addr_t)exit_info->exit_qual, error_code) == -1) {
-                        PrintError("Error handling shadow page fault\n");
+                        PrintError(info->vm_info, info, "Error handling shadow page fault\n");
                         return -1;
                     }
 	    
                 } else {
-                    PrintError("Page fault in unimplemented paging mode\n");
+                    PrintError(info->vm_info, info, "Page fault in unimplemented paging mode\n");
                     return -1;
                 }
 	    } else if ((uint8_t)exit_info->int_info == 2) {
 		// NMI. Don't do anything
             } else {
-                PrintError("Unknown exception: 0x%x\n", (uint8_t)exit_info->int_info);
+                PrintError(info->vm_info, info, "Unknown exception: 0x%x\n", (uint8_t)exit_info->int_info);
                 v3_print_GPRs(info);
                 return -1;
             }
@@ -120,7 +120,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 	    struct ept_exit_qual * ept_qual = (struct ept_exit_qual *)&(exit_info->exit_qual);
 
 	    if (v3_handle_ept_fault(info, exit_info->ept_fault_addr, ept_qual) == -1) {
-		PrintError("Error handling EPT fault\n");
+		PrintError(info->vm_info, info, "Error handling EPT fault\n");
 		return -1;
 	    }
 
@@ -129,7 +129,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
         case VMX_EXIT_INVLPG:
             if (info->shdw_pg_mode == SHADOW_PAGING) {
                 if (v3_handle_shadow_invlpg(info) == -1) {
-		    PrintError("Error handling INVLPG\n");
+		    PrintError(info->vm_info, info, "Error handling INVLPG\n");
                     return -1;
                 }
             }
@@ -138,10 +138,10 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
         case VMX_EXIT_RDTSC:
 #ifdef V3_CONFIG_DEBUG_TIME
-	    PrintDebug("RDTSC\n");
+	    PrintDebug(info->vm_info, info, "RDTSC\n");
 #endif 
 	    if (v3_handle_rdtsc(info) == -1) {
-		PrintError("Error Handling RDTSC instruction\n");
+		PrintError(info->vm_info, info, "Error Handling RDTSC instruction\n");
 		return -1;
 	    }
 	    
@@ -149,21 +149,21 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 
         case VMX_EXIT_CPUID:
 	    if (v3_handle_cpuid(info) == -1) {
-		PrintError("Error Handling CPUID instruction\n");
+		PrintError(info->vm_info, info, "Error Handling CPUID instruction\n");
 		return -1;
 	    }
 
             break;
         case VMX_EXIT_RDMSR: 
             if (v3_handle_msr_read(info) == -1) {
-		PrintError("Error handling MSR Read\n");
+		PrintError(info->vm_info, info, "Error handling MSR Read\n");
                 return -1;
 	    }
 
             break;
         case VMX_EXIT_WRMSR:
             if (v3_handle_msr_write(info) == -1) {
-		PrintError("Error handling MSR Write\n");
+		PrintError(info->vm_info, info, "Error handling MSR Write\n");
                 return -1;
 	    }
 
@@ -187,24 +187,24 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
             if (io_qual->dir == 0) {
                 if (io_qual->string) {
                     if (v3_handle_vmx_io_outs(info, exit_info) == -1) {
-                        PrintError("Error in outs IO handler\n");
+                        PrintError(info->vm_info, info, "Error in outs IO handler\n");
                         return -1;
                     }
                 } else {
                     if (v3_handle_vmx_io_out(info, exit_info) == -1) {
-                        PrintError("Error in out IO handler\n");
+                        PrintError(info->vm_info, info, "Error in out IO handler\n");
                         return -1;
                     }
                 }
             } else {
                 if (io_qual->string) {
                     if(v3_handle_vmx_io_ins(info, exit_info) == -1) {
-                        PrintError("Error in ins IO handler\n");
+                        PrintError(info->vm_info, info, "Error in ins IO handler\n");
                         return -1;
                     }
                 } else {
                     if (v3_handle_vmx_io_in(info, exit_info) == -1) {
-                        PrintError("Error in in IO handler\n");
+                        PrintError(info->vm_info, info, "Error in in IO handler\n");
                         return -1;
                     }
                 }
@@ -214,37 +214,37 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
         case VMX_EXIT_CR_REG_ACCESSES: {
 	    struct vmx_exit_cr_qual * cr_qual = (struct vmx_exit_cr_qual *)&(exit_info->exit_qual);
 	    
-	    // PrintDebug("Control register: %d\n", cr_qual->access_type);
+	    // PrintDebug(info->vm_info, info, "Control register: %d\n", cr_qual->access_type);
 	    switch(cr_qual->cr_id) {
 		case 0:
-		    //PrintDebug("Handling CR0 Access\n");
+		    //PrintDebug(info->vm_info, info, "Handling CR0 Access\n");
 		    if (v3_vmx_handle_cr0_access(info, cr_qual, exit_info) == -1) {
-			PrintError("Error in CR0 access handler\n");
+			PrintError(info->vm_info, info, "Error in CR0 access handler\n");
 			return -1;
 		    }
 		    break;
 		case 3:
-		    //PrintDebug("Handling CR3 Access\n");
+		    //PrintDebug(info->vm_info, info, "Handling CR3 Access\n");
 		    if (v3_vmx_handle_cr3_access(info, cr_qual) == -1) {
-			PrintError("Error in CR3 access handler\n");
+			PrintError(info->vm_info, info, "Error in CR3 access handler\n");
 			return -1;
 		    }
 		    break;
 		case 4:
-		    //PrintDebug("Handling CR4 Access\n");
+		    //PrintDebug(info->vm_info, info, "Handling CR4 Access\n");
 		    if (v3_vmx_handle_cr4_access(info, cr_qual) == -1) {
-			PrintError("Error in CR4 access handler\n");
+			PrintError(info->vm_info, info, "Error in CR4 access handler\n");
 			return -1;
 		    }
 		    break;
 		case 8:
 		    if (v3_vmx_handle_cr8_access(info, cr_qual) == -1) {
-			PrintError("Error in CR8 access handler\n");
+			PrintError(info->vm_info, info, "Error in CR8 access handler\n");
 			return -1;
 		    }
 		    break;
 		default:
-		    PrintError("Unhandled CR access: %d\n", cr_qual->cr_id);
+		    PrintError(info->vm_info, info, "Unhandled CR access: %d\n", cr_qual->cr_id);
 		    return -1;
 	    }
 	    
@@ -256,30 +256,30 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 	    break;
 	}
         case VMX_EXIT_HLT:
-            PrintDebug("Guest halted\n");
+            PrintDebug(info->vm_info, info, "Guest halted\n");
 
             if (v3_handle_halt(info) == -1) {
-		PrintError("Error handling halt instruction\n");
+		PrintError(info->vm_info, info, "Error handling halt instruction\n");
                 return -1;
             }
 
             break;
 
         case VMX_EXIT_MONITOR:
-            PrintDebug("Guest Executing monitor\n");
+            PrintDebug(info->vm_info, info, "Guest Executing monitor\n");
 
             if (v3_handle_monitor(info) == -1) {
-		PrintError("Error handling monitor instruction\n");
+		PrintError(info->vm_info, info, "Error handling monitor instruction\n");
                 return -1;
             }
 
             break;
 
         case VMX_EXIT_MWAIT:
-            PrintDebug("Guest Executing mwait\n");
+            PrintDebug(info->vm_info, info, "Guest Executing mwait\n");
 
             if (v3_handle_mwait(info) == -1) {
-		PrintError("Error handling mwait instruction\n");
+		PrintError(info->vm_info, info, "Error handling mwait instruction\n");
                 return -1;
             }
 
@@ -299,12 +299,12 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 	    // not in the generic (interruptable) vmx handler
             break;
         case VMX_EXIT_EXPIRED_PREEMPT_TIMER:
-	    V3_Print("VMX Preempt Timer Expired.\n");
+	    V3_Print(info->vm_info, info, "VMX Preempt Timer Expired.\n");
 	    // This just forces an exit and is handled outside the switch
 	    break;
 	    
         default:
-            PrintError("Unhandled VMX_EXIT: %s (%u), %lu (0x%lx)\n", 
+            PrintError(info->vm_info, info, "Unhandled VMX_EXIT: %s (%u), %lu (0x%lx)\n", 
 		       v3_vmx_exit_code_to_str(basic_info->reason),
 		       basic_info->reason, 
 		       exit_info->exit_qual, exit_info->exit_qual);

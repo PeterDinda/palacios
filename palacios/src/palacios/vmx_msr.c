@@ -36,7 +36,7 @@ static int get_bitmap_index(uint_t msr)
     } else if (( msr >= HIGH_MSR_START ) && (msr <= HIGH_MSR_END)) {
         return (HIGH_MSR_INDEX * 8) + (msr - HIGH_MSR_START);
     } else {
-        PrintError("MSR out of range: 0x%x\n", msr);
+        PrintError(VM_NONE, VCORE_NONE,  "MSR out of range: 0x%x\n", msr);
         return -1;
     }
 }
@@ -75,7 +75,7 @@ int v3_init_vmx_msr_map(struct v3_vm_info * vm) {
     
     temp = V3_AllocPages(1);
     if (!temp) { 
-	PrintError("Cannot allocat MSR bitmap\n");
+        PrintError(vm, VCORE_NONE, "Cannot allocat MSR bitmap\n");
 	return -1;
     }
     msr_map->arch_data = V3_VAddr(temp);

@@ -60,28 +60,28 @@ int V3_init_devices() {
 #ifdef V3_CONFIG_DEBUG_DEV_MGR
     {
 	int num_devices = (__stop__v3_devices - __start__v3_devices) / sizeof(struct v3_device_info);
-	PrintDebug("%d Virtual devices registered with Palacios\n", num_devices);
+	PrintDebug(VM_NONE, VCORE_NONE, "%d Virtual devices registered with Palacios\n", num_devices);
     }
 #endif
 
-    PrintDebug("Start addres=%p, Stop address=%p\n", __start__v3_devices, __stop__v3_devices);
+    PrintDebug(VM_NONE, VCORE_NONE, "Start addres=%p, Stop address=%p\n", __start__v3_devices, __stop__v3_devices);
 
     master_dev_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
 
 
 
     while (tmp_dev != __stop__v3_devices) {
-	V3_Print("Registering Device: %s\n", tmp_dev->name);
+	V3_Print(VM_NONE, VCORE_NONE, "Registering Device: %s\n", tmp_dev->name);
 
 	if (v3_htable_search(master_dev_table, (addr_t)(tmp_dev->name))) {
-	    PrintError("Multiple instance of device (%s)\n", tmp_dev->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Multiple instance of device (%s)\n", tmp_dev->name);
 	    return -1;
 	}
 
 	if (v3_htable_insert(master_dev_table, 
 			     (addr_t)(tmp_dev->name), 
 			     (addr_t)(tmp_dev->init)) == 0) {
-	    PrintError("Could not add device %s to master list\n", tmp_dev->name);
+	    PrintError(VM_NONE, VCORE_NONE, "Could not add device %s to master list\n", tmp_dev->name);
 	    return -1;
 	}
 
@@ -148,7 +148,7 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     name_table = V3_Malloc(table_len);
 
     if (!name_table) { 
-	PrintError("Unable to allocate space in device manager save\n");
+        PrintError(vm, VCORE_NONE, "Unable to allocate space in device manager save\n");
 	return -1;
     }
 
@@ -157,7 +157,7 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, "devices");
 
     if (!dev_mgr_ctx) { 
-	PrintError("Unable to open device manager context\n");
+	PrintError(vm, VCORE_NONE,"Unable to open device manager context\n");
 	V3_Free(name_table);
 	return -1;
     }
@@ -168,19 +168,19 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
             tbl_offset += V3_MAX_DEVICE_NAME;
             num_saved_devs++;
         }  else {
-	    PrintDebug("Skipping device %s\n");
+	  PrintDebug(vm, VCORE_NONE, "Skipping device %s\n", dev->name);
 	}
     }
 
     if (v3_chkpt_save(dev_mgr_ctx, "num_devs", 4, &num_saved_devs) == -1) {
-	PrintError("Unable to store num_devs\n");
+	PrintError(vm, VCORE_NONE,"Unable to store num_devs\n");
 	v3_chkpt_close_ctx(dev_mgr_ctx); 
 	V3_Free(name_table);
 	return -1;
     }
 
     if (v3_chkpt_save(dev_mgr_ctx, "names", num_saved_devs*V3_MAX_DEVICE_NAME, name_table) == -1) {
-	PrintError("Unable to store names of devices\n");
+	PrintError(vm, VCORE_NONE,"Unable to store names of devices\n");
 	v3_chkpt_close_ctx(dev_mgr_ctx); 
 	V3_Free(name_table);
 	return -1;
@@ -194,10 +194,10 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
       if (dev->ops->save_extended) { 
 
-	V3_Print("Saving state for device (%s) using extended interface\n",dev->name);
+	V3_Print(vm, VCORE_NONE,"Saving state for device (%s) using extended interface\n",dev->name);
 
 	if (dev->ops->save_extended(chkpt,dev->name,dev->private_data)) {
-	  PrintError("Unable to save device %s\n",dev->name);
+	  PrintError(vm, VCORE_NONE,"Unable to save device %s\n",dev->name);
 	  return -1;
 	}
 
@@ -205,17 +205,17 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
 	struct v3_chkpt_ctx * dev_ctx = NULL;
 	
-	V3_Print("Saving state for device (%s)\n", dev->name);
+	V3_Print(vm, VCORE_NONE,"Saving state for device (%s)\n", dev->name);
 	
 	dev_ctx = v3_chkpt_open_ctx(chkpt, dev->name);
 	
 	if (!dev_ctx) { 
-	  PrintError("Unable to open context for device %s\n",dev->name);
+	  PrintError(vm, VCORE_NONE,"Unable to open context for device %s\n",dev->name);
 	  return -1;
 	}
 	
 	if (dev->ops->save(dev_ctx, dev->private_data)) {
-	  PrintError("Unable t save device %s\n",dev->name);
+	  PrintError(vm, VCORE_NONE,"Unable t save device %s\n",dev->name);
 	  v3_chkpt_close_ctx(dev_ctx); 
 	  return -1;
 	}
@@ -223,7 +223,7 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	v3_chkpt_close_ctx(dev_ctx);
 	
       } else {
-	PrintError("Error: %s save() not implemented\n",  dev->name);
+	PrintError(vm, VCORE_NONE,"Error: %s save() not implemented\n",  dev->name);
       }
     }
     
@@ -241,28 +241,28 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     dev_mgr_ctx = v3_chkpt_open_ctx(chkpt, "devices");
 
     if (!dev_mgr_ctx) { 
-	PrintError("Unable to open devices for load\n");
+	PrintError(vm, VCORE_NONE,"Unable to open devices for load\n");
 	return -1;
     }
 
     if (v3_chkpt_load(dev_mgr_ctx, "num_devs", 4, &num_devs) == -1) {
-	PrintError("Unable to load num_devs\n");
+	PrintError(vm, VCORE_NONE,"Unable to load num_devs\n");
 	v3_chkpt_close_ctx(dev_mgr_ctx);
 	return -1;
     }
 
-    V3_Print("Loading State for %d devices\n", num_devs);
+    V3_Print(vm, VCORE_NONE,"Loading State for %d devices\n", num_devs);
     
     name_table = V3_Malloc(V3_MAX_DEVICE_NAME * num_devs);
     
     if (!name_table) { 
-	PrintError("Unable to allocate space for device table\n");
+	PrintError(vm, VCORE_NONE,"Unable to allocate space for device table\n");
 	v3_chkpt_close_ctx(dev_mgr_ctx);
 	return -1;
     }
 
     if (v3_chkpt_load(dev_mgr_ctx, "names", V3_MAX_DEVICE_NAME * num_devs, name_table) == -1) {
-	PrintError("Unable to load device name table\n");
+	PrintError(vm, VCORE_NONE,"Unable to load device name table\n");
 	v3_chkpt_close_ctx(dev_mgr_ctx);
 	V3_Free(name_table);
     }
@@ -275,16 +275,16 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	dev = v3_find_dev(vm, name);
 
 	if (!dev) {
-	    PrintError("Tried to load state into non existant device: %s\n", name);
+	    PrintError(vm, VCORE_NONE,"Tried to load state into non existant device: %s\n", name);
 	    return -1;
 	}
 
 	if (dev->ops->load_extended) {
 
-	  V3_Print("Loading state for device (%s) using extended interface\n",name);
+	  V3_Print(vm, VCORE_NONE,"Loading state for device (%s) using extended interface\n",name);
 
 	  if (dev->ops->load_extended(chkpt,name,dev->private_data)) { 
-	    PrintError("Load of device %s failed\n",name);
+	    PrintError(vm, VCORE_NONE,"Load of device %s failed\n",name);
 	    return -1;
 	  } 
 
@@ -293,12 +293,12 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	  dev_ctx = v3_chkpt_open_ctx(chkpt, name);
 
 	  if (!dev_ctx) {
-	    PrintError("Error missing device context (%s)\n", name);
+	    PrintError(vm, VCORE_NONE,"Error missing device context (%s)\n", name);
 	    return -1;
 	  }
 
 	  if (dev->ops->load(dev_ctx, dev->private_data)) { 
-	    PrintError("Load of device %s failed\n",name);
+	    PrintError(vm, VCORE_NONE,"Load of device %s failed\n",name);
 	    v3_chkpt_close_ctx(dev_ctx);	
 	    return -1;
 	  }
@@ -307,7 +307,7 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	  v3_chkpt_close_ctx(dev_ctx);
 
 	}  else {
-	  PrintError("Error Device (%s) does not support load operation\n", name);
+	  PrintError(vm, VCORE_NONE,"Error Device (%s) does not support load operation\n", name);
 	  // this is OK
 	}
     }
@@ -342,13 +342,13 @@ int v3_create_device(struct v3_vm_info * vm, const char * dev_name, v3_cfg_tree_
     dev_init = (void *)v3_htable_search(master_dev_table, (addr_t)dev_name);
 
     if (dev_init == NULL) {
-	PrintError("Could not find device %s in master device table\n", dev_name);
+	PrintError(vm, VCORE_NONE,"Could not find device %s in master device table\n", dev_name);
 	return -1;
     }
 
 
     if (dev_init(vm, cfg) == -1) {
-	PrintError("Could not initialize Device %s\n", dev_name);
+	PrintError(vm, VCORE_NONE,"Could not initialize Device %s\n", dev_name);
 	return -1;
     }
 
@@ -390,7 +390,7 @@ static int add_resource(struct vm_device * dev, dev_rsrc_type_t type, uint64_t r
     resource = V3_Malloc(sizeof(struct dev_rsrc));
 
     if (resource == NULL) {
-	PrintError("Error: Could not allocate device resource\n");
+	PrintError(VM_NONE, VCORE_NONE,"Error: Could not allocate device resource\n");
 	return -1;
     }
 
@@ -436,7 +436,7 @@ int v3_dev_hook_io(struct vm_device * dev, uint16_t port,
 
     if (add_resource(dev, DEV_IO_HOOK, port) == -1) {
 	v3_unhook_io_port(dev->vm, port);
-	PrintError("Could not allocate io hook dev state\n");
+	PrintError(dev->vm, VCORE_NONE,"Could not allocate io hook dev state\n");
 	return -1;
     }
     
@@ -502,7 +502,7 @@ int v3_remove_device(struct vm_device * dev) {
     if (dev->ops->free) {
 	dev->ops->free(dev->private_data);
     } else {
-	PrintError("Error: %s free() not implemented\n",  dev->name);
+        PrintError(VM_NONE, VCORE_NONE,"Error: %s free() not implemented\n",  dev->name);
     }
 
     list_del(&(dev->dev_link));
@@ -525,14 +525,14 @@ struct vm_device * v3_add_device(struct v3_vm_info * vm,
 
     // Check if we already registered a device of the same name
     if (v3_htable_search(mgr->dev_table, (addr_t)name) != (addr_t)NULL) {
-	PrintError("Device with name (%s) already registered with VM\n", name); 
+        PrintError(vm, VCORE_NONE,"Device with name (%s) already registered with VM\n", name); 
 	return NULL;
     }
 
     dev = (struct vm_device *)V3_Malloc(sizeof(struct vm_device));
 
     if (dev == NULL) {
-	PrintError("Cannot allocate in adding a device\n");
+	PrintError(vm, VCORE_NONE,"Cannot allocate in adding a device\n");
 	return NULL;
     }
 
@@ -557,10 +557,10 @@ void v3_print_dev_mgr(struct v3_vm_info * vm) {
     struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
     struct vm_device * dev;
 
-    V3_Print("%d devices registered with manager\n", mgr->num_devs);
+    V3_Print(vm, VCORE_NONE,"%d devices registered with manager\n", mgr->num_devs);
 
     list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
-	V3_Print("Device: %s\n", dev->name);
+	V3_Print(vm, VCORE_NONE,"Device: %s\n", dev->name);
     }
 
     return;
@@ -598,7 +598,7 @@ int v3_dev_add_blk_frontend(struct v3_vm_info * vm,
     frontend = (struct blk_frontend *)V3_Malloc(sizeof(struct blk_frontend));
 
     if (!frontend) {
-	PrintError("Cannot allocate in adding a block front end\n");
+	PrintError(vm, VCORE_NONE,"Cannot allocate in adding a block front end\n");
 	return -1;
     }
 
@@ -625,12 +625,12 @@ int v3_dev_connect_blk(struct v3_vm_info * vm,
 						       (addr_t)frontend_name);
     
     if (frontend == NULL) {
-	PrintError("Could not find frontend blk device %s\n", frontend_name);
+	PrintError(vm, VCORE_NONE,"Could not find frontend blk device %s\n", frontend_name);
 	return 0;
     }
 
     if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data) == -1) {
-	PrintError("Error connecting to block frontend %s\n", frontend_name);
+	PrintError(vm, VCORE_NONE,"Error connecting to block frontend %s\n", frontend_name);
 	return -1;
     }
 
@@ -667,7 +667,7 @@ int v3_dev_add_net_frontend(struct v3_vm_info * vm,
     frontend = (struct net_frontend *)V3_Malloc(sizeof(struct net_frontend));
 
     if (!frontend) {
-	PrintError("Cannot allocate in adding a net front end\n");
+	PrintError(vm, VCORE_NONE,"Cannot allocate in adding a net front end\n");
 	return -1;
     }
 
@@ -695,12 +695,12 @@ int v3_dev_connect_net(struct v3_vm_info * vm,
 						       (addr_t)frontend_name);
     
     if (frontend == NULL) {
-	PrintError("Could not find frontend net device %s\n", frontend_name);
+	PrintError(vm, VCORE_NONE,"Could not find frontend net device %s\n", frontend_name);
 	return 0;
     }
 
     if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data) == -1) {
-	PrintError("Error connecting to net frontend %s\n", frontend_name);
+	PrintError(vm, VCORE_NONE,"Error connecting to net frontend %s\n", frontend_name);
 	return -1;
     }
 
@@ -735,7 +735,7 @@ int v3_dev_add_console_frontend(struct v3_vm_info * vm,
     frontend = (struct cons_frontend *)V3_Malloc(sizeof(struct cons_frontend));
 
     if (!frontend) {
-	PrintError("Cannot allocate in adding a console front end\n");
+	PrintError(vm, VCORE_NONE,"Cannot allocate in adding a console front end\n");
 	return -1;
     }
 
@@ -763,12 +763,12 @@ int v3_dev_connect_console(struct v3_vm_info * vm,
 							(addr_t)frontend_name);
     
     if (frontend == NULL) {
-	PrintError("Could not find frontend console device %s\n", frontend_name);
+	PrintError(vm, VCORE_NONE,"Could not find frontend console device %s\n", frontend_name);
 	return 0;
     }
     
     if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data) == -1) {
-	PrintError("Error connecting to console frontend %s\n", frontend_name);
+	PrintError(vm, VCORE_NONE,"Error connecting to console frontend %s\n", frontend_name);
 	return -1;
     }
 
@@ -804,7 +804,7 @@ int v3_dev_add_char_frontend(struct v3_vm_info * vm,
     frontend = (struct char_frontend *)V3_Malloc(sizeof(struct char_frontend));
 
     if (!frontend) {
-	PrintError("Cannot allocate in adding a char front end\n");
+	PrintError(vm, VCORE_NONE,"Cannot allocate in adding a char front end\n");
 	return -1;
     }
 
@@ -833,12 +833,12 @@ int v3_dev_connect_char(struct v3_vm_info * vm,
 							(addr_t)frontend_name);
     
     if (frontend == NULL) {
-	PrintError("Could not find frontend char device %s\n", frontend_name);
+	PrintError(vm, VCORE_NONE,"Could not find frontend char device %s\n", frontend_name);
 	return 0;
     }
     
     if (frontend->connect(vm, frontend->priv_data, ops, cfg, private_data, push_fn_arg) == -1) {
-	PrintError("Error connecting to char frontend %s\n", frontend_name);
+	PrintError(vm, VCORE_NONE,"Error connecting to char frontend %s\n", frontend_name);
 	return -1;
     }
 
@@ -886,4 +886,22 @@ static int free_frontends(struct v3_vm_info * vm, struct vmm_dev_mgr * mgr) {
 
 
     return 0;
+}
+
+int v3_attach_device(struct v3_vm_info * vm, struct vm_device * dev)
+{
+  PrintError(vm, VCORE_NONE, "v3_attach_device is deprecated and no longer works\n");
+  return -1;
+}
+
+int v3_detach_device(struct vm_device * dev)
+{
+  PrintError(VM_NONE, VCORE_NONE, "v3_detach_device is deprecated and no longer works\n");
+  return -1;
+}
+
+struct vm_device * v3_allocate_device(char * name, struct v3_device_ops * ops, void * private_data)
+{
+  PrintError(VM_NONE, VCORE_NONE, "v3_allocate_device is deprecated and no longer works\n");
+  return 0;
 }

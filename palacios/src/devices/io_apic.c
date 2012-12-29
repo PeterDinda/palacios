@@ -170,7 +170,7 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
     uint32_t reg_tgt = guest_addr - ioapic->base_addr;
     uint32_t * op_val = (uint32_t *)dst;
 
-    PrintDebug("ioapic %u: IOAPIC Read at %p\n", ioapic->ioapic_id.id, (void *)guest_addr);
+    PrintDebug(core->vm_info, core, "ioapic %u: IOAPIC Read at %p\n", ioapic->ioapic_id.id, (void *)guest_addr);
 
     if (reg_tgt == 0x00) {
 	*op_val = ioapic->index_reg;
@@ -191,7 +191,7 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
 		
 		if (redir_index > 0x3f) {
-		    PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
+		    PrintError(core->vm_info, core, "ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
 		    return -1;
 		}
 		
@@ -204,7 +204,7 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 	}
     }
 
-    PrintDebug("ioapic %u: IOAPIC Read at %p gave value 0x%x\n", ioapic->ioapic_id.id, (void *)guest_addr, *op_val);
+    PrintDebug(core->vm_info, core, "ioapic %u: IOAPIC Read at %p gave value 0x%x\n", ioapic->ioapic_id.id, (void *)guest_addr, *op_val);
 
     return length;
 }
@@ -215,10 +215,10 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
     uint32_t reg_tgt = guest_addr - ioapic->base_addr;
     uint32_t op_val = *(uint32_t *)src;
 
-    PrintDebug("ioapic %u: IOAPIC Write at %p (val = %d)\n",  ioapic->ioapic_id.id, (void *)guest_addr, *(uint32_t *)src);
+    PrintDebug(core->vm_info, core, "ioapic %u: IOAPIC Write at %p (val = %d)\n",  ioapic->ioapic_id.id, (void *)guest_addr, *(uint32_t *)src);
 
     if (reg_tgt == 0x00) {
-	PrintDebug("ioapic %u: Setting ioapic index register to 0x%x.\n", ioapic->ioapic_id.id, op_val);
+	PrintDebug(core->vm_info, core, "ioapic %u: Setting ioapic index register to 0x%x.\n", ioapic->ioapic_id.id, op_val);
 	ioapic->index_reg = op_val;
     } else if (reg_tgt == 0x10) {
 	// IOWIN register
@@ -229,7 +229,7 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 		break;
 	    case IOAPIC_VER_REG:
 		// GPF/PageFault/Ignore?
-		PrintError("ioapic %u: Writing to read only IOAPIC register\n", ioapic->ioapic_id.id);
+		PrintError(core->vm_info, core, "ioapic %u: Writing to read only IOAPIC register\n", ioapic->ioapic_id.id);
 		return -1;
 	    case IOAPIC_ARB_REG:
 		ioapic->ioapic_arb_id.val = op_val;
@@ -239,18 +239,18 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 		    uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
 		    uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
 
-		    PrintDebug("ioapic %u: Writing value 0x%x to redirection entry %u (%s)\n",
+		    PrintDebug(core->vm_info, core, "ioapic %u: Writing value 0x%x to redirection entry %u (%s)\n",
 			       ioapic->ioapic_id.id, op_val, redir_index, hi_val ? "hi" : "low");
 
 		    if (redir_index > 0x3f) {
-			PrintError("ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
+			PrintError(core->vm_info, core, "ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
 			return -1;
 		    }
 		    if (hi_val) {
-			PrintDebug("ioapic %u: Writing to hi of pin %d\n", ioapic->ioapic_id.id, redir_index);
+			PrintDebug(core->vm_info, core, "ioapic %u: Writing to hi of pin %d\n", ioapic->ioapic_id.id, redir_index);
 			ioapic->redir_tbl[redir_index].hi = op_val;
 		    } else {
-			PrintDebug("ioapic %u: Writing to lo of pin %d\n", ioapic->ioapic_id.id, redir_index);
+			PrintDebug(core->vm_info, core, "ioapic %u: Writing to lo of pin %d\n", ioapic->ioapic_id.id, redir_index);
 			op_val &= REDIR_LO_MASK;
 			ioapic->redir_tbl[redir_index].lo &= ~REDIR_LO_MASK;
 			ioapic->redir_tbl[redir_index].lo |= op_val;
@@ -280,7 +280,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, struct 
     }
 
     if (irq_num > 24) {
-	PrintDebug("ioapic %u: IRQ out of range of IO APIC\n", ioapic->ioapic_id.id);
+	PrintDebug(vm, VCORE_NONE, "ioapic %u: IRQ out of range of IO APIC\n", ioapic->ioapic_id.id);
 	return -1;
     }
 
@@ -289,7 +289,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, struct 
     if (irq_entry->mask == 0) {
 	struct v3_gen_ipi ipi;
 
-	PrintDebug("ioapic %u: IOAPIC Signaling APIC to raise INTR %d\n", 
+	PrintDebug(vm, VCORE_NONE, "ioapic %u: IOAPIC Signaling APIC to raise INTR %d\n", 
 		   ioapic->ioapic_id.id, irq_entry->vec);
 
 
@@ -303,11 +303,11 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, struct 
 	ipi.ack = irq->ack;
 	ipi.private_data = irq->private_data;
 
-	PrintDebug("ioapic %u: IPI: vector 0x%x, mode 0x%x, logical 0x%x, trigger 0x%x, dst 0x%x, shorthand 0x%x\n",
+	PrintDebug(vm, VCORE_NONE, "ioapic %u: IPI: vector 0x%x, mode 0x%x, logical 0x%x, trigger 0x%x, dst 0x%x, shorthand 0x%x\n",
 		   ioapic->ioapic_id.id, ipi.vector, ipi.mode, ipi.logical, ipi.trigger_mode, ipi.dst, ipi.dst_shorthand);
 	// Need to add destination argument here...
 	if (v3_apic_send_ipi(vm, &ipi, ioapic->apic_dev_data) == -1) {
-	    PrintError("Error sending IPI to apic %d\n", ipi.dst);
+	    PrintError(vm, VCORE_NONE, "Error sending IPI to apic %d\n", ipi.dst);
 	    return -1;
 	}
     }
@@ -354,7 +354,7 @@ static int io_apic_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     return 0;
 
  savefailout:
-    PrintError("ioapic save failed\n");
+    PrintError(VM_NONE, VCORE_NONE, "ioapic save failed\n");
     return -1;
 }
 
@@ -371,7 +371,7 @@ static int io_apic_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     return 0;
 
  loadfailout:
-    PrintError("ioapic load failed\n");
+    PrintError(VM_NONE, VCORE_NONE, "ioapic load failed\n");
     return -1;
     
 }
@@ -394,12 +394,12 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     char * dev_id = v3_cfg_val(cfg, "ID");
 
 
-    PrintDebug("ioapic: Creating IO APIC\n");
+    PrintDebug(vm, VCORE_NONE, "ioapic: Creating IO APIC\n");
 
     struct io_apic_state * ioapic = (struct io_apic_state *)V3_Malloc(sizeof(struct io_apic_state));
 
     if (!ioapic) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -408,7 +408,7 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, ioapic);
 
     if (dev == NULL) {
-	PrintError("ioapic: Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE,  "ioapic: Could not attach device %s\n", dev_id);
 	V3_Free(ioapic);
 	return -1;
     }

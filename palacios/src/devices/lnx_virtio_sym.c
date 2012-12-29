@@ -96,7 +96,7 @@ static int handle_kick(struct guest_info * core, struct virtio_sym_state * sym_s
 
     return -1;
 
-    PrintDebug("VIRTIO Symbiotic KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
+    PrintDebug(core->vm_info, core, "VIRTIO Symbiotic KICK: cur_index=%d (mod=%d), avail_index=%d\n", 
 	       q->cur_avail_idx, q->cur_avail_idx % QUEUE_SIZE, q->avail->index);
 
     while (q->cur_avail_idx < q->avail->index) {
@@ -107,31 +107,31 @@ static int handle_kick(struct guest_info * core, struct virtio_sym_state * sym_s
 	uint32_t req_len = 0;
 
 
-	PrintDebug("Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
+	PrintDebug(core->vm_info, core, "Descriptor Count=%d, index=%d\n", desc_cnt, q->cur_avail_idx % QUEUE_SIZE);
 
 	for (i = 0; i < desc_cnt; i++) {
 	    addr_t page_addr;
 	    tmp_desc = &(q->desc[desc_idx]);
 	    
-	    PrintDebug("Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
+	    PrintDebug(core->vm_info, core, "Header Descriptor (ptr=%p) gpa=%p, len=%d, flags=%x, next=%d\n", 
 		       tmp_desc, 
 		       (void *)(addr_t)(tmp_desc->addr_gpa), tmp_desc->length, 
 		       tmp_desc->flags, tmp_desc->next);
 	
 
 	    if (v3_gpa_to_hva(core, tmp_desc->addr_gpa, (addr_t *)&(page_addr)) == -1) {
-		PrintError("Could not translate block header address\n");
+		PrintError(core->vm_info, core, "Could not translate block header address\n");
 		return -1;
 	    }
 
 	    /* 	    
 	       if (handle_sym_op(dev, tmp_desc, buf_desc, status_desc) == -1) {
-	       PrintError("Error handling symbiotic operation\n");
+	       PrintError(core->vm_info, core, "Error handling symbiotic operation\n");
 	       return -1;
 	       }
 	    */
 
-	    PrintDebug("Symbiotic Device Currently Ignored\n");
+	    PrintDebug(core->vm_info, core, "Symbiotic Device Currently Ignored\n");
 
 
 	    req_len += tmp_desc->length;
@@ -146,7 +146,7 @@ static int handle_kick(struct guest_info * core, struct virtio_sym_state * sym_s
     }
 
     if (!(q->avail->flags & VIRTIO_NO_IRQ_FLAG)) {
-	PrintDebug("Raising IRQ %d\n",  sym_state->pci_dev->config_header.intr_line);
+	PrintDebug(core->vm_info, core, "Raising IRQ %d\n",  sym_state->pci_dev->config_header.intr_line);
 	v3_pci_raise_irq(sym_state->pci_bus, sym_state->pci_dev, 0);
 	sym_state->virtio_cfg.pci_isr = VIRTIO_ISR_ACTIVE;
     }
@@ -161,7 +161,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 
 
 /*
-    PrintDebug("VIRTIO SYMBIOTIC Write for port %d (index=%d) len=%d, value=%x\n", 
+    PrintDebug(core->vm_info, core, "VIRTIO SYMBIOTIC Write for port %d (index=%d) len=%d, value=%x\n", 
 	       port, port_idx,  length, *(uint32_t *)src);
 */
 
@@ -169,7 +169,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
     switch (port_idx) {
 	case GUEST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Illegal write length for guest features\n");
+		PrintError(core->vm_info, core, "Illegal write length for guest features\n");
 		return -1;
 	    }
 	    
@@ -194,32 +194,32 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 		sym_state->cur_queue->ring_used_addr = (sym_state->cur_queue->ring_used_addr + 0xfff) & ~0xfff;
 
 		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_desc_addr, (addr_t *)&(sym_state->cur_queue->desc)) == -1) {
-		    PrintError("Could not translate ring descriptor address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring descriptor address\n");
 		    return -1;
 		}
 
 
 		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_avail_addr, (addr_t *)&(sym_state->cur_queue->avail)) == -1) {
-		    PrintError("Could not translate ring available address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring available address\n");
 		    return -1;
 		}
 
 
 		if (v3_gpa_to_hva(core, sym_state->cur_queue->ring_used_addr, (addr_t *)&(sym_state->cur_queue->used)) == -1) {
-		    PrintError("Could not translate ring used address\n");
+		    PrintError(core->vm_info, core, "Could not translate ring used address\n");
 		    return -1;
 		}
 
-		PrintDebug("RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
+		PrintDebug(core->vm_info, core, "RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
 			   (void *)(sym_state->cur_queue->ring_desc_addr),
 			   (void *)(sym_state->cur_queue->ring_avail_addr),
 			   (void *)(sym_state->cur_queue->ring_used_addr));
 
-		PrintDebug("RingDesc=%p, Avail=%p, Used=%p\n", 
+		PrintDebug(core->vm_info, core, "RingDesc=%p, Avail=%p, Used=%p\n", 
 			   sym_state->cur_queue->desc, sym_state->cur_queue->avail, sym_state->cur_queue->used);
 
 	    } else {
-		PrintError("Illegal write length for page frame number\n");
+		PrintError(core->vm_info, core, "Illegal write length for page frame number\n");
 		return -1;
 	    }
 	    break;
@@ -227,7 +227,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 	    sym_state->virtio_cfg.vring_queue_selector = *(uint16_t *)src;
 
 	    if (sym_state->virtio_cfg.vring_queue_selector > 0) {
-		PrintError("Virtio Symbiotic device has not qeueues. Selected %d\n", 
+		PrintError(core->vm_info, core, "Virtio Symbiotic device has not qeueues. Selected %d\n", 
 			   sym_state->virtio_cfg.vring_queue_selector);
 		return -1;
 	    }
@@ -236,9 +236,9 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 
 	    break;
 	case VRING_Q_NOTIFY_PORT:
-	    PrintDebug("Handling Kick\n");
+	    PrintDebug(core->vm_info, core, "Handling Kick\n");
 	    if (handle_kick(core, sym_state) == -1) {
-		PrintError("Could not handle Symbiotic Notification\n");
+		PrintError(core->vm_info, core, "Could not handle Symbiotic Notification\n");
 		return -1;
 	    }
 	    break;
@@ -246,7 +246,7 @@ static int virtio_io_write(struct guest_info * core, uint16_t port, void * src, 
 	    sym_state->virtio_cfg.status = *(uint8_t *)src;
 
 	    if (sym_state->virtio_cfg.status == 0) {
-		PrintDebug("Resetting device\n");
+		PrintDebug(core->vm_info, core, "Resetting device\n");
 		virtio_reset(sym_state);
 	    }
 
@@ -270,13 +270,13 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
     int port_idx = port % sym_state->io_range_size;
 
 /*
-    PrintDebug("VIRTIO SYMBIOTIC Read  for port %d (index =%d), length=%d\n", 
+    PrintDebug(core->vm_info, core, "VIRTIO SYMBIOTIC Read  for port %d (index =%d), length=%d\n", 
 	       port, port_idx, length);
 */
     switch (port_idx) {
 	case HOST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Illegal read length for host features\n");
+		PrintError(core->vm_info, core, "Illegal read length for host features\n");
 		return -1;
 	    }
 
@@ -285,7 +285,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 	    break;
 	case VRING_PG_NUM_PORT:
 	    if (length != 4) {
-		PrintError("Illegal read length for page frame number\n");
+		PrintError(core->vm_info, core, "Illegal read length for page frame number\n");
 		return -1;
 	    }
 
@@ -294,7 +294,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 	    break;
 	case VRING_SIZE_PORT:
 	    if (length != 2) {
-		PrintError("Illegal read length for vring size\n");
+		PrintError(core->vm_info, core, "Illegal read length for vring size\n");
 		return -1;
 	    }
 		
@@ -304,7 +304,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 
 	case VIRTIO_STATUS_PORT:
 	    if (length != 1) {
-		PrintError("Illegal read length for status\n");
+		PrintError(core->vm_info, core, "Illegal read length for status\n");
 		return -1;
 	    }
 
@@ -326,7 +326,7 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 		memcpy(dst, cfg_ptr + cfg_offset, length);
 		
 	    } else {
-		PrintError("Read of Unhandled Virtio Read\n");
+		PrintError(core->vm_info, core, "Read of Unhandled Virtio Read\n");
 		return -1;
 	    }
 	  
@@ -360,10 +360,10 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct pci_device * pci_dev = NULL;
     char * dev_id = v3_cfg_val(cfg, "ID");
 
-    PrintDebug("Initializing VIRTIO Symbiotic device\n");
+    PrintDebug(vm, VCORE_NONE, "Initializing VIRTIO Symbiotic device\n");
 
     if (pci_bus == NULL) {
-	PrintError("VirtIO devices require a PCI Bus");
+	PrintError(vm, VCORE_NONE, "VirtIO devices require a PCI Bus");
 	return -1;
     }
 
@@ -371,7 +371,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     virtio_state  = (struct virtio_sym_state *)V3_Malloc(sizeof(struct virtio_sym_state));
 
     if (!virtio_state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -381,7 +381,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(virtio_state);
 	return -1;
     }
@@ -429,7 +429,7 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 					 NULL, NULL, NULL, NULL, virtio_state);
 
 	if (!pci_dev) {
-	    PrintError("Could not register PCI Device\n");
+	    PrintError(vm, VCORE_NONE, "Could not register PCI Device\n");
 	    v3_remove_device(dev);
 	    return -1;
 	}

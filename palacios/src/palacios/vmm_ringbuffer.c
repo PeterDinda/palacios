@@ -27,7 +27,7 @@ void NO_INST v3_init_ringbuf(struct v3_ringbuf * ring, uint_t size) {
     ring->buf = V3_Malloc(size);
 
     if (!(ring->buf)) {
-	PrintError("Cannot init a ring buffer\n");
+        PrintError(VM_NONE, VCORE_NONE, "Cannot init a ring buffer\n");
 	return;
     }
 
@@ -43,7 +43,7 @@ struct v3_ringbuf * v3_create_ringbuf(uint_t size) {
     struct v3_ringbuf * ring = (struct v3_ringbuf *)V3_Malloc(sizeof(struct v3_ringbuf));
 
     if (!ring) {
-	PrintError("Cannot allocate a ring buffer\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate a ring buffer\n");
 	return NULL;
     }
 
@@ -192,7 +192,7 @@ int v3_ringbuf_write(struct v3_ringbuf * ring, uchar_t * src, uint_t len) {
     if (is_write_loop(ring, write_len)) {
 	int section_len = get_write_section_size(ring);
 
-	//  PrintDebug("Write loop: write_ptr=%p, src=%p, sec_len=%d\n", 
+	//  PrintDebug(info->vm_info, info, "Write loop: write_ptr=%p, src=%p, sec_len=%d\n", 
 	//	       (void *)get_write_ptr(ring),(void*)src, section_len);
     
 	memcpy(get_write_ptr(ring), src, section_len);
@@ -202,7 +202,7 @@ int v3_ringbuf_write(struct v3_ringbuf * ring, uchar_t * src, uint_t len) {
 
 	ring->end += write_len - section_len;
     } else {
-	//    PrintDebug("Writing: write_ptr=%p, src=%p, write_len=%d\n", 
+	//    PrintDebug(info->vm_info, info, "Writing: write_ptr=%p, src=%p, write_len=%d\n", 
 	//	       (void *)get_write_ptr(ring),(void*)src, write_len);
 
 	memcpy(get_write_ptr(ring), src, write_len);
@@ -223,6 +223,6 @@ void v3_print_ringbuf(struct v3_ringbuf * ring) {
     for (ctr = 0; ctr < ring->current_len; ctr++) {
 	int index = (ctr + ring->start) % ring->size;
 
-	PrintDebug("Entry %d (index=%d): %c\n", ctr, index, ring->buf[index]);
+	PrintDebug(VM_NONE, VCORE_NONE, "Entry %d (index=%d): %c\n", ctr, index, ring->buf[index]);
     }
 }

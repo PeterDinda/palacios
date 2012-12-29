@@ -79,7 +79,7 @@ static int handle_cpufreq_hcall(struct guest_info * info, uint_t hcall_id, void 
 
     info->vm_regs.rbx = time_state->guest_cpu_freq;
 
-    PrintDebug("Guest request cpu frequency: return %ld\n", (long)info->vm_regs.rbx);
+    PrintDebug(info->vm_info, info, "Guest request cpu frequency: return %ld\n", (long)info->vm_regs.rbx);
     
     return 0;
 }
@@ -89,7 +89,7 @@ static int handle_rdhtsc_hcall(struct guest_info * info, uint_t hcall_id, void *
 
     info->vm_regs.rbx = v3_get_host_time(time_state);
 
-    // PrintDebug("Guest request host TSC: return %ld\n", (long)info->vm_regs.rbx);
+    // PrintDebug(info->vm_info, info, "Guest request host TSC: return %ld\n", (long)info->vm_regs.rbx);
     
     return 0;
 }
@@ -105,7 +105,7 @@ int v3_start_time(struct guest_info * info) {
 
     info->time_state.last_update = 0;
     info->time_state.guest_cycles = 0;
-    PrintDebug("Starting time for core %d at host time %llu/guest time %llu.\n",
+    PrintDebug(info->vm_info, info, "Starting time for core %d at host time %llu/guest time %llu.\n",
 	       info->vcpu_id, t, info->time_state.guest_cycles); 
     v3_yield(info,-1);
     return 0;
@@ -164,11 +164,11 @@ struct v3_timer * v3_add_timer(struct guest_info * info,
     timer = (struct v3_timer *)V3_Malloc(sizeof(struct v3_timer));
 
     if (!timer) {
-	PrintError("Cannot allocate in adding a timer\n");
+	PrintError(info->vm_info, info, "Cannot allocate in adding a timer\n");
 	return NULL;
     }
 
-    V3_ASSERT(timer != NULL);
+    V3_ASSERT(info->vm_info, info,timer != NULL);
 
     timer->ops = ops;
     timer->private_data = private_data;
@@ -196,12 +196,12 @@ void v3_update_timers(struct guest_info * info) {
     time_state->last_update = v3_get_guest_time(time_state);
     cycles = (sint64_t)(time_state->last_update - old_time);
     if (cycles < 0) {
-	PrintError("Cycles appears to have rolled over - old time %lld, current time %lld.\n",
+	PrintError(info->vm_info, info, "Cycles appears to have rolled over - old time %lld, current time %lld.\n",
 		   old_time, time_state->last_update);
 	return;
     }
 
-    //PrintDebug("Updating timers with %lld elapsed cycles.\n", cycles);
+    //PrintDebug(info->vm_info, info, "Updating timers with %lld elapsed cycles.\n", cycles);
     list_for_each_entry(tmp_timer, &(time_state->timers), timer_link) {
 	tmp_timer->ops->update_timer(info, cycles, time_state->guest_cpu_freq, tmp_timer->private_data);
     }
@@ -227,7 +227,7 @@ int v3_rdtsc(struct guest_info * info) {
 }
 
 int v3_handle_rdtsc(struct guest_info * info) {
-    PrintDebug("Handling virtual RDTSC call.\n");
+    PrintDebug(info->vm_info, info, "Handling virtual RDTSC call.\n");
     v3_rdtsc(info);
     
     info->vm_regs.rax &= 0x00000000ffffffffLL;
@@ -263,7 +263,7 @@ int v3_rdtscp(struct guest_info * info) {
 
 
 int v3_handle_rdtscp(struct guest_info * info) {
-    PrintDebug("Handling virtual RDTSCP call.\n");
+    PrintDebug(info->vm_info, info, "Handling virtual RDTSCP call.\n");
 
     v3_rdtscp(info);
 
@@ -280,7 +280,7 @@ static int tsc_aux_msr_read_hook(struct guest_info *info, uint_t msr_num,
 				 struct v3_msr *msr_val, void *priv) {
     struct vm_core_time * time_state = &(info->time_state);
 
-    V3_ASSERT(msr_num == TSC_AUX_MSR);
+    V3_ASSERT(info->vm_info, info,msr_num == TSC_AUX_MSR);
 
     msr_val->lo = time_state->tsc_aux.lo;
     msr_val->hi = time_state->tsc_aux.hi;
@@ -292,7 +292,7 @@ static int tsc_aux_msr_write_hook(struct guest_info *info, uint_t msr_num,
 			      struct v3_msr msr_val, void *priv) {
     struct vm_core_time * time_state = &(info->time_state);
 
-    V3_ASSERT(msr_num == TSC_AUX_MSR);
+    V3_ASSERT(info->vm_info, info,msr_num == TSC_AUX_MSR);
 
     time_state->tsc_aux.lo = msr_val.lo;
     time_state->tsc_aux.hi = msr_val.hi;
@@ -304,8 +304,8 @@ static int tsc_msr_read_hook(struct guest_info *info, uint_t msr_num,
 			     struct v3_msr *msr_val, void *priv) {
     uint64_t time = v3_get_guest_tsc(&info->time_state);
 
-    PrintDebug("Handling virtual TSC MSR read call.\n");
-    V3_ASSERT(msr_num == TSC_MSR);
+    PrintDebug(info->vm_info, info, "Handling virtual TSC MSR read call.\n");
+    V3_ASSERT(info->vm_info, info,msr_num == TSC_MSR);
 
     msr_val->hi = time >> 32;
     msr_val->lo = time & 0xffffffffLL;
@@ -318,8 +318,8 @@ static int tsc_msr_write_hook(struct guest_info *info, uint_t msr_num,
     struct vm_core_time * time_state = &(info->time_state);
     uint64_t guest_time, new_tsc;
 
-    PrintDebug("Handling virtual TSC MSR write call.\n");
-    V3_ASSERT(msr_num == TSC_MSR);
+    PrintDebug(info->vm_info, info, "Handling virtual TSC MSR write call.\n");
+    V3_ASSERT(info->vm_info, info,msr_num == TSC_MSR);
 
     new_tsc = (((uint64_t)msr_val.hi) << 32) | (uint64_t)msr_val.lo;
     guest_time = v3_get_guest_time(time_state);
@@ -342,9 +342,9 @@ handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
 	if (strcasecmp(source, "none") == 0) {
 	    vm->time_state.flags &= ~V3_TIME_SLAVE_HOST;
 	} else if (strcasecmp(source, "host") != 0) {
-	    PrintError("Unknown time source for VM core time management.\n");
+	    PrintError(vm, VCORE_NONE, "Unknown time source for VM core time management.\n");
 	} else {
-	    PrintDebug("VM time slaved to host TSC.\n");
+	    PrintDebug(vm, VCORE_NONE,"VM time slaved to host TSC.\n");
 	}
     }
 
@@ -353,18 +353,18 @@ handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
     if (tsc) {
 	if (strcasecmp(tsc, "host") == 0) {
 	    if (!(vm->time_state.flags & V3_TIME_SLAVE_HOST)) {
-		PrintError("WARNING: Guest TSC set to passthrough host TSC, but guest time not slaved to host time.");
+		PrintError(vm, VCORE_NONE, "WARNING: Guest TSC set to passthrough host TSC, but guest time not slaved to host time.");
 	    }
 	    vm->time_state.flags |= V3_TIME_TSC_PASSTHROUGH;
 	} else if (strcasecmp(source, "guest") != 0) {
-	    PrintError("ERROR: Unknown TSC configuration in time configuration.\n");
+	    PrintError(vm, VCORE_NONE, "ERROR: Unknown TSC configuration in time configuration.\n");
 	}
     }
 
     dilation = v3_cfg_val(cfg, "dilation");
     if (dilation) {
         if (!(vm->time_state.flags & VM_TIME_SLAVE_HOST)) {
-	    PrintError("Time dilation only valid when slaved to host time.\n");
+	    PrintError(vm, VCORE_NONE, "Time dilation only valid when slaved to host time.\n");
 	} else {
 	    uint32_t num = 1, denom = 1;
 	    denom = atoi(dilation);
@@ -375,11 +375,11 @@ handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
 	}
 	if ((vm->time_state.td_num != 1) 
 	    || (vm->time_state.td_denom != 1)) {
-	    V3_Print("Time dilated from host time by a factor of %d/%d"
+	    V3_Print(vm, VCORE_NONE, "Time dilated from host time by a factor of %d/%d"
 		     " in guest.\n", vm->time_state.td_denom, 
 		     vm->time_state.td_num);
 	} else {
-	    PrintError("Time dilation specifier in configuration did not"
+	    PrintError(vm, VCORE_NONE,"Time dilation specifier in configuration did not"
 		       " result in actual time dilation in VM.\n");
 	}
     }
@@ -390,7 +390,7 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
     v3_cfg_tree_t * cfg_tree = vm->cfg_data->cfg;
     int ret;
     
-    PrintDebug("Installing TSC MSR hook.\n");
+    PrintDebug(vm, VCORE_NONE, "Installing TSC MSR hook.\n");
     ret = v3_hook_msr(vm, TSC_MSR, 
 		      tsc_msr_read_hook, tsc_msr_write_hook, NULL);
 
@@ -398,7 +398,7 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
 	return ret;
     }
 
-    PrintDebug("Installing TSC_AUX MSR hook.\n");
+    PrintDebug(vm, VCORE_NONE, "Installing TSC_AUX MSR hook.\n");
     ret = v3_hook_msr(vm, TSC_AUX_MSR, tsc_aux_msr_read_hook, 
 		      tsc_aux_msr_write_hook, NULL);
 
@@ -406,10 +406,10 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
 	return ret;
     }
 
-    PrintDebug("Registering TIME_CPUFREQ hypercall.\n");
+    PrintDebug(vm, VCORE_NONE, "Registering TIME_CPUFREQ hypercall.\n");
     ret = v3_register_hypercall(vm, TIME_CPUFREQ_HCALL, 
 				handle_cpufreq_hcall, NULL);
-    PrintDebug("Registering TIME_RDHTSC hypercall.\n");
+    PrintDebug(vm, VCORE_NONE, "Registering TIME_RDHTSC hypercall.\n");
     ret = v3_register_hypercall(vm, TIME_RDHTSC_HCALL, 
 				handle_rdhtsc_hcall, NULL);
 
@@ -466,7 +466,7 @@ void v3_init_time_core(struct guest_info * info) {
 
     if (khz) {
 	time_state->guest_cpu_freq = atoi(khz);
-	PrintDebug("Logical Core %d (vcpu=%d) CPU frequency requested at %d khz.\n", 
+	PrintDebug(info->vm_info, info, "Logical Core %d (vcpu=%d) CPU frequency requested at %d khz.\n", 
 		   info->pcpu_id, info->vcpu_id, time_state->guest_cpu_freq);
     } 
     
@@ -491,22 +491,22 @@ void v3_init_time_core(struct guest_info * info) {
 	(info->vm_info->time_state.td_num != 1) || 
 	(info->vm_info->time_state.td_denom != 1)) { 
 	if (time_state->flags | VM_TIME_TSC_PASSTHROUGH) {
-	    PrintError("WARNING: Cannot use reqested passthrough TSC with clock or time modification also requested.\n");
+	    PrintError(info->vm_info, info, "WARNING: Cannot use reqested passthrough TSC with clock or time modification also requested.\n");
 	    time_state->flags &= ~VM_TIME_TSC_PASSTHROUGH;
 	}
 	time_state->flags |= VM_TIME_TRAP_RDTSC;
     }
 
-    PrintDebug("Logical Core %d (vcpu=%d) CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", 
+    PrintDebug(info->vm_info, info, "Logical Core %d (vcpu=%d) CPU frequency set to %d KHz (host CPU frequency = %d KHz).\n", 
 	       info->pcpu_id, info->vcpu_id,
 	       time_state->guest_cpu_freq, 
 	       time_state->host_cpu_freq);
-    PrintDebug("    td_mult = %d/%d, cl_mult = %u/%u, ipc_mult = %u/%u.\n",
+    PrintDebug(info->vm_info, info, "    td_mult = %d/%d, cl_mult = %u/%u, ipc_mult = %u/%u.\n",
 	       info->vm_info->time_state.td_num, 
 	       info->vm_info->time_state.td_denom, 
 	       time_state->clock_ratio_num, time_state->clock_ratio_denom,
 	       time_state->ipc_ratio_num, time_state->ipc_ratio_denom);
-    PrintDebug("    time source = %s, tsc handling =  %s\n", 
+    PrintDebug(info->vm_info, info, "    time source = %s, tsc handling =  %s\n", 
 	       (time_state->flags & VM_TIME_SLAVE_HOST) ? "host" : "none",
 	       (time_state->flags & VM_TIME_TSC_PASSTHROUGH) ? "passthrough" 
 	           : (time_state->flags & VM_TIME_TRAP_RDTSC) ? "trapping" 

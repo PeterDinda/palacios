@@ -121,14 +121,14 @@ static int video_write_mem(struct guest_info * core, addr_t guest_addr, void * d
 //    int i = 0;
 
     /*
-    PrintDebug("\n\nInside Video Write Memory.\n\n");
-    PrintDebug("Guest address: %p length = %d\n", (void *)guest_addr, length);
+    PrintDebug(info->vm_info, info, "\n\nInside Video Write Memory.\n\n");
+    PrintDebug(info->vm_info, info, "Guest address: %p length = %d\n", (void *)guest_addr, length);
 
-    PrintDebug("Write offset: 0x%x\n", (uint_t)write_offset);
-    PrintDebug("Video_Memory: ");
+    PrintDebug(info->vm_info, info, "Write offset: 0x%x\n", (uint_t)write_offset);
+    PrintDebug(info->vm_info, info, "Video_Memory: ");
 
     for (i = 0; i < length; i += 2) {
-	PrintDebug("%c", ((char *)(V3_VAddr((void *)guest_addr)))[i]);
+	PrintDebug(info->vm_info, info, "%c", ((char *)(V3_VAddr((void *)guest_addr)))[i]);
     }
     */
 #if PASSTHROUGH
@@ -137,16 +137,16 @@ static int video_write_mem(struct guest_info * core, addr_t guest_addr, void * d
 
 
 /*    if (send_update(data->client_fd, data->video_memory + difference, write_offset-difference, data->start_addr_offset, length) == -1) {
-	PrintError("Error sending update to client\n");
+	PrintError(info->vm_info, info, "Error sending update to client\n");
 	return -1;
     }
 */
-    // PrintDebug(" Done.\n");
+    // PrintDebug(info->vm_info, info, " Done.\n");
     return length;
 }
 
 static int video_read_port(struct guest_info * dev, uint16_t port, void * dest, uint_t length, void * priv_data ) {
-    PrintDebug("Video: Read port 0x%x\n",port);
+    PrintDebug(info->vm_info, info, "Video: Read port 0x%x\n",port);
     video_do_in(port, dest, length);
     return length;
 }
@@ -160,24 +160,24 @@ static int video_read_port_generic(struct guest_info * dev, uint16_t port, void 
 
 static int video_write_port(struct guest_info * dev, uint16_t port, void * dest, uint_t length, void * priv_data) {
     
-      PrintDebug("Video: write port 0x%x...Wrote: ", port);
+      PrintDebug(info->vm_info, info, "Video: write port 0x%x...Wrote: ", port);
       uint_t i;
       for(i = 0; i < length; i++){
-      PrintDebug("%x", ((uint8_t*)dest)[i]);
+      PrintDebug(info->vm_info, info, "%x", ((uint8_t*)dest)[i]);
       }
-      PrintDebug("...Done\n");
+      PrintDebug(info->vm_info, info, "...Done\n");
     video_do_out(port, dest, length);
     return length;
 }
 
 static int video_write_port_store(struct guest_info * dev, uint16_t port, void * dest, uint_t length, void * priv_data) {
     
-      PrintDebug("Entering video_write_port_store...port 0x%x\n", port);
+      PrintDebug(info->vm_info, info, "Entering video_write_port_store...port 0x%x\n", port);
       uint_t i;
       for(i = 0; i < length; i++){
-      PrintDebug("%x", ((uint8_t*)dest)[i]);
+      PrintDebug(info->vm_info, info, "%x", ((uint8_t*)dest)[i]);
       }
-      PrintDebug("...Done\n"); 
+      PrintDebug(info->vm_info, info, "...Done\n"); 
     
     struct video_internal * video_state = (struct video_internal *)priv_data;
 
@@ -193,13 +193,13 @@ static int video_write_port_3D5(struct guest_info * dev, uint16_t port, void * d
     uint8_t new_start = 0;
     uint_t index = 0;
 
-    PrintDebug("Video: write port 0x%x...Wrote: ", port);
+    PrintDebug(info->vm_info, info, "Video: write port 0x%x...Wrote: ", port);
     {
 	uint_t i = 0;
 	for (i = 0; i < length; i++){
-	    PrintDebug("%x", ((uint8_t*)dest)[i]);
+	    PrintDebug(info->vm_info, info, "%x", ((uint8_t*)dest)[i]);
 	}
-	PrintDebug("...Done\n");
+	PrintDebug(info->vm_info, info, "...Done\n");
     }
 
     video_state->ports[port - PORT_OFFSET] = 0;
@@ -229,7 +229,7 @@ static int video_write_port_3D5(struct guest_info * dev, uint16_t port, void * d
 	    diff = video_state->start_addr_offset - video_state->old_start_addr_offset;
 	    diff /= 80;
 
-	    PrintDebug("Scroll lines = %d\n", diff);
+	    PrintDebug(info->vm_info, info, "Scroll lines = %d\n", diff);
 
 //	    send_scroll(video_state->client_fd, diff, video_state->video_memory);
 
@@ -248,7 +248,7 @@ static int video_write_port_3D5(struct guest_info * dev, uint16_t port, void * d
 	    x = ((video_state->cursor_addr) % 80) + 1;
 	    y = (((video_state->cursor_addr) / 80) - ((video_state->start_addr_offset / 80))) + 1;
 	    
-	    PrintDebug("New Cursor Location; X=%d Y=%d\n", x, y);
+	    PrintDebug(info->vm_info, info, "New Cursor Location; X=%d Y=%d\n", x, y);
 	    
 //	    send_cursor_update(video_state->client_fd, x, y);
 	    break;
@@ -268,13 +268,13 @@ static int video_write_port_3C5(struct guest_info * dev, uint16_t port, void * d
     uint_t index = 0;
 
 
-    PrintDebug("Entering write_port_3C5....port 0x%x\n", port);
+    PrintDebug(info->vm_info, info, "Entering write_port_3C5....port 0x%x\n", port);
     {
 	uint_t i = 0;
 	for(i = 0; i < length; i++){
-	    PrintDebug("%x", ((uint8_t*)dest)[i]);
+	    PrintDebug(info->vm_info, info, "%x", ((uint8_t*)dest)[i]);
 	}
-	PrintDebug("...Done\n");
+	PrintDebug(info->vm_info, info, "...Done\n");
     }
 
     video_state->ports[port - PORT_OFFSET] = 0;
@@ -291,14 +291,14 @@ static int video_write_port_3C5(struct guest_info * dev, uint16_t port, void * d
 static int video_write_port_3CF(struct guest_info * dev, uint16_t port, void * dest, uint_t length, void * priv_data) {
     struct video_internal * video_state = (struct video_internal *)priv_data;
 
-    PrintDebug("Entering write_port_3CF....port 0x%x\n", port);
+    PrintDebug(info->vm_info, info, "Entering write_port_3CF....port 0x%x\n", port);
 
     {
 	uint_t i = 0;
 	for(i = 0; i < length; i++){
-	    PrintDebug("%x", ((uint8_t*)dest)[i]);
+	    PrintDebug(info->vm_info, info, "%x", ((uint8_t*)dest)[i]);
 	}
-	PrintDebug("...Done\n");
+	PrintDebug(info->vm_info, info, "...Done\n");
     }
 
     video_state->ports[port - PORT_OFFSET] = 0;
@@ -338,7 +338,7 @@ static int video_write_port_3D4(struct guest_info * dev, uint16_t port, void * d
 	    x = ((video_state->cursor_addr) % 80) + 1;
 	    y = (((video_state->cursor_addr) / 80) - ((video_state->start_addr_offset / 80))) + 1;
 
-	    PrintDebug("New Cursor Location; X=%d Y=%d\n", x, y);
+	    PrintDebug(info->vm_info, info, "New Cursor Location; X=%d Y=%d\n", x, y);
 
 //	    send_cursor_update(video_state->client_fd, x, y);
 	}
@@ -358,7 +358,7 @@ static int video_write_port_3D4(struct guest_info * dev, uint16_t port, void * d
 	    diff =  video_state->start_addr_offset - video_state->old_start_addr_offset;
 	    diff /= 80;
 
-	    PrintDebug("Scroll lines = %d\n", diff);
+	    PrintDebug(info->vm_info, info, "Scroll lines = %d\n", diff);
 
 //	    send_scroll(video_state->client_fd, diff, video_state->video_memory+0x18000);
 	}
@@ -372,22 +372,22 @@ static int video_write_port_3D4(struct guest_info * dev, uint16_t port, void * d
 }
 
 static int video_write_mem_region(struct guest_info * core, addr_t guest_addr, void * dest, uint_t length, void * priv_data) {;
-    PrintDebug("Video write mem region guest_addr: 0x%p, src: 0x%p, length: %d, Value?= %x\n", (void *)guest_addr, dest, length, *((uint32_t *)V3_VAddr((void *)guest_addr)));
+    PrintDebug(info->vm_info, info, "Video write mem region guest_addr: 0x%p, src: 0x%p, length: %d, Value?= %x\n", (void *)guest_addr, dest, length, *((uint32_t *)V3_VAddr((void *)guest_addr)));
     return length;
 }
 
 static int video_read_mem_region(struct guest_info * core, addr_t guest_addr, void * dest, uint_t length, void * priv_data){
-    PrintDebug("Video:  Within video_read_mem_region\n");
+    PrintDebug(info->vm_info, info, "Video:  Within video_read_mem_region\n");
     return length;
 }
 
 static int video_write_io_region(struct guest_info * core, addr_t guest_addr, void * dest, uint_t length, void * priv_data){
-    PrintDebug("Video:  Within video_write_io_region\n");
+    PrintDebug(info->vm_info, info, "Video:  Within video_write_io_region\n");
     return length;
 }
 
 static int video_read_io_region(struct guest_info * core, addr_t guest_addr, void * dest, uint_t length, void * priv_data){
-    PrintDebug("Video:  Within video_read_io_region\n");
+    PrintDebug(info->vm_info, info, "Video:  Within video_read_io_region\n");
     return length;
 }
 
@@ -398,17 +398,17 @@ static int cirrus_gfx_card_free(struct vm_device * dev) {
 
 /*
 static int cirrus_gfx_card_reset_device(struct vm_device * dev) {
-    PrintDebug("Video: reset device\n");
+    PrintDebug(info->vm_info, info, "Video: reset device\n");
     return 0;
 }
 
 static int cirrus_gfx_card_start_device(struct vm_device * dev) {
-    PrintDebug("Video: start device\n");
+    PrintDebug(info->vm_info, info, "Video: start device\n");
     return 0;
 }
 
 static int cirrus_gfx_card_stop_device(struct vm_device * dev) {
-    PrintDebug("Video: stop device\n");
+    PrintDebug(info->vm_info, info, "Video: stop device\n");
     return 0;
 }
 */
@@ -427,24 +427,24 @@ static int cirrus_gfx_card_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg){
 
 
     if (!video_state) {
-	PrintError("Cannot allocate state in cirrus gfx\n");
+	PrintError(info->vm_info, info, "Cannot allocate state in cirrus gfx\n");
 	return -1;
     }
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, video_state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(info->vm_info, info, "Could not attach device %s\n", dev_id);
 	V3_Free(video_state)
 	return -1;
     }
 
-    PrintDebug("video: init_device\n");
-    PrintDebug("Num Pages=%d\n", SIZE_OF_REGION / 4096);
+    PrintDebug(info->vm_info, info, "video: init_device\n");
+    PrintDebug(info->vm_info, info, "Num Pages=%d\n", SIZE_OF_REGION / 4096);
 
     video_state->video_memory_pa = (addr_t)V3_AllocPages(SIZE_OF_REGION / 4096);
     if (!video_state->video_memory_pa) { 
-	PrintError("Cannot allocate video memory\n");
+	PrintError(info->vm_info, info, "Cannot allocate video memory\n");
 	V3_Free(video_state);
 	return -1;
     }
@@ -500,31 +500,31 @@ static int cirrus_gfx_card_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg){
     v3_dev_hook_io(dev, 0x3df, &video_read_port, &video_write_port);
 
 
-    PrintDebug("PA of array: %p\n", (void *)video_state->video_memory_pa);
+    PrintDebug(info->vm_info, info, "PA of array: %p\n", (void *)video_state->video_memory_pa);
 
 
 #if PASSTHROUGH
     if (v3_hook_write_mem(vm, V3_MEM_CORE_ANY, START_ADDR, END_ADDR, START_ADDR, &video_write_mem, dev) == -1){
-	PrintDebug("\n\nVideo Hook failed.\n\n");
+	PrintDebug(info->vm_info, info, "\n\nVideo Hook failed.\n\n");
     }
 #else
     if (v3_hook_write_mem(vm, V3_MEM_CORE_ANY, START_ADDR, END_ADDR, video_memory_pa, &video_write_mem, dev) == -1){
-	PrintDebug("\n\nVideo Hook failed.\n\n");
+	PrintDebug(info->vm_info, info, "\n\nVideo Hook failed.\n\n");
     }
 #endif
 
-    PrintDebug("Video: Getting client connection\n");
+    PrintDebug(info->vm_info, info, "Video: Getting client connection\n");
 
     //video_state->client_fd = get_client_connection(vm);
 
-    PrintDebug("Video: Client connection established\n");
+    PrintDebug(info->vm_info, info, "Video: Client connection established\n");
 
     video_state->screen_bottom = 25;
 
     video_state->pci_bus = pci_bus;
 
     if (video_state->pci_bus == NULL) {
-	PrintError("Could not find PCI device\n");
+	PrintError(info->vm_info, info, "Could not find PCI device\n");
 	return -1;
     } else {
 	struct v3_pci_bar bars[6];
@@ -556,10 +556,10 @@ static int cirrus_gfx_card_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg){
 					 NULL, NULL, dev);
 
 	if (pci_dev == NULL) {
-	    PrintError("Failed to register VIDEO %d with PCI\n", i);
+	    PrintError(info->vm_info, info, "Failed to register VIDEO %d with PCI\n", i);
 	    return -1;
 	} else{
-	    PrintDebug("Registering PCI_VIDEO succeeded\n");
+	    PrintDebug(info->vm_info, info, "Registering PCI_VIDEO succeeded\n");
 	}
 	//Need to set some pci_dev->config_header.vendor_id type variables
 
@@ -588,7 +588,7 @@ static int cirrus_gfx_card_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg){
 	video_state->pci_dev = pci_dev;
     }
 
-    PrintDebug("Video: init complete\n");
+    PrintDebug(info->vm_info, info, "Video: init complete\n");
     return 0;
 }
 

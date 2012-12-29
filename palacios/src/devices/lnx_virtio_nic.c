@@ -187,7 +187,7 @@ static int virtio_init_state(struct virtio_net_state * virtio)
 
     if ((v3_lock_init(&(virtio->rx_lock)) == -1) ||
 	(v3_lock_init(&(virtio->tx_lock)) == -1)){
-        PrintError("Virtio NIC: Failure to init locks for net_state\n");
+        PrintError(VM_NONE, VCORE_NONE, "Virtio NIC: Failure to init locks for net_state\n");
     }
 
     return 0;
@@ -209,7 +209,7 @@ static int tx_one_pkt(struct guest_info * core,
     uint32_t len = buf_desc->length;
 
     if (v3_gpa_to_hva(core, buf_desc->addr_gpa, (addr_t *)&(buf)) == -1) {
-	PrintDebug("Could not translate buffer address\n");
+	PrintDebug(core->vm_info, core, "Could not translate buffer address\n");
 	return -1;
     }
     
@@ -241,7 +241,7 @@ static inline int copy_data_to_desc(struct guest_info * core,
     uint8_t * desc_buf = NULL;
     
     if (v3_gpa_to_hva(core, desc->addr_gpa, (addr_t *)&(desc_buf)) == -1) {
-	PrintDebug("Could not translate buffer address\n");
+	PrintDebug(core->vm_info, core, "Could not translate buffer address\n");
 	return -1;
     }
     len = (desc->length < (buf_len+dst_offset))?(desc->length - dst_offset):buf_len;
@@ -310,7 +310,7 @@ static int handle_pkt_tx(struct guest_info * core,
 
 	desc_cnt = get_desc_count(q, desc_idx);
 	if(desc_cnt != 2){
-	    PrintError("VNIC: merged rx buffer not supported, desc_cnt %d\n", desc_cnt);
+	    PrintError(core->vm_info, core, "VNIC: merged rx buffer not supported, desc_cnt %d\n", desc_cnt);
 	}
 
 	hdr_desc = &(q->desc[desc_idx]);
@@ -324,10 +324,10 @@ static int handle_pkt_tx(struct guest_info * core,
 	    /* here we assumed that one ethernet pkt is not splitted into multiple buffer */	
 	    buf_desc = &(q->desc[desc_idx]);
 	    if (tx_one_pkt(core, virtio_state, buf_desc) == -1) {
-	    	PrintError("Virtio NIC: Fails to send packet\n");
+	    	PrintError(core->vm_info, core, "Virtio NIC: Fails to send packet\n");
 	    }
 	} else {
-	    PrintError("Could not translate block header address\n");
+	    PrintError(core->vm_info, core, "Could not translate block header address\n");
 	}
 
 	flags = v3_lock_irqsave(virtio_state->tx_lock);
@@ -368,26 +368,26 @@ static int virtio_setup_queue(struct guest_info *core,
     // round up to next page boundary.
     queue->ring_used_addr = (queue->ring_used_addr + 0xfff) & ~0xfff;
     if (v3_gpa_to_hva(core, queue->ring_desc_addr, (addr_t *)&(queue->desc)) == -1) {
-        PrintError("Could not translate ring descriptor address\n");
+        PrintError(core->vm_info, core, "Could not translate ring descriptor address\n");
 	 return -1;
     }
  
     if (v3_gpa_to_hva(core, queue->ring_avail_addr, (addr_t *)&(queue->avail)) == -1) {
-        PrintError("Could not translate ring available address\n");
+        PrintError(core->vm_info, core, "Could not translate ring available address\n");
         return -1;
     }
 
     if (v3_gpa_to_hva(core, queue->ring_used_addr, (addr_t *)&(queue->used)) == -1) {
-        PrintError("Could not translate ring used address\n");
+        PrintError(core->vm_info, core, "Could not translate ring used address\n");
         return -1;
     }
 
-    PrintDebug("RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
+    PrintDebug(core->vm_info, core, "RingDesc_addr=%p, Avail_addr=%p, Used_addr=%p\n",
 	       (void *)(queue->ring_desc_addr),
 	       (void *)(queue->ring_avail_addr),
 	       (void *)(queue->ring_used_addr));
     
-    PrintDebug("RingDesc=%p, Avail=%p, Used=%p\n", 
+    PrintDebug(core->vm_info, core, "RingDesc=%p, Avail=%p, Used=%p\n", 
 	       queue->desc, queue->avail, queue->used);
     
     return 0;
@@ -400,14 +400,14 @@ static int virtio_io_write(struct guest_info *core,
     struct virtio_net_state * virtio = (struct virtio_net_state *)private_data;
     int port_idx = port % virtio->io_range_size;
 
-    PrintDebug("VIRTIO NIC %p Write for port %d (index=%d) len=%d, value=%x\n",
+    PrintDebug(core->vm_info, core, "VIRTIO NIC %p Write for port %d (index=%d) len=%d, value=%x\n",
 	       private_data, port, port_idx,  
 	       length, *(uint32_t *)src);
 
     switch (port_idx) {
 	case GUEST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Illegal write length for guest features\n");
+		PrintError(core->vm_info, core, "Illegal write length for guest features\n");
 		return -1;
 	    }	    
 	    virtio->virtio_cfg.guest_features = *(uint32_t *)src;
@@ -415,7 +415,7 @@ static int virtio_io_write(struct guest_info *core,
 		
 	case VRING_PG_NUM_PORT:
 	    if (length != 4) {
-		PrintError("Illegal write length for page frame number\n");
+		PrintError(core->vm_info, core, "Illegal write length for page frame number\n");
 		return -1;
 	    }
 	    addr_t pfn = *(uint32_t *)src;
@@ -449,7 +449,7 @@ static int virtio_io_write(struct guest_info *core,
 	case VRING_Q_SEL_PORT:
 	    virtio->virtio_cfg.vring_queue_selector = *(uint16_t *)src;
 	    if (virtio->virtio_cfg.vring_queue_selector > 2) {
-		PrintError("Virtio NIC: wrong queue idx: %d\n", 
+		PrintError(core->vm_info, core, "Virtio NIC: wrong queue idx: %d\n", 
 			   virtio->virtio_cfg.vring_queue_selector);
 		return -1;
 	    }
@@ -463,14 +463,14 @@ static int virtio_io_write(struct guest_info *core,
 		    virtio->stats.tx_interrupts ++;
 		} else if (queue_idx == 1){
 		    if (handle_pkt_tx(core, virtio, 0) < 0) {
-			PrintError("Virtio NIC: Error to handle packet TX\n");
+			PrintError(core->vm_info, core, "Virtio NIC: Error to handle packet TX\n");
 			return -1;
 		    }
 		    virtio->stats.tx_interrupts ++;
 		} else if (queue_idx == 2){
 		    /* ctrl */
 		} else {
-		    PrintError("Virtio NIC: Wrong queue index %d\n", queue_idx);
+		    PrintError(core->vm_info, core, "Virtio NIC: Wrong queue index %d\n", queue_idx);
 		}	
 		break;		
 	    }
@@ -502,13 +502,13 @@ static int virtio_io_read(struct guest_info *core,
     int port_idx = port % virtio->io_range_size;
     uint16_t queue_idx = virtio->virtio_cfg.vring_queue_selector;
 
-    PrintDebug("Virtio NIC %p: Read  for port 0x%x (index =%d), length=%d\n", 
+    PrintDebug(core->vm_info, core, "Virtio NIC %p: Read  for port 0x%x (index =%d), length=%d\n", 
 	       private_data, port, port_idx, length);
 	
     switch (port_idx) {
 	case HOST_FEATURES_PORT:
 	    if (length != 4) {
-		PrintError("Virtio NIC: Illegal read length for host features\n");
+		PrintError(core->vm_info, core, "Virtio NIC: Illegal read length for host features\n");
 		//return -1;
 	    }
 	    *(uint32_t *)dst = virtio->virtio_cfg.host_features;
@@ -516,7 +516,7 @@ static int virtio_io_read(struct guest_info *core,
 
 	case VRING_PG_NUM_PORT:
 	    if (length != 4) {
-		PrintError("Virtio NIC: Illegal read length for page frame number\n");
+		PrintError(core->vm_info, core, "Virtio NIC: Illegal read length for page frame number\n");
 		return -1;
 	    }
  	    switch (queue_idx) {
@@ -536,7 +536,7 @@ static int virtio_io_read(struct guest_info *core,
 
 	case VRING_SIZE_PORT:
 	    if (length != 2) {
-		PrintError("Virtio NIC: Illegal read length for vring size\n");
+		PrintError(core->vm_info, core, "Virtio NIC: Illegal read length for vring size\n");
 		return -1;
 	    }
 	    switch (queue_idx) {
@@ -556,7 +556,7 @@ static int virtio_io_read(struct guest_info *core,
 
 	case VIRTIO_STATUS_PORT:
 	    if (length != 1) {
-		PrintError("Virtio NIC: Illegal read length for status\n");
+		PrintError(core->vm_info, core, "Virtio NIC: Illegal read length for status\n");
 		return -1;
 	    }
 	    *(uint8_t *)dst = virtio->virtio_cfg.status;
@@ -574,7 +574,7 @@ static int virtio_io_read(struct guest_info *core,
 	    break;
 
 	default:
-	    PrintError("Virtio NIC: Read of Unhandled Virtio Read:%d\n", 
+	    PrintError(core->vm_info, core, "Virtio NIC: Read of Unhandled Virtio Read:%d\n", 
 		       port_idx);
 	    return -1;
     }
@@ -802,7 +802,7 @@ static int register_dev(struct virtio_dev_state * virtio,
 	bars[i].type = PCI_BAR_NONE;
     }
     
-    PrintDebug("Virtio NIC: io_range_size = %d\n", 
+    PrintDebug(VM_NONE, VCORE_NONE, "Virtio NIC: io_range_size = %d\n", 
 	       net_state->io_range_size);
     
     bars[0].type = PCI_BAR_IO;
@@ -818,11 +818,11 @@ static int register_dev(struct virtio_dev_state * virtio,
 				     NULL, NULL, NULL, NULL, net_state);
     
     if (!pci_dev) {
-	PrintError("Virtio NIC: Could not register PCI Device\n");
+	PrintError(VM_NONE, VCORE_NONE, "Virtio NIC: Could not register PCI Device\n");
 	return -1;
     }
 
-    PrintDebug("Virtio NIC:  registered to PCI bus\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Virtio NIC:  registered to PCI bus\n");
     
     pci_dev->config_header.vendor_id = VIRTIO_VENDOR_ID;
     pci_dev->config_header.subsystem_vendor_id = VIRTIO_SUBVENDOR_ID;
@@ -842,7 +842,7 @@ static int register_dev(struct virtio_dev_state * virtio,
 	
     virtio_init_state(net_state);
 
-    V3_Print("Virtio NIC: Registered Intr Line %d\n", pci_dev->config_header.intr_line);
+    V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: Registered Intr Line %d\n", pci_dev->config_header.intr_line);
 
     /* Add backend to list of devices */
     list_add(&(net_state->dev_link), &(virtio->dev_list));
@@ -888,24 +888,24 @@ static void virtio_nic_timer(struct guest_info * core,
 	net_state->rx_pkts = net_state->stats.rx_pkts;
 
 	if(tx_count > ub_tx_count && net_state->tx_notify == 1) {
-	    PrintDebug("Virtio NIC: Switch TX to VMM driven mode\n");
+	    PrintDebug(core->vm_info, core, "Virtio NIC: Switch TX to VMM driven mode\n");
 	    disable_cb(&(net_state->tx_vq));
 	    net_state->tx_notify = 0;
 	}
 
 	if(tx_count < lb_tx_count && net_state->tx_notify == 0) {
-	    PrintDebug("Virtio NIC: Switch TX to Guest  driven mode\n");
+	    PrintDebug(core->vm_info, core, "Virtio NIC: Switch TX to Guest  driven mode\n");
 	    enable_cb(&(net_state->tx_vq));
 	    net_state->tx_notify = 1;
 	}
 
 	if(rx_count > ub_rx_count && net_state->rx_notify == 1) {
-	    PrintDebug("Virtio NIC: Switch RX to VMM None notify mode\n");
+	    PrintDebug(core->vm_info, core, "Virtio NIC: Switch RX to VMM None notify mode\n");
 	    net_state->rx_notify = 0;
 	}
 
 	if(rx_count < lb_rx_count && net_state->rx_notify == 0) {
-	    V3_Print("Virtio NIC: Switch RX to VMM notify mode\n");
+	    V3_Print(core->vm_info, core, "Virtio NIC: Switch RX to VMM notify mode\n");
 	    net_state->rx_notify = 1;
 	}
 
@@ -914,7 +914,7 @@ static void virtio_nic_timer(struct guest_info * core,
 
     profile_ms += period_us/1000;
     if(profile_ms > 20000){
-	PrintDebug("Virtio NIC: TX: Pkt: %lld, Bytes: %lld\n\t\tRX Pkt: %lld. Bytes: %lld\n\t\tDropped: tx %lld, rx %lld\nInterrupts: tx %d, rx %d\nTotal Exit: %lld\n",
+	PrintDebug(core->vm_info, core, "Virtio NIC: TX: Pkt: %lld, Bytes: %lld\n\t\tRX Pkt: %lld. Bytes: %lld\n\t\tDropped: tx %lld, rx %lld\nInterrupts: tx %d, rx %d\nTotal Exit: %lld\n",
 	    	net_state->stats.tx_pkts, net_state->stats.tx_bytes,
 	    	net_state->stats.rx_pkts, net_state->stats.rx_bytes,
 	    	net_state->stats.tx_dropped, net_state->stats.rx_dropped,
@@ -937,7 +937,7 @@ static int connect_fn(struct v3_vm_info * info,
     struct virtio_net_state * net_state  = (struct virtio_net_state *)V3_Malloc(sizeof(struct virtio_net_state));
 
     if (!net_state) {
-	PrintError("Cannot allocate in connect\n");
+	PrintError(info, VCORE_NONE, "Cannot allocate in connect\n");
 	return -1;
     }
 
@@ -951,17 +951,17 @@ static int connect_fn(struct v3_vm_info * info,
     
     switch (virtio->model) { 
 	case GUEST_DRIVEN:
-	    V3_Print("Virtio NIC: Guest-driven operation\n");
+	    V3_Print(info, VCORE_NONE, "Virtio NIC: Guest-driven operation\n");
 	    net_state->tx_notify = 1;
 	    net_state->rx_notify = 1;
 	    break;
 	case VMM_DRIVEN:
-	    V3_Print("Virtio NIC: VMM-driven operation\n");
+	    V3_Print(info, VCORE_NONE, "Virtio NIC: VMM-driven operation\n");
 	    net_state->tx_notify = 0;
 	    net_state->rx_notify = 0;
 	    break;
 	case ADAPTIVE: {
-	    V3_Print("Virtio NIC: Adaptive operation (begins in guest-driven mode)\n");
+	    V3_Print(info, VCORE_NONE, "Virtio NIC: Adaptive operation (begins in guest-driven mode)\n");
 	    net_state->tx_notify = 1;
 	    net_state->rx_notify = 1;
 
@@ -971,7 +971,7 @@ static int connect_fn(struct v3_vm_info * info,
 	    break;
 
 	default:
-	    V3_Print("Virtio NIC: Unknown model, using GUEST_DRIVEN\n");
+	    V3_Print(info, VCORE_NONE, "Virtio NIC: Unknown model, using GUEST_DRIVEN\n");
 	    net_state->tx_notify = 1;
 	    net_state->rx_notify = 1;
 	    break;
@@ -986,7 +986,7 @@ static int connect_fn(struct v3_vm_info * info,
     ops->config.fnt_mac = V3_Malloc(ETH_ALEN);  
 
     if (!ops->config.fnt_mac) { 
-	PrintError("Cannot allocate in connect\n");
+        PrintError(info, VCORE_NONE, "Cannot allocate in connect\n");
 	// should unregister here
 	return -1;
     }
@@ -1010,43 +1010,43 @@ static int setup_perf_model(struct virtio_dev_state *virtio_state, v3_cfg_tree_t
     // overrides
     if (mode) { 
 	if (!strcasecmp(mode,"guest-driven")) { 
-	    V3_Print("Virtio NIC: Setting static GUEST_DRIVEN mode of operation (latency optimized)\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: Setting static GUEST_DRIVEN mode of operation (latency optimized)\n");
 	    virtio_state->model=GUEST_DRIVEN;
 	} else if (!strcasecmp(mode, "vmm-driven")) { 
-	    V3_Print("Virtio NIC: Setting static VMM_DRIVEN mode of operation (throughput optimized)\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: Setting static VMM_DRIVEN mode of operation (throughput optimized)\n");
 	    virtio_state->model=VMM_DRIVEN;
 	} else if (!strcasecmp(mode, "adaptive")) { 
 	    char *s;
 
-	    V3_Print("Virtio NIC: Setting dynamic ADAPTIVE mode of operation\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: Setting dynamic ADAPTIVE mode of operation\n");
 	    virtio_state->model=ADAPTIVE;
 	    
 	    if (!(s=v3_cfg_val(t,"upper"))) { 
-		V3_Print("Virtio NIC: No upper bound given, using default\n");
+		V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: No upper bound given, using default\n");
 	    } else {
 		virtio_state->upper_thresh_pps = atoi(s);
 	    }
 	    if (!(s=v3_cfg_val(t,"lower"))) { 
-		V3_Print("Virtio NIC: No lower bound given, using default\n");
+		V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: No lower bound given, using default\n");
 	    } else {
 		virtio_state->lower_thresh_pps = atoi(s);
 	    }
 	    if (!(s=v3_cfg_val(t,"period"))) { 
-		V3_Print("Virtio NIC: No period given, using default\n");
+		V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: No period given, using default\n");
 	    } else {
 		virtio_state->period_us = atoi(s);
 	    }
 
-	    V3_Print("Virtio NIC: lower_thresh_pps=%llu, upper_thresh_pps=%llu, period_us=%llu\n",
+	    V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: lower_thresh_pps=%llu, upper_thresh_pps=%llu, period_us=%llu\n",
 		     virtio_state->lower_thresh_pps,
 		     virtio_state->upper_thresh_pps,
 		     virtio_state->period_us);
 	} else {
-	    PrintError("Virtio NIC: Unknown mode of operation '%s', using default (guest-driven)\n",mode);
+	    PrintError(VM_NONE, VCORE_NONE, "Virtio NIC: Unknown mode of operation '%s', using default (guest-driven)\n",mode);
 	    virtio_state->model=GUEST_DRIVEN;
 	}
     } else {
-	V3_Print("Virtio NIC: No model given, using default (guest-driven)\n");
+	V3_Print(VM_NONE, VCORE_NONE, "Virtio NIC: No model given, using default (guest-driven)\n");
     }
 
     return 0;
@@ -1068,14 +1068,14 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     v3_cfg_tree_t *model = v3_cfg_subtree(cfg,"model");
     
     if (pci_bus == NULL) {
-	PrintError("Virtio NIC: Virtio device require a PCI Bus");
+	PrintError(vm, VCORE_NONE, "Virtio NIC: Virtio device require a PCI Bus");
 	return -1;
     }
 
     virtio_state  = (struct virtio_dev_state *)V3_Malloc(sizeof(struct virtio_dev_state));
 
     if (!virtio_state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -1087,18 +1087,18 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     if (mac) { 
 	if (!str2mac(mac, virtio_state->mac)) { 
-	    PrintDebug("Virtio NIC: Mac specified %s\n", mac);
+	    PrintDebug(vm, VCORE_NONE, "Virtio NIC: Mac specified %s\n", mac);
 	} else {
-	    PrintError("Virtio NIC: Mac specified is incorrect, picking a randoom mac\n");
+	    PrintError(vm, VCORE_NONE, "Virtio NIC: Mac specified is incorrect, picking a randoom mac\n");
 	    random_ethaddr(virtio_state->mac);
 	}
     } else {
-	PrintDebug("Virtio NIC: no mac specified, so picking a random mac\n");
+	PrintDebug(vm, VCORE_NONE, "Virtio NIC: no mac specified, so picking a random mac\n");
 	random_ethaddr(virtio_state->mac);
     }
 
     if (setup_perf_model(virtio_state,model)<0) { 
-	PrintError("Cannnot setup performance model\n");
+	PrintError(vm, VCORE_NONE, "Cannnot setup performance model\n");
 	V3_Free(virtio_state);
 	return -1;
     }
@@ -1106,13 +1106,13 @@ static int virtio_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, virtio_state);
 
     if (dev == NULL) {
-	PrintError("Virtio NIC: Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Virtio NIC: Could not attach device %s\n", dev_id);
 	V3_Free(virtio_state);
 	return -1;
     }
 
     if (v3_dev_add_net_frontend(vm, dev_id, connect_fn, (void *)virtio_state) == -1) {
-	PrintError("Virtio NIC: Could not register %s as net frontend\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Virtio NIC: Could not register %s as net frontend\n", dev_id);
 	v3_remove_device(dev);
 	return -1;
     }

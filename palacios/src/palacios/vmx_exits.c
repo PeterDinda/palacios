@@ -37,7 +37,7 @@ static int enable_exit(struct guest_info * core, v3_exit_type_t exit_type) {
 	    break;
 
 	default:
-	    PrintError("Unhandled Exit Type (%d)\n", exit_type);
+	    PrintError(core->vm_info, core, "Unhandled Exit Type (%d)\n", exit_type);
 	    return -1;
     }
 
@@ -58,7 +58,7 @@ static int disable_exit(struct guest_info * core, v3_exit_type_t exit_type) {
 	    break;
 
 	default:
-	    PrintError("Unhandled Exit Type (%d)\n", exit_type);
+	    PrintError(core->vm_info, core, "Unhandled Exit Type (%d)\n", exit_type);
 	    return -1;
     }
 

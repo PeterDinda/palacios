@@ -588,7 +588,7 @@ static inline void rtl8139_update_irq(struct rtl8139_state * nic_state) {
 }
 
 static void prom9346_decode_command(struct EEprom9346 * eeprom, uint8_t command) {
-    PrintDebug("RTL8139: eeprom command 0x%02x\n", command);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: eeprom command 0x%02x\n", command);
 
     switch (command & Chip9346_op_mask) {
         case Chip9346_op_read:
@@ -598,7 +598,7 @@ static void prom9346_decode_command(struct EEprom9346 * eeprom, uint8_t command)
             eeprom->eedo = 0;
             eeprom->tick = 0;
             eeprom->mode = Chip9346_data_read;
-            PrintDebug("RTL8139: eeprom read from address 0x%02x data=0x%04x\n",
+            PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: eeprom read from address 0x%02x data=0x%04x\n",
                    eeprom->address, eeprom->output);
         }
         break;
@@ -609,7 +609,7 @@ static void prom9346_decode_command(struct EEprom9346 * eeprom, uint8_t command)
             eeprom->input = 0;
             eeprom->tick = 0;
             eeprom->mode = Chip9346_none; /* Chip9346_data_write */
-            PrintDebug("RTL8139: eeprom begin write to address 0x%02x\n",
+            PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: eeprom begin write to address 0x%02x\n",
                    eeprom->address);
         }
         break;
@@ -617,13 +617,13 @@ static void prom9346_decode_command(struct EEprom9346 * eeprom, uint8_t command)
             eeprom->mode = Chip9346_none;
             switch (command & Chip9346_op_ext_mask) {
                 case Chip9346_op_write_enable:
-                    PrintDebug("RTL8139: eeprom write enabled\n");
+                    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: eeprom write enabled\n");
                     break;
                 case Chip9346_op_write_all:
-                    PrintDebug("RTL8139: eeprom begin write all\n");
+                    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: eeprom begin write all\n");
                     break;
                 case Chip9346_op_write_disable:
-                    PrintDebug("RTL8139: eeprom write disabled\n");
+                    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: eeprom write disabled\n");
                     break;
             }
         break;
@@ -635,7 +635,7 @@ static void prom9346_shift_clock(struct EEprom9346 * eeprom) {
 
     ++ eeprom->tick;
 
-    PrintDebug("eeprom: tick %d eedi=%d eedo=%d\n", eeprom->tick, eeprom->eedi, eeprom->eedo);
+    PrintDebug(VM_NONE, VCORE_NONE, "eeprom: tick %d eedi=%d eedo=%d\n", eeprom->tick, eeprom->eedi, eeprom->eedo);
 
     switch (eeprom->mode) {
         case Chip9346_enter_command_mode:
@@ -643,7 +643,7 @@ static void prom9346_shift_clock(struct EEprom9346 * eeprom) {
                 eeprom->mode = Chip9346_read_command;
                 eeprom->tick = 0;
                 eeprom->input = 0;
-                PrintDebug("eeprom: +++ synchronized, begin command read\n");
+                PrintDebug(VM_NONE, VCORE_NONE, "eeprom: +++ synchronized, begin command read\n");
             }
             break;
 
@@ -666,7 +666,7 @@ static void prom9346_shift_clock(struct EEprom9346 * eeprom) {
                 eeprom->input = 0;
                 eeprom->tick = 0;
 
-                PrintDebug("eeprom: +++ end of read, awaiting next command\n");
+                PrintDebug(VM_NONE, VCORE_NONE, "eeprom: +++ end of read, awaiting next command\n");
 #else
         // original behaviour
                 ++eeprom->address;
@@ -683,7 +683,7 @@ static void prom9346_shift_clock(struct EEprom9346 * eeprom) {
         case Chip9346_data_write:
             eeprom->input = (eeprom->input << 1) | (bit & 1);
             if (eeprom->tick == 16) {
-                PrintDebug("RTL8139: eeprom write to address 0x%02x data=0x%04x\n",
+                PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: eeprom write to address 0x%02x data=0x%04x\n",
                        eeprom->address, eeprom->input);
 
                 eeprom->contents[eeprom->address] = eeprom->input;
@@ -701,7 +701,7 @@ static void prom9346_shift_clock(struct EEprom9346 * eeprom) {
                 {
                     eeprom->contents[i] = eeprom->input;
                 }
-                PrintDebug("RTL8139: eeprom filled with data=0x%04x\n",
+                PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: eeprom filled with data=0x%04x\n",
                        eeprom->input);
 
                 eeprom->mode = Chip9346_enter_command_mode;
@@ -736,7 +736,7 @@ static void prom9346_set_wire(struct rtl8139_state * nic_state,
     eeprom->eesk = eesk;
     eeprom->eedi = eedi;
 
-    PrintDebug("eeprom: +++ wires CS=%d SK=%d DI=%d DO=%d\n",
+    PrintDebug(VM_NONE, VCORE_NONE, "eeprom: +++ wires CS=%d SK=%d DI=%d DO=%d\n",
                  eeprom->eecs, eeprom->eesk, eeprom->eedi, eeprom->eedo);
 
     if (old_eecs == 0 && eecs) {
@@ -746,11 +746,11 @@ static void prom9346_set_wire(struct rtl8139_state * nic_state,
         eeprom->output = 0;
         eeprom->mode = Chip9346_enter_command_mode;
 
-        PrintDebug("=== eeprom: begin access, enter command mode\n");
+        PrintDebug(VM_NONE, VCORE_NONE, "=== eeprom: begin access, enter command mode\n");
     }
 
     if (eecs == 0) {
-        PrintDebug("=== eeprom: end access\n");
+        PrintDebug(VM_NONE, VCORE_NONE, "=== eeprom: end access\n");
         return;
     }
 
@@ -772,7 +772,7 @@ static void rtl8139_reset(struct rtl8139_state *nic_state) {
     struct rtl8139_regs *regs = &(nic_state->regs);
     int i;
 
-    PrintDebug("Rtl8139: Reset\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "Rtl8139: Reset\n");
 
     /* restore MAC address */
     memcpy(regs->id, nic_state->mac, ETH_ALEN);
@@ -835,7 +835,7 @@ static void rtl8139_reset(struct rtl8139_state *nic_state) {
 static void rtl8139_9346cr_write(struct rtl8139_state * nic_state, uint32_t val) {
     val &= 0xff;
 
-    PrintDebug("RTL8139: 9346CR write val=0x%02x\n", val);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: 9346CR write val=0x%02x\n", val);
 
     /* mask unwriteable bits */
     val = SET_MASKED(val, 0x31, nic_state->regs.cmd9346);
@@ -872,7 +872,7 @@ static uint32_t rtl8139_9346cr_read(struct rtl8139_state * nic_state) {
         }
     }
 
-    PrintDebug("RTL8139: 9346CR read val=0x%02x\n", ret);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: 9346CR read val=0x%02x\n", ret);
 
     return ret;
 }
@@ -902,7 +902,7 @@ static void rtl8139_rxbuf_write(struct rtl8139_state * nic_state,
         wrap = MOD2(regs->cbr + size, nic_state->rx_bufsize);
 
         if (wrap && !(nic_state->rx_bufsize < 64*1024 && rtl8139_rxwrap(nic_state))){
-            PrintDebug("RTL8139: rx packet wrapped in buffer at %d\n", size-wrap);
+            PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: rx packet wrapped in buffer at %d\n", size-wrap);
 
             if (size > wrap){
                 memcpy((void *)(host_rxbuf + regs->cbr), buf, size-wrap);
@@ -957,51 +957,51 @@ static int rx_one_pkt(struct rtl8139_state * nic_state,
     uint8_t bcast_addr[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
     if (regs->rcr & AcceptAllPhys) {
-	PrintDebug("RTL8139: packet received in promiscuous mode\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: packet received in promiscuous mode\n");
     } else {
 	if (!memcmp(pkt,  bcast_addr, 6)) {
 	    if (!(regs->rcr & AcceptBroadcast)){
-		PrintDebug("RTL8139: broadcast packet rejected\n");
+		PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: broadcast packet rejected\n");
 		return -1;
 	    }
 	    header |= Rx_Broadcast;
-	    PrintDebug("RTL8139: broadcast packet received\n");
+	    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: broadcast packet received\n");
 	} else if (pkt[0] & 0x01) {
             // multicast
             if (!(regs->rcr & AcceptMulticast)){
-                PrintDebug("RTL8139: multicast packet rejected\n");
+                PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: multicast packet rejected\n");
                 return -1;
             }
 
             int mcast_idx = compute_mcast_idx(pkt);
 
             if (!(regs->mult[mcast_idx >> 3] & (1 << (mcast_idx & 7)))){
-                PrintDebug("RTL8139: multicast address mismatch\n");
+                PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: multicast address mismatch\n");
                 return -1;
             }
             header |= Rx_Multicast;
-            PrintDebug("RTL8139: multicast packet received\n");
+            PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: multicast packet received\n");
         } else if (!compare_ethaddr(regs->id, pkt)){
             if (!(regs->rcr & AcceptMyPhys)){
-                PrintDebug("RTL8139: rejecting physical address matching packet\n");
+                PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: rejecting physical address matching packet\n");
                 return -1;
             }
 
             header |= Rx_Physical;
-            PrintDebug("RTL8139: physical address matching packet received\n");
+            PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: physical address matching packet received\n");
         } else {
-            PrintDebug("RTL8139: unknown packet\n");
+            PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: unknown packet\n");
             return -1;
         }
     }
 
     if(1){
-	PrintDebug("RTL8139: in ring Rx mode\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: in ring Rx mode\n");
 
 	int avail = MOD2(rxbufsize + regs->capr - regs->cbr, rxbufsize);
 
         if (avail != 0 && len + 8 >= avail){
-            PrintError("rx overflow: rx buffer length %d head 0x%04x read 0x%04x === available 0x%04x need 0x%04x\n",
+            PrintError(VM_NONE, VCORE_NONE, "rx overflow: rx buffer length %d head 0x%04x read 0x%04x === available 0x%04x need 0x%04x\n",
                    rxbufsize, regs->cbr, regs->capr, avail, len + 8);
 
             regs->isr |= ISR_Rxovw;
@@ -1025,7 +1025,7 @@ static int rx_one_pkt(struct rtl8139_state * nic_state,
         // correct buffer write pointer 
         regs->cbr = MOD2((regs->cbr + 3) & ~0x3, rxbufsize);
 
-        PrintDebug("RTL8139: received: rx buffer length %d CBR: 0x%04x CAPR: 0x%04x\n",
+        PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: received: rx buffer length %d CBR: 0x%04x CAPR: 0x%04x\n",
                		rxbufsize, regs->cbr, regs->capr);
     }
 
@@ -1043,7 +1043,7 @@ static int rtl8139_rx(uint8_t * pkt, uint32_t len, void * private_data) {
     struct rtl8139_state *nic_state = (struct rtl8139_state *)private_data;
 
     if (!rtl8139_receiver_enabled(nic_state)){
-	PrintDebug("RTL8139: receiver disabled\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: receiver disabled\n");
 	nic_state->statistic.rx_dropped ++;
 		
 	return 0;
@@ -1060,7 +1060,7 @@ static int rtl8139_rx(uint8_t * pkt, uint32_t len, void * private_data) {
 }
 
 static void rtl8139_rcr_write(struct rtl8139_state * nic_state, uint32_t val) {
-    PrintDebug("RTL8139: RCR write val=0x%08x\n", val);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: RCR write val=0x%08x\n", val);
 
     val = SET_MASKED(val, 0xf0fc0040, nic_state->regs.rcr);
     nic_state->regs.rcr = val;
@@ -1086,7 +1086,7 @@ static void rtl8139_rcr_write(struct rtl8139_state * nic_state, uint32_t val) {
     // reset buffer size and read/write pointers
     rtl8139_reset_rxbuf(nic_state, 8192 << ((nic_state->regs.rcr >> 11) & 0x3));
 
-    PrintDebug("RTL8139: RCR write reset buffer size to %d\n", nic_state->rx_bufsize);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: RCR write reset buffer size to %d\n", nic_state->rx_bufsize);
 }
 
 
@@ -1101,7 +1101,7 @@ static int rtl8139_config_writeable(struct vm_device *dev)
         return 1;
     }
 
-    PrintDebug("RTL8139: Configuration registers are unwriteable\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: Configuration registers are unwriteable\n");
 
     return 0;
 }
@@ -1119,11 +1119,11 @@ static int rxbufempty(struct rtl8139_state * nic_state){
     unread = MOD2(regs->cbr + nic_state->rx_bufsize - regs->capr, nic_state->rx_bufsize);
    
     if (unread != 0){
-        PrintDebug("RTL8139: receiver buffer data available 0x%04x\n", unread);
+        PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: receiver buffer data available 0x%04x\n", unread);
         return 0;
     }
 
-    PrintDebug("RTL8139: receiver buffer is empty\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: receiver buffer is empty\n");
 
     return 1;
 }
@@ -1131,17 +1131,17 @@ static int rxbufempty(struct rtl8139_state * nic_state){
 static void rtl8139_cmd_write(struct rtl8139_state * nic_state, uint32_t val){
     val &= 0xff;
 
-    PrintDebug("RTL8139: Cmd write val=0x%08x\n", val);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: Cmd write val=0x%08x\n", val);
 
     if (val & CMD_Rst){
-        PrintDebug("RTL8139: Cmd reset\n");
+        PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: Cmd reset\n");
         rtl8139_reset(nic_state);
     }
     if (val & CMD_Re){
-        PrintDebug("RTL8139: Cmd enable receiver\n");
+        PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: Cmd enable receiver\n");
     }
     if (val & CMD_Te){
-        PrintDebug("RTL8139: Cmd enable transmitter\n");
+        PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: Cmd enable transmitter\n");
     }
 
     val = SET_MASKED(val, 0xe3, nic_state->regs.cmd);
@@ -1157,19 +1157,19 @@ static int tx_one_packet(struct rtl8139_state * nic_state, int descriptor){
     addr_t pkt_gpa = 0, hostva = 0;
 
     if (!transmitter_enabled(nic_state)){
-        PrintError("RTL8139: fail to send from descriptor %d: transmitter disabled\n", descriptor);
+        PrintError(VM_NONE, VCORE_NONE, "RTL8139: fail to send from descriptor %d: transmitter disabled\n", descriptor);
         return 0;
     }
 
     if (regs->tsd[descriptor] & TSD_Own){
-        PrintError("RTL8139: fail to send from descriptor %d: owned by host\n", descriptor);
+        PrintError(VM_NONE, VCORE_NONE, "RTL8139: fail to send from descriptor %d: owned by host\n", descriptor);
         return 0;
     }
 
     txsize = regs->tsd[descriptor] & 0x1fff;
     pkt_gpa = (addr_t) regs->tsad[descriptor];
 
-    PrintDebug("RTL8139: sending %d bytes from guest memory at 0x%08x\n", txsize, regs->tsad[descriptor]);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: sending %d bytes from guest memory at 0x%08x\n", txsize, regs->tsad[descriptor]);
 	
     v3_gpa_to_hva(&(nic_state->vm->cores[0]), (addr_t)pkt_gpa, &hostva);
     pkt = (uchar_t *)hostva;
@@ -1179,15 +1179,15 @@ static int tx_one_packet(struct rtl8139_state * nic_state, int descriptor){
 #endif
 
     if (TxLoopBack == (regs->tcr & TxLoopBack)){ /* loopback test */
-        PrintDebug(("RTL8139: transmit loopback mode\n"));
+        PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: transmit loopback mode\n");
         rx_one_pkt(nic_state, pkt, txsize);
     } else{       
         if (nic_state->net_ops->send(pkt, txsize, nic_state->backend_data) == 0){
-	    PrintDebug("RTL8139: Sent %d bytes from descriptor %d\n", txsize, descriptor);
+	    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: Sent %d bytes from descriptor %d\n", txsize, descriptor);
 	    nic_state->statistic.tx_pkts ++;
 	    nic_state->statistic.tx_bytes += txsize;
 	} else {
-	    PrintError("Rtl8139: Sending packet error: 0x%p\n", pkt);
+	    PrintError(VM_NONE, VCORE_NONE, "Rtl8139: Sending packet error: 0x%p\n", pkt);
 	    nic_state->statistic.tx_dropped ++;
 	}
     }
@@ -1206,12 +1206,12 @@ static void rtl8139_tsd_write(struct rtl8139_state * nic_state,
 			      uint8_t descriptor, 
 			      uint32_t val){ 
     if (!transmitter_enabled(nic_state)){
-        PrintDebug("RTL8139: TxStatus write val=0x%08x descriptor=%d, Transmitter not enabled\n", val, descriptor);
+        PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: TxStatus write val=0x%08x descriptor=%d, Transmitter not enabled\n", val, descriptor);
 		
         return;
     }
 
-    PrintDebug("RTL8139: TSD write val=0x%08x descriptor=%d\n", val, descriptor);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: TSD write val=0x%08x descriptor=%d\n", val, descriptor);
 
     // mask read-only bits
     val &= ~0xff00c000;
@@ -1247,7 +1247,7 @@ static uint16_t rtl8139_txsad_read(struct rtl8139_state * nic_state){
          |((regs->tsd[1] & TSD_Own)?TSAD_OWN1:0)
          |((regs->tsd[0] & TSD_Own)?TSAD_OWN0:0) ;
 
-    PrintDebug("RTL8139: txsad read val=0x%04x\n", (int)ret);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: txsad read val=0x%04x\n", (int)ret);
 
     return ret;
 }
@@ -1255,7 +1255,7 @@ static uint16_t rtl8139_txsad_read(struct rtl8139_state * nic_state){
 static inline void rtl8139_isr_write(struct rtl8139_state * nic_state, uint32_t val) {
     struct rtl8139_regs *regs = &(nic_state->regs);
 
-    PrintDebug("RTL8139: ISR write val=0x%04x\n", val);
+    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: ISR write val=0x%04x\n", val);
 
     uint16_t newisr = regs->isr & ~val;
 
@@ -1283,7 +1283,7 @@ static int rtl8139_mmio_write(struct guest_info * core,
 
     memcpy(&val, src, length);
 
-    PrintDebug("rtl8139 mmio write: addr:0x%x (%u bytes): 0x%x\n", (int)guest_addr, length, val);
+    PrintDebug(VM_NONE, VCORE_NONE, "rtl8139 mmio write: addr:0x%x (%u bytes): 0x%x\n", (int)guest_addr, length, val);
 	
     switch(idx) {
 	case RTL8139_IDR0 ... RTL8139_IDR0 + 5:
@@ -1327,7 +1327,7 @@ static int rtl8139_mmio_write(struct guest_info * core,
 	    /* this value is off by 16 */
 	    nic_state->regs.capr = MOD2(val + 0x10, nic_state->rx_bufsize);
 
-	    PrintDebug("RTL 8139: CAPR write: rx buffer length %d head 0x%04x read 0x%04x\n",
+	    PrintDebug(VM_NONE, VCORE_NONE, "RTL 8139: CAPR write: rx buffer length %d head 0x%04x read 0x%04x\n",
 	    nic_state->rx_bufsize, nic_state->regs.cbr, nic_state->regs.capr);	
 	}
 	    break;
@@ -1336,7 +1336,7 @@ static int rtl8139_mmio_write(struct guest_info * core,
 	    break;
 	case RTL8139_IMR:
 	{
-	    PrintDebug("RTL8139: IMR write val=0x%04x\n", val);
+	    PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: IMR write val=0x%04x\n", val);
 
 	    /* mask unwriteable bits */
 	    val = SET_MASKED(val, 0x1e00, nic_state->regs.imr);
@@ -1438,7 +1438,7 @@ static int rtl8139_mmio_write(struct guest_info * core,
 	    nic_state->regs.config5 = val & 0xff;
 	    break;
 	default:
-	    PrintDebug("rtl8139 write error: invalid port: 0x%x\n", idx);
+	    PrintDebug(VM_NONE, VCORE_NONE, "rtl8139 write error: invalid port: 0x%x\n", idx);
 	}
         
     return length;
@@ -1602,7 +1602,7 @@ static int rtl8139_mmio_read(struct guest_info * core,
 
     memcpy(dst, &val, length);
 	
-    PrintDebug("rtl8139 mmio read: port:0x%x (%u bytes): 0x%x\n", (int)guest_addr, length, val);
+    PrintDebug(VM_NONE, VCORE_NONE, "rtl8139 mmio read: port:0x%x (%u bytes): 0x%x\n", (int)guest_addr, length, val);
 
     return length;
 }
@@ -1628,7 +1628,7 @@ static int rtl8139_ioport_read(struct guest_info * core,
 
 
 static int rtl8139_init_state(struct rtl8139_state *nic_state) {
-    PrintDebug("rtl8139: init_state\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "rtl8139: init_state\n");
 	
     nic_state->regs.tsd[0] = nic_state->regs.tsd[1] = nic_state->regs.tsd[2] = nic_state->regs.tsd[3] = TSD_Own;
 
@@ -1657,7 +1657,7 @@ static inline int rtl8139_start_device(struct rtl8139_state * nic_state) {
 }
 
 static int rtl8139_stop_device(struct rtl8139_state * nic_state) {
-    PrintDebug("rtl8139: stop device\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "rtl8139: stop device\n");
 
     nic_state->regs.cmd &= ~(CMD_Re | CMD_Te);
 	
@@ -1672,24 +1672,24 @@ static int rtl8139_hook_iospace(struct rtl8139_state * nic_state,
     int i;
 
     if (base_addr <= 0){
-	PrintError("In RTL8139: Fail to Hook IO Space, base address 0x%x\n", (int) base_addr);
+	PrintError(VM_NONE, VCORE_NONE, "In RTL8139: Fail to Hook IO Space, base address 0x%x\n", (int) base_addr);
 	return -1;
     }
 
     if (type == PCI_BAR_IO){
-    	PrintDebug("In RTL8139: Hook IO ports starting from %x, size %d\n", (int) base_addr, size);
+    	PrintDebug(VM_NONE, VCORE_NONE, "In RTL8139: Hook IO ports starting from %x, size %d\n", (int) base_addr, size);
 
     	for (i = 0; i < 0xff; i++){	
   	    v3_dev_hook_io(nic_state->dev, base_addr + i, &rtl8139_ioport_read, &rtl8139_ioport_write);
     	}
     } else if (type == PCI_BAR_MEM32) {
-    	PrintDebug("In RTL8139: Hook memory space starting from %x, size %d\n", (int) base_addr, size);
+    	PrintDebug(VM_NONE, VCORE_NONE, "In RTL8139: Hook memory space starting from %x, size %d\n", (int) base_addr, size);
 	
 	//hook memory mapped I/O	
     	v3_hook_full_mem(nic_state->vm, nic_state->vm->cores[0].cpu_id, base_addr, base_addr + 0xff,
                                      &rtl8139_mmio_read, &rtl8139_mmio_write, nic_state);
     } else {
-       PrintError("In RTL8139: unknown memory type: start %x, size %d\n", (int) base_addr, size);
+       PrintError(VM_NONE, VCORE_NONE, "In RTL8139: unknown memory type: start %x, size %d\n", (int) base_addr, size);
     }
 	
     return 0;
@@ -1700,7 +1700,7 @@ static int register_dev(struct rtl8139_state * nic_state)  {
     int i;
 
     if (nic_state->pci_bus == NULL) {
-	PrintError("RTL8139: Not attached to any PCI bus\n");
+	PrintError(VM_NONE, VCORE_NONE, "RTL8139: Not attached to any PCI bus\n");
 
 	return -1;
     }
@@ -1736,7 +1736,7 @@ static int register_dev(struct rtl8139_state * nic_state)  {
 
 
     if (pci_dev == NULL) {
-	PrintError("RTL8139: Could not register PCI Device\n");
+	PrintError(VM_NONE, VCORE_NONE, "RTL8139: Could not register PCI Device\n");
 	return -1;
     }
 	
@@ -1808,7 +1808,7 @@ static int rtl8139_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     nic_state  = (struct rtl8139_state *)V3_Malloc(sizeof(struct rtl8139_state));
 
     if (!nic_state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
@@ -1818,16 +1818,16 @@ static int rtl8139_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     nic_state->vm = vm;
 
     if (macstr != NULL && !str2mac(macstr, nic_state->mac)) {
-	PrintDebug("RTL8139: Mac specified %s\n", macstr);
+	PrintDebug(vm, VCORE_NONE, "RTL8139: Mac specified %s\n", macstr);
     }else {
-    	PrintDebug("RTL8139: MAC not specified\n");
+    	PrintDebug(vm, VCORE_NONE, "RTL8139: MAC not specified\n");
 	random_ethaddr(nic_state->mac);
     }
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, nic_state);
 
     if (dev == NULL) {
-	PrintError("RTL8139: Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "RTL8139: Could not attach device %s\n", dev_id);
 	V3_Free(nic_state);
 	return -1;
     }
@@ -1835,7 +1835,7 @@ static int rtl8139_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     nic_state->dev = dev;
 
     if (v3_dev_add_net_frontend(vm, dev_id, connect_fn, (void *)nic_state) == -1) {
-	PrintError("RTL8139: Could not register %s as net frontend\n", dev_id);
+	PrintError(vm, VCORE_NONE, "RTL8139: Could not register %s as net frontend\n", dev_id);
 	v3_remove_device(dev);
 	V3_Free(nic_state);
 	return -1;

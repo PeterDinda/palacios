@@ -67,7 +67,7 @@ static void * tmp_realloc(void * old_ptr, size_t old_size, size_t new_size) {
     new_buf = V3_Malloc(new_size);
     
     if (new_buf == NULL) {
-	PrintError("Cannot allocate in tmp_realloc in xml\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in tmp_realloc in xml\n");
         return NULL;
     }
 
@@ -98,7 +98,7 @@ static void v3_xml_err(struct v3_xml_root * root, char * xml_str, const char * e
     vsnprintf(root->err, V3_XML_ERRL, fmt, ap);
     va_end(ap);
 
-    PrintError("XML Error: %s\n", root->err);
+    PrintError(VM_NONE, VCORE_NONE, "XML Error: %s\n", root->err);
 
     // free memory
     v3_xml_free(&(root->xml));
@@ -305,7 +305,7 @@ static void v3_xml_char_content(struct v3_xml_root * root, char * s, size_t len,
 	    tmp = V3_Malloc((l = strlen(xml->txt)) + len);
 
 	    if (!tmp) {
-		PrintError("Cannot allocate in xml char content\n");
+		PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in xml char content\n");
 		return ;
 	    }
 
@@ -371,7 +371,7 @@ static struct v3_xml * v3_xml_new(const char * name) {
     struct v3_xml_root * root = (struct v3_xml_root *)V3_Malloc(sizeof(struct v3_xml_root));
 
     if (!root) {
-	PrintError("Cannot allocate in xml_new\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in xml_new\n");
 	return NULL;
     }
 
@@ -472,7 +472,7 @@ static struct v3_xml * v3_xml_add_child(struct v3_xml * xml, const char * name, 
     child = (struct v3_xml *)V3_Malloc(sizeof(struct v3_xml));
 
     if (!child) {
-	PrintError("Cannot allocate in xml_add_child\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in xml_add_child\n");
 	return NULL;
     }
 
@@ -585,7 +585,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 					(2 * sizeof(char *))));
 
 		    if (!attr) {
-			PrintError("Cannot reallocate in xml parse string\n");
+			PrintError(VM_NONE, VCORE_NONE, "Cannot reallocate in xml parse string\n");
 			return NULL;
 		    }
 
@@ -594,19 +594,19 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 						 (attr_cnt + 1)); 
 
 		    if (!attr[last_idx]) {
-			PrintError("Cannot reallocate in xml parse string\n");
+			PrintError(VM_NONE, VCORE_NONE, "Cannot reallocate in xml parse string\n");
 			return NULL;
 		    }
 
 		} else {
 		    attr = V3_Malloc(4 * sizeof(char *)); 
 		    if (!attr) {
-			PrintError("Cannot allocate in xml parse string\n");
+			PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in xml parse string\n");
 			return NULL;
 		    }
 		    attr[last_idx] = V3_Malloc(2);
 		    if (!attr[last_idx]) {
-			PrintError("Cannot alloocate in xml parse string\n");
+			PrintError(VM_NONE, VCORE_NONE, "Cannot alloocate in xml parse string\n");
 			return NULL;
 		    }
 		}
@@ -774,7 +774,7 @@ struct v3_xml * v3_xml_parse(char * buf) {
     xml_buf = (char *)V3_Malloc(str_len + 1);
 
     if (!xml_buf) {
-	PrintError("Cannot allocate in xml parse\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in xml parse\n");
 	return NULL;
     }
 
@@ -870,7 +870,7 @@ struct v3_xml * v3_xml_set_attr(struct v3_xml * xml, const char * name, const ch
             xml->attr = V3_Malloc(4 * sizeof(char *));
 
 	    if (!xml->attr) {
-		PrintError("Cannot allocate in xml set attr\n");
+		PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in xml set attr\n");
 		return NULL;
 	    }
 
@@ -878,7 +878,7 @@ struct v3_xml * v3_xml_set_attr(struct v3_xml * xml, const char * name, const ch
             xml->attr[1] = strdup(""); 
 
 	    if (!xml->attr[1]) {
-		PrintError("Cannot strdup in xml set attr\n");
+		PrintError(VM_NONE, VCORE_NONE, "Cannot strdup in xml set attr\n");
 		return NULL;
 	    }
 
@@ -886,7 +886,7 @@ struct v3_xml * v3_xml_set_attr(struct v3_xml * xml, const char * name, const ch
 	    xml->attr = tmp_realloc(xml->attr, l * sizeof(char *), (l + 4) * sizeof(char *));
 
 	    if (!xml->attr) {
-		PrintError("Cannot reallocate in xml set attr\n");
+		PrintError(VM_NONE, VCORE_NONE, "Cannot reallocate in xml set attr\n");
 		return NULL;
 	    }
 	}
@@ -903,7 +903,7 @@ struct v3_xml * v3_xml_set_attr(struct v3_xml * xml, const char * name, const ch
 
 
 	if (!xml->attr[l + 3]) {
-	    PrintError("Cannot reallocate in xml set attr\n");
+	    PrintError(VM_NONE, VCORE_NONE, "Cannot reallocate in xml set attr\n");
 	    return NULL;
 	}
 
@@ -1126,7 +1126,7 @@ char * v3_xml_tostr(struct v3_xml * xml) {
     char *s = V3_Malloc(max);
 
     if (!s) {
-	PrintError("Cannot allocate in xml tostrr\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in xml tostrr\n");
 	return NULL;
     }
 

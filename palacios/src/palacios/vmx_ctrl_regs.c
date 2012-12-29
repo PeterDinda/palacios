@@ -45,19 +45,19 @@ int v3_vmx_handle_cr0_access(struct guest_info * info, struct vmx_exit_cr_qual *
         if (cr_qual->access_type == 0) {
 
             if (handle_mov_to_cr0(info, reg, exit_info) != 0) {
-                PrintError("Could not handle CR0 write\n");
+                PrintError(info->vm_info, info, "Could not handle CR0 write\n");
                 return -1;
             }
         } else {
             // Mov from cr
-	    PrintError("Mov From CR0 not handled\n");
+	    PrintError(info->vm_info, info, "Mov From CR0 not handled\n");
 	    return -1;
         }
 
         return 0;
     }
 
-    PrintError("Invalid CR0 Access type?? (type=%d)\n", cr_qual->access_type);
+    PrintError(info->vm_info, info, "Invalid CR0 Access type?? (type=%d)\n", cr_qual->access_type);
     return -1;
 }
 
@@ -73,7 +73,7 @@ int v3_vmx_handle_cr3_access(struct guest_info * info, struct vmx_exit_cr_qual *
         }
     }
 
-    PrintError("Invalid CR3 Access type?? (type=%d)\n", cr_qual->access_type);
+    PrintError(info->vm_info, info, "Invalid CR3 Access type?? (type=%d)\n", cr_qual->access_type);
     return -1;
 }
 
@@ -82,13 +82,13 @@ int v3_vmx_handle_cr4_access(struct guest_info * info, struct vmx_exit_cr_qual *
 
 	if (cr_qual->access_type == 0) {
 	    if (v3_handle_cr4_write(info) != 0) {
-		PrintError("Could not handle CR4 write\n");
+		PrintError(info->vm_info, info, "Could not handle CR4 write\n");
 		return -1;
 	    }
 	    info->ctrl_regs.cr4 |= 0x2000; // no VMX allowed in guest, so mask CR4.VMXE
 	} else {
 	    if (v3_handle_cr4_read(info) != 0) {
-		PrintError("Could not handle CR4 read\n");
+		PrintError(info->vm_info, info, "Could not handle CR4 read\n");
 		return -1;
 	    }
 	}
@@ -96,7 +96,7 @@ int v3_vmx_handle_cr4_access(struct guest_info * info, struct vmx_exit_cr_qual *
 	return 0;
     }
 
-    PrintError("Invalid CR4 Access type?? (type=%d)\n", cr_qual->access_type);
+    PrintError(info->vm_info, info, "Invalid CR4 Access type?? (type=%d)\n", cr_qual->access_type);
     return -1;
 }
 
@@ -105,12 +105,12 @@ int v3_vmx_handle_cr8_access(struct guest_info * info, struct vmx_exit_cr_qual *
 
 	if (cr_qual->access_type == 0) {
 	    if (v3_handle_cr8_write(info) != 0) {
-		PrintError("Could not handle CR8 write\n");
+		PrintError(info->vm_info, info, "Could not handle CR8 write\n");
 		return -1;
 	    }
 	} else {
 	    if (v3_handle_cr8_read(info) != 0) {
-		PrintError("Could not handle CR8 read\n");
+		PrintError(info->vm_info, info, "Could not handle CR8 read\n");
 		return -1;
 	    }
 	}
@@ -118,7 +118,7 @@ int v3_vmx_handle_cr8_access(struct guest_info * info, struct vmx_exit_cr_qual *
 	return 0;
     }
     
-    PrintError("Invalid CR8 Access type?? (type=%d)\n", cr_qual->access_type);
+    PrintError(info->vm_info, info, "Invalid CR8 Access type?? (type=%d)\n", cr_qual->access_type);
     return -1;
 }
 
@@ -127,7 +127,7 @@ static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 
 	/*
-        PrintDebug("Old Guest CR3=%p, Old Shadow CR3=%p\n",
+        PrintDebug(info->vm_info, info, "Old Guest CR3=%p, Old Shadow CR3=%p\n",
 		   (void *)info->ctrl_regs.cr3,
 		   (void *)info->shdw_pg_state.guest_cr3);
 	*/
@@ -141,17 +141,17 @@ static int handle_mov_to_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
 
         if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) {
             if (v3_activate_shadow_pt(info) == -1) {
-                PrintError("Failed to activate 32 bit shadow page table\n");
+                PrintError(info->vm_info, info, "Failed to activate 32 bit shadow page table\n");
                 return -1;
             }
         }
 	/*
-        PrintDebug("New guest CR3=%p, New shadow CR3=%p\n",
+        PrintDebug(info->vm_info, info, "New guest CR3=%p, New shadow CR3=%p\n",
 		   (void *)info->ctrl_regs.cr3,
 		   (void *)info->shdw_pg_state.guest_cr3);
 	*/
     } else if (info->shdw_pg_mode == NESTED_PAGING) {
-        PrintError("Nested paging not available in VMX right now!\n");
+        PrintError(info->vm_info, info, "Nested paging not available in VMX right now!\n");
         return -1;
     }
 
@@ -174,7 +174,7 @@ static int handle_mov_from_cr3(struct guest_info * info, v3_reg_t * cr3_reg) {
         }
 
     } else {
-        PrintError("Unhandled paging mode\n");
+        PrintError(info->vm_info, info, "Unhandled paging mode\n");
         return -1;
     }
 
@@ -191,26 +191,26 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
     extern v3_cpu_arch_t v3_mach_type;
 
 
-    PrintDebug("Mov to CR0\n");
-    PrintDebug("Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
+    PrintDebug(info->vm_info, info, "Mov to CR0\n");
+    PrintDebug(info->vm_info, info, "Old shadow CR0: 0x%x, New shadow CR0: 0x%x\n",
 	       (uint32_t)info->shdw_pg_state.guest_cr0, (uint32_t)*new_cr0);
 
     if ((new_shdw_cr0->pe != shdw_cr0->pe) && (vmx_info->assist_state != VMXASSIST_DISABLED)) {
 	/*
-	  PrintDebug("Guest CR0: 0x%x\n", *(uint32_t *)guest_cr0);
-	  PrintDebug("Old shadow CR0: 0x%x\n", *(uint32_t *)shdw_cr0);
-	  PrintDebug("New shadow CR0: 0x%x\n", *(uint32_t *)new_shdw_cr0);
+	  PrintDebug(info->vm_info, info, "Guest CR0: 0x%x\n", *(uint32_t *)guest_cr0);
+	  PrintDebug(info->vm_info, info, "Old shadow CR0: 0x%x\n", *(uint32_t *)shdw_cr0);
+	  PrintDebug(info->vm_info, info, "New shadow CR0: 0x%x\n", *(uint32_t *)new_shdw_cr0);
 	*/
 
         if (v3_vmxassist_ctx_switch(info) != 0) {
-            PrintError("Unable to execute VMXASSIST context switch!\n");
+            PrintError(info->vm_info, info, "Unable to execute VMXASSIST context switch!\n");
             return -1;
         }
 	
         if (vmx_info->assist_state == VMXASSIST_ON) {
-            PrintDebug("Loading VMXASSIST at RIP: %p\n", (void *)(addr_t)info->rip);
+            PrintDebug(info->vm_info, info, "Loading VMXASSIST at RIP: %p\n", (void *)(addr_t)info->rip);
         } else {
-            PrintDebug("Leaving VMXASSIST and entering protected mode at RIP: %p\n",
+            PrintDebug(info->vm_info, info, "Leaving VMXASSIST and entering protected mode at RIP: %p\n",
 		       (void *)(addr_t)info->rip);
         }
 
@@ -263,7 +263,7 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 		
 		if (vmx_info->assist_state != VMXASSIST_DISABLED) {
 		    if (vm_efer->lme) {
-			PrintDebug("Enabling long mode\n");
+			PrintDebug(info->vm_info, info, "Enabling long mode\n");
 			
 			hw_efer->lma = 1;
 			hw_efer->lme = 1;
@@ -272,7 +272,7 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 		    }
 		} else {
 		    if (hw_efer->lme) {
-			PrintDebug("Enabling long mode\n");
+			PrintDebug(info->vm_info, info, "Enabling long mode\n");
 			
 			hw_efer->lma = 1;
 			
@@ -280,11 +280,11 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 		    }
  		}
 		
-		//            PrintDebug("Activating Shadow Page tables\n");
+		//            PrintDebug(info->vm_info, info, "Activating Shadow Page tables\n");
 		
 		if (info->shdw_pg_mode == SHADOW_PAGING) {
 		    if (v3_activate_shadow_pt(info) == -1) {
-			PrintError("Failed to activate shadow page tables\n");
+			PrintError(info->vm_info, info, "Failed to activate shadow page tables\n");
 			return -1;
 		    }
 		}
@@ -293,7 +293,7 @@ static int handle_mov_to_cr0(struct guest_info * info, v3_reg_t * new_cr0, struc
 
 		if (info->shdw_pg_mode == SHADOW_PAGING) {
 		    if (v3_activate_passthrough_pt(info) == -1) {
-			PrintError("Failed to activate passthrough page tables\n");
+			PrintError(info->vm_info, info, "Failed to activate passthrough page tables\n");
 			return -1;
 		    }
 		} else {

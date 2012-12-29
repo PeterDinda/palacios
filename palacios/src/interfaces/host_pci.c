@@ -31,7 +31,7 @@ static struct v3_host_pci_hooks * pci_hooks = NULL;
 
 void V3_Init_Host_PCI(struct v3_host_pci_hooks * hooks) {
     pci_hooks = hooks;
-    V3_Print("V3 host PCI interface intialized\n");
+    V3_Print(VM_NONE, VCORE_NONE, "V3 host PCI interface intialized\n");
     return;
 }
 
@@ -40,7 +40,7 @@ void V3_Init_Host_PCI(struct v3_host_pci_hooks * hooks) {
 int V3_get_guest_mem_region(struct v3_vm_info * vm, struct v3_guest_mem_region * region) {
 
     if (!vm) {
-	PrintError("Tried to get a nenregion from a NULL vm pointer\n");
+        PrintError(vm, VCORE_NONE, "Tried to get a menregion from a NULL vm pointer\n");
 	return -1;
     }
 
@@ -58,14 +58,14 @@ struct v3_host_pci_dev * v3_host_pci_get_dev(struct v3_vm_info * vm,
     struct v3_host_pci_dev * host_dev = NULL;
 
     if ((!pci_hooks) || (!pci_hooks->request_device)) {
-	PrintError("Host PCI Hooks not initialized\n");
+	PrintError(vm, VCORE_NONE, "Host PCI Hooks not initialized\n");
 	return NULL;
     }
 
     host_dev = pci_hooks->request_device(url, vm);
 
     if (host_dev == NULL) {
-	PrintError("Could not find host PCI device (%s)\n", url);
+	PrintError(vm, VCORE_NONE, "Could not find host PCI device (%s)\n", url);
 	return NULL;
     }
 
@@ -81,7 +81,7 @@ int v3_host_pci_config_write(struct v3_host_pci_dev * v3_dev,
 			     uint32_t length) {
 
     if ((!pci_hooks) || (!pci_hooks->config_write)) {
-	PrintError("Host PCI hooks not initialized\n");
+        PrintError(VM_NONE, VCORE_NONE, "Host PCI hooks not initialized\n");
 	return -1;
     }
 
@@ -94,7 +94,7 @@ int v3_host_pci_config_read(struct v3_host_pci_dev * v3_dev,
 			     uint32_t length) {
 
     if ((!pci_hooks) || (!pci_hooks->config_read)) {
-	PrintError("Host PCI hooks not initialized\n");
+	PrintError(VM_NONE, VCORE_NONE, "Host PCI hooks not initialized\n");
 	return -1;
     }
 
@@ -104,7 +104,7 @@ int v3_host_pci_config_read(struct v3_host_pci_dev * v3_dev,
 int v3_host_pci_ack_irq(struct v3_host_pci_dev * v3_dev, uint32_t vec_index) {
 
     if ((!pci_hooks) || (!pci_hooks->ack_irq)) {
-	PrintError("Host PCI hooks not initialized\n");
+	PrintError(VM_NONE, VCORE_NONE, "Host PCI hooks not initialized\n");
 	return -1;
     }
 
@@ -116,7 +116,7 @@ int v3_host_pci_ack_irq(struct v3_host_pci_dev * v3_dev, uint32_t vec_index) {
 int v3_host_pci_cmd_update(struct v3_host_pci_dev * v3_dev, pci_cmd_t cmd, uint64_t arg ) {
 
     if ((!pci_hooks) || (!pci_hooks->pci_cmd)) {
-	PrintError("Host PCI hooks not initialized\n");
+	PrintError(VM_NONE, VCORE_NONE, "Host PCI hooks not initialized\n");
 	return -1;
     }
 
@@ -129,7 +129,7 @@ int v3_host_pci_cmd_update(struct v3_host_pci_dev * v3_dev, pci_cmd_t cmd, uint6
 
 int V3_host_pci_raise_irq(struct v3_host_pci_dev * v3_dev, uint32_t vec_index) {
     if (!v3_dev->irq_handler) {
-	PrintError("No interrupt registerd for host pci device\n");
+	PrintError(VM_NONE, VCORE_NONE, "No interrupt registerd for host pci device\n");
 	return -1;
     }
 

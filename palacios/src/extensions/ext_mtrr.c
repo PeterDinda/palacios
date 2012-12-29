@@ -546,7 +546,7 @@ static int init_mtrrs(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_
     state = V3_Malloc(sizeof(struct mtrr_state));
 
     if (!state) {
-	PrintError("Cannot allocate in initializing MTRRs\n");
+        PrintError(vm, VCORE_NONE, "Cannot allocate in initializing MTRRs\n");
 	return -1;
     }
 
@@ -607,7 +607,7 @@ static int init_mtrrs(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_
     ret |= v3_hook_msr(vm, SMRR_PHYS_MASK, intel_smrr_mask_read, intel_smrr_mask_write, state);
 
     if (ret != 0) {
-	PrintError("Failed to hook all MTRR MSRs. Aborting...\n");
+	PrintError(vm, VCORE_NONE,"Failed to hook all MTRR MSRs. Aborting...\n");
 	deinit_mtrrs(vm, state);
 	return -1;
     }

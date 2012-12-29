@@ -35,7 +35,7 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type,
 		  int src_op_size, int dst_op_size) {
 
     if (src_op_size == 1) {
-	PrintDebug("Executing 8 bit instruction\n");
+	PrintDebug(info->vm_info, info, "Executing 8 bit instruction\n");
 
 	switch (op_type) {
 	    case V3_OP_ADC:
@@ -135,12 +135,12 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type,
 		break;
 
 	    default:
-		PrintError("Unknown 8 bit instruction\n");
+		PrintError(info->vm_info, info, "Unknown 8 bit instruction\n");
 		return -1;
 	}
 
     } else if (src_op_size == 2) {
-	PrintDebug("Executing 16 bit instruction\n");
+	PrintDebug(info->vm_info, info, "Executing 16 bit instruction\n");
 
 	switch (op_type) {
 	    case V3_OP_ADC:
@@ -190,12 +190,12 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type,
 		break;
       
 	    default:
-		PrintError("Unknown 16 bit instruction\n");
+		PrintError(info->vm_info, info, "Unknown 16 bit instruction\n");
 		return -1;
 	}
 
     } else if (src_op_size == 4) {
-	PrintDebug("Executing 32 bit instruction\n");
+	PrintDebug(info->vm_info, info, "Executing 32 bit instruction\n");
 
 	switch (op_type) {
 	    case V3_OP_ADC:
@@ -239,13 +239,13 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type,
 		break;
       
 	    default:
-		PrintError("Unknown 32 bit instruction\n");
+		PrintError(info->vm_info, info, "Unknown 32 bit instruction\n");
 		return -1;
 	}
 
 #ifdef __V3_64BIT__
     } else if (src_op_size == 8) {
-	PrintDebug("Executing 64 bit instruction\n");
+	PrintDebug(info->vm_info, info, "Executing 64 bit instruction\n");
 
 	switch (op_type) {
 	    case V3_OP_ADC:
@@ -289,13 +289,13 @@ static int run_op(struct guest_info * info, v3_op_type_t op_type,
 		break;
       
 	    default:
-		PrintError("Unknown 64 bit instruction\n");
+		PrintError(info->vm_info, info, "Unknown 64 bit instruction\n");
 		return -1;
 	}
 #endif
 
     } else {
-	PrintError("Invalid Operation Size\n");
+	PrintError(info->vm_info, info, "Invalid Operation Size\n");
 	return -1;
     }
 
@@ -314,7 +314,7 @@ static int run_str_op(struct guest_info * core, struct x86_instr * instr,
     struct rflags * flags_reg = (struct rflags *)&(core->ctrl_regs.rflags);
 
 
-    PrintDebug("Emulation_len=%d, tmp_rcx=%d\n", emulation_length, (uint_t)tmp_rcx);
+    PrintDebug(core->vm_info, core, "Emulation_len=%d, tmp_rcx=%d\n", emulation_length, (uint_t)tmp_rcx);
 
 
     if (instr->op_type == V3_OP_MOVS) {
@@ -329,7 +329,7 @@ static int run_str_op(struct guest_info * core, struct x86_instr * instr,
 	    movs64((addr_t *)&dst_addr, &src_addr, &tmp_rcx, (addr_t *)&(core->ctrl_regs.rflags));
 #endif
 	} else {
-	    PrintError("Invalid operand length\n");
+	    PrintError(core->vm_info, core, "Invalid operand length\n");
 	    return -1;
 	}
 
@@ -358,7 +358,7 @@ static int run_str_op(struct guest_info * core, struct x86_instr * instr,
 	    stos64((addr_t *)&dst_addr, (addr_t  *)&(core->vm_regs.rax), &tmp_rcx, (addr_t *)&(core->ctrl_regs.rflags));
 #endif
 	} else {
-	    PrintError("Invalid operand length\n");
+	    PrintError(core->vm_info, core, "Invalid operand length\n");
 	    return -1;
 	}
 
@@ -375,7 +375,7 @@ static int run_str_op(struct guest_info * core, struct x86_instr * instr,
 	    core->vm_regs.rcx -= rep_cnt;
 	}
     } else {
-	PrintError("Unimplemented String operation\n");
+	PrintError(core->vm_info, core, "Unimplemented String operation\n");
 	return -1;
     }
     

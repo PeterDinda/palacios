@@ -104,7 +104,7 @@
 
 failout:
 
-     PrintError("Failed to save device\n");
+     PrintError(info->vm_info, info, "Failed to save device\n");
      return -1;
 
   }     

@@ -51,7 +51,7 @@ int v3_handle_cr0_write(struct guest_info * info) {
     }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
-	PrintError("Could not decode instruction\n");
+        PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
     }
 
@@ -69,7 +69,7 @@ int v3_handle_cr0_write(struct guest_info * info) {
 	    return -1;
 	}
     } else {
-	PrintError("Unhandled opcode in handle_cr0_write\n");
+	PrintError(info->vm_info, info, "Unhandled opcode in handle_cr0_write\n");
 	return -1;
     }
     
@@ -91,12 +91,12 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
     struct cr0_32 * guest_cr0 = (struct cr0_32 *)&(info->shdw_pg_state.guest_cr0);
     uint_t paging_transition = 0;
     
-    PrintDebug("MOV2CR0 (MODE=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+    PrintDebug(info->vm_info, info, "MOV2CR0 (MODE=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
     
-    PrintDebug("OperandVal = %x, length=%d\n", *(uint_t *)new_cr0, dec_instr->src_operand.size);
+    PrintDebug(info->vm_info, info, "OperandVal = %x, length=%d\n", *(uint_t *)new_cr0, dec_instr->src_operand.size);
     
-    PrintDebug("Old CR0=%x\n", *(uint_t *)shadow_cr0);
-    PrintDebug("Old Guest CR0=%x\n", *(uint_t *)guest_cr0);	
+    PrintDebug(info->vm_info, info, "Old CR0=%x\n", *(uint_t *)shadow_cr0);
+    PrintDebug(info->vm_info, info, "Old Guest CR0=%x\n", *(uint_t *)guest_cr0);	
     
     
     // We detect if this is a paging transition
@@ -131,19 +131,19 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
 	    
 	    // Check long mode LME to set LME
 	    if (guest_efer->lme == 1) {
-		PrintDebug("Enabing Long Mode\n");
+		PrintDebug(info->vm_info, info, "Enabing Long Mode\n");
 		guest_efer->lma = 1;
 		
 		shadow_efer->lma = 1;
 		shadow_efer->lme = 1;
 		
-		PrintDebug("New EFER %p\n", (void *)*(addr_t *)(shadow_efer));
+		PrintDebug(info->vm_info, info, "New EFER %p\n", (void *)*(addr_t *)(shadow_efer));
 	    }
 	    
-	    PrintDebug("Activating Shadow Page Tables\n");
+	    PrintDebug(info->vm_info, info, "Activating Shadow Page Tables\n");
 	    
 	    if (v3_activate_shadow_pt(info) == -1) {
-		PrintError("Failed to activate shadow page tables\n");
+		PrintError(info->vm_info, info, "Failed to activate shadow page tables\n");
 		return -1;
 	    }
 	} else {
@@ -151,15 +151,15 @@ static int handle_mov_to_cr0(struct guest_info * info, struct x86_instr * dec_in
 	    shadow_cr0->wp = 1;
 	    
 	    if (v3_activate_passthrough_pt(info) == -1) {
-		PrintError("Failed to activate passthrough page tables\n");
+		PrintError(info->vm_info, info, "Failed to activate passthrough page tables\n");
 		return -1;
 	    }
 	}
     }
     
     
-    PrintDebug("New Guest CR0=%x\n",*(uint_t *)guest_cr0);  
-    PrintDebug("New CR0=%x\n", *(uint_t *)shadow_cr0);
+    PrintDebug(info->vm_info, info, "New Guest CR0=%x\n",*(uint_t *)guest_cr0);  
+    PrintDebug(info->vm_info, info, "New CR0=%x\n", *(uint_t *)shadow_cr0);
     
     return 0;
 }
@@ -187,28 +187,28 @@ static int handle_lmsw(struct guest_info * info, struct x86_instr * dec_instr) {
     struct cr0_real * new_cr0 = (struct cr0_real *)(dec_instr->dst_operand.operand);	
     uchar_t new_cr0_val;
     
-    PrintDebug("LMSW\n");
+    PrintDebug(info->vm_info, info, "LMSW\n");
     
     new_cr0_val = (*(char*)(new_cr0)) & 0x0f;
     
-    PrintDebug("OperandVal = %x\n", new_cr0_val);
+    PrintDebug(info->vm_info, info, "OperandVal = %x\n", new_cr0_val);
     
     // We can just copy the new value through
     // we don't need to virtualize the lower 4 bits
-    PrintDebug("Old CR0=%x\n", *(uint_t *)real_cr0);	
+    PrintDebug(info->vm_info, info, "Old CR0=%x\n", *(uint_t *)real_cr0);	
     *(uchar_t*)real_cr0 &= 0xf0;
     *(uchar_t*)real_cr0 |= new_cr0_val;
-    PrintDebug("New CR0=%x\n", *(uint_t *)real_cr0);	
+    PrintDebug(info->vm_info, info, "New CR0=%x\n", *(uint_t *)real_cr0);	
     
     
     // If Shadow paging is enabled we push the changes to the virtualized copy of cr0
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	struct cr0_real * guest_cr0 = (struct cr0_real*)&(info->shdw_pg_state.guest_cr0);
 	
-	PrintDebug("Old Guest CR0=%x\n", *(uint_t *)guest_cr0);	
+	PrintDebug(info->vm_info, info, "Old Guest CR0=%x\n", *(uint_t *)guest_cr0);	
 	*(uchar_t*)guest_cr0 &= 0xf0;
 	*(uchar_t*)guest_cr0 |= new_cr0_val;
-	PrintDebug("New Guest CR0=%x\n", *(uint_t *)guest_cr0);	
+	PrintDebug(info->vm_info, info, "New Guest CR0=%x\n", *(uint_t *)guest_cr0);	
     }
     return 0;
 }
@@ -232,12 +232,12 @@ int v3_handle_cr0_read(struct guest_info * info) {
     
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
-	PrintError("Could not decode instruction\n");
+	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
     }
     
     if (dec_instr.op_type == V3_OP_MOVCR2) {
-	PrintDebug("MOVCR2 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+	PrintDebug(info->vm_info, info, "MOVCR2 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 
 	if ((v3_get_vm_cpu_mode(info) == LONG) || 
 	    (v3_get_vm_cpu_mode(info) == LONG_32_COMPAT)) {
@@ -251,7 +251,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
 		*dst_reg = *shadow_cr0;
 	    }
 
-	    PrintDebug("returned CR0: %p\n", (void *)*(addr_t *)dst_reg);
+	    PrintDebug(info->vm_info, info, "returned CR0: %p\n", (void *)*(addr_t *)dst_reg);
 	} else {
 	    struct cr0_32 * dst_reg = (struct cr0_32 *)(dec_instr.dst_operand.operand);
 	
@@ -263,7 +263,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
 		*dst_reg = *shadow_cr0;
 	    }
 
-	    PrintDebug("returned CR0: %x\n", *(uint_t*)dst_reg);
+	    PrintDebug(info->vm_info, info, "returned CR0: %x\n", *(uint_t*)dst_reg);
 	}
 
     } else if (dec_instr.op_type == V3_OP_SMSW) {
@@ -271,7 +271,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
 	struct cr0_real * dst_reg = (struct cr0_real *)(dec_instr.dst_operand.operand);
 	char cr0_val = *(char*)shadow_cr0 & 0x0f;
 	
-	PrintDebug("SMSW\n");
+	PrintDebug(info->vm_info, info, "SMSW\n");
 	
 	// The lower 4 bits of the guest/shadow CR0 are mapped through
 	// We can treat nested and shadow paging the same here
@@ -279,7 +279,7 @@ int v3_handle_cr0_read(struct guest_info * info) {
 	*(char *)dst_reg |= cr0_val;
 	
     } else {
-	PrintError("Unhandled opcode in handle_cr0_read\n");
+	PrintError(info->vm_info, info, "Unhandled opcode in handle_cr0_read\n");
 	return -1;
     }
     
@@ -305,15 +305,15 @@ int v3_handle_cr3_write(struct guest_info * info) {
     }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
-	PrintError("Could not decode instruction\n");
+	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
     }
     
     if (dec_instr.op_type == V3_OP_MOV2CR) {
-	PrintDebug("MOV2CR3 (cpu_mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+	PrintDebug(info->vm_info, info, "MOV2CR3 (cpu_mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 	
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
-	    PrintDebug("Old Shadow CR3=%p; Old Guest CR3=%p\n", 
+	    PrintDebug(info->vm_info, info, "Old Shadow CR3=%p; Old Guest CR3=%p\n", 
 		       (void *)(addr_t)(info->ctrl_regs.cr3), 
 		       (void*)(addr_t)(info->shdw_pg_state.guest_cr3));
 	    
@@ -333,12 +333,12 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	    // If Paging is enabled in the guest then we need to change the shadow page tables
 	    if (info->mem_mode == VIRTUAL_MEM) {
 		if (v3_activate_shadow_pt(info) == -1) {
-		    PrintError("Failed to activate 32 bit shadow page table\n");
+		    PrintError(info->vm_info, info, "Failed to activate 32 bit shadow page table\n");
 		    return -1;
 		}
 	    }
 	    
-	    PrintDebug("New Shadow CR3=%p; New Guest CR3=%p\n", 
+	    PrintDebug(info->vm_info, info, "New Shadow CR3=%p; New Guest CR3=%p\n", 
 		       (void *)(addr_t)(info->ctrl_regs.cr3), 
 		       (void*)(addr_t)(info->shdw_pg_state.guest_cr3));
 	    
@@ -357,7 +357,7 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	    
 	}
     } else {
-	PrintError("Unhandled opcode in handle_cr3_write\n");
+	PrintError(info->vm_info, info, "Unhandled opcode in handle_cr3_write\n");
 	return -1;
     }
     
@@ -382,12 +382,12 @@ int v3_handle_cr3_read(struct guest_info * info) {
     }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
-	PrintError("Could not decode instruction\n");
+	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
     }
     
     if (dec_instr.op_type == V3_OP_MOVCR2) {
-	PrintDebug("MOVCR32 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+	PrintDebug(info->vm_info, info, "MOVCR32 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 	
 	if (info->shdw_pg_mode == SHADOW_PAGING) {
 	    
@@ -418,7 +418,7 @@ int v3_handle_cr3_read(struct guest_info * info) {
 	}
 	
     } else {
-	PrintError("Unhandled opcode in handle_cr3_read\n");
+	PrintError(info->vm_info, info, "Unhandled opcode in handle_cr3_read\n");
 	return -1;
     }
     
@@ -430,7 +430,7 @@ int v3_handle_cr3_read(struct guest_info * info) {
 
 // We don't need to virtualize CR4, all we need is to detect the activation of PAE
 int v3_handle_cr4_read(struct guest_info * info) {
-    PrintError("CR4 Read not handled\n");
+    PrintError(info->vm_info, info, "CR4 Read not handled\n");
     // Do nothing...
     return 0;
 }
@@ -449,12 +449,12 @@ int v3_handle_cr4_write(struct guest_info * info) {
     }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
-	PrintError("Could not decode instruction\n");
+	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
     }
     
     if (dec_instr.op_type != V3_OP_MOV2CR) {
-	PrintError("Invalid opcode in write to CR4\n");
+	PrintError(info->vm_info, info, "Invalid opcode in write to CR4\n");
 	return -1;
     }
     
@@ -474,7 +474,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	if ((cr4->pse != new_cr4->pse) || 
 	    (cr4->pge != new_cr4->pge) || 
 	    (cr4->pae != new_cr4->pae)) { 
-	    PrintDebug("Handling PSE/PGE/PAE -> TLBFlush case, flag set\n");
+	    PrintDebug(info->vm_info, info, "Handling PSE/PGE/PAE -> TLBFlush case, flag set\n");
 	    flush_tlb = 1;
 	    
 	}
@@ -485,18 +485,18 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
 	struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
 	
-	PrintDebug("OperandVal = %x, length = %d\n", *(uint_t *)new_cr4, dec_instr.src_operand.size);
-	PrintDebug("Old CR4=%x\n", *(uint_t *)cr4);
+	PrintDebug(info->vm_info, info, "OperandVal = %x, length = %d\n", *(uint_t *)new_cr4, dec_instr.src_operand.size);
+	PrintDebug(info->vm_info, info, "Old CR4=%x\n", *(uint_t *)cr4);
 	
 	if ((info->shdw_pg_mode == SHADOW_PAGING)) { 
 	    if (v3_get_vm_mem_mode(info) == PHYSICAL_MEM) {
 		
 		if ((cr4->pae == 0) && (new_cr4->pae == 1)) {
-		    PrintDebug("Creating PAE passthrough tables\n");
+		    PrintDebug(info->vm_info, info, "Creating PAE passthrough tables\n");
 		    
 		    // create 32 bit PAE direct map page table
 		    if (v3_reset_passthrough_pts(info) == -1) {
-			PrintError("Could not create 32 bit PAE passthrough pages tables\n");
+			PrintError(info->vm_info, info, "Could not create 32 bit PAE passthrough pages tables\n");
 			return -1;
 		    }
 
@@ -505,40 +505,40 @@ int v3_handle_cr4_write(struct guest_info * info) {
 		    
 		} else if ((cr4->pae == 1) && (new_cr4->pae == 0)) {
 		    // Create passthrough standard 32bit pagetables
-		    PrintError("Switching From PAE to Protected mode not supported\n");
+		    PrintError(info->vm_info, info, "Switching From PAE to Protected mode not supported\n");
 		    return -1;
 		} 
 	    }
 	}
 	
 	*cr4 = *new_cr4;
-	PrintDebug("New CR4=%x\n", *(uint_t *)cr4);
+	PrintDebug(info->vm_info, info, "New CR4=%x\n", *(uint_t *)cr4);
 	
     } else if ((cpu_mode == LONG) || (cpu_mode == LONG_32_COMPAT)) {
 	struct cr4_64 * new_cr4 = (struct cr4_64 *)(dec_instr.src_operand.operand);
 	struct cr4_64 * cr4 = (struct cr4_64 *)&(info->ctrl_regs.cr4);
 	
-	PrintDebug("Old CR4=%p\n", (void *)*(addr_t *)cr4);
-	PrintDebug("New CR4=%p\n", (void *)*(addr_t *)new_cr4);
+	PrintDebug(info->vm_info, info, "Old CR4=%p\n", (void *)*(addr_t *)cr4);
+	PrintDebug(info->vm_info, info, "New CR4=%p\n", (void *)*(addr_t *)new_cr4);
 	
 	if (new_cr4->pae == 0) {
 	    // cannot turn off PAE in long mode GPF the guest
-	    PrintError("Cannot disable PAE in long mode, should send GPF\n");
+	    PrintError(info->vm_info, info, "Cannot disable PAE in long mode, should send GPF\n");
 	    return -1;
 	}
 	
 	*cr4 = *new_cr4;
 	
     } else {
-	PrintError("CR4 write not supported in CPU_MODE: %s\n", v3_cpu_mode_to_str(cpu_mode));
+	PrintError(info->vm_info, info, "CR4 write not supported in CPU_MODE: %s\n", v3_cpu_mode_to_str(cpu_mode));
 	return -1;
     }
     
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	if (flush_tlb) {
-	    PrintDebug("Handling PSE/PGE/PAE -> TLBFlush (doing flush now!)\n");
+	    PrintDebug(info->vm_info, info, "Handling PSE/PGE/PAE -> TLBFlush (doing flush now!)\n");
 	    if (v3_activate_shadow_pt(info) == -1) {
-		PrintError("Failed to activate shadow page tables when emulating TLB flush in handling cr4 write\n");
+		PrintError(info->vm_info, info, "Failed to activate shadow page tables when emulating TLB flush in handling cr4 write\n");
 		return -1;
 	    }
 	}
@@ -590,12 +590,12 @@ int v3_handle_cr8_write(struct guest_info * info) {
     }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
-	PrintError("Could not decode instruction\n");
+	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
     }
     
     if (dec_instr.op_type == V3_OP_MOV2CR) {
-	PrintDebug("MOV2CR8 (cpu_mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+	PrintDebug(info->vm_info, info, "MOV2CR8 (cpu_mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 	
 	if ((info->cpu_mode == LONG) ||
 	    (info->cpu_mode == LONG_32_COMPAT)) {
@@ -603,13 +603,13 @@ int v3_handle_cr8_write(struct guest_info * info) {
 
 	    info->ctrl_regs.apic_tpr = (*val & 0xf) << 4;
 
-	    V3_Print("Write of CR8 sets apic_tpr to 0x%llx\n",info->ctrl_regs.apic_tpr);
+	    V3_Print(info->vm_info, info, "Write of CR8 sets apic_tpr to 0x%llx\n",info->ctrl_regs.apic_tpr);
 
 	}  else {
 	    // probably should raise exception here
 	}
     } else {
-	PrintError("Unhandled opcode in handle_cr8_write\n");
+	PrintError(info->vm_info, info, "Unhandled opcode in handle_cr8_write\n");
 	return -1;
     }
     
@@ -632,12 +632,12 @@ int v3_handle_cr8_read(struct guest_info * info) {
     }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
-	PrintError("Could not decode instruction\n");
+	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
     }
     
     if (dec_instr.op_type == V3_OP_MOVCR2) {
-	PrintDebug("MOVCR82 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
+	PrintDebug(info->vm_info, info, "MOVCR82 (mode=%s)\n", v3_cpu_mode_to_str(info->cpu_mode));
 	
 	if ((info->cpu_mode == LONG) || 
 	    (info->cpu_mode == LONG_32_COMPAT)) {
@@ -645,14 +645,14 @@ int v3_handle_cr8_read(struct guest_info * info) {
 
 	    *dst_reg = (info->ctrl_regs.apic_tpr >> 4) & 0xf;
 
-	    V3_Print("Read of CR8 (apic_tpr) returns 0x%llx\n",*dst_reg);
+	    V3_Print(info->vm_info, info, "Read of CR8 (apic_tpr) returns 0x%llx\n",*dst_reg);
 
 	} else {
 	    // probably should raise exception
 	}
 	    
     } else {
-	PrintError("Unhandled opcode in handle_cr8_read\n");
+	PrintError(info->vm_info, info, "Unhandled opcode in handle_cr8_read\n");
 	return -1;
     }
     
@@ -663,7 +663,7 @@ int v3_handle_cr8_read(struct guest_info * info) {
 
 
 int v3_handle_efer_read(struct guest_info * core, uint_t msr, struct v3_msr * dst, void * priv_data) {
-    PrintDebug("EFER Read HI=%x LO=%x\n", core->shdw_pg_state.guest_efer.hi, core->shdw_pg_state.guest_efer.lo);
+    PrintDebug(core->vm_info, core, "EFER Read HI=%x LO=%x\n", core->shdw_pg_state.guest_efer.hi, core->shdw_pg_state.guest_efer.lo);
     
     dst->value = core->shdw_pg_state.guest_efer.value;
     
@@ -676,7 +676,7 @@ int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src
     struct efer_64 * hw_efer     = (struct efer_64 *)&(core->ctrl_regs.efer);
     struct efer_64   old_hw_efer = *((struct efer_64 *)&core->ctrl_regs.efer);
     
-    PrintDebug("EFER Write HI=%x LO=%x\n", src.hi, src.lo);
+    PrintDebug(core->vm_info, core, "EFER Write HI=%x LO=%x\n", src.hi, src.lo);
 
     // Set EFER value seen by guest if it reads EFER
     vm_efer->value = src.value;
@@ -691,7 +691,7 @@ int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src
     if (core->shdw_pg_mode == SHADOW_PAGING) { 
       // Catch unsupported features
       if ((old_hw_efer.lme == 1) && (hw_efer->lme == 0)) {
-	PrintError("Disabling long mode once it has been enabled is not supported\n");
+	PrintError(core->vm_info, core, "Disabling long mode once it has been enabled is not supported\n");
 	return -1;
       }
       
@@ -709,8 +709,8 @@ int v3_handle_efer_write(struct guest_info * core, uint_t msr, struct v3_msr src
     }
       
       
-    PrintDebug("RIP=%p\n", (void *)core->rip);
-    PrintDebug("New EFER value HW(hi=%p), VM(hi=%p)\n", (void *)*(uint64_t *)hw_efer, (void *)vm_efer->value); 
+    PrintDebug(core->vm_info, core, "RIP=%p\n", (void *)core->rip);
+    PrintDebug(core->vm_info, core, "New EFER value HW(hi=%p), VM(hi=%p)\n", (void *)*(uint64_t *)hw_efer, (void *)vm_efer->value); 
 
 
     return 0;
@@ -722,20 +722,20 @@ int v3_handle_vm_cr_read(struct guest_info * core, uint_t msr, struct v3_msr * d
      * cannot be used 
      */
     dst->value = SVM_VM_CR_MSR_lock | SVM_VM_CR_MSR_svmdis;
-    PrintDebug("VM_CR Read HI=%x LO=%x\n", dst->hi, dst->lo);
+    PrintDebug(core->vm_info, core, "VM_CR Read HI=%x LO=%x\n", dst->hi, dst->lo);
     return 0;
 }
 
 int v3_handle_vm_cr_write(struct guest_info * core, uint_t msr, struct v3_msr src, void * priv_data) {
-    PrintDebug("VM_CR Write\n");
-    PrintDebug("VM_CR Write Values: HI=%x LO=%x\n", src.hi, src.lo);
+    PrintDebug(core->vm_info, core, "VM_CR Write\n");
+    PrintDebug(core->vm_info, core, "VM_CR Write Values: HI=%x LO=%x\n", src.hi, src.lo);
 
     /* writes to LOCK and SVMDIS are silently ignored (according to the spec), 
      * other writes indicate the guest wants to use some feature we haven't
      * implemented
      */
     if (src.value & ~(SVM_VM_CR_MSR_lock | SVM_VM_CR_MSR_svmdis)) {
-	PrintDebug("VM_CR write sets unsupported bits: HI=%x LO=%x\n", src.hi, src.lo);
+	PrintDebug(core->vm_info, core, "VM_CR write sets unsupported bits: HI=%x LO=%x\n", src.hi, src.lo);
 	return -1;
     }
     

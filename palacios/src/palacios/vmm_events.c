@@ -31,7 +31,7 @@ int v3_init_events(struct v3_vm_info * vm) {
     map->events = V3_Malloc(sizeof(struct list_head) * V3_EVENT_INVALID);
 
     if (map->events == NULL) {
-	PrintError("Error: could not allocate event map\n");
+	PrintError(vm, VCORE_NONE, "Error: could not allocate event map\n");
 	return -1;
     }
 
@@ -50,7 +50,7 @@ int v3_deinit_events(struct v3_vm_info * vm) {
 	if (!list_empty(&(map->events[i]))) {
 	    struct v3_notifier * tmp_notifier = NULL;
 	    struct v3_notifier * safe_notifier = NULL;
-	    PrintError("Found orphan notifier for event %d. Probable memory leak detected.\n", i);
+	    PrintError(vm, VCORE_NONE, "Found orphan notifier for event %d. Probable memory leak detected.\n", i);
 	    
 	    list_for_each_entry_safe(tmp_notifier, safe_notifier, &(map->events[i]), node) {
 		list_del(&(tmp_notifier->node));
@@ -79,14 +79,14 @@ struct v3_notifier * v3_subscribe_event(struct v3_vm_info * vm,
     struct v3_notifier * notifier = NULL;
 
     if (event_type >= V3_EVENT_INVALID) {
-	PrintError("Tried to request illegal event (%d)\n", event_type);
+	PrintError(vm, VCORE_NONE, "Tried to request illegal event (%d)\n", event_type);
 	return NULL;
     }
 
     notifier = V3_Malloc(sizeof(struct v3_notifier));
 
     if (notifier == NULL) {
-	PrintError("Error: Could not allocate notifier\n");
+	PrintError(vm, VCORE_NONE, "Error: Could not allocate notifier\n");
 	return NULL;
     }
 
@@ -111,12 +111,12 @@ int v3_unsubscribe_event(struct v3_vm_info * vm, struct v3_notifier * notifier,
     struct v3_notifier * safe_notifier = NULL;    
 
     if (notifier == NULL) {
-	PrintError("Could not unsubscribe invalid event notifier\n");
+	PrintError(vm, VCORE_NONE, "Could not unsubscribe invalid event notifier\n");
 	return -1;
     }
     
     if (notifier->event_type >= V3_EVENT_INVALID) {
-	PrintError("Could not unsubscribe from invalid event\n");
+	PrintError(vm, VCORE_NONE, "Could not unsubscribe from invalid event\n");
 	return -1;
     }
 

@@ -163,7 +163,7 @@ static inline struct exit_event * create_exit(uint_t exit_code) {
     struct exit_event * evt = V3_Malloc(sizeof(struct exit_event));
 
     if (!evt) {
-	PrintError("Cannot allocate in createing exit in telemetry\n");
+	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate in createing exit in telemetry\n");
 	return NULL;
     }
 
@@ -225,7 +225,7 @@ void v3_add_telemetry_cb(struct v3_vm_info * vm,
     struct telemetry_cb * cb = (struct telemetry_cb *)V3_Malloc(sizeof(struct telemetry_cb));
 
     if (!cb) {
-	PrintError("Cannot allocate in adding a telemtry callback\n");
+        PrintError(vm, VCORE_NONE, "Cannot allocate in adding a telemtry callback\n");
 	return ;
     }
 
@@ -256,13 +256,13 @@ static void print_telemetry_start(struct v3_vm_info *vm, char *hdr_buf)
     struct v3_telemetry_state * telemetry = &(vm->telemetry);
     uint64_t invoke_tsc = 0;
     rdtscll(invoke_tsc);
-    V3_Print("%stelemetry window tsc cnt: %u\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
+    V3_Print(vm,  VCORE_NONE, "%stelemetry window tsc cnt: %u\n", hdr_buf, (uint32_t)(invoke_tsc - telemetry->prev_tsc));
     telemetry->prev_tsc = invoke_tsc;
 }
 
 static void print_telemetry_end(struct v3_vm_info *vm, char *hdr_buf)
 {
-    V3_Print("%s Telemetry done\n", hdr_buf);
+    V3_Print(vm, VCORE_NONE, "%s Telemetry done\n", hdr_buf);
 }
 
 static void print_core_telemetry(struct guest_info * core, char *hdr_buf)
@@ -270,10 +270,10 @@ static void print_core_telemetry(struct guest_info * core, char *hdr_buf)
     struct exit_event * evt = NULL;
     struct rb_node * node = v3_rb_first(&(core->core_telem.exit_root));
 
-    V3_Print("Exit information for Core %d\n", core->vcpu_id);
+    V3_Print(core->vm_info, core, "Exit information for Core %d\n", core->vcpu_id);
     
     if (!node) { 
-    	V3_Print("No information yet for this core\n");
+    	V3_Print(core->vm_info, core, "No information yet for this core\n");
     	return;
     }
 
@@ -299,7 +299,7 @@ static void print_core_telemetry(struct guest_info * core, char *hdr_buf)
 		continue;
 	}
 
-	V3_Print("%s%s:%sCnt=%u,%sAvg. Time=%u\n", 
+	V3_Print(core->vm_info, core, "%s%s:%sCnt=%u,%sAvg. Time=%u\n", 
 		 hdr_buf, code_str,
 		 (strlen(code_str) > 13) ? "\t" : "\t\t",
 		 evt->cnt,

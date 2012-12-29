@@ -92,7 +92,7 @@ static int connect_fn(struct v3_vm_info * vm,
   struct disk_state * model = (struct disk_state *)V3_Malloc(sizeof(struct disk_state));
 
   if (!model) {
-      PrintError("Cannot allocate\n");
+      PrintError(vm, VCORE_NONE, "Cannot allocate\n");
       return -1;
   }
 
@@ -102,7 +102,7 @@ static int connect_fn(struct v3_vm_info * vm,
 
   if (v3_dev_connect_blk(vm, v3_cfg_val(frontend_cfg, "tag"), 
 			 &blk_ops, frontend_cfg, model) == -1) {
-      PrintError("Could not connect  to frontend %s\n", 
+      PrintError(vm, VCORE_NONE, "Could not connect  to frontend %s\n", 
 		  v3_cfg_val(frontend_cfg, "tag"));
       return -1;
   }
@@ -117,12 +117,12 @@ static int model_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, NULL);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	return -1;
     }
 
     if (v3_dev_add_blk_frontend(vm, dev_id, connect_fn, NULL) == -1) {
-	PrintError("Could not register %s as block frontend\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not register %s as block frontend\n", dev_id);
 	v3_remove_device(dev);
 	return -1;
     }

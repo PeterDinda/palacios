@@ -75,7 +75,7 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
     int length = 0;
 
 
-    PrintDebug("Decoding Instruction at %p\n", (void *)instr_ptr);
+    PrintDebug(core->vm_info, core, "Decoding Instruction at %p\n", (void *)instr_ptr);
 
     memset(instr, 0, sizeof(struct x86_instr));
 
@@ -102,10 +102,10 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
 
     form = op_code_to_form((uint8_t *)(instr_ptr + length), &length);
 
-    PrintDebug("\t decoded as (%s)\n", op_form_to_str(form));
+    PrintDebug(core->vm_info, core, "\t decoded as (%s)\n", op_form_to_str(form));
 
     if (form == INVALID_INSTR) {
-	PrintError("Could not find instruction form (%x)\n", *(uint32_t *)(instr_ptr + length));
+	PrintError(core->vm_info, core, "Could not find instruction form (%x)\n", *(uint32_t *)(instr_ptr + length));
 	return -1;
     }
 
@@ -114,7 +114,7 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
     ret = parse_operands(core, (uint8_t *)(instr_ptr + length), instr, form);
 
     if (ret == -1) {
-	PrintError("Could not parse instruction operands\n");
+	PrintError(core->vm_info, core, "Could not parse instruction operands\n");
 	return -1;
     }
     length += ret;
@@ -122,9 +122,9 @@ int v3_decode(struct guest_info * core, addr_t instr_ptr, struct x86_instr * ins
     instr->instr_length += length;
 
 #ifdef V3_CONFIG_DEBUG_DECODER
-    V3_Print("Decoding Instr at %p\n", (void *)core->rip);
+    V3_Print(core->vm_info, core, "Decoding Instr at %p\n", (void *)core->rip);
     v3_print_instr(instr);
-    V3_Print("CS DB FLag=%x\n", core->segments.cs.db);
+    V3_Print(core->vm_info, core, "CS DB FLag=%x\n", core->segments.cs.db);
 #endif
 
     return 0;
@@ -140,7 +140,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
     uint8_t * instr_start = instr_ptr;
     
 
-    PrintDebug("\tOperand width=%d, Addr width=%d\n", operand_width, addr_width);
+    PrintDebug(core->vm_info, core, "\tOperand width=%d, Addr width=%d\n", operand_width, addr_width);
 
     switch (form) {
 	case ADC_IMM2_8:
@@ -162,7 +162,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand\n");
+		PrintError(core->vm_info, core, "Error decoding operand\n");
 		return -1;
 	    }
 
@@ -181,7 +181,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    } else if (operand_width == 8) {
 		instr->src_operand.operand = *(sint32_t *)instr_ptr; // This is a special case for sign extended 64bit ops
 	    } else {
-		PrintError("Illegal operand width (%d)\n", operand_width);
+		PrintError(core->vm_info, core, "Illegal operand width (%d)\n", operand_width);
 		return -1;
 	    }
 
@@ -213,7 +213,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand\n");
+		PrintError(core->vm_info, core, "Error decoding operand\n");
 		return -1;
 	    }
 
@@ -250,7 +250,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->src_operand), &reg_code);
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand\n");
+		PrintError(core->vm_info, core, "Error decoding operand\n");
 		return -1;
 	    }
 
@@ -275,7 +275,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->src_operand.size = 1;
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand\n");
+		PrintError(core->vm_info, core, "Error decoding operand\n");
 		return -1;
 	    }
 
@@ -300,7 +300,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    instr->src_operand.size = 2;
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand\n");
+		PrintError(core->vm_info, core, "Error decoding operand\n");
 		return -1;
 	    }
 
@@ -328,7 +328,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand\n");
+		PrintError(core->vm_info, core, "Error decoding operand\n");
 		return -1;
 	    }
 
@@ -384,7 +384,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 				    &reg_code);
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
+		PrintError(core->vm_info, core, "Error decoding operand for (%s)\n", op_form_to_str(form));
 		return -1;
 	    }
 		
@@ -407,7 +407,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 				    &reg_code);
 	    
 	    if (ret == -1) {
-		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
+		PrintError(core->vm_info, core, "Error decoding operand for (%s)\n", op_form_to_str(form));
 		return -1;
 	    }
 
@@ -463,7 +463,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
+		PrintError(core->vm_info, core, "Error decoding operand for (%s)\n", op_form_to_str(form));
 		return -1;
 	    }
 
@@ -479,7 +479,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    ret = decode_rm_operand(core, instr_ptr, form, instr, &(instr->dst_operand), &reg_code);
 
 	    if (ret == -1) {
-		PrintError("Error decoding operand for (%s)\n", op_form_to_str(form));
+		PrintError(core->vm_info, core, "Error decoding operand for (%s)\n", op_form_to_str(form));
 		return -1;
 	    }
 
@@ -495,7 +495,7 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 	    break;
 	}
 	default:
-	    PrintError("Invalid Instruction form: %s\n", op_form_to_str(form));
+	    PrintError(core->vm_info, core, "Invalid Instruction form: %s\n", op_form_to_str(form));
 	    return -1;
     }
 

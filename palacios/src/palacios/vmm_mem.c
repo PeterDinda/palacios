@@ -31,7 +31,7 @@
 
 
 static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void * private_data) {
-    PrintDebug("V3Vee: Memory offset hypercall (offset=%p)\n", 
+    PrintDebug(info->vm_info, info,"V3Vee: Memory offset hypercall (offset=%p)\n", 
 	       (void *)(info->vm_info->mem_map.base_region.host_addr));
 
     info->vm_regs.rbx = info->vm_info->mem_map.base_region.host_addr;
@@ -42,7 +42,7 @@ static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void 
 static int unhandled_err(struct guest_info * core, addr_t guest_va, addr_t guest_pa, 
 			 struct v3_mem_region * reg, pf_error_t access_info) {
 
-    PrintError("Unhandled memory access error (gpa=%p, gva=%p, error_code=%d)\n",
+    PrintError(core->vm_info, core, "Unhandled memory access error (gpa=%p, gva=%p, error_code=%d)\n",
 	       (void *)guest_pa, (void *)guest_va, *(uint32_t *)&access_info);
 
     v3_print_mem_map(core->vm_info);
@@ -61,7 +61,7 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     map->mem_regions.rb_node = NULL;
 
     // There is an underlying region that contains all of the guest memory
-    // PrintDebug("Mapping %d pages of memory (%u bytes)\n", (int)mem_pages, (uint_t)info->mem_size);
+    // PrintDebug(info->vm_info, info, "Mapping %d pages of memory (%u bytes)\n", (int)mem_pages, (uint_t)info->mem_size);
 
     // 2MB page alignment needed for 2MB hardware nested paging
     map->base_region.guest_start = 0;
@@ -74,7 +74,7 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 #endif
 
     if ((void*)map->base_region.host_addr == NULL) { 
-       PrintError("Could not allocate guest memory\n");
+       PrintError(vm, VCORE_NONE,"Could not allocate guest memory\n");
        return -1;
     }
 
@@ -119,14 +119,14 @@ struct v3_mem_region * v3_create_mem_region(struct v3_vm_info * vm, uint16_t cor
     struct v3_mem_region * entry = NULL;
 
     if (guest_addr_start >= guest_addr_end) {
-	PrintError("Region start is after region end\n");
+        PrintError(vm, VCORE_NONE, "Region start is after region end\n");
 	return NULL;
     }
 
     entry = (struct v3_mem_region *)V3_Malloc(sizeof(struct v3_mem_region));
 
     if (!entry) {
-	PrintError("Cannot allocate in creating a memory region\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in creating a memory region\n");
 	return NULL;
     }
 
@@ -189,7 +189,7 @@ struct v3_mem_region * __insert_mem_region(struct v3_vm_info * vm,
 	} else {
 	    if ((region->guest_end != tmp_region->guest_end) ||
 		(region->guest_start != tmp_region->guest_start)) {
-		PrintError("Trying to map a partial overlapped core specific page...\n");
+		PrintError(vm, VCORE_NONE, "Trying to map a partial overlapped core specific page...\n");
 		return tmp_region; // This is ugly... 
 	    } else if (region->core_id == tmp_region->core_id) {
 		return tmp_region;
@@ -285,7 +285,7 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
 		// go right, core too small
 		n = n->rb_right;
 	    } else {
-		PrintDebug("v3_get_mem_region: Impossible!\n");
+		PrintDebug(vm, VCORE_NONE, "v3_get_mem_region: Impossible!\n");
 		return NULL;
 	    }
 	}
@@ -295,7 +295,7 @@ struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_i
     // There is not registered region, so we check if its a valid address in the base region
 
     if (guest_addr > vm->mem_map.base_region.guest_end) {
-	PrintError("Guest Address Exceeds Base Memory Size (ga=0x%p), (limit=0x%p) (core=0x%x)\n", 
+	PrintError(vm, VCORE_NONE, "Guest Address Exceeds Base Memory Size (ga=0x%p), (limit=0x%p) (core=0x%x)\n", 
 		   (void *)guest_addr, (void *)vm->mem_map.base_region.guest_end, core_id);
 	v3_print_mem_map(vm);
 
@@ -343,7 +343,7 @@ static struct v3_mem_region * get_next_mem_region( struct v3_vm_info * vm, uint1
 		// go right, core too small
 		n = n->rb_right;
 	    } else {
-		PrintError("v3_get_mem_region: Impossible!\n");
+		PrintError(vm, VCORE_NONE, "v3_get_mem_region: Impossible!\n");
 		return NULL;
 	    }
 	}
@@ -389,7 +389,7 @@ static struct v3_mem_region * get_overlapping_region(struct v3_vm_info * vm, uin
     struct v3_mem_region * start_region = v3_get_mem_region(vm, core_id, start_gpa);
 
     if (start_region == NULL) {
-	PrintError("Invalid memory region\n");
+	PrintError(vm, VCORE_NONE, "Invalid memory region\n");
 	return NULL;
     }
 
@@ -543,7 +543,7 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t page_addr, v3_cpu
 	    }
 	    break;
         default:
-            PrintError("Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
+	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
             return -1;
     }
 
@@ -557,10 +557,10 @@ void v3_print_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_region * reg = &(vm->mem_map.base_region);
     int i = 0;
 
-    V3_Print("Memory Layout (all cores):\n");
+    V3_Print(vm, VCORE_NONE, "Memory Layout (all cores):\n");
     
 
-    V3_Print("Base Region (all cores):  0x%p - 0x%p -> 0x%p\n", 
+    V3_Print(vm, VCORE_NONE, "Base Region (all cores):  0x%p - 0x%p -> 0x%p\n", 
 	       (void *)(reg->guest_start), 
 	       (void *)(reg->guest_end - 1), 
 	       (void *)(reg->host_addr));
@@ -574,12 +574,12 @@ void v3_print_mem_map(struct v3_vm_info * vm) {
     do {
 	reg = rb_entry(node, struct v3_mem_region, tree_node);
 
-	V3_Print("%d:  0x%p - 0x%p -> 0x%p\n", i, 
+	V3_Print(vm, VCORE_NONE, "%d:  0x%p - 0x%p -> 0x%p\n", i, 
 		   (void *)(reg->guest_start), 
 		   (void *)(reg->guest_end - 1), 
 		   (void *)(reg->host_addr));
 
-	V3_Print("\t(flags=0x%x) (core=0x%x) (unhandled = 0x%p)\n", 
+	V3_Print(vm, VCORE_NONE, "\t(flags=0x%x) (core=0x%x) (unhandled = 0x%p)\n", 
 		 reg->flags.value, 
 		 reg->core_id,
 		 reg->unhandled);

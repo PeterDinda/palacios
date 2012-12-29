@@ -18,9 +18,12 @@
  */
 
 #include <palacios/vm_guest.h>
+#include <palacios/vm_guest_mem.h>
 #include <palacios/vmm_symcall.h>
 #include <palacios/vmm_symspy.h>
 #include <palacios/vmm_msr.h>
+#include <palacios/vmm_lowlevel.h>
+#include <palacios/vmm_debug.h>
 
 // A succesfull symcall returns via the RET_HCALL, with the return values in registers
 // A symcall error returns via the ERR_HCALL with the error code in rbx
@@ -88,7 +91,7 @@ static int symcall_msr_write(struct guest_info * core, uint_t msr, struct v3_msr
 	    state->sym_call_fs = src.value;
 	    break;
 	default:
-	    PrintError("Invalid Symbiotic MSR write (0x%x)\n", msr);
+	    PrintError(core->vm_info, core, "Invalid Symbiotic MSR write (0x%x)\n", msr);
 	    return -1;
     }
     return 0;
@@ -123,7 +126,7 @@ int v3_init_symcall_vm(struct v3_vm_info * vm) {
 static int sym_call_err(struct guest_info * core, uint_t hcall_id, void * private_data) {
     struct v3_symcall_state * state = (struct v3_symcall_state *)&(core->sym_core_state.symcall_state);
 
-    PrintError("sym call error\n");
+    PrintError(core->vm_info, core, "sym call error\n");
 
     state->sym_call_errno = (int)core->vm_regs.rbx;
     v3_print_guest_state(core);
@@ -139,7 +142,7 @@ static int sym_call_err(struct guest_info * core, uint_t hcall_id, void * privat
 static int sym_call_ret(struct guest_info * core, uint_t hcall_id, void * private_data) {
     struct v3_symcall_state * state = (struct v3_symcall_state *)&(core->sym_core_state.symcall_state);
 
-    //    PrintError("Return from sym call (ID=%x)\n", hcall_id);
+    //    PrintError(info->vm_info, info, "Return from sym call (ID=%x)\n", hcall_id);
     //   v3_print_guest_state(info);
 
     state->sym_call_returned = 1;
@@ -152,7 +155,7 @@ static int execute_symcall(struct guest_info * core) {
 
     while (state->sym_call_returned == 0) {
 	if (v3_vm_enter(core) == -1) {
-	    PrintError("Error in Sym call\n");
+	    PrintError(core->vm_info, core, "Error in Sym call\n");
 	    return -1;
 	}
     }
@@ -177,12 +180,12 @@ static int translate_segment(struct guest_info * info, uint16_t selector, struct
     sel.value = selector;
 
     if (sel.ti == 1) {
-	PrintError("LDT translations not supported\n");
+	PrintError(info->vm_info, info, "LDT translations not supported\n");
 	return -1;
     }
 
     if (v3_gva_to_hva(info, gdt->base, &gdt_addr) == -1) {
-	PrintError("Unable to translate GDT address\n");
+	PrintError(info->vm_info, info, "Unable to translate GDT address\n");
 	return -1;
     }
 
@@ -230,7 +233,7 @@ int v3_sym_call(struct guest_info * core,
     struct v3_segment sym_ss;
     uint64_t trash_args[5] = { [0 ... 4] = 0 };
 
-    //   PrintDebug("Making Sym call\n");
+    //   PrintDebug(core->vm_info, core, "Making Sym call\n");
     //    v3_print_guest_state(info);
 
     if ((symspy_state->local_page->sym_call_enabled == 0) ||
@@ -279,12 +282,12 @@ int v3_sym_call(struct guest_info * core,
     state->sym_call_active = 1;
     state->sym_call_returned = 0;
 
-    //    PrintDebug("Sym state\n");
+    //    PrintDebug(core->vm_info, core, "Sym state\n");
     //  v3_print_guest_state(core);
 
     // Do the sym call entry
     if (execute_symcall(core) == -1) {
-	PrintError("SYMCALL error\n");
+	PrintError(core->vm_info, core, "SYMCALL error\n");
 	return -1;
     }
 
@@ -309,7 +312,7 @@ int v3_sym_call(struct guest_info * core,
 
 
 
-    //    PrintError("restoring guest state\n");
+    //    PrintError(core->vm_info, core, "restoring guest state\n");
     //    v3_print_guest_state(core);
 
     return 0;

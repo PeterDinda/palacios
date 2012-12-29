@@ -302,7 +302,7 @@ static void update_time(struct nvram_internal * data, uint64_t period_us) {
     uint8_t nextday = 0;
     uint32_t  periodic_period;
 
-    PrintDebug("nvram: update_time by %llu microseocnds\n",period_us);
+    PrintDebug(VM_NONE, VCORE_NONE, "nvram: update_time by %llu microseocnds\n",period_us);
   
     // We will set these flags on exit
     statc->irq = 0;
@@ -320,7 +320,7 @@ static void update_time(struct nvram_internal * data, uint64_t period_us) {
 	carry = add_to(sec, &carry, bcd);
 
 	if (carry) { 
-	    PrintError("nvram: somehow managed to get a carry in second update\n"); 
+	    PrintError(VM_NONE, VCORE_NONE, "nvram: somehow managed to get a carry in second update\n"); 
 	}
 
 	if ( (bcd && (*sec == 0x60)) || 
@@ -331,7 +331,7 @@ static void update_time(struct nvram_internal * data, uint64_t period_us) {
 	    carry = 1;
 	    carry = add_to(min, &carry, bcd);
 	    if (carry) { 
-		PrintError("nvram: somehow managed to get a carry in minute update\n"); 
+		PrintError(VM_NONE, VCORE_NONE, "nvram: somehow managed to get a carry in minute update\n"); 
 	    }
 
 	    if ( (bcd && (*min == 0x60)) || 
@@ -352,7 +352,7 @@ static void update_time(struct nvram_internal * data, uint64_t period_us) {
 		carry = 1;
 		carry = add_to(&hour24, &carry, bcd);
 		if (carry) { 
-		    PrintError("nvram: somehow managed to get a carry in hour update\n"); 
+		    PrintError(VM_NONE, VCORE_NONE, "nvram: somehow managed to get a carry in hour update\n"); 
 		}
 
 		if ( (bcd && (hour24 == 0x24)) || 
@@ -432,7 +432,7 @@ static void update_time(struct nvram_internal * data, uint64_t period_us) {
 	if (statb->ai) { 
 	    if ((*sec == *seca) && (*min == *mina) && (*hour == *houra)) { 
 		statc->af = 1;
-		PrintDebug("nvram: interrupt on alarm\n");
+		PrintDebug(VM_NONE, VCORE_NONE, "nvram: interrupt on alarm\n");
 	    }
 	}
     }
@@ -442,22 +442,22 @@ static void update_time(struct nvram_internal * data, uint64_t period_us) {
 	if (data->pus >= periodic_period) { 
 	    statc->pf = 1;
 	    data->pus -= periodic_period;
-	    PrintDebug("nvram: interrupt on periodic\n");
+	    PrintDebug(VM_NONE, VCORE_NONE, "nvram: interrupt on periodic\n");
 	}
     }
 
     if (statb->ui) { 
 	statc->uf = 1;
-	PrintDebug("nvram: interrupt on update\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "nvram: interrupt on update\n");
     }
 
     statc->irq = (statc->pf || statc->af || statc->uf);
   
-    PrintDebug("nvram: time is now: YMDHMS: 0x%x:0x%x:0x%x:0x%x:0x%x,0x%x bcd=%d\n", *year, *month, *monthday, *hour, *min, *sec,bcd);
+    PrintDebug(VM_NONE, VCORE_NONE, "nvram: time is now: YMDHMS: 0x%x:0x%x:0x%x:0x%x:0x%x,0x%x bcd=%d\n", *year, *month, *monthday, *hour, *min, *sec,bcd);
   
     // Interrupt associated VM, if needed
     if (statc->irq) { 
-	PrintDebug("nvram: injecting interrupt\n");
+	PrintDebug(VM_NONE, VCORE_NONE, "nvram: injecting interrupt\n");
 	v3_raise_irq(data->vm, NVRAM_RTC_IRQ);
     }
 }
@@ -720,7 +720,7 @@ static int nvram_write_reg_port(struct guest_info * core, uint16_t port,
 
     data->thereg = reg & 0x7f;  //discard NMI bit if it's there
     
-    PrintDebug("nvram: Writing To NVRAM reg: 0x%x (NMI_disable=%d)\n", data->thereg,reg>>7);
+    PrintDebug(core->vm_info, core, "nvram: Writing To NVRAM reg: 0x%x (NMI_disable=%d)\n", data->thereg,reg>>7);
 
     return 1;
 }
@@ -733,11 +733,11 @@ static int nvram_read_data_port(struct guest_info * core, uint16_t port,
     addr_t irq_state = v3_lock_irqsave(data->nvram_lock);
 
     if (get_memory(data, data->thereg, (uint8_t *)dst) == -1) {
-	PrintError("nvram: Register %d (0x%x) Not set - POSSIBLE BUG IN MACHINE INIT - CONTINUING\n", data->thereg, data->thereg);
+	PrintError(core->vm_info, core, "nvram: Register %d (0x%x) Not set - POSSIBLE BUG IN MACHINE INIT - CONTINUING\n", data->thereg, data->thereg);
 
     } 
 
-    PrintDebug("nvram: nvram_read_data_port(0x%x)  =  0x%x\n", data->thereg, *(uint8_t *)dst);
+    PrintDebug(core->vm_info, core, "nvram: nvram_read_data_port(0x%x)  =  0x%x\n", data->thereg, *(uint8_t *)dst);
 
     // hack
     if (data->thereg == NVRAM_REG_STAT_A) { 
@@ -761,7 +761,7 @@ static int nvram_write_data_port(struct guest_info * core, uint16_t port,
 
     v3_unlock_irqrestore(data->nvram_lock, irq_state);
 
-    PrintDebug("nvram: nvram_write_data_port(0x%x) = 0x%x\n", 
+    PrintDebug(core->vm_info, core, "nvram: nvram_write_data_port(0x%x) = 0x%x\n", 
 	       data->thereg, data->mem_state[data->thereg]);
 
     return 1;
@@ -805,19 +805,19 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     int ret = 0;
 
     if (!ide) {
-	PrintError("nvram: Could not find IDE device\n");
+	PrintError(vm, VCORE_NONE, "nvram: Could not find IDE device\n");
 	return -1;
     }
 
-    PrintDebug("nvram: init_device\n");
+    PrintDebug(vm, VCORE_NONE, "nvram: init_device\n");
     nvram_state = (struct nvram_internal *)V3_Malloc(sizeof(struct nvram_internal) + 1000);
 
     if (!nvram_state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
-    PrintDebug("nvram: internal at %p\n", (void *)nvram_state);
+    PrintDebug(vm, VCORE_NONE, "nvram: internal at %p\n", (void *)nvram_state);
 
     nvram_state->ide = ide;
     nvram_state->vm = vm;
@@ -825,7 +825,7 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, nvram_state);
 
     if (dev == NULL) {
-	PrintError("nvram: Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "nvram: Could not attach device %s\n", dev_id);
 	V3_Free(nvram_state);
 	return -1;
     }
@@ -837,7 +837,7 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     ret |= v3_dev_hook_io(dev, NVRAM_DATA_PORT, &nvram_read_data_port, &nvram_write_data_port);
   
     if (ret != 0) {
-	PrintError("nvram: Error hooking NVRAM IO ports\n");
+	PrintError(vm, VCORE_NONE, "nvram: Error hooking NVRAM IO ports\n");
 	v3_remove_device(dev);
 	return -1;
     }

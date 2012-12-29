@@ -82,7 +82,7 @@ static void inline v3_dispatch_event(struct guest_info * core,
     struct v3_notifier * tmp_notifier = NULL;
 
     if (event_type >= V3_EVENT_INVALID) {
-	PrintError("Tried to dispatch illegal event (%d)\n", event_type);
+	PrintError(info->vm_info, info, "Tried to dispatch illegal event (%d)\n", event_type);
 	return;
     }
 

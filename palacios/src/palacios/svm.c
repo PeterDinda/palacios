@@ -77,7 +77,7 @@ static vmcb_t * Allocate_VMCB() {
     addr_t vmcb_pa = (addr_t)V3_AllocPages(1);
 
     if ((void *)vmcb_pa == NULL) {
-	PrintError("Error allocating VMCB\n");
+      PrintError(VM_NONE, VCORE_NONE, "Error allocating VMCB\n");
 	return NULL;
     }
 
@@ -240,7 +240,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.MSR_PROT = 1;   
 
 
-    PrintDebug("Exiting on interrupts\n");
+    PrintDebug(core->vm_info, core, "Exiting on interrupts\n");
     ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
     ctrl_area->instrs.INTR = 1;
     // The above also assures the TPR changes (CR8) are only virtual
@@ -263,7 +263,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 		core);
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
-	PrintDebug("Creating initial shadow page table\n");
+	PrintDebug(core->vm_info, core, "Creating initial shadow page table\n");
 	
 	/* JRL: This is a performance killer, and a simplistic solution */
 	/* We need to fix this */
@@ -272,13 +272,13 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	
 	
 	if (v3_init_passthrough_pts(core) == -1) {
-	    PrintError("Could not initialize passthrough page tables\n");
+	    PrintError(core->vm_info, core, "Could not initialize passthrough page tables\n");
 	    return ;
 	}
 
 
 	core->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
-	PrintDebug("Created\n");
+	PrintDebug(core->vm_info, core, "Created\n");
 	
 	core->ctrl_regs.cr0 |= 0x80000000;
 	core->ctrl_regs.cr3 = core->direct_map_pt;
@@ -306,11 +306,11 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	// Enable Nested Paging
 	ctrl_area->NP_ENABLE = 1;
 
-	PrintDebug("NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
+	PrintDebug(core->vm_info, core, "NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
 
 	// Set the Nested Page Table pointer
 	if (v3_init_passthrough_pts(core) == -1) {
-	    PrintError("Could not initialize Nested page tables\n");
+	    PrintError(core->vm_info, core, "Could not initialize Nested page tables\n");
 	    return ;
 	}
 
@@ -351,19 +351,19 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
 int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class) {
 
-    PrintDebug("Allocating VMCB\n");
+    PrintDebug(core->vm_info, core, "Allocating VMCB\n");
     core->vmm_data = (void *)Allocate_VMCB();
     
     if (core->vmm_data == NULL) {
-	PrintError("Could not allocate VMCB, Exiting...\n");
+	PrintError(core->vm_info, core, "Could not allocate VMCB, Exiting...\n");
 	return -1;
     }
 
     if (vm_class == V3_PC_VM) {
-	PrintDebug("Initializing VMCB (addr=%p)\n", (void *)core->vmm_data);
+	PrintDebug(core->vm_info, core, "Initializing VMCB (addr=%p)\n", (void *)core->vmm_data);
 	Init_VMCB_BIOS((vmcb_t*)(core->vmm_data), core);
     } else {
-	PrintError("Invalid VM class\n");
+	PrintError(core->vm_info, core, "Invalid VM class\n");
 	return -1;
     }
 
@@ -398,14 +398,14 @@ int v3_svm_save_core(struct guest_info * core, void * ctx){
   
 // and then we save the whole enchilada
   if (v3_chkpt_save(ctx, "VMCB_DATA", PAGE_SIZE, core->vmm_data)) { 
-    PrintError("Could not save SVM vmcb\n");
+    PrintError(core->vm_info, core, "Could not save SVM vmcb\n");
     goto failout;
   }
   
   return 0;
 
  failout:
-  PrintError("Failed to save SVM state for core\n");
+  PrintError(core->vm_info, core, "Failed to save SVM state for core\n");
   return -1;
 
 }
@@ -428,14 +428,14 @@ int v3_svm_load_core(struct guest_info * core, void * ctx){
   
   // and then we load the whole enchilada
   if (v3_chkpt_load(ctx, "VMCB_DATA", PAGE_SIZE, core->vmm_data)) { 
-    PrintError("Could not load SVM vmcb\n");
+    PrintError(core->vm_info, core, "Could not load SVM vmcb\n");
     goto failout;
   }
   
   return 0;
 
  failout:
-  PrintError("Failed to save SVM state for core\n");
+  PrintError(core->vm_info, core, "Failed to save SVM state for core\n");
   return -1;
 
 }
@@ -450,7 +450,7 @@ static int update_irq_exit_state(struct guest_info * info) {
     if ((info->intr_core_state.irq_pending == 1) && (guest_ctrl->guest_ctrl.V_IRQ == 0)) {
 	
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("INTAK cycle completed for irq %d\n", info->intr_core_state.irq_vector);
+	PrintDebug(info->vm_info, info, "INTAK cycle completed for irq %d\n", info->intr_core_state.irq_vector);
 #endif
 
 	info->intr_core_state.irq_started = 1;
@@ -461,7 +461,7 @@ static int update_irq_exit_state(struct guest_info * info) {
 
     if ((info->intr_core_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 0)) {
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("Interrupt %d taken by guest\n", info->intr_core_state.irq_vector);
+	PrintDebug(info->vm_info, info, "Interrupt %d taken by guest\n", info->intr_core_state.irq_vector);
 #endif
 
 	// Interrupt was taken fully vectored
@@ -469,7 +469,7 @@ static int update_irq_exit_state(struct guest_info * info) {
 
     } else if ((info->intr_core_state.irq_started == 1) && (guest_ctrl->exit_int_info.valid == 1)) {
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
+	PrintDebug(info->vm_info, info, "EXIT INT INFO is set (vec=%d)\n", guest_ctrl->exit_int_info.vector);
 #endif
     }
 
@@ -495,7 +495,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 	    guest_ctrl->EVENTINJ.error_code = info->excp_state.excp_error_code;
 	    guest_ctrl->EVENTINJ.ev = 1;
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-	    PrintDebug("Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
+	    PrintDebug(info->vm_info, info, "Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
 #endif
 	}
 	
@@ -504,7 +504,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 	guest_ctrl->EVENTINJ.valid = 1;
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("<%d> Injecting Exception %d (CR2=%p) (EIP=%p)\n", 
+	PrintDebug(info->vm_info, info, "<%d> Injecting Exception %d (CR2=%p) (EIP=%p)\n", 
 		   (int)info->num_exits, 
 		   guest_ctrl->EVENTINJ.vector, 
 		   (void *)(addr_t)info->ctrl_regs.cr2,
@@ -514,7 +514,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 	v3_injecting_excp(info, excp);
     } else if (info->intr_core_state.irq_started == 1) {
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-	PrintDebug("IRQ pending from previous injection\n");
+	PrintDebug(info->vm_info, info, "IRQ pending from previous injection\n");
 #endif
 	guest_ctrl->guest_ctrl.V_IRQ = 1;
 	guest_ctrl->guest_ctrl.V_INTR_VECTOR = info->intr_core_state.irq_vector;
@@ -538,7 +538,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 		guest_ctrl->guest_ctrl.V_INTR_PRIO = info->intr_core_state.irq_vector >> 4 ;  // 0xf;
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-		PrintDebug("Injecting Interrupt %d (EIP=%p)\n", 
+		PrintDebug(info->vm_info, info, "Injecting Interrupt %d (EIP=%p)\n", 
 			   guest_ctrl->guest_ctrl.V_INTR_VECTOR, 
 			   (void *)(addr_t)info->rip);
 #endif
@@ -555,7 +555,7 @@ static int update_irq_entry_state(struct guest_info * info) {
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
-		PrintDebug("Injecting software interrupt --  type: %d, vector: %d\n", 
+		PrintDebug(info->vm_info, info, "Injecting software interrupt --  type: %d, vector: %d\n", 
 			   SVM_INJECTION_SOFT_INTR, info->intr_core_state.swintr_vector);
 #endif
 		guest_ctrl->EVENTINJ.vector = info->intr_core_state.swintr_vector;
@@ -674,7 +674,7 @@ int v3_svm_enter(struct guest_info * info) {
     /* ** */
 
     /*
-      PrintDebug("SVM Entry to CS=%p  rip=%p...\n", 
+      PrintDebug(info->vm_info, info, "SVM Entry to CS=%p  rip=%p...\n", 
       (void *)(addr_t)info->segments.cs.base, 
       (void *)(addr_t)info->rip);
     */
@@ -682,14 +682,14 @@ int v3_svm_enter(struct guest_info * info) {
 #ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 1) {
 	if (guest_ctrl->guest_ctrl.V_IRQ == 1) {
-	    V3_Print("!!! Injecting Interrupt during Sym call !!!\n");
+	    V3_Print(info->vm_info, info, "!!! Injecting Interrupt during Sym call !!!\n");
 	}
     }
 #endif
 
     v3_svm_config_tsc_virtualization(info);
 
-    //V3_Print("Calling v3_svm_launch\n");
+    //V3_Print(info->vm_info, info, "Calling v3_svm_launch\n");
     {	
 	uint64_t entry_tsc = 0;
 	uint64_t exit_tsc = 0;
@@ -704,7 +704,7 @@ int v3_svm_enter(struct guest_info * info) {
     }
 
 
-    //V3_Print("SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
+    //V3_Print(info->vm_info, info, "SVM Returned: Exit Code: %x, guest_rip=%lx\n", (uint32_t)(guest_ctrl->exit_code), (unsigned long)guest_state->rip);
 
     v3_last_exit = (uint32_t)(guest_ctrl->exit_code);
 
@@ -772,8 +772,8 @@ int v3_svm_enter(struct guest_info * info) {
 	int ret = v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2);
 	
 	if (ret != 0) {
-	    PrintError("Error in SVM exit handler (ret=%d)\n", ret);
-	    PrintError("  last Exit was %d (exit code=0x%llx)\n", v3_last_exit, (uint64_t) exit_code);
+	    PrintError(info->vm_info, info, "Error in SVM exit handler (ret=%d)\n", ret);
+	    PrintError(info->vm_info, info, "  last Exit was %d (exit code=0x%llx)\n", v3_last_exit, (uint64_t) exit_code);
 	    return -1;
 	}
     }
@@ -792,12 +792,12 @@ int v3_start_svm_guest(struct guest_info * info) {
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
-    PrintDebug("Starting SVM core %u (on logical core %u)\n", info->vcpu_id, info->pcpu_id);
+    PrintDebug(info->vm_info, info, "Starting SVM core %u (on logical core %u)\n", info->vcpu_id, info->pcpu_id);
 
     if (info->vcpu_id == 0) {
 	info->core_run_state = CORE_RUNNING;
     } else  { 
-	PrintDebug("SVM core %u (on %u): Waiting for core initialization\n", info->vcpu_id, info->pcpu_id);
+	PrintDebug(info->vm_info, info, "SVM core %u (on %u): Waiting for core initialization\n", info->vcpu_id, info->pcpu_id);
 
 	while (info->core_run_state == CORE_STOPPED) {
 	    
@@ -807,23 +807,23 @@ int v3_start_svm_guest(struct guest_info * info) {
 	    }
 
 	    v3_yield(info,-1);
-	    //PrintDebug("SVM core %u: still waiting for INIT\n", info->vcpu_id);
+	    //PrintDebug(info->vm_info, info, "SVM core %u: still waiting for INIT\n", info->vcpu_id);
 	}
 
-	PrintDebug("SVM core %u(on %u) initialized\n", info->vcpu_id, info->pcpu_id);
+	PrintDebug(info->vm_info, info, "SVM core %u(on %u) initialized\n", info->vcpu_id, info->pcpu_id);
 
 	// We'll be paranoid about race conditions here
 	v3_wait_at_barrier(info);
     } 
 
-    PrintDebug("SVM core %u(on %u): I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
+    PrintDebug(info->vm_info, info, "SVM core %u(on %u): I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
 	       info->vcpu_id, info->pcpu_id, 
 	       info->segments.cs.selector, (void *)(info->segments.cs.base), 
 	       info->segments.cs.limit, (void *)(info->rip));
 
 
 
-    PrintDebug("SVM core %u: Launching SVM VM (vmcb=%p) (on cpu %u)\n", 
+    PrintDebug(info->vm_info, info, "SVM core %u: Launching SVM VM (vmcb=%p) (on cpu %u)\n", 
 	       info->vcpu_id, (void *)info->vmm_data, info->pcpu_id);
     //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
     
@@ -843,17 +843,17 @@ int v3_start_svm_guest(struct guest_info * info) {
 	    
 	    info->vm_info->run_state = VM_ERROR;
 	    
-	    V3_Print("SVM core %u: SVM ERROR!!\n", info->vcpu_id); 
+	    V3_Print(info->vm_info, info, "SVM core %u: SVM ERROR!!\n", info->vcpu_id); 
 	    
 	    v3_print_guest_state(info);
 	    
-	    V3_Print("SVM core %u: SVM Exit Code: %p\n", info->vcpu_id, (void *)(addr_t)guest_ctrl->exit_code); 
+	    V3_Print(info->vm_info, info, "SVM core %u: SVM Exit Code: %p\n", info->vcpu_id, (void *)(addr_t)guest_ctrl->exit_code); 
 	    
-	    V3_Print("SVM core %u: exit_info1 low = 0x%.8x\n", info->vcpu_id, *(uint_t*)&(guest_ctrl->exit_info1));
-	    V3_Print("SVM core %u: exit_info1 high = 0x%.8x\n", info->vcpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
+	    V3_Print(info->vm_info, info, "SVM core %u: exit_info1 low = 0x%.8x\n", info->vcpu_id, *(uint_t*)&(guest_ctrl->exit_info1));
+	    V3_Print(info->vm_info, info, "SVM core %u: exit_info1 high = 0x%.8x\n", info->vcpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info1)) + 4));
 	    
-	    V3_Print("SVM core %u: exit_info2 low = 0x%.8x\n", info->vcpu_id, *(uint_t*)&(guest_ctrl->exit_info2));
-	    V3_Print("SVM core %u: exit_info2 high = 0x%.8x\n", info->vcpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
+	    V3_Print(info->vm_info, info, "SVM core %u: exit_info2 low = 0x%.8x\n", info->vcpu_id, *(uint_t*)&(guest_ctrl->exit_info2));
+	    V3_Print(info->vm_info, info, "SVM core %u: exit_info2 high = 0x%.8x\n", info->vcpu_id, *(uint_t *)(((uchar_t *)&(guest_ctrl->exit_info2)) + 4));
 	    
 	    linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
 	    
@@ -863,9 +863,9 @@ int v3_start_svm_guest(struct guest_info * info) {
 		v3_gva_to_hva(info, linear_addr, &host_addr);
 	    }
 	    
-	    V3_Print("SVM core %u: Host Address of rip = 0x%p\n", info->vcpu_id, (void *)host_addr);
+	    V3_Print(info->vm_info, info, "SVM core %u: Host Address of rip = 0x%p\n", info->vcpu_id, (void *)host_addr);
 	    
-	    V3_Print("SVM core %u: Instr (15 bytes) at %p:\n", info->vcpu_id, (void *)host_addr);
+	    V3_Print(info->vm_info, info, "SVM core %u: Instr (15 bytes) at %p:\n", info->vcpu_id, (void *)host_addr);
 	    v3_dump_mem((uint8_t *)host_addr, 15);
 	    
 	    v3_print_stack(info);
@@ -885,7 +885,7 @@ int v3_start_svm_guest(struct guest_info * info) {
 
 /*
 	if ((info->num_exits % 50000) == 0) {
-	    V3_Print("SVM Exit number %d\n", (uint32_t)info->num_exits);
+	    V3_Print(info->vm_info, info, "SVM Exit number %d\n", (uint32_t)info->num_exits);
 	    v3_print_guest_state(info);
 	}
 */
@@ -934,38 +934,38 @@ int v3_is_svm_capable() {
 
     v3_cpuid(CPUID_EXT_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
   
-    PrintDebug("CPUID_EXT_FEATURE_IDS_ecx=0x%x\n", ecx);
+    PrintDebug(VM_NONE, VCORE_NONE,  "CPUID_EXT_FEATURE_IDS_ecx=0x%x\n", ecx);
 
     if ((ecx & CPUID_EXT_FEATURE_IDS_ecx_svm_avail) == 0) {
-      V3_Print("SVM Not Available\n");
+      V3_Print(VM_NONE, VCORE_NONE,  "SVM Not Available\n");
       return 0;
     }  else {
 	v3_get_msr(SVM_VM_CR_MSR, &vm_cr_high, &vm_cr_low);
 	
-	PrintDebug("SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
+	PrintDebug(VM_NONE, VCORE_NONE, "SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
 	
 	if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 1) {
-	    V3_Print("SVM is available but is disabled.\n");
+	    V3_Print(VM_NONE, VCORE_NONE, "SVM is available but is disabled.\n");
 	    
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
 	    
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
+	    PrintDebug(VM_NONE, VCORE_NONE,  "CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
 	    
 	    if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_svml) == 0) {
-		V3_Print("SVM BIOS Disabled, not unlockable\n");
+		V3_Print(VM_NONE, VCORE_NONE,  "SVM BIOS Disabled, not unlockable\n");
 	    } else {
-		V3_Print("SVM is locked with a key\n");
+		V3_Print(VM_NONE, VCORE_NONE,  "SVM is locked with a key\n");
 	    }
 	    return 0;
 
 	} else {
-	    V3_Print("SVM is available and  enabled.\n");
+	    V3_Print(VM_NONE, VCORE_NONE,  "SVM is available and  enabled.\n");
 
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_eax=0x%x\n", eax);
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ebx=0x%x\n", ebx);
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_ecx=0x%x\n", ecx);
-	    PrintDebug("CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
+	    PrintDebug(VM_NONE, VCORE_NONE, "CPUID_SVM_REV_AND_FEATURE_IDS_eax=0x%x\n", eax);
+	    PrintDebug(VM_NONE, VCORE_NONE, "CPUID_SVM_REV_AND_FEATURE_IDS_ebx=0x%x\n", ebx);
+	    PrintDebug(VM_NONE, VCORE_NONE, "CPUID_SVM_REV_AND_FEATURE_IDS_ecx=0x%x\n", ecx);
+	    PrintDebug(VM_NONE, VCORE_NONE, "CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
 
 	    return 1;
 	}
@@ -977,13 +977,13 @@ static int has_svm_nested_paging() {
     
     v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);
     
-    //PrintDebug("CPUID_EXT_FEATURE_IDS_edx=0x%x\n", edx);
+    //PrintDebug(VM_NONE, VCORE_NONE,  "CPUID_EXT_FEATURE_IDS_edx=0x%x\n", edx);
     
     if ((edx & CPUID_SVM_REV_AND_FEATURE_IDS_edx_np) == 0) {
-	V3_Print("SVM Nested Paging not supported\n");
+	V3_Print(VM_NONE, VCORE_NONE, "SVM Nested Paging not supported\n");
 	return 0;
     } else {
-	V3_Print("SVM Nested Paging supported\n");
+	V3_Print(VM_NONE, VCORE_NONE, "SVM Nested Paging supported\n");
 	return 1;
     }
  }
@@ -999,13 +999,13 @@ void v3_init_svm_cpu(int cpu_id) {
     msr.e_reg.low |= EFER_MSR_svm_enable;
     v3_set_msr(EFER_MSR, 0, msr.e_reg.low);
 
-    V3_Print("SVM Enabled\n");
+    V3_Print(VM_NONE, VCORE_NONE,  "SVM Enabled\n");
 
     // Setup the host state save area
     host_vmcbs[cpu_id] = (addr_t)V3_AllocPages(4);
 
     if (!host_vmcbs[cpu_id]) {
-	PrintError("Failed to allocate VMCB\n");
+	PrintError(VM_NONE, VCORE_NONE,  "Failed to allocate VMCB\n");
 	return;
     }
 
@@ -1014,7 +1014,7 @@ void v3_init_svm_cpu(int cpu_id) {
     //msr.e_reg.low = (uint_t)host_vmcb;
     msr.r_reg = host_vmcbs[cpu_id];
 
-    PrintDebug("Host State being saved at %p\n", (void *)host_vmcbs[cpu_id]);
+    PrintDebug(VM_NONE, VCORE_NONE,  "Host State being saved at %p\n", (void *)host_vmcbs[cpu_id]);
     v3_set_msr(SVM_VM_HSAVE_PA_MSR, msr.e_reg.high, msr.e_reg.low);
 
 
@@ -1045,7 +1045,7 @@ void v3_deinit_svm_cpu(int cpu_id) {
 
     V3_FreePages((void *)host_vmcbs[cpu_id], 4);
 
-    V3_Print("Host CPU %d host area freed, and SVM disabled\n", cpu_id);
+    V3_Print(VM_NONE, VCORE_NONE,  "Host CPU %d host area freed, and SVM disabled\n", cpu_id);
     return;
 }
 
@@ -1128,7 +1128,7 @@ void v3_deinit_svm_cpu(int cpu_id) {
     end <<= 32;
     end += end_lo;
     
-    PrintDebug("VMSave Cycle Latency: %d\n", (uint32_t)(end - start));
+    PrintDebug(core->vm_info, core, "VMSave Cycle Latency: %d\n", (uint32_t)(end - start));
     
     __asm__ __volatile__ (
 			  "rdtsc ; "
@@ -1150,7 +1150,7 @@ void v3_deinit_svm_cpu(int cpu_id) {
 	end += end_lo;
 
 
-	PrintDebug("VMLoad Cycle Latency: %d\n", (uint32_t)(end - start));
+	PrintDebug(core->vm_info, core, "VMLoad Cycle Latency: %d\n", (uint32_t)(end - start));
     }
     /* End Latency Test */
 
@@ -1250,7 +1250,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
   ctrl_area->IOPM_BASE_PA = (uint_t)V3_AllocPages(3);
 
   if (!ctrl_area->IOPM_BASE_PA) { 
-      PrintError("Cannot allocate IO bitmap\n");
+      PrintError(core->vm_info, core, "Cannot allocate IO bitmap\n");
       return;
   }
   
@@ -1277,12 +1277,12 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
     GetGDTR(gdt_buf);
     gdt_base = *(ulong_t*)((uchar_t*)gdt_buf + 2) & 0xffffffff;
     gdt_limit = *(ushort_t*)(gdt_buf) & 0xffff;
-    PrintDebug("GDT: base: %x, limit: %x\n", gdt_base, gdt_limit);
+    PrintDebug(core->vm_info, core, "GDT: base: %x, limit: %x\n", gdt_base, gdt_limit);
 
     GetIDTR(idt_buf);
     idt_base = *(ulong_t*)(idt_buf + 2) & 0xffffffff;
     idt_limit = *(ushort_t*)(idt_buf) & 0xffff;
-    PrintDebug("IDT: base: %x, limit: %x\n",idt_base, idt_limit);
+    PrintDebug(core->vm_info, core, "IDT: base: %x, limit: %x\n",idt_base, idt_limit);
 
 
     // gdt_base -= 0x2000;
@@ -1307,7 +1307,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
     // Enable Nested Paging
     ctrl_area->NP_ENABLE = 1;
 
-    PrintDebug("NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
+    PrintDebug(core->vm_info, core, "NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
 
         // Set the Nested Page Table pointer
     ctrl_area->N_CR3 |= ((addr_t)vm_info.page_tables & 0xfffff000);
@@ -1318,8 +1318,8 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
 
     guest_state->g_pat = 0x7040600070406ULL;
 
-    PrintDebug("Set Nested CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(ctrl_area->N_CR3)), (uint_t)*((unsigned char *)&(ctrl_area->N_CR3) + 4));
-    PrintDebug("Set Guest CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(guest_state->cr3)), (uint_t)*((unsigned char *)&(guest_state->cr3) + 4));
+    PrintDebug(core->vm_info, core, "Set Nested CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(ctrl_area->N_CR3)), (uint_t)*((unsigned char *)&(ctrl_area->N_CR3) + 4));
+    PrintDebug(core->vm_info, core, "Set Guest CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(guest_state->cr3)), (uint_t)*((unsigned char *)&(guest_state->cr3) + 4));
     // Enable Paging
     //    guest_state->cr0 |= 0x80000000;
   }

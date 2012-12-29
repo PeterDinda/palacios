@@ -310,7 +310,7 @@ static struct serial_port * get_com_from_port(struct serial_state * serial, uint
     } else if ((port >= COM4_DATA_PORT) && (port <= COM4_SCRATCH_PORT)) {
 	return &(serial->coms[3]);
     } else {
-	PrintError("Error: Could not find serial port associated with IO port %d\n", port);
+	PrintError(VM_NONE, VCORE_NONE, "Error: Could not find serial port associated with IO port %d\n", port);
 	return NULL;
     }
 }
@@ -348,7 +348,7 @@ static int updateIRQ(struct v3_vm_info * vm, struct serial_port * com) {
     if ( (com->ier.erbfi == 0x1) && 
 	 (receive_buffer_trigger( getNumber(&(com->rx_buffer)), com->fcr.rx_trigger)) ) {
 
-	PrintDebug("UART: receive buffer interrupt(trigger level reached)\n");
+	PrintDebug(vm, VCORE_NONE, "UART: receive buffer interrupt(trigger level reached)\n");
 
 	com->iir.iid = RX_IRQ_TRIGGER_LEVEL;
 	v3_raise_irq(vm, com->irq_number);
@@ -370,7 +370,7 @@ static int updateIRQ(struct v3_vm_info * vm, struct serial_port * com) {
     } else if ( (com->ier.etbei == 0x1) && 
 		(getNumber(&(com->tx_buffer)) != SERIAL_BUF_LEN )) {
 	
-	PrintDebug("UART: transmit buffer interrupt(buffer not full)\n");
+	PrintDebug(vm, VCORE_NONE, "UART: transmit buffer interrupt(buffer not full)\n");
 
 	com->iir.iid = TX_IRQ_THRE;
 	com->iir.pending = 0;
@@ -387,7 +387,7 @@ static int queue_data(struct v3_vm_info * vm, struct serial_port * com,
     int next_loc = (buf->head + 1) % SERIAL_BUF_LEN;    
 
     if (buf->full == 1) {
-	PrintDebug("Buffer is full!\n");
+	PrintDebug(vm, VCORE_NONE, "Buffer is full!\n");
 
 	if (buf == &(com->rx_buffer)) {
 	    com->lsr.oe = 1; //overrun error bit set
@@ -424,7 +424,7 @@ static int dequeue_data(struct v3_vm_info * vm, struct serial_port * com,
 
 
     if ( (buf->head == buf->tail) && (buf->full != 1) ) {
-	PrintDebug("no data to delete!\n");
+	PrintDebug(vm, VCORE_NONE, "no data to delete!\n");
 	return -1;
     }
     
@@ -457,23 +457,23 @@ static int write_data_port(struct guest_info * core, uint16_t port,
     uint8_t * val = (uint8_t *)src;
     struct serial_port * com_port = NULL;
 
-    PrintDebug("Write to Data Port 0x%x (val=%x)\n", port, *val);
+    PrintDebug(core->vm_info, core, "Write to Data Port 0x%x (val=%x)\n", port, *val);
     
     if (length != 1) {
-	PrintError("Invalid length(%d) in write to 0x%x\n", length, port);
+	PrintError(core->vm_info, core, "Invalid length(%d) in write to 0x%x\n", length, port);
 	return -1;
     }
 
     if ((port != COM1_DATA_PORT) && (port != COM2_DATA_PORT) && 
 	(port != COM3_DATA_PORT) && (port != COM4_DATA_PORT)) {
-	PrintError("Serial Read data port for illegal port Number (%d)\n", port);
+	PrintError(core->vm_info, core, "Serial Read data port for illegal port Number (%d)\n", port);
 	return -1;
     }
 
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
-	PrintError("UART:read from NOBODY\n");
+	PrintError(core->vm_info, core, "UART:read from NOBODY\n");
 	return -1;
     }
     
@@ -504,23 +504,23 @@ static int read_data_port(struct guest_info * core, uint16_t port,
     uint8_t * val = (uint8_t *)dst;
     struct serial_port * com_port = NULL;
 
-    PrintDebug("Read from Data Port 0x%x\n", port);
+    PrintDebug(core->vm_info, core, "Read from Data Port 0x%x\n", port);
     
     if (length != 1) {
-	PrintError("Invalid length(%d) in write to 0x%x\n", length, port);
+	PrintError(core->vm_info, core, "Invalid length(%d) in write to 0x%x\n", length, port);
 	return -1;
     }
     
     if ((port != COM1_DATA_PORT) && (port != COM2_DATA_PORT) && 
 	(port != COM3_DATA_PORT) && (port != COM4_DATA_PORT)) {
-	PrintError("Serial Read data port for illegal port Number (%d)\n", port);
+	PrintError(core->vm_info, core, "Serial Read data port for illegal port Number (%d)\n", port);
 	return -1;
     }
 
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
-	PrintError("UART:read from NOBODY\n");
+	PrintError(core->vm_info, core, "UART:read from NOBODY\n");
 	return -1;
     }
     
@@ -587,17 +587,17 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
     uint8_t val = *(uint8_t *)src;
     struct serial_port * com_port = NULL;
 
-    PrintDebug("UART:Write to Control Port (val=%x)\n", val);
+    PrintDebug(core->vm_info, core, "UART:Write to Control Port (val=%x)\n", val);
     
     if (length != 1) {
-	PrintError("UART:Invalid Write length to control port%d\n", port);
+	PrintError(core->vm_info, core, "UART:Invalid Write length to control port%d\n", port);
 	return -1;
     }
 
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
-	PrintError("Could not find serial port corresponding to IO port %d\n", port);
+	PrintError(core->vm_info, core, "Could not find serial port corresponding to IO port %d\n", port);
 	return -1;
     }
     
@@ -607,7 +607,7 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_IRQ_ENABLE_PORT:
 	case COM3_IRQ_ENABLE_PORT:
 	case COM4_IRQ_ENABLE_PORT: {
-	    PrintDebug("UART:Write to IER/LATCH port: dlab is %x\n", com_port->lcr.dlab);
+	    PrintDebug(core->vm_info, core, "UART:Write to IER/LATCH port: dlab is %x\n", com_port->lcr.dlab);
 
 	    if (com_port->lcr.dlab == 1) {
 		com_port->dlm.data = val;
@@ -621,7 +621,7 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_FIFO_CTRL_PORT:
 	case COM3_FIFO_CTRL_PORT:
 	case COM4_FIFO_CTRL_PORT: {
-	    PrintDebug("UART:Write to FCR\n");
+	    PrintDebug(core->vm_info, core, "UART:Write to FCR\n");
 
 	    if (handle_fcr_write(com_port, val) == -1) {
 		return -1;
@@ -633,7 +633,7 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_LINE_CTRL_PORT:
 	case COM3_LINE_CTRL_PORT:
 	case COM4_LINE_CTRL_PORT: {
-	    PrintDebug("UART:Write to LCR\n");
+	    PrintDebug(core->vm_info, core, "UART:Write to LCR\n");
 	    com_port->lcr.val = val;
 	    break;
 	}
@@ -641,7 +641,7 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_MODEM_CTRL_PORT:
 	case COM3_MODEM_CTRL_PORT:
 	case COM4_MODEM_CTRL_PORT: {
-	    PrintDebug("UART:Write to MCR\n");
+	    PrintDebug(core->vm_info, core, "UART:Write to MCR\n");
 	    com_port->mcr.val = val;
 	    break;
 	}
@@ -649,12 +649,12 @@ static int write_ctrl_port(struct guest_info * core, uint16_t port, void * src,
 	case COM2_SCRATCH_PORT:
 	case COM3_SCRATCH_PORT:
 	case COM4_SCRATCH_PORT: {
-	    PrintDebug("UART:Write to SCRATCH\n");
+	    PrintDebug(core->vm_info, core, "UART:Write to SCRATCH\n");
 	    com_port->scr.data = val;
 	    break;
 	}
 	default:
-	    PrintError("UART:Write to NOBODY, ERROR\n");
+	    PrintError(core->vm_info, core, "UART:Write to NOBODY, ERROR\n");
 	    return -1;
     }
     
@@ -671,17 +671,17 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
     uint8_t * val = (uint8_t *)dst;
     struct serial_port * com_port = NULL;
 
-    PrintDebug("Read from Control Port\n");
+    PrintDebug(core->vm_info, core, "Read from Control Port\n");
     
     if (length != 1) {
-	PrintError("Invalid Read length to control port\n");
+	PrintError(core->vm_info, core, "Invalid Read length to control port\n");
 	return -1;
     }
 
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
-	PrintError("Could not find serial port corresponding to IO port %d\n", port);
+	PrintError(core->vm_info, core, "Could not find serial port corresponding to IO port %d\n", port);
 	return -1;
     }
     
@@ -691,7 +691,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_IRQ_ENABLE_PORT:
 	case COM3_IRQ_ENABLE_PORT:
 	case COM4_IRQ_ENABLE_PORT: {
-	    PrintDebug("UART:read from IER\n");
+	    PrintDebug(core->vm_info, core, "UART:read from IER\n");
 
 	    if (com_port->lcr.dlab == 1) {
 		*val = com_port->dlm.data;
@@ -705,7 +705,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_IIR_PORT:
 	case COM3_IIR_PORT:
 	case COM4_IIR_PORT:
-	    PrintDebug("UART:read from IIR\n");
+	    PrintDebug(core->vm_info, core, "UART:read from IIR\n");
 	    *val = com_port->iir.val;
 	    break;
 
@@ -713,7 +713,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_LINE_CTRL_PORT:
 	case COM3_LINE_CTRL_PORT:
 	case COM4_LINE_CTRL_PORT:
-	    PrintDebug("UART:read from LCR\n");
+	    PrintDebug(core->vm_info, core, "UART:read from LCR\n");
 	    *val = com_port->lcr.val;
 	    break;
 
@@ -721,7 +721,7 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_MODEM_CTRL_PORT:
 	case COM3_MODEM_CTRL_PORT:
 	case COM4_MODEM_CTRL_PORT:
-	    PrintDebug("UART:read from MCR\n");
+	    PrintDebug(core->vm_info, core, "UART:read from MCR\n");
 	    *val = com_port->mcr.val;
 	    break;
 
@@ -729,12 +729,12 @@ static int read_ctrl_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_SCRATCH_PORT:
 	case COM3_SCRATCH_PORT:
 	case COM4_SCRATCH_PORT:
-	    PrintDebug("UART:read from SCRATCH\n");
+	    PrintDebug(core->vm_info, core, "UART:read from SCRATCH\n");
 	    *val = com_port->scr.data;
 	    break;
 
 	default:
-	    PrintError("UART:read from NOBODY\n");
+	    PrintError(core->vm_info, core, "UART:read from NOBODY\n");
 	    return -1;
     }
 
@@ -748,17 +748,17 @@ static int write_status_port(struct guest_info * core, uint16_t port, void * src
     uint8_t val = *(uint8_t *)src;
     struct serial_port * com_port = NULL;
 
-    PrintDebug("Write to Status Port (val=%x)\n", val);
+    PrintDebug(core->vm_info, core, "Write to Status Port (val=%x)\n", val);
 
     if (length != 1) {
-	PrintError("Invalid Write length to status port %d\n", port);
+	PrintError(core->vm_info, core, "Invalid Write length to status port %d\n", port);
 	return -1;
     }
 
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
-	PrintError("Could not find serial port corresponding to IO port %d\n", port);
+	PrintError(core->vm_info, core, "Could not find serial port corresponding to IO port %d\n", port);
 	return -1;
     }
 
@@ -767,7 +767,7 @@ static int write_status_port(struct guest_info * core, uint16_t port, void * src
 	case COM2_LINE_STATUS_PORT:
 	case COM3_LINE_STATUS_PORT:
 	case COM4_LINE_STATUS_PORT:
-	    PrintDebug("UART:write to LSR\n");
+	    PrintDebug(core->vm_info, core, "UART:write to LSR\n");
 	    com_port->lsr.val = val;
 	    break;
 
@@ -775,12 +775,12 @@ static int write_status_port(struct guest_info * core, uint16_t port, void * src
 	case COM2_MODEM_STATUS_PORT:
 	case COM3_MODEM_STATUS_PORT:
 	case COM4_MODEM_STATUS_PORT:
-	    PrintDebug("UART:write to MSR\n");
+	    PrintDebug(core->vm_info, core, "UART:write to MSR\n");
 	    com_port->msr.val = val;
 	    break;
 
 	default:
-	    PrintError("UART:write to NOBODY\n");
+	    PrintError(core->vm_info, core, "UART:write to NOBODY\n");
 	    return -1;
     }
 
@@ -793,12 +793,12 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
     uint8_t * val = (uint8_t *)dst;
     struct serial_port * com_port = NULL;
 
-    PrintDebug("Read from Status Port 0x%x\n", port);
+    PrintDebug(core->vm_info, core, "Read from Status Port 0x%x\n", port);
 
     com_port = get_com_from_port(state, port);
 
     if (com_port == NULL) {
-	PrintError("Could not find serial port corresponding to IO port %d\n", port);
+	PrintError(core->vm_info, core, "Could not find serial port corresponding to IO port %d\n", port);
 	return -1;
     }
 
@@ -809,11 +809,11 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM4_LINE_STATUS_PORT:
 
 	    if (length != 1) {
-		PrintError("Invalid Read length to control port\n");
+		PrintError(core->vm_info, core, "Invalid Read length to control port\n");
 		return -1;
 	    }
 
-	    PrintDebug("UART:read from LSR\n");
+	    PrintDebug(core->vm_info, core, "UART:read from LSR\n");
 
 	    *val = com_port->lsr.val;
 	    com_port->lsr.oe = 0;     // Why do we clear this??
@@ -824,10 +824,10 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
 	case COM2_MODEM_STATUS_PORT:
 	case COM3_MODEM_STATUS_PORT:
 	case COM4_MODEM_STATUS_PORT:
-	    PrintDebug("UART:read from COM4 MSR (length = %d)\n", length);
+	    PrintDebug(core->vm_info, core, "UART:read from COM4 MSR (length = %d)\n", length);
 
 	    if (length > 2) {
-		PrintError("Invalid Read length to MSR port\n");
+		PrintError(core->vm_info, core, "Invalid Read length to MSR port\n");
 		return -1;
 	    }
 
@@ -835,7 +835,7 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
 		/* Windows XP expects to be able to read this register and the next in one go */
 
 		if (read_ctrl_port(core, port + 1, val + 1, 1, priv_data) < 0) {
-		    PrintError("Error reading control port for word size read of Status register\n");
+		    PrintError(core->vm_info, core, "Error reading control port for word size read of Status register\n");
 		    return -1;
 		}
 	    }
@@ -846,7 +846,7 @@ static int read_status_port(struct guest_info * core, uint16_t port, void * dst,
 	    break;
 
 	default:
-	    PrintError("UART:read from NOBODY (length = %d)\n", length);
+	    PrintError(core->vm_info, core, "UART:read from NOBODY (length = %d)\n", length);
 	    return -1;
     }
 
@@ -881,7 +881,7 @@ static int serial_buffer_save(struct v3_chkpt_ctx * ctx, int port, struct serial
   return 0;
   
  failout:
-  PrintError("Failed to save serial buffer\n");
+  PrintError(VM_NONE, VCORE_NONE, "Failed to save serial buffer\n");
   return -1;
 }
 
@@ -902,7 +902,7 @@ static int serial_buffer_load(struct v3_chkpt_ctx * ctx, int port,  struct seria
   return 0;
   
  failout:
-  PrintError("Failed to load serial buffer\n");
+  PrintError(VM_NONE, VCORE_NONE, "Failed to load serial buffer\n");
   return -1;
 }
  
@@ -940,12 +940,12 @@ static int serial_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     V3_CHKPT_SAVE(ctx, keyname, serial->dlm.data,failout);
     
     if (serial_buffer_save(ctx, i, &(serial->tx_buffer))) { 
-      PrintError("Failed to save serial tx buffer %d\n",i);
+      PrintError(VM_NONE, VCORE_NONE, "Failed to save serial tx buffer %d\n",i);
       goto failout;
     }
     
     if (serial_buffer_save(ctx, i, &(serial->rx_buffer))) { 
-      PrintError("Failed to save serial rx buffer %d\n",i);
+      PrintError(VM_NONE, VCORE_NONE, "Failed to save serial rx buffer %d\n",i);
       goto failout;
     }
     
@@ -955,7 +955,7 @@ static int serial_save(struct v3_chkpt_ctx * ctx, void * private_data) {
   return 0;
 
  failout:
-  PrintError("Failed to save serial device\n");
+  PrintError(VM_NONE, VCORE_NONE, "Failed to save serial device\n");
   return -1;
   
 }
@@ -994,12 +994,12 @@ static int serial_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     V3_CHKPT_LOAD(ctx, keyname, serial->dlm.data,failout);
     
     if (serial_buffer_load(ctx, i, &(serial->tx_buffer))) { 
-      PrintError("Failed to load serial tx buffer %d\n",i);
+      PrintError(VM_NONE, VCORE_NONE, "Failed to load serial tx buffer %d\n",i);
       goto failout;
     }
     
     if (serial_buffer_load(ctx, i, &(serial->rx_buffer))) { 
-      PrintError("Failed to load serial rx buffer %d\n",i);
+      PrintError(VM_NONE, VCORE_NONE, "Failed to load serial rx buffer %d\n",i);
       goto failout;
     }
     
@@ -1009,7 +1009,7 @@ static int serial_load(struct v3_chkpt_ctx * ctx, void * private_data) {
   return 0;
 
  failout:
-  PrintError("Failed to load serial device\n");
+  PrintError(VM_NONE, VCORE_NONE,"Failed to load serial device\n");
   return -1;
   
 }
@@ -1082,14 +1082,14 @@ static int connect_fn(struct v3_vm_info * vm,
     int com_idx = 0;
 
     if (com_port == NULL) {
-	PrintError("Invalid Serial frontend config: missing \"com_port\"\n");
+        PrintError(vm, VCORE_NONE, "Invalid Serial frontend config: missing \"com_port\"\n");
 	return -1;
     }
     
     com_idx = atoi(com_port) - 1;
 
     if ((com_idx > 3) || (com_idx < 0)) {
-	PrintError("Invalid Com port (%s) \n", com_port);
+      PrintError(vm, VCORE_NONE, "Invalid Com port (%s) \n", com_port);
 	return -1;
     }
 
@@ -1112,7 +1112,7 @@ static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state = (struct serial_state *)V3_Malloc(sizeof(struct serial_state));
     
     if (state == NULL) {
-	PrintError("Could not allocate Serial Device\n");
+        PrintError(vm,VCORE_NONE, "Could not allocate Serial Device\n");
 	return -1;
     }
     
@@ -1132,12 +1132,12 @@ static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
     }
 
-    PrintDebug("Serial device attached\n");
+    PrintDebug(vm, VCORE_NONE, "Serial device attached\n");
 
     ret |= v3_dev_hook_io(dev, COM1_DATA_PORT, &read_data_port, &write_data_port);
     ret |= v3_dev_hook_io(dev, COM1_IRQ_ENABLE_PORT, &read_ctrl_port, &write_ctrl_port);
@@ -1176,17 +1176,17 @@ static int serial_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     ret |= v3_dev_hook_io(dev, COM4_SCRATCH_PORT, &read_ctrl_port, &write_ctrl_port);
 
     if (ret != 0) {
-	PrintError("Error hooking Serial IO ports\n");
+	PrintError(vm, VCORE_NONE, "Error hooking Serial IO ports\n");
 	v3_remove_device(dev);
 	return -1;
     }
 
-    PrintDebug("Serial ports hooked\n");
+    PrintDebug(vm, VCORE_NONE, "Serial ports hooked\n");
 
 
 
     if (v3_dev_add_char_frontend(vm, dev_id, connect_fn, (void *)state) == -1) {
-	PrintError("Could not register %s as frontend\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not register %s as frontend\n", dev_id);
 	v3_remove_device(dev);
 	return -1;
     }

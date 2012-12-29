@@ -36,7 +36,7 @@ void v3_dump_mem(uint8_t * start, int n) {
       }
       snprintf(buf+strlen(buf),128-strlen(buf), "\n");
       buf[strlen(buf)]=0;
-      V3_Print("%s",buf);
+      V3_Print(VM_NONE, VCORE_NONE, "%s",buf);
     }
     
 }

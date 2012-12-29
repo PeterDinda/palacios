@@ -41,11 +41,11 @@ static int tx_call(struct guest_info * info, uint_t call_no, void * priv_data) {
     uchar_t * pkt = V3_Malloc(pkt_len);
 
     if (!pkt) {
-	PrintError("Cannot allocate in transmit!\n");
+	PrintError(info->vm_info, info, "Cannot allocate in transmit!\n");
 	return -1;
     }
     
-    PrintDebug("Transmitting Packet\n");
+    PrintDebug(info->vm_info, info, "Transmitting Packet\n");
     
     if (read_guest_pa_memory(info, pkt_gpa, pkt_len, pkt) != -1) {
 	return -1;
@@ -62,7 +62,7 @@ static int rx_call(struct guest_info * info, uint_t call_no, void * priv_data) {
     uint_t pkt_len = 0;
     uchar_t * pkt = NULL;
 
-    PrintDebug("Receiving Packet\n");
+    PrintDebug(info->vm_info, info, "Receiving Packet\n");
     return -1;
 
     if (write_guest_pa_memory(info, pkt_gpa, pkt_len, pkt) != -1) {
@@ -78,10 +78,10 @@ static int macaddr_call(struct guest_info * info, uint_t call_no, void * priv_da
     addr_t mac_gpa = info->vm_regs.rbx;
 
 
-    PrintDebug("Returning MAC ADDR\n");
+    PrintDebug(info->vm_info, info, "Returning MAC ADDR\n");
     
     if (write_guest_pa_memory(info, mac_gpa, 6, nic->mac_addr) != 6) {
-	PrintError("Could not write mac address\n");
+	PrintError(info->vm_info, info, "Could not write mac address\n");
 	return -1;
     }
 
@@ -112,16 +112,16 @@ static int net_init(struct guest_info * vm, v3_cfg_tree_t * cfg) {
     state = (struct nic_state *)V3_Malloc(sizeof(struct nic_state));
 
     if (!state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(info->vm_info, info, "Cannot allocate in init\n");
 	return -1;
     }
 
-    PrintDebug("Creating VMNet Device\n");
+    PrintDebug(info->vm_info, info, "Creating VMNet Device\n");
 
     struct vm_device * dev = v3_allocate_device(dev_id, &dev_ops, state);
 
     if (v3_attach_device(vm, dev) == -1) {
-        PrintError("Could not attach device %s\n", dev_id);
+        PrintError(info->vm_info, info, "Could not attach device %s\n", dev_id);
         return -1;
     }
 

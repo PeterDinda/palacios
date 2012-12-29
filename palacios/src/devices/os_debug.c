@@ -41,7 +41,7 @@ static int handle_gen_write(struct guest_info * core, ushort_t port, void * src,
     state->debug_buf[state->debug_offset++] = *(char*)src;
 
     if ((*(char*)src == 0xa) ||  (state->debug_offset == (BUF_SIZE - 1))) {
-	PrintDebug("VM_CONSOLE>%s", state->debug_buf);
+	PrintDebug(core->vm_info, core, "VM_CONSOLE>%s", state->debug_buf);
 	memset(state->debug_buf, 0, BUF_SIZE);
 	state->debug_offset = 0;
     }
@@ -60,7 +60,7 @@ static int handle_hb_write(struct guest_info * core, ushort_t port, void * src, 
 	val = *(uint32_t *)src;
     }
 
-    V3_Print("HEARTBEAT> %x (%d)\n", val, val);
+    V3_Print(core->vm_info, core, "HEARTBEAT> %x (%d)\n", val, val);
 
     return length;
 }
@@ -73,25 +73,25 @@ static int handle_hcall(struct guest_info * info, uint_t hcall_id, void * priv_d
     int buf_is_va = info->vm_regs.rdx;
 
     if (msg_len >= BUF_SIZE) {
-	PrintError("Console message too large for buffer (len=%d)\n", msg_len);
+	PrintError(info->vm_info, info, "Console message too large for buffer (len=%d)\n", msg_len);
 	return -1;
     }
 
     if (buf_is_va == 1) {
 	if (v3_read_gva_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
-	    PrintError("Could not read debug message\n");
+	    PrintError(info->vm_info, info, "Could not read debug message\n");
 	    return -1;
 	}
     } else {
 	if (v3_read_gpa_memory(info, msg_gpa, msg_len, (uchar_t *)state->debug_buf) != msg_len) {
-	    PrintError("Could not read debug message\n");
+	    PrintError(info->vm_info, info, "Could not read debug message\n");
 	    return -1;
 	}
     }	
 
     state->debug_buf[msg_len] = 0;
 
-    PrintDebug("VM_CONSOLE>%s\n", state->debug_buf);
+    PrintDebug(info->vm_info, info, "VM_CONSOLE>%s\n", state->debug_buf);
 
     return 0;
 }
@@ -116,7 +116,7 @@ static int debug_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     return 0;
 
  savefailout:
-    PrintError("Failed to save debug\n");
+    PrintError(VM_NONE,VCORE_NONE, "Failed to save debug\n");
     return -1;
 
 }
@@ -131,7 +131,7 @@ static int debug_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     return 0;
 
  loadfailout:
-    PrintError("Failed to load debug\n");
+    PrintError(VM_NONE, VCORE_NONE, "Failed to load debug\n");
     return -1;
 }
 
@@ -157,29 +157,29 @@ static int debug_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     state = (struct debug_state *)V3_Malloc(sizeof(struct debug_state));
 
     if (!state) {
-	PrintError("Cannot allocate in init\n");
+	PrintError(vm, VCORE_NONE, "Cannot allocate in init\n");
 	return -1;
     }
 
-    PrintDebug("Creating OS Debug Device\n");
+    PrintDebug(vm, VCORE_NONE, "Creating OS Debug Device\n");
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, state);
 
     if (dev == NULL) {
-	PrintError("Could not attach device %s\n", dev_id);
+	PrintError(vm, VCORE_NONE, "Could not attach device %s\n", dev_id);
 	V3_Free(state);
 	return -1;
     }
 
     if (v3_dev_hook_io(dev, DEBUG_PORT1,  NULL, &handle_gen_write) == -1) {
-	PrintError("Error hooking OS debug IO port\n");
+	PrintError(vm, VCORE_NONE, "Error hooking OS debug IO port\n");
 	v3_remove_device(dev);
 	return -1;
     }
 
 
     if (v3_dev_hook_io(dev, HEARTBEAT_PORT, NULL, &handle_hb_write) == -1) {
-	PrintError("error hooking OS heartbeat port\n");
+	PrintError(vm, VCORE_NONE, "error hooking OS heartbeat port\n");
 	v3_remove_device(dev);
 	return -1;
     }
