@@ -224,22 +224,95 @@ struct proc_dir_entry *palacios_get_procdir(void)
     return dir;
 }
 
+
+#define MAX_VCORES 32
+
 static int read_guests(char * buf, char ** start, off_t off, int count,
 		       int * eof, void * data)
 {
     int len = 0;
     unsigned int i = 0;
+
+    struct v3_vm_state *s =palacios_alloc(sizeof(struct v3_vm_state)+MAX_VCORES*sizeof(struct v3_vcore_state));
     
-    for(i = 0; i < MAX_VMS; i++) {
-	if (guest_map[i] != NULL) {
-	    if (len<count) { 
-		len += snprintf(buf+len, count-len,
-				"%s\t/dev/v3-vm%d\n", 
-				guest_map[i]->name, i);
-	    }
-	}
+    if (!s) { 
+      ERROR("No space for state structure\n");
+      goto out;
     }
     
+    for(i = 0; i < MAX_VMS; i++) {
+      if (guest_map[i] != NULL) {
+	if (len>=count) { 
+	  goto out;
+	} else {
+	  len += snprintf(buf+len, count-len,
+			  "%s\t/dev/v3-vm%d ", 
+			  guest_map[i]->name, i);
+	  
+	  if (len>=count) { 
+	    *(buf+len-1)='\n';
+	    goto out;
+	  } else {
+	    // Get extended data
+	    s->num_vcores=MAX_VCORES; // max we can handle
+	    if (v3_get_state_vm(guest_map[i]->v3_ctx, s)) {
+	      ERROR("Cannot get VM info\n");
+	      *(buf+len-1)='\n';
+	      goto out;
+	    } else {
+	      unsigned long j;
+
+	      len+=snprintf(buf+len, count-len,
+			    "%s [0x%p-0x%p] %lu vcores ",
+			    s->state==V3_VM_INVALID ? "INVALID" :
+			    s->state==V3_VM_RUNNING ? "running" :
+			    s->state==V3_VM_STOPPED ? "stopped" :
+			    s->state==V3_VM_PAUSED ? "paused" :
+			    s->state==V3_VM_ERROR ? "ERROR" :
+			    s->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
+			    s->mem_base_paddr, s->mem_base_paddr+s->mem_size-1,
+			    s->num_vcores);
+	      if (len>=count) { 
+		*(buf+len-1)='\n';
+		goto out;
+	      }
+	      for (j=0;j<s->num_vcores;j++) {
+		len+=snprintf(buf+len, count-len,
+			      "[vcore %lu %s on pcore %lu %llu exits rip=0x%p %s %s %s] ",
+			      j, 
+			      s->vcore[j].state==V3_VCORE_INVALID ? "INVALID" :
+			      s->vcore[j].state==V3_VCORE_RUNNING ? "running" :
+			      s->vcore[j].state==V3_VCORE_STOPPED ? "stopped" : "UNKNOWN",
+			      s->vcore[j].pcore,
+			      s->vcore[j].num_exits,
+			      s->vcore[j].last_rip,
+			      s->vcore[j].cpu_mode==V3_VCORE_CPU_REAL ? "real" :
+			      s->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED ? "protected" :
+			      s->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED_PAE ? "protectedpae" :
+			      s->vcore[j].cpu_mode==V3_VCORE_CPU_LONG ? "long" :
+			      s->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_32_COMPAT ? "long32" :
+			      s->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_16_COMPAT ? "long16" : "UNKNOWN",
+			      s->vcore[j].mem_mode==V3_VCORE_MEM_MODE_PHYSICAL ? "physical" :
+			      s->vcore[j].mem_mode==V3_VCORE_MEM_MODE_VIRTUAL ? "virtual" : "UNKNOWN",
+			      s->vcore[j].mem_state==V3_VCORE_MEM_STATE_SHADOW ? "shadow" :
+			      s->vcore[j].mem_state==V3_VCORE_MEM_STATE_NESTED ? "nested" : "UNKNOWN");
+		if (len>=count) {
+		  *(buf+len-1)='\n';
+		  goto out;
+		}
+	      }
+
+	      *(buf+len-1)='\n';
+
+	    }
+	  }
+	}
+      }
+    }
+ 
+ out:
+    if (s) { palacios_free(s); }
+
     return len;
 }
 
