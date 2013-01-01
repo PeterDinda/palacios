@@ -359,6 +359,12 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
 
     entry = v3_create_mem_region(vm, core_id, guest_addr_start, guest_addr_end);
 
+    if (!entry) { 
+       PrintError(vm, VCORE_NONE, "Cannot allocate a memory region\n");
+       V3_Free(hook);
+       return -1;
+    }
+
     hook->region = entry;
 
     entry->host_addr = host_addr;
@@ -370,6 +376,7 @@ int v3_hook_write_mem(struct v3_vm_info * vm, uint16_t core_id,
     entry->flags.alloced = 1;
 
     if (v3_insert_mem_region(vm, entry) == -1) {
+        PrintError(vm, VCORE_NONE, "Cannot insert memory region\n");
 	V3_Free(entry);
 	V3_Free(hook);
 	return -1;

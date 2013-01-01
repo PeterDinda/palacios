@@ -192,6 +192,7 @@ struct v3_mem_region * __insert_mem_region(struct v3_vm_info * vm,
 		PrintError(vm, VCORE_NONE, "Trying to map a partial overlapped core specific page...\n");
 		return tmp_region; // This is ugly... 
 	    } else if (region->core_id == tmp_region->core_id) {
+		PrintError(vm, VCORE_NONE, "Trying to map a core-overlapping page\n");
 		return tmp_region;
 	    } else if (region->core_id < tmp_region->core_id) {
 		p = &(*p)->rb_left;
@@ -213,6 +214,7 @@ int v3_insert_mem_region(struct v3_vm_info * vm, struct v3_mem_region * region) 
     int i = 0;
 
     if ((ret = __insert_mem_region(vm, region))) {
+	PrintError(vm, VCORE_NONE, "Internal insert failed returned region is from 0x%p to 0x%p on vcore %d\n", (void*)(ret->guest_start), (void*)(ret->guest_end), ret->core_id);
 	return -1;
     }
 
