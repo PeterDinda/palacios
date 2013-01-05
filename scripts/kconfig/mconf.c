@@ -1053,8 +1053,7 @@ int main(int ac, char **av)
 
 	sym = sym_lookup("KERNELVERSION", 0);
 	sym_calc_value(sym);
-	sprintf(menu_backtitle, _("LWK Kernel v%s Configuration"),
-		sym_get_string_value(sym));
+	sprintf(menu_backtitle, _("Palacios VMM Configuration"));
 
 	mode = getenv("MENUCONFIG_MODE");
 	if (mode) {
@@ -1070,7 +1069,7 @@ int main(int ac, char **av)
 	do {
 		cprint_init();
 		cprint("--yesno");
-		cprint(_("Do you wish to save your new kernel configuration?"));
+		cprint(_("Do you wish to save your new configuration?"));
 		cprint("5");
 		cprint("60");
 		stat = exec_conf();
@@ -1079,18 +1078,18 @@ int main(int ac, char **av)
 	if (stat == 0) {
 		if (conf_write(NULL)) {
 			fprintf(stderr, _("\n\n"
-				"Error during writing of the kernel configuration.\n"
+				"Error during writing of the configuration.\n"
 				"Your kernel configuration changes were NOT saved."
 				"\n\n"));
 			return 1;
 		}
 		printf(_("\n\n"
-			"*** End of LWK kernel configuration.\n"
-			"*** Execute 'make' to build the kernel or try 'make help'."
+			"*** End of Palacios VMM configuration.\n"
+			"*** Execute 'make' to build the VMM library and host embedding."
 			"\n\n"));
 	} else {
 		fprintf(stderr, _("\n\n"
-			"Your kernel configuration changes were NOT saved."
+			"Your configuration changes were NOT saved."
 			"\n\n"));
 	}
 

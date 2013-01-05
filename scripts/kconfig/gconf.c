@@ -275,8 +275,8 @@ void init_main_window(const gchar * glade_file)
 					  /*"style", PANGO_STYLE_OBLIQUE, */
 					  NULL);
 
-	sprintf(title, _("LWK Kernel v%s Configuration"),
-		getenv("KERNELVERSION"));
+	sprintf(title, _("Palacios VMM Configuration"));
+
 	gtk_window_set_title(GTK_WINDOW(main_wnd), title);
 
 	gtk_widget_show(main_wnd);
@@ -742,7 +742,7 @@ void on_introduction1_activate(GtkMenuItem * menuitem, gpointer user_data)
 	GtkWidget *dialog;
 	const gchar *intro_text = _(
 	    "Welcome to gkc, the GTK+ graphical kernel configuration tool\n"
-	    "for LWK.\n"
+	    "for the Palacios VMM.\n"
 	    "For each option, a blank box indicates the feature is disabled, a\n"
 	    "check indicates it is enabled, and a dot indicates that it is to\n"
 	    "be compiled as a module.  Clicking on the box will cycle through the three states.\n"
