@@ -30,9 +30,7 @@ int dir_filter(const struct dirent * dir) {
 
 
 
-int dir_cmp(const void * d1, const void * d2) {
-    const struct dirent ** dir1 = (const struct dirent **)d1;
-    const struct dirent ** dir2 = (const struct dirent **)d2;
+int dir_cmp(const struct dirent **dir1, const struct dirent ** dir2) {
     int num1 = atoi((*dir1)->d_name + 6);
     int num2 = atoi((*dir2)->d_name + 6);
 
@@ -43,6 +41,7 @@ int dir_cmp(const void * d1, const void * d2) {
 
 int main(int argc, char * argv[]) {
     unsigned long long mem_size_bytes = 0;
+    unsigned long long mem_min_start = 0;
     unsigned int block_size_bytes = 0;
     int bitmap_entries = 0;
     unsigned char * bitmap = NULL;
@@ -50,15 +49,22 @@ int main(int argc, char * argv[]) {
     int reg_start = 0;
     int mem_ready = 0;
 
-    if (argc != 2) {
-	printf("usage: v3_mem <memory size (MB)>\n");
-	return -1;
+    if (argc != 2 && argc != 3) {
+	printf("usage: v3_mem <memory size (MB)> [min_start (MB)]\n\n"
+	       "Offline memory for use in Palacios.\n"
+               "min_start is the minimum allowable starting address.\n"
+               "this is zero by default\n\n");  
+        return -1;
     }
 
 
     mem_size_bytes = atoll(argv[1]) * (1024 * 1024);
 
-    printf("Trying to find %dMB (%d bytes) of memory\n", atoll(argv[1]), mem_size_bytes);
+    if (argc==3) { 
+        mem_min_start = atoll(argv[1]) * (1024 * 1024);
+    }
+
+    printf("Trying to find %dMB (%d bytes) of memory above %llu\n", atoll(argv[1]), mem_size_bytes, mem_min_start);
 
     /* Figure out the block size */
     {
@@ -82,13 +88,17 @@ int main(int argc, char * argv[]) {
 	block_size_bytes = strtoll(tmp_buf, NULL, 16);
 
 	printf("Memory block size is %dMB (%d bytes)\n", block_size_bytes / (1024 * 1024), block_size_bytes);
+             
     }
     
 
     num_blocks =  mem_size_bytes / block_size_bytes;
     if (mem_size_bytes % block_size_bytes) num_blocks++;
 
-    printf("Looking for %d blocks of memory\n", num_blocks);
+    mem_min_start = block_size_bytes * 
+      ((mem_min_start / block_size_bytes) + (!!(mem_min_start % block_size_bytes)));
+         
+    printf("Looking for %d blocks of memory starting at %p (block %llu)\n", num_blocks, (void*)mem_min_start, mem_min_start/block_size_bytes);
 
 
     // We now need to find <num_blocks> consecutive offlinable memory blocks
@@ -100,6 +110,7 @@ int main(int argc, char * argv[]) {
 	int i = 0;
 	int j = 0;
 	int last_block = 0;
+        int first_block = mem_min_start/block_size_bytes;
 
 	last_block = scandir(SYS_PATH, &namelist, dir_filter, dir_cmp);
 	bitmap_entries = atoi(namelist[last_block - 1]->d_name + 6) + 1;
@@ -115,7 +126,7 @@ int main(int argc, char * argv[]) {
 
 	memset(bitmap, 0, size);
 
-	for (i = 0; j < bitmap_entries - 1; i++) {
+	for (i = 0 ; j < bitmap_entries - 1; i++) {
 	    struct dirent * tmp_dir = namelist[i];
 	    int block_fd = 0;	    
 	    char status_str[BUF_SIZE];
@@ -129,6 +140,12 @@ int main(int argc, char * argv[]) {
 	    j = atoi(tmp_dir->d_name + 6);
 	    int major = j / 8;
 	    int minor = j % 8;
+
+
+            if (i<first_block) { 
+              printf("Skipping %s due to minimum start constraint\n",fname);
+              continue;
+            }
 
 	    printf("Checking %s...", fname);
 
