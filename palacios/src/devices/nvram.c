@@ -98,6 +98,11 @@ typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 #define CHECKSUM_REGION_FIRST_BYTE        0x10
 #define CHECKSUM_REGION_LAST_BYTE         0x2d
 
+// Following fields are used by SEABIOS
+#define NVRAM_REG_HIGHMEM_LOW             0x5b
+#define NVRAM_REG_HIGHMEM_MID             0x5c
+#define NVRAM_REG_HIGHMEM_HIGH            0x5d
+#define NVRAM_REG_SMPCPUS                 0x5f
 
 struct nvram_internal {
     nvram_state_t dev_state;
@@ -484,43 +489,63 @@ static void set_memory_size(struct nvram_internal * nvram, addr_t bytes) {
     // 1. Conventional Mem: 0-640k in K
     // 2. Extended Mem: 0-16MB in K
     // 3. Big Mem: 0-4G in 64K
-    uint16_t memk;
-    uint16_t mem_chunks;
+    // 4. High Mem: 4G-... in 64K
 
     // at most 640K of conventional memory
-    if (bytes > 640 * 1024) {
-	memk=640;
-    } else {
-	memk = bytes/1024;
+    {
+	uint16_t memk = 0;
+
+	if (bytes > (640 * 1024)) {
+	    memk = 640;
+	} else {
+	    memk = bytes / 1024;
+	}
+
+	set_memory(nvram, NVRAM_REG_BASE_MEMORY_HIGH, (memk >> 8) & 0x00ff);
+	set_memory(nvram, NVRAM_REG_BASE_MEMORY_LOW, memk & 0x00ff);
     }
 
-    set_memory(nvram, NVRAM_REG_BASE_MEMORY_HIGH, (memk >> 8) & 0x00ff);
-    set_memory(nvram, NVRAM_REG_BASE_MEMORY_LOW, memk & 0x00ff);
-    
     // set extended memory - first 1 MB is lost to 640K chunk
-    // extended memory is min(0MB, bytes-1MB)
-    if (bytes < 1024*1024) { 
-	// no extended memory
-	memk = 0;
-    } else {
-	memk = (bytes - 1024 * 1024 ) / 1024;
+    // extended memory is min(0MB, bytes - 1MB)
+    {
+	uint16_t memk = 0;
+
+	if (bytes >= (1024 * 1024)) {
+	    memk = (bytes - (1024 * 1024)) / 1024;
+	}
+	
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_HIGH, (memk >> 8) & 0x00ff);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_LOW, memk & 0x00ff);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_HIGH, (memk >> 8) & 0x00ff);
+	set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_LOW, memk & 0x00ff);
     }
 
-    set_memory(nvram, NVRAM_REG_EXT_MEMORY_HIGH, (memk >> 8) & 0x00ff);
-    set_memory(nvram, NVRAM_REG_EXT_MEMORY_LOW, memk & 0x00ff);
-    set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_HIGH, (memk >> 8) & 0x00ff);
-    set_memory(nvram, NVRAM_REG_EXT_MEMORY_2ND_LOW, memk & 0x00ff);
-    
     // Set the extended memory beyond 16 MB in 64k chunks
-    // this is min(0, bytes-16MB)
-    if (bytes<(1024*1024*16)) { 
-	mem_chunks=0;
-    } else {
-	mem_chunks = (bytes - (1024 * 1024 * 16)) / (1024 * 64);
+    // this is min(0, bytes - 16MB)
+    {
+	uint16_t mem_chunks = 0;
+
+	if (bytes >= (1024 * 1024 * 16)) {
+	    mem_chunks = (bytes - (1024 * 1024 * 16)) / (1024 * 64);
+	}
+	
+	set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_HIGH, (mem_chunks >> 8) & 0x00ff);
+	set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_LOW, mem_chunks & 0x00ff);
     }
 
-    set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_HIGH, (mem_chunks >> 8) & 0x00ff);
-    set_memory(nvram, NVRAM_REG_AMI_BIG_MEMORY_LOW, mem_chunks & 0x00ff);
+    // Set high (>4GB) memory size
+    {
+
+	uint32_t high_mem_chunks = 0;
+
+	if (bytes >= (1024LL * 1024LL * 1024LL * 4LL)) {
+	    high_mem_chunks = (bytes - (1024LL * 1024LL * 1024LL * 4LL))  / (1024 * 64);
+	}
+
+	set_memory(nvram, NVRAM_REG_HIGHMEM_LOW, high_mem_chunks & 0xff);
+	set_memory(nvram, NVRAM_REG_HIGHMEM_MID, (high_mem_chunks >> 8) & 0xff);
+	set_memory(nvram, NVRAM_REG_HIGHMEM_HIGH, (high_mem_chunks >> 16) & 0xff);
+    }
 
     return;
 }
@@ -692,6 +717,8 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
 
     set_memory_size(nvram, vm->mem_size);
     init_harddrives(nvram);
+
+    set_memory(nvram, NVRAM_REG_SMPCPUS, vm->num_cores - 1);
     
     /* compute checksum (must follow all assignments here) */
     checksum = compute_checksum(nvram);
