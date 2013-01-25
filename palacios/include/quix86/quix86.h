@@ -25,6 +25,22 @@
 #ifndef QUIX86_H
 #define QUIX86_H
 
+/**
+ * Major <tt>quix86</tt> version number.
+ *
+ * \author                              icee
+ * \since                               1.1
+ */
+#define QX86_MAJOR_VERSION              1
+
+/**
+ * Minor <tt>quix86</tt> version number.
+ *
+ * \author                              icee
+ * \since                               1.1
+ */
+#define QX86_MINOR_VERSION              1
+
 /* Provide definitions for INT8..INT64 and UINT8..UINT64.  */
 #ifdef _MSC_VER
     /* Definitions for INT8..INT64.  */
@@ -208,6 +224,40 @@ typedef union qx86_operand_form_union   qx86_operand_form_union;
 
 /* Public API enumerations.  */
 
+/**
+ * Enumeration of <em>x86</em> condition codes.
+ *
+ * \author                              icee
+ * \since                               1.0
+ */
+enum
+{
+    QX86_CC_O                           = 0,
+    QX86_CC_NO                          = 1,
+    QX86_CC_B                           = 2,
+    QX86_CC_AE                          = 3,
+    QX86_CC_Z                           = 4,
+    QX86_CC_NZ                          = 5,
+    QX86_CC_BE                          = 6,
+    QX86_CC_A                           = 7,
+    QX86_CC_S                           = 8,
+    QX86_CC_NS                          = 9,
+    QX86_CC_P                           = 10,
+    QX86_CC_NP                          = 11,
+    QX86_CC_L                           = 12,
+    QX86_CC_GE                          = 13,
+    QX86_CC_LE                          = 14,
+    QX86_CC_G                           = 15,
+    
+    QX86_CC_NONE                        = 16,
+
+    QX86_CC_CXZ                         = 17,
+    QX86_CC_ECXZ                        = 18,
+    QX86_CC_RCXZ                        = 19,
+    QX86_CC_CXO                         = 20,
+    QX86_CC_ECXO                        = 21,
+    QX86_CC_RCXO                        = 22
+};
 
 /**
  * Enumeration of <em>x86</em> instruction defects.
@@ -222,8 +272,6 @@ enum
     QX86_DEFECT_MODRM_MOD_NOT_3         = 1 << 0,
     QX86_DEFECT_MODRM_MOD_3             = 1 << 1
 };
-
-
 
 /**
  * Enumeration of <em>x86</em> displacement sizes.
@@ -241,8 +289,6 @@ enum
 
     QX86_DISP_INVALID                   = 3
 };
-
-
 
 /**
  * Enumeration of <tt>quix86</tt> error codes.
@@ -267,8 +313,6 @@ enum
     QX86_E_COUNT                        = 7
 };
 
-
-
 /**
  * Enumeration of instruction classes.
  *
@@ -289,8 +333,6 @@ enum
     QX86_ICLASS_TRANSFER_SERVICE        = 1 << 4
 };
 
-
-
 /**
  * Architectural limits of the <em>x86</em>.
  *
@@ -301,9 +343,9 @@ enum
 {
     QX86_IMMEDIATE_SIZE_MAX             = 8,
     QX86_INSN_SIZE_MAX                  = 15,
-    QX86_OPERAND_NMAX                   = 4
+    QX86_OPERAND_NMAX                   = 4,
+    QX86_IMPLICIT_OPERAND_NMAX          = 8
 };
-
 
 /**
  * Enumeration of <em>x86</em> instruction mnemonics.
@@ -463,497 +505,509 @@ enum qx86_mnemonic
     QX86_MNEMONIC_FDIVRP                = 145,
     QX86_MNEMONIC_FEMMS                 = 146,
     QX86_MNEMONIC_FFREE                 = 147,
-    QX86_MNEMONIC_FIADD                 = 148,
-    QX86_MNEMONIC_FICOM                 = 149,
-    QX86_MNEMONIC_FICOMP                = 150,
-    QX86_MNEMONIC_FIDIV                 = 151,
-    QX86_MNEMONIC_FIDIVR                = 152,
-    QX86_MNEMONIC_FILD                  = 153,
-    QX86_MNEMONIC_FIMUL                 = 154,
-    QX86_MNEMONIC_FINCSTP               = 155,
-    QX86_MNEMONIC_FIST                  = 156,
-    QX86_MNEMONIC_FISTP                 = 157,
-    QX86_MNEMONIC_FISTTP                = 158,
-    QX86_MNEMONIC_FISUB                 = 159,
-    QX86_MNEMONIC_FISUBR                = 160,
-    QX86_MNEMONIC_FLD                   = 161,
-    QX86_MNEMONIC_FLD1                  = 162,
-    QX86_MNEMONIC_FLDCW                 = 163,
-    QX86_MNEMONIC_FLDENV                = 164,
-    QX86_MNEMONIC_FLDL2E                = 165,
-    QX86_MNEMONIC_FLDL2T                = 166,
-    QX86_MNEMONIC_FLDLG2                = 167,
-    QX86_MNEMONIC_FLDLN2                = 168,
-    QX86_MNEMONIC_FLDPI                 = 169,
-    QX86_MNEMONIC_FLDZ                  = 170,
-    QX86_MNEMONIC_FMUL                  = 171,
-    QX86_MNEMONIC_FMULP                 = 172,
-    QX86_MNEMONIC_FNCLEX                = 173,
-    QX86_MNEMONIC_FNINIT                = 174,
-    QX86_MNEMONIC_FNOP                  = 175,
-    QX86_MNEMONIC_FNSAVE                = 176,
-    QX86_MNEMONIC_FNSTCW                = 177,
-    QX86_MNEMONIC_FNSTENV               = 178,
-    QX86_MNEMONIC_FNSTSW                = 179,
-    QX86_MNEMONIC_FPATAN                = 180,
-    QX86_MNEMONIC_FPREM                 = 181,
-    QX86_MNEMONIC_FPREM1                = 182,
-    QX86_MNEMONIC_FPTAN                 = 183,
-    QX86_MNEMONIC_FRNDINT               = 184,
-    QX86_MNEMONIC_FRSTOR                = 185,
-    QX86_MNEMONIC_FSCALE                = 186,
-    QX86_MNEMONIC_FSIN                  = 187,
-    QX86_MNEMONIC_FSINCOS               = 188,
-    QX86_MNEMONIC_FSQRT                 = 189,
-    QX86_MNEMONIC_FST                   = 190,
-    QX86_MNEMONIC_FSTP                  = 191,
-    QX86_MNEMONIC_FSUB                  = 192,
-    QX86_MNEMONIC_FSUBP                 = 193,
-    QX86_MNEMONIC_FSUBR                 = 194,
-    QX86_MNEMONIC_FSUBRP                = 195,
-    QX86_MNEMONIC_FTST                  = 196,
-    QX86_MNEMONIC_FUCOM                 = 197,
-    QX86_MNEMONIC_FUCOMI                = 198,
-    QX86_MNEMONIC_FUCOMIP               = 199,
-    QX86_MNEMONIC_FUCOMP                = 200,
-    QX86_MNEMONIC_FUCOMPP               = 201,
-    QX86_MNEMONIC_FWAIT                 = 202,
-    QX86_MNEMONIC_FXAM                  = 203,
-    QX86_MNEMONIC_FXCH                  = 204,
-    QX86_MNEMONIC_FXRSTOR               = 205,
-    QX86_MNEMONIC_FXSAVE                = 206,
-    QX86_MNEMONIC_FXTRACT               = 207,
-    QX86_MNEMONIC_FYL2X                 = 208,
-    QX86_MNEMONIC_FYL2XP1               = 209,
-    QX86_MNEMONIC_GETSEC                = 210,
-    QX86_MNEMONIC_HADDPD                = 211,
-    QX86_MNEMONIC_HADDPS                = 212,
-    QX86_MNEMONIC_HLT                   = 213,
-    QX86_MNEMONIC_HSUBPD                = 214,
-    QX86_MNEMONIC_HSUBPS                = 215,
-    QX86_MNEMONIC_IDIV                  = 216,
-    QX86_MNEMONIC_IMUL                  = 217,
-    QX86_MNEMONIC_IN                    = 218,
-    QX86_MNEMONIC_INC                   = 219,
-    QX86_MNEMONIC_INSB                  = 220,
-    QX86_MNEMONIC_INSD                  = 221,
-    QX86_MNEMONIC_INSERTPS              = 222,
-    QX86_MNEMONIC_INSERTQ               = 223,
-    QX86_MNEMONIC_INSW                  = 224,
-    QX86_MNEMONIC_INT                   = 225,
-    QX86_MNEMONIC_INT1                  = 226,
-    QX86_MNEMONIC_INT3                  = 227,
-    QX86_MNEMONIC_INTO                  = 228,
-    QX86_MNEMONIC_INVD                  = 229,
-    QX86_MNEMONIC_INVEPT                = 230,
-    QX86_MNEMONIC_INVLPG                = 231,
-    QX86_MNEMONIC_INVLPGA               = 232,
-    QX86_MNEMONIC_INVVPID               = 233,
-    QX86_MNEMONIC_IRET                  = 234,
-    QX86_MNEMONIC_IRETD                 = 235,
-    QX86_MNEMONIC_IRETQ                 = 236,
-    QX86_MNEMONIC_JA                    = 237,
-    QX86_MNEMONIC_JAE                   = 238,
-    QX86_MNEMONIC_JB                    = 239,
-    QX86_MNEMONIC_JBE                   = 240,
-    QX86_MNEMONIC_JCXZ                  = 241,
-    QX86_MNEMONIC_JECXZ                 = 242,
-    QX86_MNEMONIC_JG                    = 243,
-    QX86_MNEMONIC_JGE                   = 244,
-    QX86_MNEMONIC_JL                    = 245,
-    QX86_MNEMONIC_JLE                   = 246,
-    QX86_MNEMONIC_JMP                   = 247,
-    QX86_MNEMONIC_JMPF                  = 248,
-    QX86_MNEMONIC_JNO                   = 249,
-    QX86_MNEMONIC_JNP                   = 250,
-    QX86_MNEMONIC_JNS                   = 251,
-    QX86_MNEMONIC_JNZ                   = 252,
-    QX86_MNEMONIC_JO                    = 253,
-    QX86_MNEMONIC_JP                    = 254,
-    QX86_MNEMONIC_JRCXZ                 = 255,
-    QX86_MNEMONIC_JS                    = 256,
-    QX86_MNEMONIC_JZ                    = 257,
-    QX86_MNEMONIC_LAHF                  = 258,
-    QX86_MNEMONIC_LAR                   = 259,
-    QX86_MNEMONIC_LCS                   = 260,
-    QX86_MNEMONIC_LDDQU                 = 261,
-    QX86_MNEMONIC_LDMXCSR               = 262,
-    QX86_MNEMONIC_LDS                   = 263,
-    QX86_MNEMONIC_LEA                   = 264,
-    QX86_MNEMONIC_LEAVE                 = 265,
-    QX86_MNEMONIC_LES                   = 266,
-    QX86_MNEMONIC_LFENCE                = 267,
-    QX86_MNEMONIC_LFS                   = 268,
-    QX86_MNEMONIC_LGDT                  = 269,
-    QX86_MNEMONIC_LGS                   = 270,
-    QX86_MNEMONIC_LIDT                  = 271,
-    QX86_MNEMONIC_LLDT                  = 272,
-    QX86_MNEMONIC_LMSW                  = 273,
-    QX86_MNEMONIC_LODSB                 = 274,
-    QX86_MNEMONIC_LODSD                 = 275,
-    QX86_MNEMONIC_LODSQ                 = 276,
-    QX86_MNEMONIC_LODSW                 = 277,
-    QX86_MNEMONIC_LOOP                  = 278,
-    QX86_MNEMONIC_LOOPNZ                = 279,
-    QX86_MNEMONIC_LOOPZ                 = 280,
-    QX86_MNEMONIC_LSL                   = 281,
-    QX86_MNEMONIC_LSS                   = 282,
-    QX86_MNEMONIC_LTR                   = 283,
-    QX86_MNEMONIC_LZCNT                 = 284,
-    QX86_MNEMONIC_MASKMOVDQU            = 285,
-    QX86_MNEMONIC_MASKMOVQ              = 286,
-    QX86_MNEMONIC_MAXPD                 = 287,
-    QX86_MNEMONIC_MAXPS                 = 288,
-    QX86_MNEMONIC_MAXSD                 = 289,
-    QX86_MNEMONIC_MAXSS                 = 290,
-    QX86_MNEMONIC_MFENCE                = 291,
-    QX86_MNEMONIC_MINPD                 = 292,
-    QX86_MNEMONIC_MINPS                 = 293,
-    QX86_MNEMONIC_MINSD                 = 294,
-    QX86_MNEMONIC_MINSS                 = 295,
-    QX86_MNEMONIC_MONITOR               = 296,
-    QX86_MNEMONIC_MOV                   = 297,
-    QX86_MNEMONIC_MOVAPD                = 298,
-    QX86_MNEMONIC_MOVAPS                = 299,
-    QX86_MNEMONIC_MOVBE                 = 300,
-    QX86_MNEMONIC_MOVD                  = 301,
-    QX86_MNEMONIC_MOVDDUP               = 302,
-    QX86_MNEMONIC_MOVDQ2Q               = 303,
-    QX86_MNEMONIC_MOVDQA                = 304,
-    QX86_MNEMONIC_MOVDQU                = 305,
-    QX86_MNEMONIC_MOVHLPS               = 306,
-    QX86_MNEMONIC_MOVHPD                = 307,
-    QX86_MNEMONIC_MOVHPS                = 308,
-    QX86_MNEMONIC_MOVLHPS               = 309,
-    QX86_MNEMONIC_MOVLPD                = 310,
-    QX86_MNEMONIC_MOVLPS                = 311,
-    QX86_MNEMONIC_MOVMSKPD              = 312,
-    QX86_MNEMONIC_MOVMSKPS              = 313,
-    QX86_MNEMONIC_MOVNTDQ               = 314,
-    QX86_MNEMONIC_MOVNTDQA              = 315,
-    QX86_MNEMONIC_MOVNTI                = 316,
-    QX86_MNEMONIC_MOVNTPD               = 317,
-    QX86_MNEMONIC_MOVNTPS               = 318,
-    QX86_MNEMONIC_MOVNTQ                = 319,
-    QX86_MNEMONIC_MOVNTSD               = 320,
-    QX86_MNEMONIC_MOVNTSS               = 321,
-    QX86_MNEMONIC_MOVQ                  = 322,
-    QX86_MNEMONIC_MOVQ2DQ               = 323,
-    QX86_MNEMONIC_MOVSB                 = 324,
-    QX86_MNEMONIC_MOVSD                 = 325,
-    QX86_MNEMONIC_MOVSD_SSE             = 326,
-    QX86_MNEMONIC_MOVSHDUP              = 327,
-    QX86_MNEMONIC_MOVSLDUP              = 328,
-    QX86_MNEMONIC_MOVSQ                 = 329,
-    QX86_MNEMONIC_MOVSS                 = 330,
-    QX86_MNEMONIC_MOVSW                 = 331,
-    QX86_MNEMONIC_MOVSX                 = 332,
-    QX86_MNEMONIC_MOVSXD                = 333,
-    QX86_MNEMONIC_MOVUPD                = 334,
-    QX86_MNEMONIC_MOVUPS                = 335,
-    QX86_MNEMONIC_MOVZX                 = 336,
-    QX86_MNEMONIC_MPSADBW               = 337,
-    QX86_MNEMONIC_MUL                   = 338,
-    QX86_MNEMONIC_MULPD                 = 339,
-    QX86_MNEMONIC_MULPS                 = 340,
-    QX86_MNEMONIC_MULSD                 = 341,
-    QX86_MNEMONIC_MULSS                 = 342,
-    QX86_MNEMONIC_MWAIT                 = 343,
-    QX86_MNEMONIC_NEG                   = 344,
-    QX86_MNEMONIC_NOP                   = 345,
-    QX86_MNEMONIC_NOT                   = 346,
-    QX86_MNEMONIC_OR                    = 347,
-    QX86_MNEMONIC_ORPD                  = 348,
-    QX86_MNEMONIC_ORPS                  = 349,
-    QX86_MNEMONIC_OUT                   = 350,
-    QX86_MNEMONIC_OUTSB                 = 351,
-    QX86_MNEMONIC_OUTSD                 = 352,
-    QX86_MNEMONIC_OUTSW                 = 353,
-    QX86_MNEMONIC_PABSB                 = 354,
-    QX86_MNEMONIC_PABSD                 = 355,
-    QX86_MNEMONIC_PABSW                 = 356,
-    QX86_MNEMONIC_PACKSSDW              = 357,
-    QX86_MNEMONIC_PACKSSWB              = 358,
-    QX86_MNEMONIC_PACKUSDW              = 359,
-    QX86_MNEMONIC_PACKUSWB              = 360,
-    QX86_MNEMONIC_PADDB                 = 361,
-    QX86_MNEMONIC_PADDD                 = 362,
-    QX86_MNEMONIC_PADDQ                 = 363,
-    QX86_MNEMONIC_PADDSB                = 364,
-    QX86_MNEMONIC_PADDSW                = 365,
-    QX86_MNEMONIC_PADDUSB               = 366,
-    QX86_MNEMONIC_PADDUSW               = 367,
-    QX86_MNEMONIC_PADDW                 = 368,
-    QX86_MNEMONIC_PALIGNR               = 369,
-    QX86_MNEMONIC_PAND                  = 370,
-    QX86_MNEMONIC_PANDN                 = 371,
-    QX86_MNEMONIC_PAUSE                 = 372,
-    QX86_MNEMONIC_PAVGB                 = 373,
-    QX86_MNEMONIC_PAVGUSB               = 374,
-    QX86_MNEMONIC_PAVGW                 = 375,
-    QX86_MNEMONIC_PBLENDVB              = 376,
-    QX86_MNEMONIC_PBLENDW               = 377,
-    QX86_MNEMONIC_PCLMULQDQ             = 378,
-    QX86_MNEMONIC_PCMPEQB               = 379,
-    QX86_MNEMONIC_PCMPEQD               = 380,
-    QX86_MNEMONIC_PCMPEQQ               = 381,
-    QX86_MNEMONIC_PCMPEQW               = 382,
-    QX86_MNEMONIC_PCMPESTRI             = 383,
-    QX86_MNEMONIC_PCMPESTRM             = 384,
-    QX86_MNEMONIC_PCMPGTB               = 385,
-    QX86_MNEMONIC_PCMPGTD               = 386,
-    QX86_MNEMONIC_PCMPGTQ               = 387,
-    QX86_MNEMONIC_PCMPGTW               = 388,
-    QX86_MNEMONIC_PCMPISTRI             = 389,
-    QX86_MNEMONIC_PCMPISTRM             = 390,
-    QX86_MNEMONIC_PEXTRB                = 391,
-    QX86_MNEMONIC_PEXTRD                = 392,
-    QX86_MNEMONIC_PEXTRQ                = 393,
-    QX86_MNEMONIC_PEXTRW                = 394,
-    QX86_MNEMONIC_PF2ID                 = 395,
-    QX86_MNEMONIC_PF2IW                 = 396,
-    QX86_MNEMONIC_PFACC                 = 397,
-    QX86_MNEMONIC_PFADD                 = 398,
-    QX86_MNEMONIC_PFCMPEQ               = 399,
-    QX86_MNEMONIC_PFCMPGE               = 400,
-    QX86_MNEMONIC_PFCMPGT               = 401,
-    QX86_MNEMONIC_PFMAX                 = 402,
-    QX86_MNEMONIC_PFMIN                 = 403,
-    QX86_MNEMONIC_PFMUL                 = 404,
-    QX86_MNEMONIC_PFNACC                = 405,
-    QX86_MNEMONIC_PFPNACC               = 406,
-    QX86_MNEMONIC_PFRCP                 = 407,
-    QX86_MNEMONIC_PFRCPIT1              = 408,
-    QX86_MNEMONIC_PFRCPIT2              = 409,
-    QX86_MNEMONIC_PFRSQIT1              = 410,
-    QX86_MNEMONIC_PFRSQRT               = 411,
-    QX86_MNEMONIC_PFSUB                 = 412,
-    QX86_MNEMONIC_PFSUBR                = 413,
-    QX86_MNEMONIC_PHADDD                = 414,
-    QX86_MNEMONIC_PHADDSW               = 415,
-    QX86_MNEMONIC_PHADDW                = 416,
-    QX86_MNEMONIC_PHMINPOSUW            = 417,
-    QX86_MNEMONIC_PHSUBD                = 418,
-    QX86_MNEMONIC_PHSUBSW               = 419,
-    QX86_MNEMONIC_PHSUBW                = 420,
-    QX86_MNEMONIC_PI2FD                 = 421,
-    QX86_MNEMONIC_PI2FW                 = 422,
-    QX86_MNEMONIC_PINSRB                = 423,
-    QX86_MNEMONIC_PINSRD                = 424,
-    QX86_MNEMONIC_PINSRQ                = 425,
-    QX86_MNEMONIC_PINSRW                = 426,
-    QX86_MNEMONIC_PMADDUBSW             = 427,
-    QX86_MNEMONIC_PMADDWD               = 428,
-    QX86_MNEMONIC_PMAXSB                = 429,
-    QX86_MNEMONIC_PMAXSD                = 430,
-    QX86_MNEMONIC_PMAXSW                = 431,
-    QX86_MNEMONIC_PMAXUB                = 432,
-    QX86_MNEMONIC_PMAXUD                = 433,
-    QX86_MNEMONIC_PMAXUW                = 434,
-    QX86_MNEMONIC_PMINSB                = 435,
-    QX86_MNEMONIC_PMINSD                = 436,
-    QX86_MNEMONIC_PMINSW                = 437,
-    QX86_MNEMONIC_PMINUB                = 438,
-    QX86_MNEMONIC_PMINUD                = 439,
-    QX86_MNEMONIC_PMINUW                = 440,
-    QX86_MNEMONIC_PMOVMSKB              = 441,
-    QX86_MNEMONIC_PMOVSXBD              = 442,
-    QX86_MNEMONIC_PMOVSXBQ              = 443,
-    QX86_MNEMONIC_PMOVSXBW              = 444,
-    QX86_MNEMONIC_PMOVSXDQ              = 445,
-    QX86_MNEMONIC_PMOVSXWD              = 446,
-    QX86_MNEMONIC_PMOVSXWQ              = 447,
-    QX86_MNEMONIC_PMOVZXBD              = 448,
-    QX86_MNEMONIC_PMOVZXBQ              = 449,
-    QX86_MNEMONIC_PMOVZXBW              = 450,
-    QX86_MNEMONIC_PMOVZXDQ              = 451,
-    QX86_MNEMONIC_PMOVZXWD              = 452,
-    QX86_MNEMONIC_PMOVZXWQ              = 453,
-    QX86_MNEMONIC_PMULDQ                = 454,
-    QX86_MNEMONIC_PMULHRSW              = 455,
-    QX86_MNEMONIC_PMULHRW               = 456,
-    QX86_MNEMONIC_PMULHUW               = 457,
-    QX86_MNEMONIC_PMULHW                = 458,
-    QX86_MNEMONIC_PMULLD                = 459,
-    QX86_MNEMONIC_PMULLW                = 460,
-    QX86_MNEMONIC_PMULUDQ               = 461,
-    QX86_MNEMONIC_POP                   = 462,
-    QX86_MNEMONIC_POPA                  = 463,
-    QX86_MNEMONIC_POPAD                 = 464,
-    QX86_MNEMONIC_POPCNT                = 465,
-    QX86_MNEMONIC_POPF                  = 466,
-    QX86_MNEMONIC_POPFD                 = 467,
-    QX86_MNEMONIC_POPFQ                 = 468,
-    QX86_MNEMONIC_POR                   = 469,
-    QX86_MNEMONIC_PREFETCH              = 470,
-    QX86_MNEMONIC_PREFETCHNTA           = 471,
-    QX86_MNEMONIC_PREFETCHT0            = 472,
-    QX86_MNEMONIC_PREFETCHT1            = 473,
-    QX86_MNEMONIC_PREFETCHT2            = 474,
-    QX86_MNEMONIC_PREFETCHW             = 475,
-    QX86_MNEMONIC_PSADBW                = 476,
-    QX86_MNEMONIC_PSHUFB                = 477,
-    QX86_MNEMONIC_PSHUFD                = 478,
-    QX86_MNEMONIC_PSHUFHW               = 479,
-    QX86_MNEMONIC_PSHUFLW               = 480,
-    QX86_MNEMONIC_PSHUFW                = 481,
-    QX86_MNEMONIC_PSIGNB                = 482,
-    QX86_MNEMONIC_PSIGND                = 483,
-    QX86_MNEMONIC_PSIGNW                = 484,
-    QX86_MNEMONIC_PSLLD                 = 485,
-    QX86_MNEMONIC_PSLLDQ                = 486,
-    QX86_MNEMONIC_PSLLQ                 = 487,
-    QX86_MNEMONIC_PSLLW                 = 488,
-    QX86_MNEMONIC_PSRAD                 = 489,
-    QX86_MNEMONIC_PSRAW                 = 490,
-    QX86_MNEMONIC_PSRLD                 = 491,
-    QX86_MNEMONIC_PSRLDQ                = 492,
-    QX86_MNEMONIC_PSRLQ                 = 493,
-    QX86_MNEMONIC_PSRLW                 = 494,
-    QX86_MNEMONIC_PSUBB                 = 495,
-    QX86_MNEMONIC_PSUBD                 = 496,
-    QX86_MNEMONIC_PSUBQ                 = 497,
-    QX86_MNEMONIC_PSUBSB                = 498,
-    QX86_MNEMONIC_PSUBSW                = 499,
-    QX86_MNEMONIC_PSUBUSB               = 500,
-    QX86_MNEMONIC_PSUBUSW               = 501,
-    QX86_MNEMONIC_PSUBW                 = 502,
-    QX86_MNEMONIC_PSWAPD                = 503,
-    QX86_MNEMONIC_PTEST                 = 504,
-    QX86_MNEMONIC_PUNPCKHBW             = 505,
-    QX86_MNEMONIC_PUNPCKHDQ             = 506,
-    QX86_MNEMONIC_PUNPCKHQDQ            = 507,
-    QX86_MNEMONIC_PUNPCKHWD             = 508,
-    QX86_MNEMONIC_PUNPCKLBW             = 509,
-    QX86_MNEMONIC_PUNPCKLDQ             = 510,
-    QX86_MNEMONIC_PUNPCKLQDQ            = 511,
-    QX86_MNEMONIC_PUNPCKLWD             = 512,
-    QX86_MNEMONIC_PUSH                  = 513,
-    QX86_MNEMONIC_PUSHA                 = 514,
-    QX86_MNEMONIC_PUSHAD                = 515,
-    QX86_MNEMONIC_PUSHF                 = 516,
-    QX86_MNEMONIC_PUSHFD                = 517,
-    QX86_MNEMONIC_PUSHFQ                = 518,
-    QX86_MNEMONIC_PXOR                  = 519,
-    QX86_MNEMONIC_RCL                   = 520,
-    QX86_MNEMONIC_RCPPS                 = 521,
-    QX86_MNEMONIC_RCPSS                 = 522,
-    QX86_MNEMONIC_RCR                   = 523,
-    QX86_MNEMONIC_RDMSR                 = 524,
-    QX86_MNEMONIC_RDPMC                 = 525,
-    QX86_MNEMONIC_RDTSC                 = 526,
-    QX86_MNEMONIC_RDTSCP                = 527,
-    QX86_MNEMONIC_RET                   = 528,
-    QX86_MNEMONIC_RETF                  = 529,
-    QX86_MNEMONIC_ROL                   = 530,
-    QX86_MNEMONIC_ROR                   = 531,
-    QX86_MNEMONIC_ROUNDPD               = 532,
-    QX86_MNEMONIC_ROUNDPS               = 533,
-    QX86_MNEMONIC_ROUNDSD               = 534,
-    QX86_MNEMONIC_ROUNDSS               = 535,
-    QX86_MNEMONIC_RSM                   = 536,
-    QX86_MNEMONIC_RSQRTPS               = 537,
-    QX86_MNEMONIC_RSQRTSS               = 538,
-    QX86_MNEMONIC_SAHF                  = 539,
-    QX86_MNEMONIC_SALC                  = 540,
-    QX86_MNEMONIC_SAR                   = 541,
-    QX86_MNEMONIC_SBB                   = 542,
-    QX86_MNEMONIC_SCASB                 = 543,
-    QX86_MNEMONIC_SCASD                 = 544,
-    QX86_MNEMONIC_SCASQ                 = 545,
-    QX86_MNEMONIC_SCASW                 = 546,
-    QX86_MNEMONIC_SETA                  = 547,
-    QX86_MNEMONIC_SETAE                 = 548,
-    QX86_MNEMONIC_SETB                  = 549,
-    QX86_MNEMONIC_SETBE                 = 550,
-    QX86_MNEMONIC_SETG                  = 551,
-    QX86_MNEMONIC_SETGE                 = 552,
-    QX86_MNEMONIC_SETL                  = 553,
-    QX86_MNEMONIC_SETLE                 = 554,
-    QX86_MNEMONIC_SETNO                 = 555,
-    QX86_MNEMONIC_SETNP                 = 556,
-    QX86_MNEMONIC_SETNS                 = 557,
-    QX86_MNEMONIC_SETNZ                 = 558,
-    QX86_MNEMONIC_SETO                  = 559,
-    QX86_MNEMONIC_SETP                  = 560,
-    QX86_MNEMONIC_SETS                  = 561,
-    QX86_MNEMONIC_SETZ                  = 562,
-    QX86_MNEMONIC_SFENCE                = 563,
-    QX86_MNEMONIC_SGDT                  = 564,
-    QX86_MNEMONIC_SHL                   = 565,
-    QX86_MNEMONIC_SHLD                  = 566,
-    QX86_MNEMONIC_SHR                   = 567,
-    QX86_MNEMONIC_SHRD                  = 568,
-    QX86_MNEMONIC_SHUFPD                = 569,
-    QX86_MNEMONIC_SHUFPS                = 570,
-    QX86_MNEMONIC_SIDT                  = 571,
-    QX86_MNEMONIC_SKINIT                = 572,
-    QX86_MNEMONIC_SLDT                  = 573,
-    QX86_MNEMONIC_SMSW                  = 574,
-    QX86_MNEMONIC_SQRTPD                = 575,
-    QX86_MNEMONIC_SQRTPS                = 576,
-    QX86_MNEMONIC_SQRTSD                = 577,
-    QX86_MNEMONIC_SQRTSS                = 578,
-    QX86_MNEMONIC_STC                   = 579,
-    QX86_MNEMONIC_STD                   = 580,
-    QX86_MNEMONIC_STGI                  = 581,
-    QX86_MNEMONIC_STI                   = 582,
-    QX86_MNEMONIC_STMXCSR               = 583,
-    QX86_MNEMONIC_STOSB                 = 584,
-    QX86_MNEMONIC_STOSD                 = 585,
-    QX86_MNEMONIC_STOSQ                 = 586,
-    QX86_MNEMONIC_STOSW                 = 587,
-    QX86_MNEMONIC_STR                   = 588,
-    QX86_MNEMONIC_SUB                   = 589,
-    QX86_MNEMONIC_SUBPD                 = 590,
-    QX86_MNEMONIC_SUBPS                 = 591,
-    QX86_MNEMONIC_SUBSD                 = 592,
-    QX86_MNEMONIC_SUBSS                 = 593,
-    QX86_MNEMONIC_SWAPGS                = 594,
-    QX86_MNEMONIC_SYSCALL               = 595,
-    QX86_MNEMONIC_SYSENTER              = 596,
-    QX86_MNEMONIC_SYSEXIT               = 597,
-    QX86_MNEMONIC_SYSRET                = 598,
-    QX86_MNEMONIC_TEST                  = 599,
-    QX86_MNEMONIC_UCOMISD               = 600,
-    QX86_MNEMONIC_UCOMISS               = 601,
-    QX86_MNEMONIC_UD2                   = 602,
-    QX86_MNEMONIC_UNPCKHPD              = 603,
-    QX86_MNEMONIC_UNPCKHPS              = 604,
-    QX86_MNEMONIC_UNPCKLPD              = 605,
-    QX86_MNEMONIC_UNPCKLPS              = 606,
-    QX86_MNEMONIC_VERR                  = 607,
-    QX86_MNEMONIC_VERW                  = 608,
-    QX86_MNEMONIC_VMCALL                = 609,
-    QX86_MNEMONIC_VMCLEAR               = 610,
-    QX86_MNEMONIC_VMLAUNCH              = 611,
-    QX86_MNEMONIC_VMLOAD                = 612,
-    QX86_MNEMONIC_VMMCALL               = 613,
-    QX86_MNEMONIC_VMPTRLD               = 614,
-    QX86_MNEMONIC_VMPTRST               = 615,
-    QX86_MNEMONIC_VMREAD                = 616,
-    QX86_MNEMONIC_VMRESUME              = 617,
-    QX86_MNEMONIC_VMRUN                 = 618,
-    QX86_MNEMONIC_VMSAVE                = 619,
-    QX86_MNEMONIC_VMWRITE               = 620,
-    QX86_MNEMONIC_VMXOFF                = 621,
-    QX86_MNEMONIC_VMXON                 = 622,
-    QX86_MNEMONIC_WBINVD                = 623,
-    QX86_MNEMONIC_WRMSR                 = 624,
-    QX86_MNEMONIC_XADD                  = 625,
-    QX86_MNEMONIC_XCHG                  = 626,
-    QX86_MNEMONIC_XGETBV                = 627,
-    QX86_MNEMONIC_XLAT                  = 628,
-    QX86_MNEMONIC_XOR                   = 629,
-    QX86_MNEMONIC_XORPD                 = 630,
-    QX86_MNEMONIC_XORPS                 = 631,
-    QX86_MNEMONIC_XRSTOR                = 632,
-    QX86_MNEMONIC_XSAVE                 = 633,
-    QX86_MNEMONIC_XSETBV                = 634,
+    QX86_MNEMONIC_FFREEP                = 148,
+    QX86_MNEMONIC_FIADD                 = 149,
+    QX86_MNEMONIC_FICOM                 = 150,
+    QX86_MNEMONIC_FICOMP                = 151,
+    QX86_MNEMONIC_FIDIV                 = 152,
+    QX86_MNEMONIC_FIDIVR                = 153,
+    QX86_MNEMONIC_FILD                  = 154,
+    QX86_MNEMONIC_FIMUL                 = 155,
+    QX86_MNEMONIC_FINCSTP               = 156,
+    QX86_MNEMONIC_FIST                  = 157,
+    QX86_MNEMONIC_FISTP                 = 158,
+    QX86_MNEMONIC_FISTTP                = 159,
+    QX86_MNEMONIC_FISUB                 = 160,
+    QX86_MNEMONIC_FISUBR                = 161,
+    QX86_MNEMONIC_FLD                   = 162,
+    QX86_MNEMONIC_FLD1                  = 163,
+    QX86_MNEMONIC_FLDCW                 = 164,
+    QX86_MNEMONIC_FLDENV                = 165,
+    QX86_MNEMONIC_FLDL2E                = 166,
+    QX86_MNEMONIC_FLDL2T                = 167,
+    QX86_MNEMONIC_FLDLG2                = 168,
+    QX86_MNEMONIC_FLDLN2                = 169,
+    QX86_MNEMONIC_FLDPI                 = 170,
+    QX86_MNEMONIC_FLDZ                  = 171,
+    QX86_MNEMONIC_FMUL                  = 172,
+    QX86_MNEMONIC_FMULP                 = 173,
+    QX86_MNEMONIC_FNCLEX                = 174,
+    QX86_MNEMONIC_FNINIT                = 175,
+    QX86_MNEMONIC_FNOP                  = 176,
+    QX86_MNEMONIC_FNSAVE                = 177,
+    QX86_MNEMONIC_FNSTCW                = 178,
+    QX86_MNEMONIC_FNSTENV               = 179,
+    QX86_MNEMONIC_FNSTSW                = 180,
+    QX86_MNEMONIC_FPATAN                = 181,
+    QX86_MNEMONIC_FPREM                 = 182,
+    QX86_MNEMONIC_FPREM1                = 183,
+    QX86_MNEMONIC_FPTAN                 = 184,
+    QX86_MNEMONIC_FRNDINT               = 185,
+    QX86_MNEMONIC_FRSTOR                = 186,
+    QX86_MNEMONIC_FSCALE                = 187,
+    QX86_MNEMONIC_FSIN                  = 188,
+    QX86_MNEMONIC_FSINCOS               = 189,
+    QX86_MNEMONIC_FSQRT                 = 190,
+    QX86_MNEMONIC_FST                   = 191,
+    QX86_MNEMONIC_FSTP                  = 192,
+    QX86_MNEMONIC_FSUB                  = 193,
+    QX86_MNEMONIC_FSUBP                 = 194,
+    QX86_MNEMONIC_FSUBR                 = 195,
+    QX86_MNEMONIC_FSUBRP                = 196,
+    QX86_MNEMONIC_FTST                  = 197,
+    QX86_MNEMONIC_FUCOM                 = 198,
+    QX86_MNEMONIC_FUCOMI                = 199,
+    QX86_MNEMONIC_FUCOMIP               = 200,
+    QX86_MNEMONIC_FUCOMP                = 201,
+    QX86_MNEMONIC_FUCOMPP               = 202,
+    QX86_MNEMONIC_FWAIT                 = 203,
+    QX86_MNEMONIC_FXAM                  = 204,
+    QX86_MNEMONIC_FXCH                  = 205,
+    QX86_MNEMONIC_FXRSTOR               = 206,
+    QX86_MNEMONIC_FXSAVE                = 207,
+    QX86_MNEMONIC_FXTRACT               = 208,
+    QX86_MNEMONIC_FYL2X                 = 209,
+    QX86_MNEMONIC_FYL2XP1               = 210,
+    QX86_MNEMONIC_GETSEC                = 211,
+    QX86_MNEMONIC_HADDPD                = 212,
+    QX86_MNEMONIC_HADDPS                = 213,
+    QX86_MNEMONIC_HLT                   = 214,
+    QX86_MNEMONIC_HSUBPD                = 215,
+    QX86_MNEMONIC_HSUBPS                = 216,
+    QX86_MNEMONIC_IDIV                  = 217,
+    QX86_MNEMONIC_IMUL                  = 218,
+    QX86_MNEMONIC_IN                    = 219,
+    QX86_MNEMONIC_INC                   = 220,
+    QX86_MNEMONIC_INSB                  = 221,
+    QX86_MNEMONIC_INSD                  = 222,
+    QX86_MNEMONIC_INSERTPS              = 223,
+    QX86_MNEMONIC_INSERTQ               = 224,
+    QX86_MNEMONIC_INSW                  = 225,
+    QX86_MNEMONIC_INT                   = 226,
+    QX86_MNEMONIC_INT1                  = 227,
+    QX86_MNEMONIC_INT3                  = 228,
+    QX86_MNEMONIC_INTO                  = 229,
+    QX86_MNEMONIC_INVD                  = 230,
+    QX86_MNEMONIC_INVEPT                = 231,
+    QX86_MNEMONIC_INVLPG                = 232,
+    QX86_MNEMONIC_INVLPGA               = 233,
+    QX86_MNEMONIC_INVPCID               = 234,
+    QX86_MNEMONIC_INVVPID               = 235,
+    QX86_MNEMONIC_IRET                  = 236,
+    QX86_MNEMONIC_IRETD                 = 237,
+    QX86_MNEMONIC_IRETQ                 = 238,
+    QX86_MNEMONIC_JA                    = 239,
+    QX86_MNEMONIC_JAE                   = 240,
+    QX86_MNEMONIC_JB                    = 241,
+    QX86_MNEMONIC_JBE                   = 242,
+    QX86_MNEMONIC_JCXZ                  = 243,
+    QX86_MNEMONIC_JECXZ                 = 244,
+    QX86_MNEMONIC_JG                    = 245,
+    QX86_MNEMONIC_JGE                   = 246,
+    QX86_MNEMONIC_JL                    = 247,
+    QX86_MNEMONIC_JLE                   = 248,
+    QX86_MNEMONIC_JMP                   = 249,
+    QX86_MNEMONIC_JMPF                  = 250,
+    QX86_MNEMONIC_JNO                   = 251,
+    QX86_MNEMONIC_JNP                   = 252,
+    QX86_MNEMONIC_JNS                   = 253,
+    QX86_MNEMONIC_JNZ                   = 254,
+    QX86_MNEMONIC_JO                    = 255,
+    QX86_MNEMONIC_JP                    = 256,
+    QX86_MNEMONIC_JRCXZ                 = 257,
+    QX86_MNEMONIC_JS                    = 258,
+    QX86_MNEMONIC_JZ                    = 259,
+    QX86_MNEMONIC_LAHF                  = 260,
+    QX86_MNEMONIC_LAR                   = 261,
+    QX86_MNEMONIC_LDDQU                 = 262,
+    QX86_MNEMONIC_LDMXCSR               = 263,
+    QX86_MNEMONIC_LDS                   = 264,
+    QX86_MNEMONIC_LEA                   = 265,
+    QX86_MNEMONIC_LEAVE                 = 266,
+    QX86_MNEMONIC_LES                   = 267,
+    QX86_MNEMONIC_LFENCE                = 268,
+    QX86_MNEMONIC_LFS                   = 269,
+    QX86_MNEMONIC_LGDT                  = 270,
+    QX86_MNEMONIC_LGS                   = 271,
+    QX86_MNEMONIC_LIDT                  = 272,
+    QX86_MNEMONIC_LLDT                  = 273,
+    QX86_MNEMONIC_LMSW                  = 274,
+    QX86_MNEMONIC_LODSB                 = 275,
+    QX86_MNEMONIC_LODSD                 = 276,
+    QX86_MNEMONIC_LODSQ                 = 277,
+    QX86_MNEMONIC_LODSW                 = 278,
+    QX86_MNEMONIC_LOOP                  = 279,
+    QX86_MNEMONIC_LOOPNZ                = 280,
+    QX86_MNEMONIC_LOOPZ                 = 281,
+    QX86_MNEMONIC_LSL                   = 282,
+    QX86_MNEMONIC_LSS                   = 283,
+    QX86_MNEMONIC_LTR                   = 284,
+    QX86_MNEMONIC_LZCNT                 = 285,
+    QX86_MNEMONIC_MASKMOVDQU            = 286,
+    QX86_MNEMONIC_MASKMOVQ              = 287,
+    QX86_MNEMONIC_MAXPD                 = 288,
+    QX86_MNEMONIC_MAXPS                 = 289,
+    QX86_MNEMONIC_MAXSD                 = 290,
+    QX86_MNEMONIC_MAXSS                 = 291,
+    QX86_MNEMONIC_MFENCE                = 292,
+    QX86_MNEMONIC_MINPD                 = 293,
+    QX86_MNEMONIC_MINPS                 = 294,
+    QX86_MNEMONIC_MINSD                 = 295,
+    QX86_MNEMONIC_MINSS                 = 296,
+    QX86_MNEMONIC_MONITOR               = 297,
+    QX86_MNEMONIC_MOV                   = 298,
+    QX86_MNEMONIC_MOVAPD                = 299,
+    QX86_MNEMONIC_MOVAPS                = 300,
+    QX86_MNEMONIC_MOVBE                 = 301,
+    QX86_MNEMONIC_MOVD                  = 302,
+    QX86_MNEMONIC_MOVDDUP               = 303,
+    QX86_MNEMONIC_MOVDQ2Q               = 304,
+    QX86_MNEMONIC_MOVDQA                = 305,
+    QX86_MNEMONIC_MOVDQU                = 306,
+    QX86_MNEMONIC_MOVHLPS               = 307,
+    QX86_MNEMONIC_MOVHPD                = 308,
+    QX86_MNEMONIC_MOVHPS                = 309,
+    QX86_MNEMONIC_MOVLHPS               = 310,
+    QX86_MNEMONIC_MOVLPD                = 311,
+    QX86_MNEMONIC_MOVLPS                = 312,
+    QX86_MNEMONIC_MOVMSKPD              = 313,
+    QX86_MNEMONIC_MOVMSKPS              = 314,
+    QX86_MNEMONIC_MOVNTDQ               = 315,
+    QX86_MNEMONIC_MOVNTDQA              = 316,
+    QX86_MNEMONIC_MOVNTI                = 317,
+    QX86_MNEMONIC_MOVNTPD               = 318,
+    QX86_MNEMONIC_MOVNTPS               = 319,
+    QX86_MNEMONIC_MOVNTQ                = 320,
+    QX86_MNEMONIC_MOVNTSD               = 321,
+    QX86_MNEMONIC_MOVNTSS               = 322,
+    QX86_MNEMONIC_MOVQ                  = 323,
+    QX86_MNEMONIC_MOVQ2DQ               = 324,
+    QX86_MNEMONIC_MOVSB                 = 325,
+    QX86_MNEMONIC_MOVSD                 = 326,
+    QX86_MNEMONIC_MOVSD_SSE             = 327,
+    QX86_MNEMONIC_MOVSHDUP              = 328,
+    QX86_MNEMONIC_MOVSLDUP              = 329,
+    QX86_MNEMONIC_MOVSQ                 = 330,
+    QX86_MNEMONIC_MOVSS                 = 331,
+    QX86_MNEMONIC_MOVSW                 = 332,
+    QX86_MNEMONIC_MOVSX                 = 333,
+    QX86_MNEMONIC_MOVSXD                = 334,
+    QX86_MNEMONIC_MOVUPD                = 335,
+    QX86_MNEMONIC_MOVUPS                = 336,
+    QX86_MNEMONIC_MOVZX                 = 337,
+    QX86_MNEMONIC_MPSADBW               = 338,
+    QX86_MNEMONIC_MUL                   = 339,
+    QX86_MNEMONIC_MULPD                 = 340,
+    QX86_MNEMONIC_MULPS                 = 341,
+    QX86_MNEMONIC_MULSD                 = 342,
+    QX86_MNEMONIC_MULSS                 = 343,
+    QX86_MNEMONIC_MWAIT                 = 344,
+    QX86_MNEMONIC_NEG                   = 345,
+    QX86_MNEMONIC_NOP                   = 346,
+    QX86_MNEMONIC_NOT                   = 347,
+    QX86_MNEMONIC_OR                    = 348,
+    QX86_MNEMONIC_ORPD                  = 349,
+    QX86_MNEMONIC_ORPS                  = 350,
+    QX86_MNEMONIC_OUT                   = 351,
+    QX86_MNEMONIC_OUTSB                 = 352,
+    QX86_MNEMONIC_OUTSD                 = 353,
+    QX86_MNEMONIC_OUTSW                 = 354,
+    QX86_MNEMONIC_PABSB                 = 355,
+    QX86_MNEMONIC_PABSD                 = 356,
+    QX86_MNEMONIC_PABSW                 = 357,
+    QX86_MNEMONIC_PACKSSDW              = 358,
+    QX86_MNEMONIC_PACKSSWB              = 359,
+    QX86_MNEMONIC_PACKUSDW              = 360,
+    QX86_MNEMONIC_PACKUSWB              = 361,
+    QX86_MNEMONIC_PADDB                 = 362,
+    QX86_MNEMONIC_PADDD                 = 363,
+    QX86_MNEMONIC_PADDQ                 = 364,
+    QX86_MNEMONIC_PADDSB                = 365,
+    QX86_MNEMONIC_PADDSW                = 366,
+    QX86_MNEMONIC_PADDUSB               = 367,
+    QX86_MNEMONIC_PADDUSW               = 368,
+    QX86_MNEMONIC_PADDW                 = 369,
+    QX86_MNEMONIC_PALIGNR               = 370,
+    QX86_MNEMONIC_PAND                  = 371,
+    QX86_MNEMONIC_PANDN                 = 372,
+    QX86_MNEMONIC_PAUSE                 = 373,
+    QX86_MNEMONIC_PAVGB                 = 374,
+    QX86_MNEMONIC_PAVGUSB               = 375,
+    QX86_MNEMONIC_PAVGW                 = 376,
+    QX86_MNEMONIC_PBLENDVB              = 377,
+    QX86_MNEMONIC_PBLENDW               = 378,
+    QX86_MNEMONIC_PCLMULQDQ             = 379,
+    QX86_MNEMONIC_PCMPEQB               = 380,
+    QX86_MNEMONIC_PCMPEQD               = 381,
+    QX86_MNEMONIC_PCMPEQQ               = 382,
+    QX86_MNEMONIC_PCMPEQW               = 383,
+    QX86_MNEMONIC_PCMPESTRI             = 384,
+    QX86_MNEMONIC_PCMPESTRM             = 385,
+    QX86_MNEMONIC_PCMPGTB               = 386,
+    QX86_MNEMONIC_PCMPGTD               = 387,
+    QX86_MNEMONIC_PCMPGTQ               = 388,
+    QX86_MNEMONIC_PCMPGTW               = 389,
+    QX86_MNEMONIC_PCMPISTRI             = 390,
+    QX86_MNEMONIC_PCMPISTRM             = 391,
+    QX86_MNEMONIC_PEXTRB                = 392,
+    QX86_MNEMONIC_PEXTRD                = 393,
+    QX86_MNEMONIC_PEXTRQ                = 394,
+    QX86_MNEMONIC_PEXTRW                = 395,
+    QX86_MNEMONIC_PF2ID                 = 396,
+    QX86_MNEMONIC_PF2IW                 = 397,
+    QX86_MNEMONIC_PFACC                 = 398,
+    QX86_MNEMONIC_PFADD                 = 399,
+    QX86_MNEMONIC_PFCMPEQ               = 400,
+    QX86_MNEMONIC_PFCMPGE               = 401,
+    QX86_MNEMONIC_PFCMPGT               = 402,
+    QX86_MNEMONIC_PFMAX                 = 403,
+    QX86_MNEMONIC_PFMIN                 = 404,
+    QX86_MNEMONIC_PFMUL                 = 405,
+    QX86_MNEMONIC_PFNACC                = 406,
+    QX86_MNEMONIC_PFPNACC               = 407,
+    QX86_MNEMONIC_PFRCP                 = 408,
+    QX86_MNEMONIC_PFRCPIT1              = 409,
+    QX86_MNEMONIC_PFRCPIT2              = 410,
+    QX86_MNEMONIC_PFRSQIT1              = 411,
+    QX86_MNEMONIC_PFRSQRT               = 412,
+    QX86_MNEMONIC_PFSUB                 = 413,
+    QX86_MNEMONIC_PFSUBR                = 414,
+    QX86_MNEMONIC_PHADDD                = 415,
+    QX86_MNEMONIC_PHADDSW               = 416,
+    QX86_MNEMONIC_PHADDW                = 417,
+    QX86_MNEMONIC_PHMINPOSUW            = 418,
+    QX86_MNEMONIC_PHSUBD                = 419,
+    QX86_MNEMONIC_PHSUBSW               = 420,
+    QX86_MNEMONIC_PHSUBW                = 421,
+    QX86_MNEMONIC_PI2FD                 = 422,
+    QX86_MNEMONIC_PI2FW                 = 423,
+    QX86_MNEMONIC_PINSRB                = 424,
+    QX86_MNEMONIC_PINSRD                = 425,
+    QX86_MNEMONIC_PINSRQ                = 426,
+    QX86_MNEMONIC_PINSRW                = 427,
+    QX86_MNEMONIC_PMADDUBSW             = 428,
+    QX86_MNEMONIC_PMADDWD               = 429,
+    QX86_MNEMONIC_PMAXSB                = 430,
+    QX86_MNEMONIC_PMAXSD                = 431,
+    QX86_MNEMONIC_PMAXSW                = 432,
+    QX86_MNEMONIC_PMAXUB                = 433,
+    QX86_MNEMONIC_PMAXUD                = 434,
+    QX86_MNEMONIC_PMAXUW                = 435,
+    QX86_MNEMONIC_PMINSB                = 436,
+    QX86_MNEMONIC_PMINSD                = 437,
+    QX86_MNEMONIC_PMINSW                = 438,
+    QX86_MNEMONIC_PMINUB                = 439,
+    QX86_MNEMONIC_PMINUD                = 440,
+    QX86_MNEMONIC_PMINUW                = 441,
+    QX86_MNEMONIC_PMOVMSKB              = 442,
+    QX86_MNEMONIC_PMOVSXBD              = 443,
+    QX86_MNEMONIC_PMOVSXBQ              = 444,
+    QX86_MNEMONIC_PMOVSXBW              = 445,
+    QX86_MNEMONIC_PMOVSXDQ              = 446,
+    QX86_MNEMONIC_PMOVSXWD              = 447,
+    QX86_MNEMONIC_PMOVSXWQ              = 448,
+    QX86_MNEMONIC_PMOVZXBD              = 449,
+    QX86_MNEMONIC_PMOVZXBQ              = 450,
+    QX86_MNEMONIC_PMOVZXBW              = 451,
+    QX86_MNEMONIC_PMOVZXDQ              = 452,
+    QX86_MNEMONIC_PMOVZXWD              = 453,
+    QX86_MNEMONIC_PMOVZXWQ              = 454,
+    QX86_MNEMONIC_PMULDQ                = 455,
+    QX86_MNEMONIC_PMULHRSW              = 456,
+    QX86_MNEMONIC_PMULHRW               = 457,
+    QX86_MNEMONIC_PMULHUW               = 458,
+    QX86_MNEMONIC_PMULHW                = 459,
+    QX86_MNEMONIC_PMULLD                = 460,
+    QX86_MNEMONIC_PMULLW                = 461,
+    QX86_MNEMONIC_PMULUDQ               = 462,
+    QX86_MNEMONIC_POP                   = 463,
+    QX86_MNEMONIC_POPA                  = 464,
+    QX86_MNEMONIC_POPAD                 = 465,
+    QX86_MNEMONIC_POPCNT                = 466,
+    QX86_MNEMONIC_POPF                  = 467,
+    QX86_MNEMONIC_POPFD                 = 468,
+    QX86_MNEMONIC_POPFQ                 = 469,
+    QX86_MNEMONIC_POR                   = 470,
+    QX86_MNEMONIC_PREFETCH              = 471,
+    QX86_MNEMONIC_PREFETCHNTA           = 472,
+    QX86_MNEMONIC_PREFETCHT0            = 473,
+    QX86_MNEMONIC_PREFETCHT1            = 474,
+    QX86_MNEMONIC_PREFETCHT2            = 475,
+    QX86_MNEMONIC_PREFETCHW             = 476,
+    QX86_MNEMONIC_PSADBW                = 477,
+    QX86_MNEMONIC_PSHUFB                = 478,
+    QX86_MNEMONIC_PSHUFD                = 479,
+    QX86_MNEMONIC_PSHUFHW               = 480,
+    QX86_MNEMONIC_PSHUFLW               = 481,
+    QX86_MNEMONIC_PSHUFW                = 482,
+    QX86_MNEMONIC_PSIGNB                = 483,
+    QX86_MNEMONIC_PSIGND                = 484,
+    QX86_MNEMONIC_PSIGNW                = 485,
+    QX86_MNEMONIC_PSLLD                 = 486,
+    QX86_MNEMONIC_PSLLDQ                = 487,
+    QX86_MNEMONIC_PSLLQ                 = 488,
+    QX86_MNEMONIC_PSLLW                 = 489,
+    QX86_MNEMONIC_PSRAD                 = 490,
+    QX86_MNEMONIC_PSRAW                 = 491,
+    QX86_MNEMONIC_PSRLD                 = 492,
+    QX86_MNEMONIC_PSRLDQ                = 493,
+    QX86_MNEMONIC_PSRLQ                 = 494,
+    QX86_MNEMONIC_PSRLW                 = 495,
+    QX86_MNEMONIC_PSUBB                 = 496,
+    QX86_MNEMONIC_PSUBD                 = 497,
+    QX86_MNEMONIC_PSUBQ                 = 498,
+    QX86_MNEMONIC_PSUBSB                = 499,
+    QX86_MNEMONIC_PSUBSW                = 500,
+    QX86_MNEMONIC_PSUBUSB               = 501,
+    QX86_MNEMONIC_PSUBUSW               = 502,
+    QX86_MNEMONIC_PSUBW                 = 503,
+    QX86_MNEMONIC_PSWAPD                = 504,
+    QX86_MNEMONIC_PTEST                 = 505,
+    QX86_MNEMONIC_PUNPCKHBW             = 506,
+    QX86_MNEMONIC_PUNPCKHDQ             = 507,
+    QX86_MNEMONIC_PUNPCKHQDQ            = 508,
+    QX86_MNEMONIC_PUNPCKHWD             = 509,
+    QX86_MNEMONIC_PUNPCKLBW             = 510,
+    QX86_MNEMONIC_PUNPCKLDQ             = 511,
+    QX86_MNEMONIC_PUNPCKLQDQ            = 512,
+    QX86_MNEMONIC_PUNPCKLWD             = 513,
+    QX86_MNEMONIC_PUSH                  = 514,
+    QX86_MNEMONIC_PUSHA                 = 515,
+    QX86_MNEMONIC_PUSHAD                = 516,
+    QX86_MNEMONIC_PUSHF                 = 517,
+    QX86_MNEMONIC_PUSHFD                = 518,
+    QX86_MNEMONIC_PUSHFQ                = 519,
+    QX86_MNEMONIC_PXOR                  = 520,
+    QX86_MNEMONIC_RCL                   = 521,
+    QX86_MNEMONIC_RCPPS                 = 522,
+    QX86_MNEMONIC_RCPSS                 = 523,
+    QX86_MNEMONIC_RCR                   = 524,
+    QX86_MNEMONIC_RDFSBASE              = 525,
+    QX86_MNEMONIC_RDGSBASE              = 526,
+    QX86_MNEMONIC_RDMSR                 = 527,
+    QX86_MNEMONIC_RDPMC                 = 528,
+    QX86_MNEMONIC_RDTSC                 = 529,
+    QX86_MNEMONIC_RDTSCP                = 530,
+    QX86_MNEMONIC_RET                   = 531,
+    QX86_MNEMONIC_RETF                  = 532,
+    QX86_MNEMONIC_ROL                   = 533,
+    QX86_MNEMONIC_ROR                   = 534,
+    QX86_MNEMONIC_ROUNDPD               = 535,
+    QX86_MNEMONIC_ROUNDPS               = 536,
+    QX86_MNEMONIC_ROUNDSD               = 537,
+    QX86_MNEMONIC_ROUNDSS               = 538,
+    QX86_MNEMONIC_RSM                   = 539,
+    QX86_MNEMONIC_RSQRTPS               = 540,
+    QX86_MNEMONIC_RSQRTSS               = 541,
+    QX86_MNEMONIC_SAHF                  = 542,
+    QX86_MNEMONIC_SALC                  = 543,
+    QX86_MNEMONIC_SAR                   = 544,
+    QX86_MNEMONIC_SBB                   = 545,
+    QX86_MNEMONIC_SCASB                 = 546,
+    QX86_MNEMONIC_SCASD                 = 547,
+    QX86_MNEMONIC_SCASQ                 = 548,
+    QX86_MNEMONIC_SCASW                 = 549,
+    QX86_MNEMONIC_SETA                  = 550,
+    QX86_MNEMONIC_SETAE                 = 551,
+    QX86_MNEMONIC_SETB                  = 552,
+    QX86_MNEMONIC_SETBE                 = 553,
+    QX86_MNEMONIC_SETG                  = 554,
+    QX86_MNEMONIC_SETGE                 = 555,
+    QX86_MNEMONIC_SETL                  = 556,
+    QX86_MNEMONIC_SETLE                 = 557,
+    QX86_MNEMONIC_SETNO                 = 558,
+    QX86_MNEMONIC_SETNP                 = 559,
+    QX86_MNEMONIC_SETNS                 = 560,
+    QX86_MNEMONIC_SETNZ                 = 561,
+    QX86_MNEMONIC_SETO                  = 562,
+    QX86_MNEMONIC_SETP                  = 563,
+    QX86_MNEMONIC_SETS                  = 564,
+    QX86_MNEMONIC_SETZ                  = 565,
+    QX86_MNEMONIC_SFENCE                = 566,
+    QX86_MNEMONIC_SGDT                  = 567,
+    QX86_MNEMONIC_SHL                   = 568,
+    QX86_MNEMONIC_SHLD                  = 569,
+    QX86_MNEMONIC_SHR                   = 570,
+    QX86_MNEMONIC_SHRD                  = 571,
+    QX86_MNEMONIC_SHUFPD                = 572,
+    QX86_MNEMONIC_SHUFPS                = 573,
+    QX86_MNEMONIC_SIDT                  = 574,
+    QX86_MNEMONIC_SKINIT                = 575,
+    QX86_MNEMONIC_SLDT                  = 576,
+    QX86_MNEMONIC_SMSW                  = 577,
+    QX86_MNEMONIC_SQRTPD                = 578,
+    QX86_MNEMONIC_SQRTPS                = 579,
+    QX86_MNEMONIC_SQRTSD                = 580,
+    QX86_MNEMONIC_SQRTSS                = 581,
+    QX86_MNEMONIC_STC                   = 582,
+    QX86_MNEMONIC_STD                   = 583,
+    QX86_MNEMONIC_STGI                  = 584,
+    QX86_MNEMONIC_STI                   = 585,
+    QX86_MNEMONIC_STMXCSR               = 586,
+    QX86_MNEMONIC_STOSB                 = 587,
+    QX86_MNEMONIC_STOSD                 = 588,
+    QX86_MNEMONIC_STOSQ                 = 589,
+    QX86_MNEMONIC_STOSW                 = 590,
+    QX86_MNEMONIC_STR                   = 591,
+    QX86_MNEMONIC_SUB                   = 592,
+    QX86_MNEMONIC_SUBPD                 = 593,
+    QX86_MNEMONIC_SUBPS                 = 594,
+    QX86_MNEMONIC_SUBSD                 = 595,
+    QX86_MNEMONIC_SUBSS                 = 596,
+    QX86_MNEMONIC_SWAPGS                = 597,
+    QX86_MNEMONIC_SYSCALL               = 598,
+    QX86_MNEMONIC_SYSENTER              = 599,
+    QX86_MNEMONIC_SYSEXIT               = 600,
+    QX86_MNEMONIC_SYSRET                = 601,
+    QX86_MNEMONIC_TEST                  = 602,
+    QX86_MNEMONIC_TZCNT                 = 603,
+    QX86_MNEMONIC_UCOMISD               = 604,
+    QX86_MNEMONIC_UCOMISS               = 605,
+    QX86_MNEMONIC_UD1                   = 606,
+    QX86_MNEMONIC_UD2                   = 607,
+    QX86_MNEMONIC_UNPCKHPD              = 608,
+    QX86_MNEMONIC_UNPCKHPS              = 609,
+    QX86_MNEMONIC_UNPCKLPD              = 610,
+    QX86_MNEMONIC_UNPCKLPS              = 611,
+    QX86_MNEMONIC_VERR                  = 612,
+    QX86_MNEMONIC_VERW                  = 613,
+    QX86_MNEMONIC_VMCALL                = 614,
+    QX86_MNEMONIC_VMCLEAR               = 615,
+    QX86_MNEMONIC_VMFUNC                = 616,
+    QX86_MNEMONIC_VMLAUNCH              = 617,
+    QX86_MNEMONIC_VMLOAD                = 618,
+    QX86_MNEMONIC_VMMCALL               = 619,
+    QX86_MNEMONIC_VMPTRLD               = 620,
+    QX86_MNEMONIC_VMPTRST               = 621,
+    QX86_MNEMONIC_VMREAD                = 622,
+    QX86_MNEMONIC_VMRESUME              = 623,
+    QX86_MNEMONIC_VMRUN                 = 624,
+    QX86_MNEMONIC_VMSAVE                = 625,
+    QX86_MNEMONIC_VMWRITE               = 626,
+    QX86_MNEMONIC_VMXOFF                = 627,
+    QX86_MNEMONIC_VMXON                 = 628,
+    QX86_MNEMONIC_WBINVD                = 629,
+    QX86_MNEMONIC_WRFSBASE              = 630,
+    QX86_MNEMONIC_WRGSBASE              = 631,
+    QX86_MNEMONIC_WRMSR                 = 632,
+    QX86_MNEMONIC_XABORT                = 633,
+    QX86_MNEMONIC_XADD                  = 634,
+    QX86_MNEMONIC_XBEGIN                = 635,
+    QX86_MNEMONIC_XCHG                  = 636,
+    QX86_MNEMONIC_XEND                  = 637,
+    QX86_MNEMONIC_XGETBV                = 638,
+    QX86_MNEMONIC_XLAT                  = 639,
+    QX86_MNEMONIC_XOR                   = 640,
+    QX86_MNEMONIC_XORPD                 = 641,
+    QX86_MNEMONIC_XORPS                 = 642,
+    QX86_MNEMONIC_XRSTOR                = 643,
+    QX86_MNEMONIC_XSAVE                 = 644,
+    QX86_MNEMONIC_XSAVEOPT              = 645,
+    QX86_MNEMONIC_XSETBV                = 646,
+    QX86_MNEMONIC_XTEST                 = 647,
 
-    QX86_MNEMONIC_COUNT                 = 635
+    QX86_MNEMONIC_COUNT                 = 648
 };
-
 
 /**
  * Enumeration of mnemonic attributes.
@@ -972,8 +1026,6 @@ enum
     QX86_MATTRIBUTE_IMPLICIT_LOCK       = 1 << 5
 };
 
-
-
 /**
  * Enumeration of ModRM fields.
  *
@@ -988,8 +1040,6 @@ enum
     QX86_MODRM_FIELD_REG                = 1 << 2,
     QX86_MODRM_FIELD_RM                 = 1 << 3
 };
-
-
 
 /**
  * Enumeration of <em>x86</em> opcode escapes.
@@ -1007,8 +1057,6 @@ enum
 
     QX86_OPCODE_ESCAPE_COUNT            = 4
 };
-
-
 
 /**
  * Enumeration of opcode map indexes.
@@ -1036,8 +1084,6 @@ enum
     QX86_OPCODE_MAP_INDEX_COUNT         = 10
 };
 
-
-
 /**
  * Enumeration of opcode map item codes.
  *
@@ -1051,7 +1097,22 @@ enum
     QX86_OPCODE_MAP_ITEM_CODE_PREFIX    = -2
 };
 
+/**
+ * Enumeration of <em>x86</em> opcode extension prefixes.
+ *
+ * \author                              icee
+ * \since                               1.1
+ */
+enum
+{
+    QX86_OPCODE_PREFIX_NONE             = 0,
 
+    QX86_OPCODE_PREFIX_66               = 1,
+    QX86_OPCODE_PREFIX_F2               = 2,
+    QX86_OPCODE_PREFIX_F3               = 3,
+
+    QX86_OPCODE_PREFIX_COUNT            = 4
+};
 
 /**
  * Enumeration of <em>x86</em> operand attributes.
@@ -1070,8 +1131,6 @@ enum
     QX86_OPERAND_ATTRIBUTE_RW_CERTAIN   = 4
 };
 
-
-
 /**
  * Enumeration of <em>x86</em> operand form types.
  *
@@ -1088,8 +1147,6 @@ enum
 
     QX86_OPERAND_FORM_COUNT             = 4
 };
-
-
 
 /**
  * Enumeration of <em>x86</em> operand types.
@@ -1109,8 +1166,6 @@ enum
 
     QX86_OPERAND_TYPE_COUNT             = 6
 };
-
-
 
 /**
  * Enumeration of <em>x86</em> register classes.
@@ -1133,7 +1188,7 @@ enum
     QX86_RCLASS_CREG                    = 8,
     QX86_RCLASS_DREG                    = 9,
     QX86_RCLASS_SREG                    = 10,
-    QX86_RCLASS_RESERVED_11             = 11,
+    QX86_RCLASS_TREG                    = 11,
 
     QX86_RCLASS_X87                     = 12,
     QX86_RCLASS_MMX                     = 13,
@@ -1142,8 +1197,6 @@ enum
 
     QX86_RCLASS_COUNT                   = 16
 };
-
-
 
 /**
  * Enumeration of <em>x86</em> registers.
@@ -1345,10 +1398,18 @@ enum
     QX86_REGISTER_YMM14                 = 174,
     QX86_REGISTER_YMM15                 = 175,
 
-    QX86_REGISTER_COUNT                 = 176
+    QX86_REGISTER_GDTR                  = 176,
+    QX86_REGISTER_IDTR                  = 177,
+    QX86_REGISTER_LDTR                  = 178,
+    QX86_REGISTER_TR                    = 179,
+
+    QX86_REGISTER_FCW                   = 180,
+    QX86_REGISTER_FSW                   = 181,
+    QX86_REGISTER_FTW                   = 182,
+    QX86_REGISTER_MXCSR                 = 183,
+
+    QX86_REGISTER_COUNT                 = 184
 };
-
-
 
 /**
  * Enumeration of ModRM and SIB <em>scale</em> values.
@@ -1365,8 +1426,6 @@ enum
     QX86_SCALE_INVALID                  = 4
 };
 
-
-
 /**
  * Enumeration of <em>x86</em> code, address, operand, and stack sizes.
  *
@@ -1381,8 +1440,6 @@ enum
     QX86_SIZE_INVALID                   = 3,
     QX86_SIZE_MASK                      = 3
 };
-
-
 
 /**
  * Enumeration of <em>x86</em> subregisters.
@@ -1401,9 +1458,7 @@ enum
     QX86_SUBREG_COUNT                   = 4
 };
 
-
 /* Public API structures.  */
-
 
 /**
  * Addressing mode definition structure.
@@ -1422,8 +1477,6 @@ struct qx86_amode
     int                                 (*decodeFunc)(qx86_insn *, int);
 };
 
-
-
 /**
  * Callback function definition.
  *
@@ -1431,8 +1484,6 @@ struct qx86_amode
  * \since                               1.0
  */
 typedef int                             (*qx86_callback)(void *data, int rindex, int subreg, unsigned char *value);
-
-
 
 /**
  * Decode context structure.
@@ -1447,10 +1498,6 @@ struct qx86_ctx
 
     int                                 pumpIndex;
 };
-
-
-
-
 
 /**
  * Instruction attributes definition structure.
@@ -1468,8 +1515,6 @@ struct qx86_insn_attributes
 
     qx86_uint8                          interlocked;
 };
-
-
 
 /**
  * Instruction modifiers definition structure.
@@ -1503,12 +1548,6 @@ struct qx86_insn_modifiers
     qx86_uint8                          extendedX;
 };
 
-
-
-
-
-
-
 /**
  * Far pointer instruction operand definition structure.
  *
@@ -1523,8 +1562,6 @@ struct qx86_operand_far_pointer
     qx86_uint8                          selector[2];
 };
 
-
-
 /**
  * Immediate instruction operand definition structure.
  *
@@ -1535,9 +1572,10 @@ struct qx86_operand_immediate
 {
     qx86_uint8                          value[QX86_IMMEDIATE_SIZE_MAX];
     qx86_uint8                          valueSize;
+
+    qx86_uint8                          extended[QX86_IMMEDIATE_SIZE_MAX];
+    qx86_uint8                          extendedSize;
 };
-
-
 
 /**
  * Jump offset instruction operand definition structure.
@@ -1550,8 +1588,6 @@ struct qx86_operand_jump_offset
     qx86_uint8                          offset[QX86_IMMEDIATE_SIZE_MAX];
     qx86_uint8                          offsetSize;
 };
-
-
 
 /**
  * Memory instruction operand definition structure.
@@ -1571,8 +1607,6 @@ struct qx86_operand_memory
     qx86_uint8                          dispSize;
 };
 
-
-
 /**
  * Register instruction operand definition structure.
  *
@@ -1583,7 +1617,6 @@ struct qx86_operand_register
 {
     int                                 rindex;
 };
-
 
 /**
  * Instruction operand definition union.
@@ -1599,7 +1632,6 @@ union qx86_operand_union
     qx86_operand_memory                 m;
     qx86_operand_register               r;
 };
-
 
 /**
  * Instruction operand definition structure.
@@ -1617,7 +1649,6 @@ struct qx86_operand
     qx86_operand_union                  u;
 };
 
-
 /**
  * Instruction definition structure.
  *
@@ -1632,9 +1663,14 @@ struct qx86_insn
     int                                 processorMode;
 
     int                                 mnemonic;
+
+    qx86_int8                           implicitOperandCount;
     qx86_int8                           operandCount;
 
+    qx86_operand                        implicitOperands[QX86_IMPLICIT_OPERAND_NMAX];
     qx86_operand                        operands[QX86_OPERAND_NMAX];
+
+    qx86_operand_form *                 implicitOperandForms[QX86_IMPLICIT_OPERAND_NMAX];
     qx86_operand_form *                 operandForms[QX86_OPERAND_NMAX];
 
     qx86_insn_attributes                attributes;
@@ -1646,8 +1682,6 @@ struct qx86_insn
     qx86_callback                       callback;
     void *                              data;
 };
-
-
 
 /**
  * Mnemonic table item definition structure.
@@ -1661,15 +1695,13 @@ struct qx86_mtab_item
     QX86_CONST char *                   name;
 
     qx86_uint8                          attributes;
+
     qx86_uint8                          iclass;
+    qx86_uint8                          cc;
 
     int                                 demoted;
     int                                 promoted;
-
-    // TODO: AT&T print.
 };
-
-
 
 /**
  * Opcode map definition structure.
@@ -1685,14 +1717,6 @@ struct qx86_opcode_map
     qx86_opcode_map_item *              items;
 };
 
-
-
-
-
-
-
-
-
 /**
  * Addressing mode instruction operand form definition structure.
  *
@@ -1705,8 +1729,6 @@ struct qx86_operand_form_amode
     qx86_stuple *                       stuple;
 };
 
-
-
 /**
  * Register tuple instruction operand form definition structure.
  *
@@ -1717,7 +1739,6 @@ struct qx86_operand_form_rtuple
 {
     qx86_rtuple *                       rtuple;
 };
-
 
 /**
  * Instruction operand form definition union.
@@ -1733,7 +1754,6 @@ union qx86_operand_form_union
     qx86_operand_form_rtuple            r;
 };
 
-
 /**
  * Instruction operand form definition structure.
  *
@@ -1746,7 +1766,6 @@ struct qx86_operand_form
     int                                 attributes;
     qx86_operand_form_union             u;
 };
-
 
 /**
  * Opcode map item definition structure.
@@ -1763,8 +1782,6 @@ struct qx86_opcode_map_item
     qx86_operand_form                   operandForms[QX86_OPERAND_NMAX];
 };
 
-
-
 /**
  * Print item definition structure.
  *
@@ -1779,8 +1796,6 @@ struct qx86_print_item
     QX86_CONST char *                   string;
 };
 
-
-
 /**
  * Intel print options structure.
  *
@@ -1791,8 +1806,6 @@ struct qx86_print_options_intel
 {
     int                                 flipCase : 1;
 };
-
-
 
 /**
  * Register table item definition structure.
@@ -1809,8 +1822,6 @@ struct qx86_rtab_item
     qx86_uint8                          size;
 };
 
-
-
 /**
  * Register tuple definition structure.
  *
@@ -1824,8 +1835,6 @@ struct qx86_rtuple
 
     int                                 rindexes[12];
 };
-
-
 
 /**
  * Size tuple definition structure.
@@ -1841,7 +1850,6 @@ struct qx86_stuple
     QX86_CONST char *                   atoms[4];
     int                                 sizes[4];
 };
-
 
 /**
  * Extract the <em>mod</em> ModRM field value.
@@ -1987,14 +1995,19 @@ struct qx86_stuple
  */
 #define QX86_SIZE_OCTETS(size)          (2 << (size))
 
-/* XXX XXX XXX */
-extern QX86_CONST qx86_mtab_item        qx86_mtab[QX86_MNEMONIC_COUNT];
-extern QX86_CONST qx86_rtab_item        qx86_rtab[QX86_REGISTER_COUNT];
-
 /**
  * Calculate effective address of an <em>x86</em> memory operand.
  *
- * TODO: documentation.
+ * \param                               insn
+ *                                      Instruction pointer.
+ * \param                               operandIndex
+ *                                      Index of operand to decode: 0 and up
+ *                                      for explicit operands, negative values
+ *                                      for implicit operands.
+ * \param[out]                          address
+ *                                      Effective address if successful.
+ *
+ * \return                              Status code.
  *
  * \author                              icee
  * \since                               1.0
@@ -2005,7 +2018,16 @@ qx86_calculate_effective_address(QX86_CONST qx86_insn *insn, int operandIndex, q
 /**
  * Calculate linear address of an <em>x86</em> memory operand.
  *
- * TODO: documentation.
+ * \param                               insn
+ *                                      Instruction pointer.
+ * \param                               operandIndex
+ *                                      Index of operand to decode: 0 and up
+ *                                      for explicit operands, negative values
+ *                                      for implicit operands.
+ * \param[out]                          address
+ *                                      Linear address if successful.
+ *
+ * \return                              Status code.
  *
  * \author                              icee
  * \since                               1.0
@@ -2023,6 +2045,44 @@ qx86_calculate_linear_address(QX86_CONST qx86_insn *insn, int operandIndex, qx86
  */
 QX86_EXTERN_C int
 qx86_decode(qx86_insn *insn, int processorMode, QX86_CONST void *ptr, int ptrSize);
+
+/**
+ * Get <em>x86</em> mnemonic information.
+ *
+ * \param                               mindex
+ *                                      Mnemonic index, one of #qx86_mnemonic
+ *                                      enumerators.
+ *
+ * \return                              Pointer to mnemonic structure; \c NULL
+ *                                      if \a mindex is invalid.
+ *
+ * \author                              icee
+ * \since                               1.1
+ */
+QX86_EXTERN_C QX86_CONST qx86_mtab_item *
+qx86_minfo(int mindex);
+
+/**
+ * Rename an <em>x86</em> mnemonic.  This function changes name used in search
+ * and print functions.
+ *
+ * The buffer pointed to by \a name is \b not copied and must remain valid
+ * for the whole \c quix86 lifetime.
+ *
+ * Passing \c NULL as \a name resets mnemonic name to its default, reference
+ * name.
+ *
+ * \param                               mindex
+ *                                      Mnemonic index, one of #qx86_mnemonic
+ *                                      enumerators.
+ * \param                               name
+ *                                      Name pointer.
+ *
+ * \author                              icee
+ * \since                               1.1
+ */
+QX86_EXTERN_C void
+qx86_minfo_rename(int rindex, QX86_CONST char *name);
 
 /**
  * Print a decoded <em>x86</em> instruction using the Intel format.
@@ -2045,5 +2105,43 @@ qx86_decode(qx86_insn *insn, int processorMode, QX86_CONST void *ptr, int ptrSiz
  */
 QX86_EXTERN_C int
 qx86_print_intel(QX86_CONST qx86_insn *insn, QX86_CONST qx86_print_options_intel *options, char *buffer, int *bufferSize);
+
+/**
+ * Get <em>x86</em> register information.
+ *
+ * \param                               rindex
+ *                                      Register index, one of #qx86_register
+ *                                      enumerators.
+ *
+ * \return                              Pointer to register structure; \c NULL
+ *                                      if \a rindex is invalid.
+ *
+ * \author                              icee
+ * \since                               1.1
+ */
+QX86_EXTERN_C QX86_CONST qx86_rtab_item *
+qx86_rinfo(int rindex);
+
+/**
+ * Rename an <em>x86</em> register.  This function changes name used in search
+ * and print functions.
+ *
+ * The buffer pointed to by \a name is \b not copied and must remain valid
+ * for the whole \c quix86 lifetime.
+ *
+ * Passing \c NULL as \a name resets register name to its default, reference
+ * name.
+ *
+ * \param                               rindex
+ *                                      Register index, one of #qx86_register
+ *                                      enumerators.
+ * \param                               name
+ *                                      Name pointer.
+ *
+ * \author                              icee
+ * \since                               1.1
+ */
+QX86_EXTERN_C void
+qx86_rinfo_rename(int rindex, QX86_CONST char *name);
 
 #endif

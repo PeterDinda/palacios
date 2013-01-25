@@ -45,94 +45,9 @@ int v3_deinit_decoder(struct guest_info * core) {
     return 0;
 }
 
-static int get_opcode(qx86_insn *inst);
+static int get_opcode(qx86_insn *inst, struct guest_info *core);
 static int qx86_register_to_v3_reg(struct guest_info * info, int qx86_reg,
                  addr_t * v3_reg, uint_t * reg_len);
-
-static int decode_string_op(struct guest_info * core,
-                const qx86_insn * qx86_inst, struct x86_instr * instr)
-{
-    int status = 0;
-    PrintDebug(info->vm_info, info, "String operation\n");
-
-    if (instr->prefixes.rep == 1) {
-        uint64_t a_mask = ~(~0ULL <<
-                (QX86_SIZE_OCTETS(qx86_inst->attributes.addressSize) * 8));
-
-        instr->str_op_length = core->vm_regs.rcx & a_mask;
-    } else {
-        instr->str_op_length = 1;
-    }
-
-
-
-    if (instr->op_type == V3_OP_MOVS) {
-        instr->num_operands = 2;
-
-        if((status = qx86_calculate_linear_address(qx86_inst, 0,
-                (qx86_uint64*)&instr->dst_operand.operand)) != QX86_SUCCESS) {
-            PrintError(info->vm_info, info, "Could not get destination memory operand: "
-                    "qx86_calculate_linear_address: %d\n", status);
-            return -1;
-        }
-
-	instr->dst_operand.type = MEM_OPERAND;
-	instr->dst_operand.size = qx86_inst->operands[0].size;
-
-
-        if((status = qx86_calculate_linear_address(qx86_inst, 1,
-                (qx86_uint64*)&instr->src_operand.operand)) != QX86_SUCCESS) {
-            PrintError(info->vm_info, info, "Could not get source memory operand: "
-                    "qx86_calculate_linear_address: %d\n", status);
-            return -1;
-        }
-
-	instr->src_operand.type = MEM_OPERAND;
-	instr->src_operand.size = qx86_inst->operands[1].size;
-
-        instr->dst_operand.write = 1;
-        instr->src_operand.read = 1;
-
-
-    } else if (instr->op_type == V3_OP_STOS) {
-        instr->num_operands = 2;
-
-        if((status = qx86_calculate_linear_address(qx86_inst, 0,
-                (qx86_uint64*)&instr->dst_operand.operand)) != QX86_SUCCESS) {
-            PrintError(info->vm_info, info, "Could not get destination memory operand: "
-                    "qx86_calculate_linear_address: %d\n", status);
-            return -1;
-        }
-
-	instr->dst_operand.type = MEM_OPERAND;
-	instr->dst_operand.size = qx86_inst->operands[0].size;
-
-        // STOS reads from rax
-        qx86_register_to_v3_reg(core,
-            qx86_inst->operands[1].u.r.rindex,
-            &(instr->src_operand.operand), &(instr->src_operand.size));
-        instr->src_operand.type = REG_OPERAND;
-
-        instr->src_operand.read = 1;
-        instr->dst_operand.write = 1;
-
-
-
-    } else {
-        PrintError(info->vm_info, info, "Unhandled String OP\n");
-        return -1;
-    }
-
-
-#ifdef V3_CONFIG_DEBUG_DECODER
-    V3_Print(info->vm_info, info, "Decoding Instr at %p\n", (void *)core->rip);
-    v3_print_instr(instr);
-    V3_Print(info->vm_info, info, "CS DB FLag=%x\n", core->segments.cs.db);
-#endif
-
-
-    return 0;
-}
 
 static int callback(void *data, int rindex, int subreg, unsigned char *value) {
     void* reg_addr = 0;
@@ -160,7 +75,7 @@ static int callback(void *data, int rindex, int subreg, unsigned char *value) {
         PrintError(info->vm_info, info, "Callback doesn't know how to give flags.\n");
         return 0;
     case QX86_SUBREG_NONE: {
-        switch(qx86_rtab[rindex].size) {
+        switch(qx86_rinfo(rindex)->size) {
         case 1: *(uint8_t* )value = *(uint8_t* )reg_addr; break;
         case 2: *(uint16_t*)value = *(uint16_t*)reg_addr; break;
         case 4: *(uint32_t*)value = *(uint32_t*)reg_addr; break;
@@ -184,7 +99,7 @@ static inline int qx86_op_to_v3_op(struct guest_info *info, qx86_insn *qx86_insn
 
         if (v3_reg_type == -1) {
             PrintError(info->vm_info, info, "Operand %d is an Unhandled Operand: %s\n", op_num,
-                    qx86_rtab[qx86_op->u.r.rindex].name);
+                    qx86_rinfo(qx86_op->u.r.rindex)->name);
             v3_op->type = INVALID_OPERAND;
             return -1;
         } else if (v3_reg_type == SEGMENT_REGISTER) {
@@ -289,15 +204,22 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
     instr->instr_length = qx86_inst.rawSize;
 
-    if ((instr->op_type = get_opcode(&qx86_inst)) == V3_INVALID_OP) {
+    if ((instr->op_type = get_opcode(&qx86_inst, info)) == V3_INVALID_OP) {
         PrintError(info->vm_info, info, "Could not get opcode. (mnemonic=%s)\n",
-                qx86_mtab[qx86_inst.mnemonic].name);
+                qx86_minfo(qx86_inst.mnemonic)->name);
         return -1;
     }
 
     if(instr->op_type == V3_OP_MOVS || instr->op_type == V3_OP_STOS) {
         instr->is_str_op = 1;
-        return decode_string_op(info, &qx86_inst, instr);
+        if (instr->prefixes.rep == 1) {
+            uint64_t a_mask = (~0ULL >>
+                (64 - QX86_SIZE_OCTETS(qx86_inst.attributes.addressSize) * 8));
+
+            instr->str_op_length = info->vm_regs.rcx & a_mask;
+        } else {
+            instr->str_op_length = 1;
+        }
     } else {
         instr->is_str_op = 0;
         instr->str_op_length = 0;
@@ -338,10 +260,10 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     return 0;
 }
 
-static int get_opcode(qx86_insn *inst) {
+static int get_opcode(qx86_insn *inst, struct guest_info *core) {
     switch (inst->mnemonic) {
 #define IS_CR(op) inst->operands[op].ot == QX86_OPERAND_TYPE_REGISTER && \
-    qx86_rtab[inst->operands[op].u.r.rindex].rclass == QX86_RCLASS_CREG
+    qx86_rinfo(inst->operands[op].u.r.rindex)->rclass == QX86_RCLASS_CREG
 
     /* MOV cases */
     case QX86_MNEMONIC_MOV: {
@@ -353,7 +275,7 @@ static int get_opcode(qx86_insn *inst) {
         if(IS_CR(1))
             return V3_OP_MOVCR2;
 
-        PrintError(info->vm_info, info, "Bad operand types for MOV: %d %d\n", inst->operands[0].ot,
+        PrintError(core->vm_info, core, "Bad operand types for MOV: %d %d\n", inst->operands[0].ot,
                 inst->operands[1].ot);
         return V3_INVALID_OP;
     }
@@ -481,7 +403,7 @@ static int get_opcode(qx86_insn *inst) {
 
 static int qx86_register_to_v3_reg(struct guest_info * info, int qx86_reg,
                  addr_t * v3_reg, uint_t * reg_len) {
-    PrintDebug(info->vm_info, info, "qx86 Register: %s\n", qx86_rtab[qx86_reg].name);
+    PrintDebug(info->vm_info, info, "qx86 Register: %s\n", qx86_rinfo(qx86_reg)->name);
 
     switch (qx86_reg) {
     case QX86_REGISTER_INVALID:
@@ -829,7 +751,7 @@ static int qx86_register_to_v3_reg(struct guest_info * info, int qx86_reg,
         *reg_len = 4;
         return CTRL_REGISTER;
     case QX86_REGISTER_CR8:
-        *v3_reg = (addr_t)&(info->ctrl_regs.cr8);
+        *v3_reg = (addr_t)&(info->ctrl_regs.apic_tpr);
         *reg_len = 4;
         return CTRL_REGISTER;
 
