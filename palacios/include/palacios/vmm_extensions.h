@@ -39,8 +39,9 @@ struct v3_extensions {
 
 struct v3_extension_impl {
     char * name;
-    int (*init)(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data);
-    int (*deinit)(struct v3_vm_info * vm, void * priv_data);
+    int (*init)();
+    int (*vm_init)(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_data);
+    int (*vm_deinit)(struct v3_vm_info * vm, void * priv_data);
     int (*core_init)(struct guest_info * core, void * priv_data, void ** core_data);
     int (*core_deinit)(struct guest_info * core, void * priv_data, void * core_data);
     int (*on_entry)(struct guest_info * core, void * priv_data);
