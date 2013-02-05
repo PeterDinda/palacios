@@ -566,8 +566,9 @@ int v3_mcheck_inject_scrubber_mce(struct v3_vm_info *info, int cpu, uint64_t dst
 
 static struct v3_extension_impl mcheck_impl = {
     .name = MCHECK,
-    .init = init_mcheck,
-    .deinit = deinit_mcheck,
+    .init = NULL,
+    .vm_init = init_mcheck,
+    .vm_deinit = deinit_mcheck,
     .core_init = NULL,
     .core_deinit = NULL,
     .on_entry = NULL,

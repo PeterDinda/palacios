@@ -103,8 +103,9 @@ static int init_inspector_core(struct guest_info * core, void * priv_data, void 
 
 static struct v3_extension_impl inspector_impl = {
     .name = "inspector",
-    .init = init_inspector,
-    .deinit = NULL,
+    .init = NULL,
+    .vm_init = init_inspector,
+    .vm_deinit = NULL,
     .core_init = init_inspector_core,
     .core_deinit = NULL,
     .on_entry = NULL,

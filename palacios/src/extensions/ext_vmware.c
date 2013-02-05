@@ -121,8 +121,9 @@ static int vmware_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv
 
 static struct v3_extension_impl vmware_impl = {
     .name = "VMWARE_IFACE",
-    .init = vmware_init,
-    .deinit = NULL,
+    .init = NULL,
+    .vm_init = vmware_init,
+    .vm_deinit = NULL,
     .core_init = NULL,
     .core_deinit = NULL,
     .on_entry = NULL,

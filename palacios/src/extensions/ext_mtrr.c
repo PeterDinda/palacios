@@ -621,8 +621,9 @@ static int init_mtrrs(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** priv_
 
 static struct v3_extension_impl mtrr_impl = {
     .name = "MTRRS",
-    .init = init_mtrrs,
-    .deinit = deinit_mtrrs,
+    .init = NULL,
+    .vm_init = init_mtrrs,
+    .vm_deinit = deinit_mtrrs,
     .core_init = NULL,
     .core_deinit = NULL,
     .on_entry = NULL,

@@ -70,6 +70,11 @@ int V3_init_extensions() {
 	    return -1;
 	}
 
+        if ((*tmp_ext) && (*tmp_ext)->init && ((*tmp_ext)->init() != 0)) {
+	    PrintError(VM_NONE, VCORE_NONE, "Could not initialize extension (%s)\n", (*tmp_ext)->name);
+	    return -1;
+	} 
+
 	tmp_ext = &(__start__v3_extensions[++i]);
     }
 
@@ -110,8 +115,8 @@ int v3_deinit_ext_manager(struct v3_vm_info * vm)  {
     list_for_each_entry_safe(ext, tmp, &(ext_state->extensions), node) {
         
 	V3_Print(vm, VCORE_NONE, "Cleaning up Extension (%s)\n", ext->impl->name);
-	if ((ext->impl) && (ext->impl->deinit)) {
-	    if (ext->impl->deinit(vm, ext->priv_data) == -1) {
+	if ((ext->impl) && (ext->impl->vm_deinit)) {
+	    if (ext->impl->vm_deinit(vm, ext->priv_data) == -1) {
 		PrintError(vm, VCORE_NONE, "Error cleaning up extension (%s)\n", ext->impl->name);
 		return -1;
 	    }
@@ -145,7 +150,7 @@ int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * 
 	return -1;
     }
     
-    V3_ASSERT(vm, VCORE_NONE, impl->init);
+    V3_ASSERT(vm, VCORE_NONE, impl->vm_init);
 
     /* this allows each extension to track its own per-core state */
     ext_size = sizeof(struct v3_extension) + (sizeof(void *) * vm->num_cores);
@@ -158,7 +163,7 @@ int v3_add_extension(struct v3_vm_info * vm, const char * name, v3_cfg_tree_t * 
 
     ext->impl = impl;
 
-    if (impl->init(vm, cfg, &(ext->priv_data)) == -1) {
+    if (impl->vm_init(vm, cfg, &(ext->priv_data)) == -1) {
 	PrintError(vm, VCORE_NONE,  "Error initializing Extension (%s)\n", name);
 	V3_Free(ext);
 	return -1;
