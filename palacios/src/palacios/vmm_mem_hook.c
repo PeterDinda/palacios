@@ -505,6 +505,7 @@ static int free_hook(struct v3_vm_info * vm, struct mem_hook * hook) {
 // We do not support unhooking subregions
 int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_start) {
     struct v3_mem_region * reg = v3_get_mem_region(vm, core_id, guest_addr_start);
+    struct v3_mem_hooks * hooks = &(vm->mem_hooks);
     struct mem_hook * hook = NULL;
 
     if (reg == NULL) {
@@ -521,6 +522,8 @@ int v3_unhook_mem(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr_st
     
     
     free_hook(vm, hook);
+
+    v3_htable_remove(hooks->reg_table, (addr_t)reg, 0);
 
     return 0;
 }
