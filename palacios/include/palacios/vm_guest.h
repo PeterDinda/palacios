@@ -41,6 +41,7 @@
 #include <palacios/vmm_timeout.h>
 #include <palacios/vmm_exits.h>
 #include <palacios/vmm_events.h>
+#include <palacios/vmm_scheduler.h>
 
 #include <palacios/vmm_perftune.h>
 
@@ -73,6 +74,7 @@ struct guest_info {
 
     struct vm_core_time time_state;
     struct v3_core_timeouts timeouts;
+    void * sched_priv_data;
 
     v3_paging_mode_t shdw_pg_mode;
     struct v3_shdw_pg_state shdw_pg_state;
@@ -159,6 +161,7 @@ struct v3_vm_info {
     struct v3_mem_hooks mem_hooks;
 
     struct v3_shdw_impl_state shdw_impl;
+    void * sched_priv_data;
 
     struct v3_io_map io_map;
     struct v3_msr_map msr_map;
@@ -206,6 +209,8 @@ struct v3_vm_info {
     void * host_priv_data;
 
     int num_cores;
+
+    int avail_cores; // Available logical cores
 
     // JRL: This MUST be the last entry...
     struct guest_info cores[0];

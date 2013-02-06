@@ -5,3 +5,4 @@ obj-$(V3_CONFIG_EXT_VTIME) += ext_vtime.o
 obj-$(V3_CONFIG_EXT_INSPECTOR) += ext_inspector.o
 obj-$(V3_CONFIG_EXT_MACH_CHECK) += ext_mcheck.o
 obj-$(V3_CONFIG_EXT_VMWARE) += ext_vmware.o
+obj-$(V3_CONFIG_EXT_SCHED_EDF) += ext_sched_edf.o

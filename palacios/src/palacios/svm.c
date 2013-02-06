@@ -616,7 +616,7 @@ int v3_svm_enter(struct guest_info * info) {
     uint64_t guest_cycles = 0;
 
     // Conditionally yield the CPU if the timeslice has expired
-    v3_yield_cond(info,-1);
+    v3_schedule(info);
 
     // Update timer devices after being in the VM before doing 
     // IRQ updates, so that any interrupts they raise get seen 
@@ -761,7 +761,7 @@ int v3_svm_enter(struct guest_info * info) {
     v3_stgi();
  
     // Conditionally yield the CPU if the timeslice has expired
-    v3_yield_cond(info,-1);
+    v3_schedule(info);
 
     // This update timers is for time-dependent handlers
     // if we're slaved to host time

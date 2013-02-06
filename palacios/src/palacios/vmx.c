@@ -966,7 +966,7 @@ int v3_vmx_enter(struct guest_info * info) {
     uint64_t guest_cycles = 0;
 
     // Conditionally yield the CPU if the timeslice has expired
-    v3_yield_cond(info,-1);
+    v3_schedule(info);
 
     // Update timer devices late after being in the VM so that as much 
     // of the time in the VM is accounted for as possible. Also do it before
@@ -1135,7 +1135,7 @@ int v3_vmx_enter(struct guest_info * info) {
     v3_enable_ints();
 
     // Conditionally yield the CPU if the timeslice has expired
-    v3_yield_cond(info,-1);
+    v3_schedule(info);
     v3_advance_time(info, NULL);
     v3_update_timers(info);
 

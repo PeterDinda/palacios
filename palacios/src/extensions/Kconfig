@@ -31,4 +31,10 @@ config EXT_VMWARE
 	help
 	  Provides a VMWare persona to allow TSC calibration
 
+config EXT_SCHED_EDF
+	bool "EDF Real-time Scheduler"
+	default n
+	help
+	  Provides a full real-time EDF scheduler for VM cores
+
 endmenu

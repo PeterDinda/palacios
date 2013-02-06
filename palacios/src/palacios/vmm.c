@@ -123,8 +123,14 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus) {
     // Register all shadow paging handlers
     V3_init_shdw_paging();
 
+    // Initialize the scheduler framework (must be before extensions)
+    V3_init_scheduling();
+ 
     // Register all extensions
     V3_init_extensions();
+
+    // Enabling scheduler
+    V3_enable_scheduler();
 
 
 #ifdef V3_CONFIG_SYMMOD
@@ -208,6 +214,15 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
     memset(vm->name, 0, 128);
     strncpy(vm->name, name, 127);
 
+    /*
+     * Creates scheduling hash table and register default scheduler (host scheduler)
+     */
+
+    //if(v3_scheduler_register_vm(vm) != -1) {
+    
+    //    PrintError(vm, VCORE_NONE,"Error registering VM with scheduler\n");
+   //  }
+
     return vm;
 }
 
@@ -218,6 +233,9 @@ static int start_core(void * p)
 {
     struct guest_info * core = (struct guest_info *)p;
 
+    if (v3_scheduler_register_core(core) == -1){
+        PrintError(core->vm_info, core,"Error initializing scheduling in core %d\n", core->vcpu_id);
+    }
 
     PrintDebug(core->vm_info,core,"virtual core %u (on logical core %u): in start_core (RIP=%p)\n", 
 	       core->vcpu_id, core->pcpu_id, (void *)(addr_t)core->rip);
@@ -298,10 +316,10 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     }
 
 
-    if (vm->num_cores > avail_cores) {
-	PrintError(vm, VCORE_NONE, "Attempted to start a VM with too many cores (vm->num_cores = %d, avail_cores = %d, MAX=%d)\n", 
-		   vm->num_cores, avail_cores, MAX_CORES);
-	return -1;
+    vm->avail_cores = avail_cores;
+ 
+    if (v3_scheduler_admit_vm(vm) != 0){
+        PrintError(vm, VCORE_NONE,"Error admitting VM %s for scheduling", vm->name);
     }
 
     vm->run_state = VM_RUNNING;
@@ -779,53 +797,6 @@ v3_cpu_mode_t v3_get_host_cpu_mode() {
 }
 
 #endif 
-
-
-
-
-
-void v3_yield_cond(struct guest_info * info, int usec) {
-    uint64_t cur_cycle;
-    cur_cycle = v3_get_host_time(&info->time_state);
-
-    if (cur_cycle > (info->yield_start_cycle + info->vm_info->yield_cycle_period)) {
-	//PrintDebug(info->vm_info, info, "Conditional Yield (cur_cyle=%p, start_cycle=%p, period=%p)\n", 
-	//           (void *)cur_cycle, (void *)info->yield_start_cycle, 
-	//	   (void *)info->yield_cycle_period);
-	
-	if (usec < 0) { 
-	    V3_Yield();
-	} else {
-	    V3_Sleep(usec);
-	}
-
-        info->yield_start_cycle +=  info->vm_info->yield_cycle_period;
-    }
-}
- 
-
-/* 
- * unconditional cpu yield 
- * if the yielding thread is a guest context, the guest quantum is reset on resumption 
- * Non guest context threads should call this function with a NULL argument
- *
- * usec <0  => the non-timed yield is used
- * usec >=0 => the timed yield is used, which also usually implies interruptible
- */ 
-void v3_yield(struct guest_info * info, int usec) {
-    if (usec < 0) { 
-	V3_Yield();
-    } else {
-	V3_Sleep(usec);
-    }
-
-    if (info) {
-        info->yield_start_cycle +=  info->vm_info->yield_cycle_period;
-    }
-}
-
-
-
 
 void v3_print_cond(const char * fmt, ...) {
     if (v3_dbg_enable == 1) {
