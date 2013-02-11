@@ -710,7 +710,7 @@ static struct v3_os_hooks palacios_os_hooks = {
 
 
 
-int palacios_vmm_init( void )
+int palacios_vmm_init( char *options )
 {
     int num_cpus = num_online_cpus();
     char * cpu_mask = NULL;
@@ -752,7 +752,7 @@ int palacios_vmm_init( void )
 
     INFO("palacios_init starting - calling init_v3\n");
 
-    Init_V3(&palacios_os_hooks, cpu_mask, num_cpus);
+    Init_V3(&palacios_os_hooks, cpu_mask, num_cpus, options);
 
     return 0;
 

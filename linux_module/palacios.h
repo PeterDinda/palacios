@@ -114,7 +114,7 @@ struct v3_guest {
 
 
 
-int palacios_vmm_init( void );
+int palacios_vmm_init( char *options );
 int palacios_vmm_exit( void );
 
 

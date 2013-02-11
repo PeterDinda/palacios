@@ -374,7 +374,8 @@ struct v3_vm_state {
   struct v3_vcore_state vcore[0];
 };
 
-void Init_V3(struct v3_os_hooks * hooks, char * cpus, int num_cpus);
+char *v3_lookup_option(char *name);
+void Init_V3(struct v3_os_hooks * hooks, char * cpus, int num_cpus, char *options);
 void Shutdown_V3( void );
 
 

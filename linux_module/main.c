@@ -39,9 +39,13 @@ int cpu_list_len = 0;
 module_param_array(cpu_list, int, &cpu_list_len, 0644);
 MODULE_PARM_DESC(cpu_list, "Comma-delimited list of CPUs that Palacios will run on");
 
+// Palacios options parameter
+static char *options;
+module_param(options, charp, 0);
+MODULE_PARM_DESC(options, "Generic options to internal Palacios modules");
+
 int mod_allocs = 0;
 int mod_frees = 0;
-
 
 static int v3_major_num = 0;
 
@@ -336,7 +340,7 @@ static int __init v3_init(void) {
     palacios_init_mm();
 
     // Initialize Palacios
-    palacios_vmm_init();
+    palacios_vmm_init(options);
 
 
     // initialize extensions
