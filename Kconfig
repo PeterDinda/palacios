@@ -357,6 +357,13 @@ config DEBUG_TIME
 	help
 	  This turns on debugging of system time virtualization
 
+config DEBUG_SCHEDULER
+    bool "Scheduler"
+    default n
+    depends on DEBUG_ON
+    help
+      This turns on debugging for scheduler
+
 config DEBUG_IO
 	bool "IO"
 	default n

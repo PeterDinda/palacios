@@ -7,7 +7,8 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2013, Oscar Mondragon <omondrag@cs.unm.edu>
+ * Copyright (c) 2013, Oscar Mondragon <omondrag@cs.unm.edu> 
+ * Copyright (c) 2013, Patrick G. Bridges <bridges@cs.unm.edu>
  * Copyright (c) 2013, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
@@ -63,8 +64,6 @@ int v3_register_scheduler(struct vm_scheduler_impl *s) {
         PrintError(VM_NONE, VCORE_NONE, "Multiple instances of scheduler (%s)\n", s->name);
         return -1;
     }
-    PrintDebug(VM_NONE, VCORE_NONE,"Registering Scheduler (%s) 2\n", s->name);
-
   
     if (v3_htable_insert(master_scheduler_table,
                          (addr_t)(s->name),
@@ -73,7 +72,6 @@ int v3_register_scheduler(struct vm_scheduler_impl *s) {
         return -1;
     }
 
-    PrintDebug(VM_NONE, VCORE_NONE,"Scheduler registered\n");
     return 0;
 }
 
@@ -84,7 +82,10 @@ struct vm_scheduler_impl *v3_scheduler_lookup(char *name)
 
 int V3_enable_scheduler() {
     /* XXX Lookup the specified scheduler to use for palacios and use it */
+    
     scheduler = v3_scheduler_lookup(default_strategy);
+    PrintDebug(VM_NONE, VCORE_NONE,"Sched. Scheduler %s found",scheduler->name);
+    
     if (!scheduler) {
 	PrintError(VM_NONE, VCORE_NONE,"Specified Palacios scheduler \"%s\" not found.\n", default_strategy);
 	return -1;

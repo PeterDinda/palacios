@@ -8,6 +8,7 @@
  * http://www.v3vee.org
  *
  * Copyright (c) 2013, Oscar Mondragon <omondrag@cs.unm.edu>
+ * Copyright (c) 2013, Patrick G. Bridges <bridges@cs.unm.edu>
  * Copyright (c) 2013, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
@@ -36,15 +37,15 @@ struct vm_scheduler_impl {
 	int (*dvfs)(struct v3_vm_info *vm);
 };
 
-struct vm_sched_state {
-	struct vm_scheduler *sched;
-	void *priv_data;
-};
+//struct vm_sched_state {
+//	struct vm_scheduler *sched;
+//	void *priv_data;
+//};
 
-struct vm_core_sched_state {
-	struct vm_scheduler *sched;
-	void *priv_data;
-};
+//struct vm_core_sched_state {
+//	struct vm_scheduler *sched;
+//	void *priv_data;
+//};
 
 void v3_schedule(struct guest_info *core);
 void v3_yield(struct guest_info *core, int usec);

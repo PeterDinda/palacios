@@ -12,7 +12,7 @@ config EXT_MACH_CHECK
 	help 
 	   Provides a virtualized machine-check architecture
 
-config DEGUB_EXT_MACH_CHECK
+config DEBUG_EXT_MACH_CHECK
     bool "Debug machine-check functionality"
     default n
     depends on EXT_MACH_CHECK
@@ -36,5 +36,10 @@ config EXT_SCHED_EDF
 	default n
 	help
 	  Provides a full real-time EDF scheduler for VM cores
+
+config DEBUG_EXT_SCHED_EDF
+	bool "Debugging for EDF Real-time Scheduler"
+	default n
+	depends on DEBUG_ON && EXT_SCHED_EDF
 
 endmenu

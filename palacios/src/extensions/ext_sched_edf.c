@@ -8,6 +8,7 @@
  * http://www.v3vee.org
  *
  * Copyright (c) 2013, Oscar Mondragon <omondrag@cs.unm.edu>
+ * Copyright (c) 2013, Patrick G. Bridges <bridges@cs.unm.edu>
  * Copyright (c) 2013, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
@@ -25,8 +26,7 @@
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vmm_extensions.h>
-#include <palacios/vmm_edf_sched.h>
-
+#include <palacios/vmm_rbtree.h>
 
 
 #ifndef V3_CONFIG_DEBUG_EDF_SCHED
@@ -59,6 +59,65 @@
 #define MAX_SLICE 1000000000
 #define MIN_SLICE 10000
 #define CPU_PERCENT 100
+typedef uint64_t time_us;
+
+/* 
+ * Per-core EDF Scheduling information 
+ */
+
+struct vm_core_edf_sched {
+    struct guest_info *info;   // Core struct
+    struct rb_node node;      // red-black tree node
+    time_us period;           // Amount of time (us) during which the core may received a CPU allocation
+    time_us slice;            // Minimum amount of time (us) received for the core during each period 
+    time_us current_deadline; // Time (us) at which current core period ends
+    time_us used_time;        // Amount of time (us) of the slice used whiting the current period
+    time_us last_wakeup_time; // Time at which the last wakeup started for this core   
+    time_us remaining_time;   // Remaining time (us) before current core period ends (before current deadline) 
+    bool extra_time;          // Specifies if the virtual core is eligible to receive extra CPU time
+    int miss_deadline;        // Number of times the core has missed its deadline
+    time_us total_time;       // Total scheduled time for this core. For now used for debugging purposes 
+    int slice_overuse;        // Statistical purposes
+    time_us extra_time_given;     // Statistical
+};
+
+/* 
+ * Scheduler configuration
+ */
+
+struct vm_edf_sched_config {
+    time_us min_slice;       // Minimum allowed slice
+    time_us max_slice;       // Maximum allowed slice
+    time_us min_period;      // Minimum allowed period
+    time_us max_period;      // Maximum allowed period
+    int cpu_percent;       // Percentange of CPU utilization for the scheduler in each physical CPU (100 or less)
+   
+};
+
+/* 
+ * Run queue structure. Per-logical core data structure  used to keep the runnable virtual cores (threads) allocated to that logical core 
+ * Contains a pointer to the red black tree, the structure of configuration options and other info
+ */
+
+struct vm_edf_rq{
+    
+    //int cpu_id; // Physical CPU id
+    int cpu_u;	// CPU utilization (must be less or equal to the cpu_percent in vm_edf_sched_config)     
+    struct rb_root vCPUs_tree;	// Red-Black Tree
+    struct vm_edf_sched_config edf_config;	// Scheduling configuration structure
+    int nr_vCPU;	// Number of cores in the runqueue
+    struct vm_core_edf_sched *curr_vCPU;	// Current running CPU		
+    struct rb_node *rb_leftmost;     // vCPU with the earliest deadline (leftmost in the tree)
+    time_us last_sched_time;  // statistical purposes
+};
+
+/* 
+ * Basic functions for scheduling 
+ */
+
+int v3_init_edf_scheduling();
+
+
 
 
 /*
@@ -77,31 +136,30 @@ init_edf_config(struct vm_edf_sched_config *edf_config){
 
 
 /*
- * edf_sched_init: Initialize the run queue
+ * priv_data_init: Initialize the run queue
  */
 
 int 
-edf_sched_init(struct v3_vm_info *vm){
+priv_data_init(struct v3_vm_info *vm){
 
-    PrintDebug(vm, VCORE_NONE,"EDF Sched. Initializing vm %s\n", vm->name);
+    PrintDebug(vm, VCORE_NONE,"EDF Sched. Initializing EDF Scheduling \n");
 
-    struct vm_sched_state *sched_state = &vm->sched; 
-    sched_state->priv_data = V3_Malloc( vm->avail_cores * sizeof(struct vm_edf_rq));
+    vm->sched_priv_data = V3_Malloc( vm->avail_cores * sizeof(struct vm_edf_rq));
 
-    if (!sched_state->priv_data) {
-	PrintError(vm, VCORE_NONE,"Cannot allocate in priv_data in edf_sched_init\n");
+    if (!vm->sched_priv_data) {
+	PrintError(vm, VCORE_NONE,"Cannot allocate in priv_data in priv_data_init\n");
 	return -1;
     }
 
     int lcore = 0;
   
-    PrintDebug(vm, VCORE_NONE,"EDF Sched. edf_sched_init. Available cores %d\n", vm->avail_cores);
+    PrintDebug(vm, VCORE_NONE,"EDF Sched. priv_data_init. Available cores %d\n", vm->avail_cores);
 
     for(lcore = 0; lcore < vm->avail_cores ; lcore++){
 
-        PrintDebug(vm, VCORE_NONE,"EDF Sched. edf_sched_init. Initializing logical core %d\n", lcore);
+        PrintDebug(vm, VCORE_NONE,"EDF Sched. priv_data_init. Initializing logical core %d\n", lcore);
 
-        struct vm_edf_rq * edf_rq_list =   (struct vm_edf_rq *) sched_state->priv_data;
+        struct vm_edf_rq * edf_rq_list =   (struct vm_edf_rq *)vm->sched_priv_data;
         struct vm_edf_rq * edf_rq = &edf_rq_list[lcore];
     
         edf_rq->vCPUs_tree = RB_ROOT;
@@ -117,7 +175,6 @@ edf_sched_init(struct v3_vm_info *vm){
    return 0;
    
 }
-
 
 /*
  * is_admissible_core: Decides if a core is admited to the red black tree according with 
@@ -136,6 +193,7 @@ is_admissible_core(struct vm_core_edf_sched * new_sched_core, struct vm_edf_rq *
     else
 	return false;    
 
+return true;
 }
 
 
@@ -235,7 +293,7 @@ next_start_period(uint64_t curr_time_us, uint64_t period_us){
 
 struct vm_edf_rq * get_runqueue(struct guest_info *info){
 
-    struct vm_edf_rq *runqueue_list = (struct vm_edf_rq *) info->vm_info->sched.priv_data;
+    struct vm_edf_rq *runqueue_list = (struct vm_edf_rq *) info->vm_info->sched_priv_data;
     struct vm_edf_rq *runqueue = &runqueue_list[info->pcpu_id]; 
     return runqueue;
 }
@@ -248,7 +306,7 @@ struct vm_edf_rq * get_runqueue(struct guest_info *info){
 static void 
 wakeup_core(struct guest_info *info){
 
-    struct vm_core_edf_sched *core = info->core_sched.priv_data;
+    struct vm_core_edf_sched *core = info->sched_priv_data;
     struct vm_edf_rq *runqueue = get_runqueue(info);
 
     if (!info->core_thread) {
@@ -350,7 +408,7 @@ edf_sched_core_init(struct guest_info * info){
 	PrintError(info->vm_info, info,"Cannot allocate private_data in edf_sched_core_init\n");
 	return -1;
     }
-    info->core_sched.priv_data = core_edf;
+    info->sched_priv_data = core_edf;
     
     // Default configuration if not specified in configuration file  
   
@@ -509,7 +567,7 @@ pick_next_core(struct vm_edf_rq *runqueue){
 static void 
 adjust_slice(struct guest_info * info, int used_time, int extra_time)
 {
-    struct vm_core_edf_sched *core = info->core_sched.priv_data;
+    struct vm_core_edf_sched *core = info->sched_priv_data;
     struct vm_edf_rq *runqueue = get_runqueue(info);
 
     core->used_time = used_time;
@@ -532,7 +590,7 @@ adjust_slice(struct guest_info * info, int used_time, int extra_time)
 static void 
 run_next_core(struct guest_info *info, int used_time, int usec)
 {
-    struct vm_core_edf_sched *core = info->core_sched.priv_data;
+    struct vm_core_edf_sched *core = info->sched_priv_data;
     struct vm_core_edf_sched *next_core;
     struct vm_edf_rq *runqueue = get_runqueue(info);
    
@@ -571,7 +629,7 @@ edf_schedule(struct guest_info * info, int usec){
 
     uint64_t host_time = get_curr_host_time(&info->time_state);
     struct vm_edf_rq *runqueue = get_runqueue(info);  
-    struct vm_core_edf_sched *core = (struct vm_core_edf_sched *) info->core_sched.priv_data;
+    struct vm_core_edf_sched *core = (struct vm_core_edf_sched *) info->sched_priv_data;
 
     uint64_t used_time = 0;
     if(core->last_wakeup_time != 0) 
@@ -625,13 +683,8 @@ edf_sched_yield(struct guest_info * info, int usec){
 int 
 edf_sched_deinit(struct v3_vm_info *vm)
 {
-
-    struct vm_scheduler  * sched = vm->sched.sched;
-    void *priv_data = vm->sched.priv_data;
+    void *priv_data = vm->sched_priv_data;
     
-    if (sched) 
-        V3_Free(sched); 
-
     if (priv_data) 
         V3_Free(priv_data);
 
@@ -646,32 +699,53 @@ edf_sched_deinit(struct v3_vm_info *vm)
 int 
 edf_sched_core_deinit(struct guest_info *core)
 {
-
-    struct vm_scheduler  * sched = core->core_sched.sched;
-    void *priv_data = core->core_sched.priv_data;
+    void *priv_data = core->sched_priv_data;
     
-    if (sched) 
-        V3_Free(sched); 
-
     if (priv_data) 
         V3_Free(priv_data);
 
     return 0;
 }
 
+int edf_sched_vm_init(struct v3_vm_info *vm){
+    return 0;
+}
+
+int edf_sched_admit(struct v3_vm_info *vm){
+
+    /*
+     * Initialize priv_data for the vm: 
+     * For EDF this is done here because we need the parameter
+     * avail_core which is set in v3_start_vm before the
+     * v3_scheduler_admit_vm function is called.
+     */
+   
+    priv_data_init(vm);
+
+    // TODO Admission
+     
+    return 0;
+}
+
+
 static struct vm_scheduler_impl edf_sched = {
-	.name = "edf",
-	.init = edf_sched_init,
-	.deinit = edf_sched_deinit,
-	.core_init = edf_sched_core_init,
-	.core_deinit = edf_sched_core_deinit,
-	.schedule = edf_sched_schedule,
-	.yield = edf_sched_yield
+
+    .name = "edf",
+    .init = NULL,
+    .deinit = NULL,
+    .vm_init = edf_sched_vm_init,
+    .vm_deinit = NULL,
+    .core_init = edf_sched_core_init,
+    .core_deinit = edf_sched_core_deinit,
+    .schedule = edf_sched_schedule,
+    .yield = edf_sched_yield,
+    .admit = edf_sched_admit,
+    .remap = NULL,
+    .dvfs=NULL
 };
 
 static int 
 ext_sched_edf_init() {
-	
     PrintDebug(VM_NONE, VCORE_NONE,"Sched. Creating (%s) scheduler\n",edf_sched.name);
     return v3_register_scheduler(&edf_sched);
 }
