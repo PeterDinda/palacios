@@ -7,8 +7,8 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2013, Oscar Mondragon <omondrag@cs.unm.edu>
+ * Copyright (c) 2013, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
  * Author: Oscar Mondragon <omondrag@cs.unm.edu>
