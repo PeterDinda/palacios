@@ -218,7 +218,7 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
      * Register this VM with the palacios scheduler. It will ask for admission
      * prior to launch.
      */
-    if(v3_scheduler_register_vm(vm) != -1) {
+    if(v3_scheduler_register_vm(vm) == -1) {
     
         PrintError(vm, VCORE_NONE,"Error registering VM with scheduler\n");
     }
