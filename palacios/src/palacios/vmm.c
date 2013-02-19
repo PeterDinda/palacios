@@ -125,9 +125,13 @@ void V3_parse_options(char *options)
 {
     char *currKey = NULL, *currVal = NULL;
     int parseKey = 1;
-    int len = strlen(options);
+    int len;
     char *c;
+    if (!options) {
+	return; 
+    }
 
+    len = strlen(options);
     option_storage = V3_Malloc(len + 1);
     strcpy(option_storage, options);
     c = option_storage;
