@@ -52,6 +52,9 @@ void v3_parse_options(char *options)
     int parseKey = 1;
     int len;
     char *c;
+
+    option_table = v3_create_htable(0, option_hash_fn, option_eq_fn);
+
     if (!options) {
 	return; 
     }
@@ -61,7 +64,6 @@ void v3_parse_options(char *options)
     strcpy(option_storage, options);
     c = option_storage;
 
-    option_table = v3_create_htable(0, option_hash_fn, option_eq_fn);
     while (c && *c) {
 	/* Skip whitespace */
         if ((*c == ' ')
