@@ -33,6 +33,8 @@ v3vee-$(V3_CONFIG_HOST_DEVICE) += iface-host-dev.o
 v3vee-$(V3_CONFIG_GRAPHICS_CONSOLE) += iface-graphics-console.o
 v3vee-$(V3_CONFIG_EXT_MACH_CHECK) += mcheck.o
 
+v3vee-$(V3_CONFIG_HOST_PMU) += iface-pmu.o
+
 v3vee-$(V3_CONFIG_VNET) += 	palacios-vnet.o \
 				palacios-vnet-ctrl.o   \
 				palacios-vnet-brg.o

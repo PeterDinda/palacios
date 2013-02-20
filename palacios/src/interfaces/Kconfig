@@ -1,7 +1,7 @@
 menu "Host Interfaces"
 
 config FILE
-        bool "Host Support for file operations"
+        bool "Host support for file operations"
         default n
         help
           Select this if your host OS supports file operatoins and you want Palacios to be able to use them.
@@ -14,19 +14,21 @@ config KEYED_STREAMS
           Palacios Checkpoint/Restore and Migration depends on this feature
 
 config STREAM
-	bool "Stream support"
+	bool "Host support for streams"
 	default n
-
+    help
+        Select this if your host OS supports streams
+        Palacios serial ports and similar functions depend on this feature
           
 config CONSOLE
-	bool "Host Support for VM text-mode console"
+	bool "Host support for VM text-mode console"
         default n
         help
           Select this if you want to forward a guest console interface to some host OS service
           This is for a TEXT MODE console.   Select the framebuffer console for graphics and text
             
 config GRAPHICS_CONSOLE
-        bool "Host Support for VM graphics and text-mode console based on a frame buffer"
+        bool "Host support for VM graphics and text-mode console based on a frame buffer"
         default n
 	help
           Select this if you want to forward a guest graphics-mode (and text-mode) console
@@ -51,7 +53,7 @@ config PACKET
 
 
 config HOST_PCI
-	bool "Host PCI Support"
+	bool "Host PCI support"
 	depends on EXPERIMENTAL
 	default y
 	help 
@@ -73,4 +75,10 @@ config HOST_HYPERCALL
           to register host-based implementations of hypercalls,
           for example, implemented in Linux kernel modules
 
+config HOST_PMU
+       bool "Host PMU support"
+       default n
+       help
+          Select this if you would like to access performance
+          counters (the PMU) within Palacios
 endmenu
