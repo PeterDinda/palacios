@@ -157,6 +157,14 @@ config SHADOW_PAGING_TELEMETRY
 	help
 	  Enable telemetry information for shadow paging 
 
+config PMU_TELEMETRY
+      bool "Enable PMU telemetry"
+      default n
+      depends on TELEMETRY && HOST_PMU
+      help
+        Enable telemetry information for a range of PMU counters
+          This causes the currently configured PMU counts to be printed
+
 
 
 config EXPERIMENTAL

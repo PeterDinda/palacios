@@ -79,6 +79,8 @@ obj-$(V3_CONFIG_CHECKPOINT) += vmm_checkpoint.o
 
 obj-$(V3_CONFIG_TELEMETRY) += vmm_telemetry.o 
 
+obj-$(V3_CONFIG_PMU_TELEMETRY) += vmm_pmu_telemetry.o 
+
 obj-$(V3_CONFIG_SYMBIOTIC) += vmm_symbiotic.o vmm_symspy.o
 obj-$(V3_CONFIG_SYMCALL) += vmm_symcall.o
 obj-$(V3_CONFIG_SYMMOD) += vmm_symmod.o

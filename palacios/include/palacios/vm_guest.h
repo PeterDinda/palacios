@@ -49,6 +49,9 @@
 #include <palacios/vmm_telemetry.h>
 #endif
 
+#ifdef V3_CONFIG_PMU_TELEMETRY
+#include <palacios/vmm_pmu_telemetry.h>
+#endif
 
 #ifdef V3_CONFIG_SYMBIOTIC
 #include <palacios/vmm_symbiotic.h>
@@ -119,6 +122,9 @@ struct guest_info {
     struct v3_core_telemetry core_telem;
 #endif
 
+#ifdef V3_CONFIG_PMU_TELEMETRY
+    struct v3_core_pmu_telemetry pmu_telem;
+#endif
 
     /* struct v3_core_dev_mgr core_dev_mgr; */
 
