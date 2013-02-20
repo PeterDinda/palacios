@@ -21,6 +21,7 @@ obj-y := \
 	vmm_mem.o \
 	vmm_msr.o \
 	vmm_paging.o \
+	vmm_options.o \
 	vmm_queue.o \
 	vmm_rbtree.o \
 	vmm_ringbuffer.o \
