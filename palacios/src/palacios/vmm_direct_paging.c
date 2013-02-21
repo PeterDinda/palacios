@@ -176,6 +176,28 @@ int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
 }
 
 
+int v3_invalidate_passthrough_addr_range(struct guest_info * info, 
+					 addr_t inv_addr_start, addr_t inv_addr_end) {
+    v3_cpu_mode_t mode = v3_get_vm_cpu_mode(info);
+
+    switch(mode) {
+	case REAL:
+	case PROTECTED:
+	    return invalidate_addr_32_range(info, inv_addr_start, inv_addr_end);
+
+	case PROTECTED_PAE:
+	case LONG:
+	case LONG_32_COMPAT:
+	    // Long mode will only use 32PAE page tables...
+	    return invalidate_addr_32pae_range(info, inv_addr_start, inv_addr_end);
+
+	default:
+	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
+	    break;
+    }
+    return -1;
+}
+
 int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr) {
 
 #ifdef __V3_64BIT__
@@ -195,6 +217,35 @@ int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr) {
 	case LONG:
 	case LONG_32_COMPAT:
 	    return invalidate_addr_64(info, inv_addr);	    
+	
+	default:
+	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
+	    break;
+    }
+
+    return -1;
+}
+
+int v3_invalidate_nested_addr_range(struct guest_info * info, 
+				    addr_t inv_addr_start, addr_t inv_addr_end) {
+
+#ifdef __V3_64BIT__
+    v3_cpu_mode_t mode = LONG;
+#else 
+    v3_cpu_mode_t mode = PROTECTED;
+#endif
+
+    switch(mode) {
+	case REAL:
+	case PROTECTED:
+	    return invalidate_addr_32_range(info, inv_addr_start, inv_addr_end);
+
+	case PROTECTED_PAE:
+  	    return invalidate_addr_32pae_range(info, inv_addr_start, inv_addr_end);
+
+	case LONG:
+	case LONG_32_COMPAT:
+  	    return invalidate_addr_64_range(info, inv_addr_start, inv_addr_end);	    
 	
 	default:
 	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");

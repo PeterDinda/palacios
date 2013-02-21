@@ -212,6 +212,7 @@ struct v3_mem_region * __insert_mem_region(struct v3_vm_info * vm,
 int v3_insert_mem_region(struct v3_vm_info * vm, struct v3_mem_region * region) {
     struct v3_mem_region * ret;
     int i = 0;
+    int rc;
 
     if ((ret = __insert_mem_region(vm, region))) {
 	PrintError(vm, VCORE_NONE, "Internal insert failed returned region is from 0x%p to 0x%p on vcore %d\n", (void*)(ret->guest_start), (void*)(ret->guest_end), ret->core_id);
@@ -221,6 +222,7 @@ int v3_insert_mem_region(struct v3_vm_info * vm, struct v3_mem_region * region) 
     v3_rb_insert_color(&(region->tree_node), &(vm->mem_map.mem_regions));
 
 
+    rc = 0;
 
     for (i = 0; i < vm->num_cores; i++) {
 	struct guest_info * info = &(vm->cores[i]);
@@ -232,30 +234,17 @@ int v3_insert_mem_region(struct v3_vm_info * vm, struct v3_mem_region * region) 
 	    v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
 	    
 	    if (mem_mode == PHYSICAL_MEM) {
-		addr_t cur_addr;
-		
-		for (cur_addr = region->guest_start;
-		     cur_addr < region->guest_end;
-		     cur_addr += PAGE_SIZE_4KB) {
-		    v3_invalidate_passthrough_addr(info, cur_addr);
-		}
+	        rc |= v3_invalidate_passthrough_addr_range(info, region->guest_start, region->guest_end-1);
 	    } else {
-		v3_invalidate_shadow_pts(info);
+		rc |= v3_invalidate_shadow_pts(info);
 	    }
 	    
 	} else if (info->shdw_pg_mode == NESTED_PAGING) {
-	    addr_t cur_addr;
-	    
-	    for (cur_addr = region->guest_start;
-		 cur_addr < region->guest_end;
-		 cur_addr += PAGE_SIZE_4KB) {
-		
-		v3_invalidate_nested_addr(info, cur_addr);
-	    }
+	    rc |= v3_invalidate_nested_addr_range(info, region->guest_start, region->guest_end-1);
 	}
     }
 
-    return 0;
+    return rc;
 }
 						 
 
@@ -428,6 +417,7 @@ static struct v3_mem_region * get_overlapping_region(struct v3_vm_info * vm, uin
 
 void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
     int i = 0;
+    int rc;
 
     if (reg == NULL) {
 	return;
@@ -446,6 +436,8 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
 	return;
     }
 
+    rc = 0;
+
     for (i = 0; i < vm->num_cores; i++) {
 	struct guest_info * info = &(vm->cores[i]);
 
@@ -456,26 +448,13 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
 	    v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
 	    
 	    if (mem_mode == PHYSICAL_MEM) {
-		addr_t cur_addr;
-		
-		for (cur_addr = reg->guest_start;
-		     cur_addr < reg->guest_end;
-		     cur_addr += PAGE_SIZE_4KB) {
-		    v3_invalidate_passthrough_addr(info, cur_addr);
-		}
+	      rc |= v3_invalidate_passthrough_addr_range(info,reg->guest_start, reg->guest_end-1);
 	    } else {
-		v3_invalidate_shadow_pts(info);
+	      rc |= v3_invalidate_shadow_pts(info);
 	    }
 	    
 	} else if (info->shdw_pg_mode == NESTED_PAGING) {
-	    addr_t cur_addr;
-	    
-	    for (cur_addr = reg->guest_start;
-		 cur_addr < reg->guest_end;
-		 cur_addr += PAGE_SIZE_4KB) {
-		
-		v3_invalidate_nested_addr(info, cur_addr);
-	    }
+	  rc |= v3_invalidate_nested_addr_range(info,reg->guest_start, reg->guest_end-1);
 	}
     }
 
@@ -484,6 +463,7 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
     // flush virtual page tables 
     // 3 cases shadow, shadow passthrough, and nested
 
+    if (rc) { PrintError(vm, VCORE_NONE, "Error in deleting memory region\n"); }
 }
 
 // Determine if a given address can be handled by a large page of the requested size

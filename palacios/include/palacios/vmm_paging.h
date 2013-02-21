@@ -133,12 +133,14 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 #define PAGE_BASE_ADDR_2MB(x) ((x) >> 21)
 #define PAGE_BASE_ADDR_4MB(x) ((x) >> 22)
 #define PAGE_BASE_ADDR_1GB(x) ((x) >> 30)
+#define PAGE_BASE_ADDR_512GB(x) ((x) >> 39)
 
 #define BASE_TO_PAGE_ADDR(x) (((addr_t)x) << 12)
 #define BASE_TO_PAGE_ADDR_4KB(x) (((addr_t)x) << 12)
 #define BASE_TO_PAGE_ADDR_2MB(x) (((addr_t)x) << 21)
 #define BASE_TO_PAGE_ADDR_4MB(x) (((addr_t)x) << 22)
 #define BASE_TO_PAGE_ADDR_1GB(x) (((addr_t)x) << 30)
+#define BASE_TO_PAGE_ADDR_512GB(x) (((addr_t)x) << 39)
 /* *** */
 
 
@@ -166,6 +168,7 @@ typedef enum {PAGE_4KB, PAGE_2MB, PAGE_4MB, PAGE_1GB,
 #define PAGE_SIZE_2MB (4096 * 512)
 #define PAGE_SIZE_4MB (4096 * 1024)
 #define PAGE_SIZE_1GB 0x40000000
+#define PAGE_SIZE_512GB (512ULL * PAGE_SIZE_1GB)
 
 /* *** */
 

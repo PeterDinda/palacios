@@ -106,7 +106,8 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 
 
 
-static inline int invalidate_addr_32(struct guest_info * info, addr_t inv_addr) {
+static inline int invalidate_addr_32_internal(struct guest_info * info, addr_t inv_addr,
+					      addr_t *actual_start, uint64_t *actual_size) {
     pde32_t * pde = NULL;
     pte32_t * pte = NULL;
 
@@ -126,11 +127,15 @@ static inline int invalidate_addr_32(struct guest_info * info, addr_t inv_addr) 
     }    
 
     if (pde[pde_index].present == 0) {
+        *actual_start = BASE_TO_PAGE_ADDR_4MB(PAGE_BASE_ADDR_4MB(inv_addr));
+        *actual_size = PAGE_SIZE_4MB;
 	return 0;
     } else if (pde[pde_index].large_page) {
 	pde[pde_index].present = 0;
 	pde[pde_index].writable = 0;
 	pde[pde_index].user_page = 0;
+        *actual_start = BASE_TO_PAGE_ADDR_4MB(PAGE_BASE_ADDR_4MB(inv_addr));
+        *actual_size = PAGE_SIZE_4MB;
 	return 0;
     }
 
@@ -140,8 +145,38 @@ static inline int invalidate_addr_32(struct guest_info * info, addr_t inv_addr) 
     pte[pte_index].writable = 0;
     pte[pte_index].user_page = 0;
 
+    *actual_start = BASE_TO_PAGE_ADDR_4KB(PAGE_BASE_ADDR_4KB(inv_addr));
+    *actual_size = PAGE_SIZE_4KB;
+
     return 0;
 }
+
+
+static inline int invalidate_addr_32(struct guest_info * core, addr_t inv_addr)
+{
+  addr_t start;
+  uint64_t len;
+  
+  return invalidate_addr_32_internal(core,inv_addr,&start,&len);
+}
+   
+static inline int invalidate_addr_32_range(struct guest_info * core, addr_t inv_addr_start, addr_t inv_addr_end)
+{
+  addr_t next;
+  addr_t start;
+  uint64_t len;
+  int rc;
+  
+  for (next=inv_addr_start; next<=inv_addr_end; ) {
+    rc = invalidate_addr_32_internal(core,next,&start, &len);
+    if (rc) { 
+      return rc;
+    }
+    next = start + len;
+  }
+  return 0;
+}
+
 
 
 #endif

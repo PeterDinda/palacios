@@ -37,7 +37,14 @@ int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_e
 int v3_activate_passthrough_pt(struct guest_info * info);
 
 int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr);
+// The range invalidated is minimally [start, end]
+int v3_invalidate_passthrough_addr_range(struct guest_info * info, 
+					 addr_t inv_addr_start, addr_t inv_addr_end);
+
 int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr);
+// The range invalidated is minimally [start, end]
+int v3_invalidate_nested_addr_range(struct guest_info * info, 
+				    addr_t inv_addr_start, addr_t inv_addr_end);
 
 #endif // ! __V3VEE__
 

@@ -113,7 +113,8 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
 }
 
 
-static inline int invalidate_addr_32pae(struct guest_info * info, addr_t inv_addr) {
+static inline int invalidate_addr_32pae_internal(struct guest_info * info, addr_t inv_addr,
+						 addr_t *actual_start, uint64_t *actual_size) {
     pdpe32pae_t * pdpe = NULL;
     pde32pae_t * pde = NULL;
     pte32pae_t * pte = NULL;
@@ -137,15 +138,21 @@ static inline int invalidate_addr_32pae(struct guest_info * info, addr_t inv_add
 
 
     if (pdpe[pdpe_index].present == 0) {
+        *actual_start = BASE_TO_PAGE_ADDR_1GB(PAGE_BASE_ADDR_1GB(inv_addr));
+        *actual_size = PAGE_SIZE_1GB;
 	return 0;
     }
 
     pde = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pdpe[pdpe_index].pd_base_addr));
 
     if (pde[pde_index].present == 0) {
+        *actual_start = BASE_TO_PAGE_ADDR_2MB(PAGE_BASE_ADDR_2MB(inv_addr));
+        *actual_size = PAGE_SIZE_2MB;
 	return 0;
     } else if (pde[pde_index].large_page) {
 	pde[pde_index].present = 0;
+        *actual_start = BASE_TO_PAGE_ADDR_2MB(PAGE_BASE_ADDR_2MB(inv_addr));
+        *actual_size = PAGE_SIZE_2MB;
 	return 0;
     }
 
@@ -153,9 +160,36 @@ static inline int invalidate_addr_32pae(struct guest_info * info, addr_t inv_add
 
     pte[pte_index].present = 0;
 
+    *actual_start = BASE_TO_PAGE_ADDR_4KB(PAGE_BASE_ADDR_4KB(inv_addr));
+    *actual_size = PAGE_SIZE_4KB;
     return 0;
 }
 
 
+
+static inline int invalidate_addr_32pae(struct guest_info * core, addr_t inv_addr)
+{
+  addr_t start;
+  uint64_t len;
+  
+  return invalidate_addr_32pae_internal(core,inv_addr,&start,&len);
+}
+   
+static inline int invalidate_addr_32pae_range(struct guest_info * core, addr_t inv_addr_start, addr_t inv_addr_end)
+{
+  addr_t next;
+  addr_t start;
+  uint64_t len;
+  int rc;
+  
+  for (next=inv_addr_start; next<=inv_addr_end; ) {
+    rc = invalidate_addr_32pae_internal(core,next,&start, &len);
+    if (rc) { 
+      return rc;
+    }
+    next = start + len;
+  }
+  return 0;
+}
 
 #endif
