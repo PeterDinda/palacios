@@ -81,10 +81,20 @@ struct vm_scheduler_impl *v3_scheduler_lookup(char *name)
 }
 
 int V3_enable_scheduler() {
-    /* XXX Lookup the specified scheduler to use for palacios and use it */
-    
-    scheduler = v3_scheduler_lookup(default_strategy);
-    PrintDebug(VM_NONE, VCORE_NONE,"Sched. Scheduler %s found",scheduler->name);
+    char *sched_name;
+
+    scheduler = NULL;
+    sched_name = v3_lookup_option("scheduler");
+
+    if (!sched_name) {
+	scheduler = v3_scheduler_lookup(sched_name);
+    } 
+
+    if (!scheduler) {
+        scheduler = v3_scheduler_lookup(default_strategy);
+    }
+
+    PrintDebug(VM_NONE, VCORE_NONE,"Scheduler %s found",scheduler->name);
     
     if (!scheduler) {
 	PrintError(VM_NONE, VCORE_NONE,"Specified Palacios scheduler \"%s\" not found.\n", default_strategy);

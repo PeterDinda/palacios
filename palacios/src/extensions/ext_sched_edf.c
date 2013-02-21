@@ -29,7 +29,7 @@
 #include <palacios/vmm_rbtree.h>
 
 
-#ifndef V3_CONFIG_DEBUG_EDF_SCHED
+#ifndef V3_CONFIG_DEBUG_EXT_EDF_SCHED
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
