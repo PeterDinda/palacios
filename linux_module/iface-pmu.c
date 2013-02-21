@@ -377,6 +377,7 @@ static void intel_pmu_deinit(void) {
   if ((get_cpu_var(pmu_refcount)--)==0) {
     put_cpu_var(pmu_refcount);
     // actually deinit
+    return;
   }
   put_cpu_var(pmu_refcount);
 }
@@ -606,6 +607,7 @@ static void amd_pmu_deinit(void) {
   if ((get_cpu_var(pmu_refcount)--)==0) {
     put_cpu_var(pmu_refcount);
     // actually deinit
+    return;
   }
   put_cpu_var(pmu_refcount);
 }
