@@ -170,19 +170,19 @@ static void pci_dump_state(struct pci_internal * pci_state) {
     struct rb_node * node = v3_rb_first(&(pci_state->bus_list[0].devices));
     struct pci_device * tmp_dev = NULL;
     
-    PrintDebug(core->vm_info, core, "===PCI: Dumping state Begin ==========\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "===PCI: Dumping state Begin ==========\n");
     
     do {
 	tmp_dev = rb_entry(node, struct pci_device, dev_tree_node);
 
-  	PrintDebug(core->vm_info, core, "PCI Device Number: %d (%s):\n", tmp_dev->dev_num,  tmp_dev->name);
-	PrintDebug(core->vm_info, core, "irq = %d\n", tmp_dev->config_header.intr_line);
-	PrintDebug(core->vm_info, core, "Vend ID: 0x%x\n", tmp_dev->config_header.vendor_id);
-	PrintDebug(core->vm_info, core, "Device ID: 0x%x\n", tmp_dev->config_header.device_id);
+  	PrintDebug(VM_NONE, VCORE_NONE, "PCI Device Number: %d (%s):\n", tmp_dev->dev_num,  tmp_dev->name);
+	PrintDebug(VM_NONE, VCORE_NONE, "irq = %d\n", tmp_dev->config_header.intr_line);
+	PrintDebug(VM_NONE, VCORE_NONE, "Vend ID: 0x%x\n", tmp_dev->config_header.vendor_id);
+	PrintDebug(VM_NONE, VCORE_NONE, "Device ID: 0x%x\n", tmp_dev->config_header.device_id);
 
     } while ((node = v3_rb_next(node)));
     
-    PrintDebug(core->vm_info, core, "====PCI: Dumping state End==========\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "====PCI: Dumping state End==========\n");
 }
 
 #endif
@@ -195,11 +195,11 @@ static int get_free_dev_num(struct pci_bus * bus) {
     int i, j;
 
     for (i = 0; i < sizeof(bus->dev_map); i++) {
-	PrintDebug(core->vm_info, core, "i=%d\n", i);
+	PrintDebug(VM_NONE, VCORE_NONE, "i=%d\n", i);
 	if (bus->dev_map[i] != 0xff) {
 	    // availability
 	    for (j = 0; j < 8; j++) {
-		PrintDebug(core->vm_info, core, "\tj=%d\n", j);
+		PrintDebug(VM_NONE, VCORE_NONE, "\tj=%d\n", j);
 		if (!(bus->dev_map[i] & (0x1 << j))) {
 		    return ((i * 8) + j);
 		}
