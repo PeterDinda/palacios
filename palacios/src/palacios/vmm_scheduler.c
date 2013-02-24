@@ -86,7 +86,7 @@ int V3_enable_scheduler() {
     scheduler = NULL;
     sched_name = v3_lookup_option("scheduler");
 
-    if (!sched_name) {
+    if (sched_name) {
 	scheduler = v3_scheduler_lookup(sched_name);
     } 
 
