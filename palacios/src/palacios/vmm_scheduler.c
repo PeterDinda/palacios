@@ -218,9 +218,11 @@ void host_sched_yield(struct guest_info * core, int usec) {
     } else {
         V3_Sleep(usec);
     }
-    yield_start_cycle = (uint64_t) core->sched_priv_data
-                        + (uint64_t)core->vm_info->sched_priv_data;
-    core->sched_priv_data = (void *)yield_start_cycle;
+    if(core){
+        yield_start_cycle = (uint64_t) core->sched_priv_data
+                            + (uint64_t)core->vm_info->sched_priv_data;
+        core->sched_priv_data = (void *)yield_start_cycle;
+    }
 }
 
 
