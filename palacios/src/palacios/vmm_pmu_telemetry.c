@@ -142,28 +142,29 @@ static void inline snapshot(uint64_t vals[]) {
 
 
 #define ALPHA_DENOM         8  // we are counting in 8ths
-#define ALPHA_NUM           1  // 1/8 to new value
-#define OM_ALPHA_NUM        7  // 7/8 to estimate
+#define ALPHA_NUM           1  // 1/8 to estimate
+#define OM_ALPHA_NUM        7  // 7/8 to the update
 
-static inline void update_ucpi_estimate(uint64_t *estimate, uint64_t counts[], uint64_t last[])
+static inline void update_ucpi_estimate(uint64_t *estimate, uint64_t cur[], uint64_t last[])
 {
   // 1e6 times the number of cycles since last
-  uint64_t ucycles = 1000000 * (counts[V3_PMON_CLOCK_COUNT] - last[V3_PMON_CLOCK_COUNT]);
-  uint64_t insts = counts[V3_PMON_RETIRED_INST_COUNT] - last[V3_PMON_RETIRED_INST_COUNT];
+  uint64_t ucycles = 1000000 * (cur[V3_PMON_CLOCK_COUNT] - last[V3_PMON_CLOCK_COUNT]);
+  uint64_t insts = cur[V3_PMON_RETIRED_INST_COUNT] - last[V3_PMON_RETIRED_INST_COUNT];
 
   if (insts==0) { 
     return;
   }
- 
+
+
   *estimate = ((ALPHA_NUM * (*estimate)) + (OM_ALPHA_NUM * ((ucycles/insts)))) / ALPHA_DENOM;
                   
 }
 
-static inline void update_umpl_estimate(uint64_t *estimate, uint64_t counts[], uint64_t last[])
+static inline void update_umpl_estimate(uint64_t *estimate, uint64_t cur[], uint64_t last[])
 {
   // 1e6 times the number of misses since the last time
-  uint64_t umisses = 1000000 * (counts[V3_PMON_CACHE_MISS_COUNT] - last[V3_PMON_CACHE_MISS_COUNT]);
-  uint64_t loads = counts[V3_PMON_MEM_LOAD_COUNT] - last[V3_PMON_MEM_LOAD_COUNT];
+  uint64_t umisses = 1000000 * (cur[V3_PMON_CACHE_MISS_COUNT] - last[V3_PMON_CACHE_MISS_COUNT]);
+  uint64_t loads = cur[V3_PMON_MEM_LOAD_COUNT] - last[V3_PMON_MEM_LOAD_COUNT];
 
   if (loads==0) {
     return;
@@ -197,10 +198,10 @@ void v3_pmu_telemetry_enter(struct guest_info *info)
     }
 
     if (HAVE(V3_PMON_CLOCK_COUNT) && HAVE(V3_PMON_RETIRED_INST_COUNT)) { 
-      update_ucpi_estimate(&(info->pmu_telem.host_ucpi_estimate), info->pmu_telem.host_counts, info->pmu_telem.last_snapshot);
+      update_ucpi_estimate(&(info->pmu_telem.host_ucpi_estimate), snap, info->pmu_telem.last_snapshot);
     }
     if (HAVE(V3_PMON_CACHE_MISS_COUNT) && HAVE(V3_PMON_MEM_LOAD_COUNT)) { 
-      update_umpl_estimate(&(info->pmu_telem.host_umpl_estimate), info->pmu_telem.host_counts, info->pmu_telem.last_snapshot);
+      update_umpl_estimate(&(info->pmu_telem.host_umpl_estimate), snap, info->pmu_telem.last_snapshot);
     }
 
     for (i=0;i<PMU_NUM_COUNTERS;i++) { 
@@ -239,10 +240,13 @@ void v3_pmu_telemetry_exit(struct guest_info *info)
     }
 
     if (HAVE(V3_PMON_CLOCK_COUNT) && HAVE(V3_PMON_RETIRED_INST_COUNT)) { 
-      update_ucpi_estimate(&(info->pmu_telem.guest_ucpi_estimate), info->pmu_telem.guest_counts, info->pmu_telem.last_snapshot);
+      update_ucpi_estimate(&(info->pmu_telem.guest_ucpi_estimate), snap, info->pmu_telem.last_snapshot);
+    } else {
+      PrintError(VM_NONE, VCORE_NONE,"Huh - not doing ucpi update?\n");
     }
+
     if (HAVE(V3_PMON_CACHE_MISS_COUNT) && HAVE(V3_PMON_MEM_LOAD_COUNT)) { 
-      update_umpl_estimate(&(info->pmu_telem.guest_umpl_estimate), info->pmu_telem.guest_counts, info->pmu_telem.last_snapshot);
+      update_umpl_estimate(&(info->pmu_telem.guest_umpl_estimate), snap, info->pmu_telem.last_snapshot);
     }
 
     for (i=0;i<PMU_NUM_COUNTERS;i++) { 
