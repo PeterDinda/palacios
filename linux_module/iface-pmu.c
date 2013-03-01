@@ -427,14 +427,14 @@ static uint64_t amd_get_value(v3_pmon_ctr_t ctr) {
     }
     break;
   case V3_PMON_MEM_LOAD_COUNT:
-    if((ctr_idx = amd_find_idx(AMD_PREFETCH_INST_DISPATCHED, AMD_LOAD)) >= 0) {
+    if((ctr_idx = amd_find_idx(AMD_DATA_CACHE_ACCESSES, 0x0)) >= 0) {
       AMD_CTR_READ(count, ctr_idx);
     } else {
       goto AMD_READ_FAILED;
     }
     break;
   case V3_PMON_MEM_STORE_COUNT:
-    if((ctr_idx = amd_find_idx(AMD_PREFETCH_INST_DISPATCHED, AMD_STORE)) >= 0) {
+    if((ctr_idx = amd_find_idx(AMD_DATA_CACHE_ACCESSES, 0x0)) >= 0) {
       AMD_CTR_READ(count, ctr_idx);
     } else {
       goto AMD_READ_FAILED;
@@ -448,7 +448,7 @@ static uint64_t amd_get_value(v3_pmon_ctr_t ctr) {
     }
     break;
   case V3_PMON_TLB_MISS_COUNT:
-    if((ctr_idx = amd_find_idx(AMD_L1_DTLB_AND_L2_DTLB_MISS, 0x0)) >= 0) {
+    if((ctr_idx = amd_find_idx(AMD_L1_DTLB_AND_L2_DTLB_MISS, 0x7)) >= 0) {
       AMD_CTR_READ(count, ctr_idx);
     } else {
       goto AMD_READ_FAILED;
@@ -483,14 +483,14 @@ static int amd_start_tracking(v3_pmon_ctr_t ctr) {
     break;
   case V3_PMON_MEM_LOAD_COUNT:
     if((ctr_idx = amd_get_slot()) >= 0) {
-      AMD_CTRL_START(AMD_PREFETCH_INST_DISPATCHED, AMD_LOAD, ctr_idx);
+      AMD_CTRL_START(AMD_DATA_CACHE_ACCESSES, 0x0, ctr_idx);
     } else {
       goto AMD_START_FAILED;
     }
     break;
   case V3_PMON_MEM_STORE_COUNT:
     if((ctr_idx = amd_get_slot()) >= 0) {
-      AMD_CTRL_START(AMD_PREFETCH_INST_DISPATCHED, AMD_STORE, ctr_idx);
+      AMD_CTRL_START(AMD_DATA_CACHE_ACCESSES, 0x0, ctr_idx);
     } else {
       goto AMD_START_FAILED;
     }
@@ -504,7 +504,7 @@ static int amd_start_tracking(v3_pmon_ctr_t ctr) {
     break;
   case V3_PMON_TLB_MISS_COUNT:
     if((ctr_idx = amd_get_slot()) >= 0) {
-      AMD_CTRL_START(AMD_L1_DTLB_AND_L2_DTLB_MISS, 0x0, ctr_idx);
+      AMD_CTRL_START(AMD_L1_DTLB_AND_L2_DTLB_MISS, 0x7, ctr_idx);
     } else {
       goto AMD_START_FAILED;
     }
@@ -540,14 +540,14 @@ static int amd_stop_tracking(v3_pmon_ctr_t ctr) {
     }
     break;
   case V3_PMON_MEM_LOAD_COUNT:
-    if((ctr_idx = amd_find_idx(AMD_PREFETCH_INST_DISPATCHED, AMD_LOAD)) >= 0) {
+    if((ctr_idx = amd_find_idx(AMD_DATA_CACHE_ACCESSES, 0x0)) >= 0) {
       AMD_CTRL_STOP(ctr_idx);
     } else {
       goto AMD_STOP_FAILED;
     }
     break;
   case V3_PMON_MEM_STORE_COUNT:
-    if((ctr_idx = amd_find_idx(AMD_PREFETCH_INST_DISPATCHED, AMD_STORE)) >= 0) {
+    if((ctr_idx = amd_find_idx(AMD_DATA_CACHE_ACCESSES, 0x0)) >= 0) {
       AMD_CTRL_STOP(ctr_idx);
     } else {
       goto AMD_STOP_FAILED;
@@ -561,7 +561,7 @@ static int amd_stop_tracking(v3_pmon_ctr_t ctr) {
     }
     break;
   case V3_PMON_TLB_MISS_COUNT:
-    if((ctr_idx = amd_find_idx(AMD_L1_DTLB_AND_L2_DTLB_MISS, 0x0)) >= 0) {
+    if((ctr_idx = amd_find_idx(AMD_L1_DTLB_AND_L2_DTLB_MISS, 0x7)) >= 0) {
       AMD_CTRL_STOP(ctr_idx);
     } else {
       goto AMD_STOP_FAILED;
