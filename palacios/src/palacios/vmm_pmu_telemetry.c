@@ -241,9 +241,7 @@ void v3_pmu_telemetry_exit(struct guest_info *info)
 
     if (HAVE(V3_PMON_CLOCK_COUNT) && HAVE(V3_PMON_RETIRED_INST_COUNT)) { 
       update_ucpi_estimate(&(info->pmu_telem.guest_ucpi_estimate), snap, info->pmu_telem.last_snapshot);
-    } else {
-      PrintError(VM_NONE, VCORE_NONE,"Huh - not doing ucpi update?\n");
-    }
+    } 
 
     if (HAVE(V3_PMON_CACHE_MISS_COUNT) && HAVE(V3_PMON_MEM_LOAD_COUNT)) { 
       update_umpl_estimate(&(info->pmu_telem.guest_umpl_estimate), snap, info->pmu_telem.last_snapshot);
