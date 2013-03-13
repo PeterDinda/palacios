@@ -39,7 +39,8 @@ BASE_EXECS = 	v3_mem \
 EXAMPLE_EXECS = v3_user_host_dev_example \
 		v3_os_debug \
 		v3_user_keyed_stream_example \
-		v3_user_keyed_stream_file 
+		v3_user_keyed_stream_file \
+		v3_guest_mem_example
 
 #
 # Currently experimental things
@@ -63,7 +64,7 @@ COPIED_EXECS = v3_x0vncserver v3_x0gui
 #
 # Libraries that we need to build
 #
-LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a
+LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a libv3_guest_mem.a
 
 BUILD_EXECS = $(BASE_EXECS) $(EXAMPLE_EXECS) $(EXPERIMENTAL_EXECS) 
 BUILD_LIBS = $(LIBS)
@@ -147,6 +148,17 @@ v3_user_keyed_stream_example : v3_user_keyed_stream_example.c libv3_user_keyed_s
 
 v3_user_keyed_stream_file : v3_user_keyed_stream_file.c libv3_user_keyed_stream.a
 	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_keyed_stream -o $@
+
+
+# guest memory access by mmap and example
+#
+libv3_guest_mem.a : v3_guest_mem.c v3_guest_mem.h v3_ctrl.h
+	$(CC) $(CFLAGS) -c v3_guest_mem.c 
+	$(AR) ruv libv3_guest_mem.a v3_guest_mem.o
+	rm -f v3_guest_mem.o
+
+v3_guest_mem_example : v3_guest_mem_example.c libv3_guest_mem.a
+	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -o $@
 
 
 
