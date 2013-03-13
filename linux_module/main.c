@@ -26,9 +26,9 @@
 #include "palacios.h"
 #include "mm.h"
 #include "vm.h"
+#include "allow_devmem.h"
 
 #include "linux-exts.h"
-
 
 
 MODULE_LICENSE("GPL");
@@ -39,10 +39,15 @@ int cpu_list_len = 0;
 module_param_array(cpu_list, int, &cpu_list_len, 0644);
 MODULE_PARM_DESC(cpu_list, "Comma-delimited list of CPUs that Palacios will run on");
 
+static int allow_devmem = 0;
+module_param(allow_devmem, int, 0);
+MODULE_PARM_DESC(allow_devmem, "Allow general user-space /dev/mem access even if kernel is strict");
+
 // Palacios options parameter
 static char *options;
 module_param(options, charp, 0);
 MODULE_PARM_DESC(options, "Generic options to internal Palacios modules");
+
 
 int mod_allocs = 0;
 int mod_frees = 0;
@@ -332,12 +337,19 @@ static int show_mem(char * buf, char ** start, off_t off, int count,
 }
 
 
+
+
+
 static int __init v3_init(void) {
     dev_t dev = MKDEV(0, 0); // We dynamicallly assign the major number
     int ret = 0;
 
 
     palacios_init_mm();
+
+    if (allow_devmem) {
+      palacios_allow_devmem();
+    }
 
     // Initialize Palacios
     palacios_vmm_init(options);
@@ -459,6 +471,10 @@ static void __exit v3_exit(void) {
 
 
     deinit_lnx_extensions();
+
+    if (allow_devmem) {
+      palacios_restore_devmem();
+    }
 
     palacios_deinit_mm();
 
