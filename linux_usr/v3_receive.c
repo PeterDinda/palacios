@@ -32,7 +32,13 @@ int main(int argc, char* argv[]) {
     char * vm_dev = NULL;
 
     if (argc < 4) {
-	printf("Usage: ./v3_receive <vm_device> <store> <url>\n");
+	printf("Usage: ./v3_receive <vm_device> <store> <url> [optionmask]\n");
+	printf(" optionmask consists of the sum of any of the following\n");
+	printf(" 0    none\n");
+	printf(" 1    skip memory\n");
+	printf(" 2    skip devices\n");
+	printf(" 4    skip cores\n");
+	printf(" 8    skip architecture-specific core state\n");
 	return -1;
     }
 
@@ -52,6 +58,12 @@ int main(int argc, char* argv[]) {
     }
 
     strncpy(chkpt.url, argv[3], MAX_URL_LEN);
+
+    if (argc>4) {
+      chkpt.opts = atoll(argv[4]);
+    } else {
+      chkpt.opts = V3_CHKPT_OPT_NONE;
+    }
 
     vm_fd = open(vm_dev, O_RDONLY);
     if (vm_fd == -1) {

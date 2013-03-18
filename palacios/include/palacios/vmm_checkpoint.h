@@ -156,12 +156,21 @@ int     v3_chkpt_load(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void 
 struct v3_chkpt_ctx * v3_chkpt_open_ctx(struct v3_chkpt * chkpt, char * name);
 int                   v3_chkpt_close_ctx(struct v3_chkpt_ctx * ctx);
 
-int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url);
-int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url);
+
+typedef uint64_t v3_chkpt_options_t;
+// The options are a bitwise or of the following
+#define V3_CHKPT_OPT_NONE         0
+#define V3_CHKPT_OPT_SKIP_MEM     1  // don't write memory to store
+#define V3_CHKPT_OPT_SKIP_DEVS    2  // don't write devices to store
+#define V3_CHKPT_OPT_SKIP_CORES   4  // don't write core arch ind data to store
+#define V3_CHKPT_OPT_SKIP_ARCHDEP 8  // don't write core arch dep data to store
+
+int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts);
+int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts);
 
 #ifdef V3_CONFIG_LIVE_MIGRATION
-int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url);
-int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url);
+int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts);
+int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts);
 #endif
 
 int V3_init_checkpoint();

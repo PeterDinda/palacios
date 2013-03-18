@@ -666,7 +666,7 @@ static int load_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 }
 
 
-static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
+static int load_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt_options_t opts) {
     extern v3_cpu_arch_t v3_mach_type;
     void * ctx = NULL;
     char key_name[16];
@@ -773,6 +773,10 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
     }
 
 
+    if (opts & V3_CHKPT_OPT_SKIP_ARCHDEP) { 
+      goto donearch;
+    }
+
     switch (v3_mach_type) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU: {
@@ -823,6 +827,8 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    goto loadfailout;
     }
 
+ donearch:
+
     PrintDebug(info->vm_info, info, "Load of core succeeded\n");
 
     v3_print_guest_state(info);
@@ -838,7 +844,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
 // GEM5 - Hypercall for initiating transfer to gem5 (checkpoint)
 
-static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
+static int save_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt_options_t opts) {
     extern v3_cpu_arch_t v3_mach_type;
     void * ctx = NULL;
     char key_name[16];
@@ -928,6 +934,10 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 
     v3_chkpt_close_ctx(ctx); ctx=0;
 
+    if (opts & V3_CHKPT_OPT_SKIP_ARCHDEP) {
+      goto donearch;
+    }
+
     //Architechture specific code
     switch (v3_mach_type) {
 	case V3_SVM_CPU:
@@ -979,6 +989,8 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 	    goto savefailout;
 	    
     }
+
+ donearch:
     
     return 0;
 
@@ -993,7 +1005,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt) {
 // GEM5 - Madhav has debug code here for printing instrucions
 //
 
-int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
+int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts) {
     struct v3_chkpt * chkpt = NULL;
     int ret = 0;;
     int i = 0;
@@ -1011,28 +1023,33 @@ int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
 	while (v3_raise_barrier(vm, NULL) == -1);
     }
 
-    if ((ret = save_memory(vm, chkpt)) == -1) {
+    if (!(opts & V3_CHKPT_OPT_SKIP_MEM)) {
+      if ((ret = save_memory(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to save memory\n");
 	goto out;
+      }
     }
     
     
-    if ((ret = v3_save_vm_devices(vm, chkpt)) == -1) {
+    if (!(opts & V3_CHKPT_OPT_SKIP_DEVS)) {
+      if ((ret = v3_save_vm_devices(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to save devices\n");
 	goto out;
+      }
     }
-    
 
     if ((ret = save_header(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to save header\n");
 	goto out;
     }
-    
-    for (i = 0; i < vm->num_cores; i++){
-	if ((ret = save_core(&(vm->cores[i]), chkpt)) == -1) {
-	    PrintError(vm, VCORE_NONE, "chkpt of core %d failed\n", i);
-	    goto out;
+
+    if (!(opts & V3_CHKPT_OPT_SKIP_CORES)) { 
+      for (i = 0; i < vm->num_cores; i++){
+	if ((ret = save_core(&(vm->cores[i]), chkpt, opts)) == -1) {
+	  PrintError(vm, VCORE_NONE, "chkpt of core %d failed\n", i);
+	  goto out;
 	}
+      }
     }
     
  out:
@@ -1048,7 +1065,7 @@ int v3_chkpt_save_vm(struct v3_vm_info * vm, char * store, char * url) {
 
 }
 
-int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
+int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts) {
     struct v3_chkpt * chkpt = NULL;
     int i = 0;
     int ret = 0;
@@ -1065,15 +1082,18 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
 	while (v3_raise_barrier(vm, NULL) == -1);
     }
 
-    if ((ret = load_memory(vm, chkpt)) == -1) {
+    if (!(opts & V3_CHKPT_OPT_SKIP_MEM)) {
+      if ((ret = load_memory(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to load memory\n");
 	goto out;
+      }
     }
 
-
-    if ((ret = v3_load_vm_devices(vm, chkpt)) == -1) {
+    if (!(opts & V3_CHKPT_OPT_SKIP_DEVS)) {
+      if ((ret = v3_load_vm_devices(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to load devies\n");
 	goto out;
+      }
     }
 
 
@@ -1083,11 +1103,13 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
     }
 
     //per core cloning
-    for (i = 0; i < vm->num_cores; i++) {
-	if ((ret = load_core(&(vm->cores[i]), chkpt)) == -1) {
-	    PrintError(vm, VCORE_NONE, "Error loading core state (core=%d)\n", i);
-	    goto out;
+    if (!(opts & V3_CHKPT_OPT_SKIP_CORES)) {
+      for (i = 0; i < vm->num_cores; i++) {
+	if ((ret = load_core(&(vm->cores[i]), chkpt, opts)) == -1) {
+	  PrintError(vm, VCORE_NONE, "Error loading core state (core=%d)\n", i);
+	  goto out;
 	}
+      }
     }
 
  out:
@@ -1119,7 +1141,7 @@ int v3_chkpt_load_vm(struct v3_vm_info * vm, char * store, char * url) {
 
 
 
-int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
+int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts) {
     struct v3_chkpt * chkpt = NULL;
     int ret = 0;;
     int iter = 0;
@@ -1133,10 +1155,10 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
 
     // Currently will work only for shadow paging
     for (i=0;i<vm->num_cores;i++) { 
-	if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING) { 
-	    PrintError(vm, VCORE_NONE, "Cannot currently handle nested paging\n");
-	    return -1;
-	}
+      if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING && !(opts & V3_CHKPT_OPT_SKIP_MEM)) { 
+	PrintError(vm, VCORE_NONE, "Cannot currently handle nested paging\n");
+	return -1;
+      }
     }
     
     
@@ -1148,6 +1170,10 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
 	return -1;
     }
     
+    if (opts & V3_CHKPT_OPT_SKIP_MEM) {
+      goto memdone;
+    }
+
     // In a send, the memory is copied incrementally first,
     // followed by the remainder of the state
     
@@ -1244,38 +1270,45 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url) {
         ret = -1;
         goto out;
     }
-    
+
+ memdone:    
     // save the non-memory state
-    if ((ret = v3_save_vm_devices(vm, chkpt)) == -1) {
+    if (!(opts & V3_CHKPT_OPT_SKIP_DEVS)) {
+      if ((ret = v3_save_vm_devices(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to save devices\n");
 	goto out;
+      }
     }
-    
 
     if ((ret = save_header(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to save header\n");
 	goto out;
     }
     
-    for (i = 0; i < vm->num_cores; i++){
-	if ((ret = save_core(&(vm->cores[i]), chkpt)) == -1) {
-	    PrintError(vm, VCORE_NONE, "chkpt of core %d failed\n", i);
-	    goto out;
+    if (!(opts & V3_CHKPT_OPT_SKIP_CORES)) {
+      for (i = 0; i < vm->num_cores; i++){
+	if ((ret = save_core(&(vm->cores[i]), chkpt, opts)) == -1) {
+	  PrintError(vm, VCORE_NONE, "chkpt of core %d failed\n", i);
+	  goto out;
 	}
+      }
     }
-    
-    stop_time = v3_get_host_time(&(vm->cores[0].time_state));
-    PrintDebug(vm, VCORE_NONE, "num_mod_pages=%d\ndowntime=%llu\n",num_mod_pages,stop_time-start_time);
-    PrintDebug(vm, VCORE_NONE, "Done sending VM!\n"); 
- out:
-    v3_bitmap_deinit(&modified_pages_to_send);
+
+    if (!(opts & V3_CHKPT_OPT_SKIP_MEM)) {
+      stop_time = v3_get_host_time(&(vm->cores[0].time_state));
+      PrintDebug(vm, VCORE_NONE, "num_mod_pages=%d\ndowntime=%llu\n",num_mod_pages,stop_time-start_time);
+      PrintDebug(vm, VCORE_NONE, "Done sending VM!\n"); 
+    out:
+      v3_bitmap_deinit(&modified_pages_to_send);
+    }
+
     chkpt_close(chkpt);
     
     return ret;
 
 }
 
-int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
+int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts) {
     struct v3_chkpt * chkpt = NULL;
     int i = 0;
     int ret = 0;
@@ -1283,10 +1316,10 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
  
     // Currently will work only for shadow paging
     for (i=0;i<vm->num_cores;i++) { 
-	if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING) { 
-	    PrintError(vm, VCORE_NONE, "Cannot currently handle nested paging\n");
-	    return -1;
-	}
+      if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING && !(opts & V3_CHKPT_OPT_SKIP_MEM)) { 
+	PrintError(vm, VCORE_NONE, "Cannot currently handle nested paging\n");
+	return -1;
+      }
     }
     
     chkpt = chkpt_open(vm, store, url, LOAD);
@@ -1297,6 +1330,11 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
 	return -1;
     }
     
+
+    if (opts & V3_CHKPT_OPT_SKIP_MEM) { 
+      goto memdone;
+    }
+
     if (v3_bitmap_init(&mod_pgs,vm->mem_size>>12) == -1) {
 	chkpt_close(chkpt);
         PrintError(vm, VCORE_NONE, "Could not intialize bitmap.\n");
@@ -1323,13 +1361,16 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
             goto out;
 	}
     }        
+
+ memdone:
     
-    if ((ret = v3_load_vm_devices(vm, chkpt)) == -1) {
+    if (!(opts & V3_CHKPT_OPT_SKIP_DEVS)) { 
+      if ((ret = v3_load_vm_devices(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to load devices\n");
 	ret = -1;
 	goto out;
+      }
     }
-    
     
     if ((ret = load_header(vm, chkpt)) == -1) {
 	PrintError(vm, VCORE_NONE, "Unable to load header\n");
@@ -1338,13 +1379,15 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
     }
     
     //per core cloning
-    for (i = 0; i < vm->num_cores; i++) {
-	if ((ret = load_core(&(vm->cores[i]), chkpt)) == -1) {
-	    PrintError(vm, VCORE_NONE, "Error loading core state (core=%d)\n", i);
-	    goto out;
+    if (!(opts & V3_CHKPT_OPT_SKIP_CORES)) {
+      for (i = 0; i < vm->num_cores; i++) {
+	if ((ret = load_core(&(vm->cores[i]), chkpt, opts)) == -1) {
+	  PrintError(vm, VCORE_NONE, "Error loading core state (core=%d)\n", i);
+	  goto out;
 	}
+      }
     }
-    
+
  out:
     if (ret==-1) { 
 	PrintError(vm, VCORE_NONE, "Unable to receive VM\n");
@@ -1366,7 +1409,11 @@ int v3_chkpt_receive_vm(struct v3_vm_info * vm, char * store, char * url) {
 	v3_lower_barrier(vm);
     } 
     
-    v3_bitmap_deinit(&mod_pgs);
+
+    if (!(opts & V3_CHKPT_OPT_SKIP_MEM)) { 
+      v3_bitmap_deinit(&mod_pgs);
+    }
+
     chkpt_close(chkpt);
 
     return ret;

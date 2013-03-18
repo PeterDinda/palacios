@@ -212,7 +212,7 @@ static long v3_vm_ioctl(struct file * filp,
 	    
 	    NOTICE("Saving Guest to %s:%s\n", chkpt.store, chkpt.url);
 
-	    if (v3_save_vm(guest->v3_ctx, chkpt.store, chkpt.url) == -1) {
+	    if (v3_save_vm(guest->v3_ctx, chkpt.store, chkpt.url, chkpt.opts) == -1) {
 		WARNING("Error checkpointing VM state\n");
 		return -EFAULT;
 	    }
@@ -232,7 +232,7 @@ static long v3_vm_ioctl(struct file * filp,
 	    
 	    NOTICE("Loading Guest from %s:%s\n", chkpt.store, chkpt.url);
 
-	    if (v3_load_vm(guest->v3_ctx, chkpt.store, chkpt.url) == -1) {
+	    if (v3_load_vm(guest->v3_ctx, chkpt.store, chkpt.url, chkpt.opts) == -1) {
 		WARNING("Error Loading VM state\n");
 		return -EFAULT;
 	    }
@@ -256,7 +256,7 @@ static long v3_vm_ioctl(struct file * filp,
 	    
 	    NOTICE("Sending (live-migrating) Guest to %s:%s\n",chkpt_info.store, chkpt_info.url); 
 	    
-	    if (v3_send_vm(guest->v3_ctx, chkpt_info.store, chkpt_info.url) == -1) {
+	    if (v3_send_vm(guest->v3_ctx, chkpt_info.store, chkpt_info.url, chkpt_info.opts) == -1) {
 		WARNING("Error sending VM\n");
 		return -EFAULT;
 	    }
@@ -278,7 +278,7 @@ static long v3_vm_ioctl(struct file * filp,
 	    
 	    NOTICE("Receiving (live-migrating) Guest to %s:%s\n",chkpt_info.store, chkpt_info.url);
 	    
-	    if (v3_receive_vm(guest->v3_ctx, chkpt_info.store, chkpt_info.url) == -1) {
+	    if (v3_receive_vm(guest->v3_ctx, chkpt_info.store, chkpt_info.url, chkpt_info.opts) == -1) {
 		WARNING("Error receiving VM\n");
 		return -EFAULT;
 	    }

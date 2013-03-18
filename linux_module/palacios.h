@@ -70,6 +70,12 @@ struct v3_core_move_cmd {
 struct v3_chkpt_info {
     char store[128];
     char url[256]; /* This might need to be bigger... */
+    unsigned long long opts;
+#define V3_CHKPT_OPT_NONE         0
+#define V3_CHKPT_OPT_SKIP_MEM     1  // don't write memory to store
+#define V3_CHKPT_OPT_SKIP_DEVS    2  // don't write devices to store
+#define V3_CHKPT_OPT_SKIP_CORES   4  // don't write core arch ind data to store
+#define V3_CHKPT_OPT_SKIP_ARCHDEP 8  // don't write core arch dep data to store
 } __attribute__((packed));
 
 
