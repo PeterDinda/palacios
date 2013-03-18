@@ -23,6 +23,15 @@ int main(int argc, char* argv[]) {
 
     if (argc < 4) {
 	printf("usage: v3_debug <vm_device> <vm core> <cmd>\n");
+	printf("This will cause debugging output to be sent to the log\n\n");
+	printf("<cmds>: \n");
+	printf(" 1   telemetry\n");
+	printf(" 2   core state\n");
+	printf(" 3   arch state\n");
+	printf(" 4   stack\n");
+	printf(" 5   backtrace\n");
+	printf(" 100 everything\n");
+	printf(" 101 telemetry+core state+arch state\n");
 	return -1;
     }
 

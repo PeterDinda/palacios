@@ -110,11 +110,11 @@ static int setup_hw_pci_dev(struct host_pci_device * host_dev) {
 	int rom_size = pci_resource_len(dev, PCI_ROM_RESOURCE);
 
 	if (rom_size > 0) {
-	    unsigned long flags;
+	  //unsigned long flags;
 
 	    v3_dev->exp_rom.size = rom_size;
 	    v3_dev->exp_rom.addr = pci_resource_start(dev, PCI_ROM_RESOURCE);
-	    flags = pci_resource_flags(dev, PCI_ROM_RESOURCE);
+	    // flags = pci_resource_flags(dev, PCI_ROM_RESOURCE); 
 
 	    v3_dev->exp_rom.type = PT_EXP_ROM;
 
