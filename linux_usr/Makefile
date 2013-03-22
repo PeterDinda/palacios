@@ -181,6 +181,7 @@ v3_x0vncserver :
 	else \
 		echo "In order to use v3_vncclient/server you must have" ; \
 		echo "previously built or received palacios/linux_usr/x0vncserver" ; \
+    		echo "To learn more about this, look in palacios/linux_usr/vnc"; \
 	fi;
 
 #

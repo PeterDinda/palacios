@@ -1,0 +1,39 @@
+This directory contains the sources for a VNC server designed for use
+with the Graphics Console interface.   It is a variant of the x0vncserver
+that ships with the VNC sources.  It's used with the following flow:
+
+  any vncclient
+      |
+ this x0vncserver
+      |
+graphics console userspace interface
+      |
+virtual device (vga.c, paragraph.c, ...)
+      |
+    guest
+
+Building VNC tools generally needs to be done in the context
+of the VNC distribution.    You cannot compile here.  You
+want to build this in the following way:
+
+0. build palacios/linux_usr to give you libv3_fb.a
+1. get a copy of the VNC distro - this is based on 4.0
+2. configure and build the whole thing
+3. you'll notice that the VNC distro has a x0vncserver
+   directory/target.   This directory needs to either
+   replace it, patch it, or go alongside it.
+   Notice that VNC generates Makefiles as part of configuration.
+4. modify the Makefile to reflect the one seen here. 
+   namely, you will want the following:
+
+V3FB_DIR = path/to/palacios/linux_usr
+
+EXTRA_LIBS += -L$(V3FB_DIR) -lv3_fb
+
+DIR_CPPFLAGS +=  -I$(V3FB_DIR)
+
+5. build x0vncserver
+6. cp x0vncserver palacios/linux_usr
+7. cd palacios/linux_usr; make v3_x0vncserver
+
+
