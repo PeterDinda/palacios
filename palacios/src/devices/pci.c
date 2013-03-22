@@ -1389,6 +1389,9 @@ static inline int init_bars(struct v3_vm_info * vm, struct pci_device * pci_dev)
 	    // Call the bar init function to get the local cached value
 	    bar->bar_init(i, &(bar->val), bar->private_data);
 
+	    // Copy back changes it made
+            *(uint32_t *)(pci_dev->config_space + bar_offset) = bar->val;
+
 	} else {
 	    PrintError(vm, VCORE_NONE, "Invalid BAR type for bar #%d\n", i);
 	    return -1;
