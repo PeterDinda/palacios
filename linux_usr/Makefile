@@ -64,7 +64,7 @@ COPIED_EXECS = v3_x0vncserver v3_x0gui
 #
 # Libraries that we need to build
 #
-LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a libv3_guest_mem.a
+LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a libv3_guest_mem.a libv3_fb.a
 
 BUILD_EXECS = $(BASE_EXECS) $(EXAMPLE_EXECS) $(EXPERIMENTAL_EXECS) 
 BUILD_LIBS = $(LIBS)
@@ -159,6 +159,15 @@ libv3_guest_mem.a : v3_guest_mem.c v3_guest_mem.h v3_ctrl.h
 
 v3_guest_mem_example : v3_guest_mem_example.c libv3_guest_mem.a
 	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -o $@
+
+
+#
+# FB (Graphics Console) user interface library (needed for VNC access
+#  to GC - also wraps mouse and keyboard event delivery)
+libv3_fb.a : v3_fb.c v3_fb.h
+	$(CC) $(CFLAGS) -I../linux_module -c v3_fb.c
+	$(AR) ruv libv3_fb.a v3_fb.o
+	rm -rf v3_fb.o 
 
 
 
