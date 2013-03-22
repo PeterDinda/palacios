@@ -445,6 +445,21 @@ config DEBUG_VGA
 	help
 	  Enables debugging output for the VGA device 
 
+config PARAGRAPH
+        bool "PARAGRAPH paravirtualized graphics card"
+        default n
+        depends GRAPHICS_CONSOLE
+        help
+          Includes a paravirtualized graphics card
+
+config DEBUG_PARAGRAPH
+        bool "DEBUG_PARAGRAPH"
+        default n
+        depends on PARAGRAPH
+        help
+          Enables debugging output for the PARAGRAPH device
+
+
 config CGA
 	bool "CGA"
 	default n
