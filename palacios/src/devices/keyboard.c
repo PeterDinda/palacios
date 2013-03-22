@@ -246,13 +246,15 @@ static int update_kb_irq(struct keyboard_internal * state) {
 	state->status.mouse_buf_full = 1;
     } 
     
-    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: interrupt 0x%d\n", irq_num);
+    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: interrupt 0x%x\n", irq_num);
     
     if (irq_num) {
 	// Global output buffer flag (for both Keyboard and mouse)
 	state->status.out_buf_full = 1;
 	
-	if (state->cmd.irq_en == 1) { 
+	if ((irq_num==KEYBOARD_IRQ && state->cmd.irq_en == 1) || 
+	    (irq_num==MOUSE_IRQ && state->cmd.mouse_irq_en == 1)) { 
+
 	    v3_raise_irq(state->vm, irq_num);
 	}
     }
