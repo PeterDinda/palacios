@@ -7,6 +7,7 @@ config GEARS
       This is the Guest Examination and Revision Services, an extension used
       to modify guest code and implement guest-context VMM services in Palacios
 
+
 config EXT_SW_INTERRUPTS
     bool "Enable interception and hooking of software interrupts"
     depends on GEARS
@@ -100,5 +101,36 @@ config EXT_CODE_INJECT
 	help
 	  This option will allow code to be injected and run in the
 	  guest context
+
+config EXT_PRIV
+    bool "Allow privileges to be given to code modules"
+    depends on GEARS
+    default n
+    help
+      This option allows different code modules in the guest to be
+      given privileges such as uninhibited access to devices etc.
+
+config DEBUG_EXT_PRIV
+    bool "Allow privileged module debugging"
+    depends on EXT_PRIV
+    default n
+    help
+      Turns on debugging output for privilege extension
+
+config EXT_GUARD_MODULES
+    bool "Allow guarded execution of guest modules"
+    depends on GEARS
+    depends on EXT_PRIV
+    default n
+    help
+      This option allows priveledge hardware access to kernel drivers/modules
+      in the guest. Requires instrumentation of guest driver/module.
+
+config DEBUG_EXT_GUARD_MODS
+    bool "Allow guarded module debugging"
+    depends on EXT_GUARD_MODULES
+    default n
+    help
+      Turns on debugging output for guarded modules extension
 
 endmenu

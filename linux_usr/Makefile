@@ -49,7 +49,8 @@ EXPERIMENTAL_EXECS = 	v3_simulate  \
 			v3_inject_ecc_scrubber_mce  \
                         v3_top_inject \
                         v3_env_inject \
-			v3_syscall
+			v3_syscall \
+			v3_register_gm
 
 
 
@@ -89,6 +90,10 @@ libv3_ctrl.a : v3_ctrl.c v3_ctrl.h
 	$(AR) ruv libv3_ctrl.a v3_ctrl.o
 	rm -rf v3_ctrl.o 
 
+libjson.a : cJSON.c cJSON.h
+	$(CC) $(CFLAGS) -c cJSON.c
+	$(AR) ruv libjson.a cJSON.o
+	rm -rf cJSON.o
 #
 # Most tools compile in a straightforward way
 #
@@ -132,6 +137,8 @@ v3_user_host_dev_example : v3_user_host_dev_example.c libv3_user_host_dev.a
 v3_os_debug : v3_os_debug.c libv3_user_host_dev.a
 	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_host_dev -o $@
 
+v3_register_gm: v3_register_gm.c libjson.a libv3_ctrl.a v3_ctrl.h
+	$(CC) $(CFLAGS) $< -L. -lm -lv3_ctrl -ljson -o $@
 
 #
 # User keyed stream support includes a library and examples

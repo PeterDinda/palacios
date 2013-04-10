@@ -44,6 +44,7 @@ v3vee-$(V3_CONFIG_HOST_HYPERCALL) += iface-host-hypercall.o
 v3vee-$(V3_CONFIG_EXT_CODE_INJECT) += iface-code-inject.o
 v3vee-$(V3_CONFIG_EXT_ENV_INJECT) += iface-env-inject.o
 v3vee-$(V3_CONFIG_EXT_SELECTIVE_SYSCALL_EXIT) += iface-syscall.o
+v3vee-$(V3_CONFIG_EXT_GUARD_MODULES) += iface-guard-mods.o
 
 
 v3vee-$(V3_CONFIG_HOST_PCI) += iface-host-pci.o
