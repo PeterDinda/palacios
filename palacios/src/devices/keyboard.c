@@ -434,16 +434,35 @@ static int mouse_event_handler(struct v3_vm_info * vm,
 
     switch (kbd->mouse_state) { 
 	case STREAM:
-
+	    // packet is 3 bytes of form
+	    // YO | XO | YS | XS | 1 | MIDDLE | RIGHT | LEFT
+	    // DX
+	    // YY
 	    if (kbd->cmd.mouse_disable == 0) {
-		push_to_output_queue(kbd, evt->data[0], DATA, MOUSE);
-		push_to_output_queue(kbd, evt->data[1], DATA, MOUSE);
-		push_to_output_queue(kbd, evt->data[2], DATA, MOUSE);
+		uint8_t h;
+		// YO=0
+		// XO=0
+		// bit 3 set
+		h=0x08; 
+		// YS bit
+		h |= (!!(evt->sy)) << 5;
+		// XS bit
+		h |= (!!(evt->sx)) << 4;
+		// buttons
+		h |= (evt->buttons) & 0x7;
+		// header byte
+		push_to_output_queue(kbd, h, DATA, MOUSE);
+		// dx
+		push_to_output_queue(kbd, evt->dx, DATA, MOUSE);
+		// dy
+		push_to_output_queue(kbd, evt->dy, DATA, MOUSE);
+	    } else {
+		PrintDebug(vm,VCORE_NONE, "Ignoring mouse event because mouse is disabled\n");
 	    }
 	    break;
 	default:
-	    PrintError(vm, VCORE_NONE, "Invalid mouse state\n");
-	    ret = -1;
+	    PrintDebug(vm, VCORE_NONE, "Ignoring mouse event due to mouse not being in stream mode\n");
+	    ret = 0;
 	    break;
     }
 

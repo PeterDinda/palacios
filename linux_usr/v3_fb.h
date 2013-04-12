@@ -26,7 +26,10 @@ EXTERNC int v3_get_fb_data(int fd, struct v3_frame_buffer_spec *spec, void *data
 
 
 EXTERNC int v3_send_key(int fd, uint8_t scan_code);
-EXTERNC int v3_send_mouse(int fd, uint8_t mx, uint8_t my, uint8_t button);
+EXTERNC int v3_send_mouse(int fd, 
+			  uint8_t sx, uint8_t dx, // dx sign and dx
+			  uint8_t sy, uint8_t dy, // dy sign and dy
+			  uint8_t buttons);       // button state
 
 
 

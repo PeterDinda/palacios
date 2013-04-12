@@ -23,8 +23,10 @@ struct v3_fb_query_response {
 // This is what userland sends down for input events
 struct v3_fb_input {
     enum { V3_FB_KEY, V3_FB_MOUSE, V3_FB_BOTH}             data_type;
-    uint8_t                              scan_code;
-    uint8_t                              mouse_data[3];
+    uint8_t                              scan_code;     // kbd scan code
+    uint8_t                              sx, dx;        // mouse horizontal sign and dx
+    uint8_t                              sy, dy;        // mouse vertical sign and dy
+    uint8_t                              buttons;       // mouse buttons
 };
 
 

@@ -269,16 +269,20 @@ static int palacios_graphics_console_key(struct v3_guest * guest,
 
 static int palacios_graphics_console_mouse(struct v3_guest * guest, 
 					   struct palacios_graphics_console *cons, 
-					   uint8_t x, uint8_t y, uint8_t buttons)
+					   uint8_t sx, uint8_t dx,
+					   uint8_t sy, uint8_t dy,
+					   uint8_t buttons)
 {
-  /*
+
     struct v3_mouse_event e;
-    e.data[0]=x;
-    e.data[1]=y;
-    e.data[2]=buttons;   // These three are completely wrong, of course - ignoring mouse for now
-  */
-    // mouse delivery is broken, so don't do it.
-    // v3_deliver_mouse_event(guest->v3_ctx,&e);
+
+    e.sx=sx;
+    e.dx=dx;
+    e.sy=sy;
+    e.dy=dy;
+    e.buttons=buttons;
+
+    v3_deliver_mouse_event(guest->v3_ctx,&e);
 
     return 0;
 }
@@ -432,8 +436,7 @@ static int fb_input(struct v3_guest * guest,
     }
 
     if ((inp.data_type == V3_FB_MOUSE) || (inp.data_type == V3_FB_BOTH)) { 
-	rc |= palacios_graphics_console_mouse(guest, cons, inp.mouse_data[0],
-					      inp.mouse_data[1], inp.mouse_data[2]);
+	rc |= palacios_graphics_console_mouse(guest, cons, inp.sx, inp.dx, inp.sy, inp.dy, inp.buttons);
        //DEBUG("palacios: mouse delivered to palacios\n");
     }
 

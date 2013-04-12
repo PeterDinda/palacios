@@ -6,8 +6,12 @@
 #define V3_VM_FB_INPUT 256+1
 struct v3_fb_input {
     enum { V3_FB_KEY, V3_FB_MOUSE, V3_FB_BOTH}   data_type;
-    uint8_t                              scan_code;
-    uint8_t                              mouse_data[3];
+    uint8_t scan_code;
+    uint8_t sx;      // sign bit for deltax
+    uint8_t dx;      // deltax
+    uint8_t sy;      // sign bit for deltay
+    uint8_t dy;      // deltay
+    uint8_t buttons; // button state
 };
 
 #define V3_VM_FB_QUERY 256+2
@@ -36,14 +40,16 @@ int v3_send_key(int fd, uint8_t scan_code)
 }
 
 
-int v3_send_mouse(int fd, uint8_t mx, uint8_t my, uint8_t button)
+int v3_send_mouse(int fd, uint8_t sx, uint8_t dx, uint8_t sy, uint8_t dy, uint8_t buttons)
 {
     struct v3_fb_input e;
 
     e.data_type=V3_FB_MOUSE;
-    e.mouse_data[0]=mx;
-    e.mouse_data[1]=my;
-    e.mouse_data[2]=button;
+    e.sx=sx;
+    e.dx=dx;
+    e.sy=sy;
+    e.dy=dy;
+    e.buttons=buttons;
 
     if (ioctl(fd,V3_VM_FB_INPUT,&e)<0) { 
 	perror("v3_send_mouse");

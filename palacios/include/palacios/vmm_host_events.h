@@ -22,12 +22,18 @@
 
 
 struct v3_keyboard_event {
+    // A keyboard event is a PS/2 scancode and status reg
     unsigned char status;
     unsigned char scan_code;
 };
 
 struct v3_mouse_event {
-    unsigned char data[3];
+    // A mouse event is a PS/2 mouse packet
+    unsigned char sx;      // sign bit for deltax
+    unsigned char dx;      // deltax
+    unsigned char sy;      // sign bit for deltay
+    unsigned char dy;      // deltay
+    unsigned char buttons; // button state
 };
 
 struct v3_timer_event {
