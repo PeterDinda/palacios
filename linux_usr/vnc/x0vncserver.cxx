@@ -256,12 +256,18 @@ static void CleanupSignalHandler(int sig)
 }
 
 
+inline int sign(int x) { return x<0; }
+
+inline int abs(int x) { if (x<0) { return -x; } else {return x;}}
+
 class V3Desktop : public SDesktop, public rfb::ColourMap
 {
 public:
     V3Desktop(int fd)  // fd is the open fd of the VM's device
     : v3_fd(fd), pb(0), server(0), oldButtonMask(0)
     {
+
+	mouse_inited=false; // not yet
     
       // Let's get the needed resolution
       if (v3_get_fb_spec(v3_fd,&v3_spec)) { 
@@ -316,18 +322,56 @@ public:
     }
     
     // -=- SDesktop interface, worry about the pointer and key events later..
+
+    // Mouse events in VNC give absolute pixel coordinates of the mouse pointer
+    // the PS/2 mouse spec means we provide relative movements with +/- 256
+    // these relative movements can then be scaled by the mouse or by the software
+    // therefore, we will need to trans back from absolute to relative, perhaps
+    // converting one VNC event to multiple PS/2 events
+    // we assume here that the translation is 1:1
+    // 
     virtual void pointerEvent(const Point& pos, rdr::U8 buttonMask) {
-	vlog.info("Pointer event occurred, x position: %d, y position: %d; button mask: %d.", pos.x, pos.y, buttonMask); 
-	if (v3_send_mouse(v3_fd,pos.x,pos.y,buttonMask)) { 
-	    fprintf(stderr, "Error in sending mouse event\n");
-	    exit(-1);
+	//vlog.info("Pointer event occurred, x position: %d, y position: %d; button mask: %d.", pos.x, pos.y, buttonMask); 
+	int dx, dy;
+	int incx;
+	int incy;
+
+
+	if (!mouse_inited) {
+	    mouse_inited = true;
+	    dx = pos.x;
+	    dy = pos.y;
+	} else {
+	    // delta from current position
+	    dx = pos.x - mouse_lastpos.x ;
+	    dy = pos.y - mouse_lastpos.y ;
+	}
+
+	// update last position
+	mouse_lastpos = pos;
+
+#define MAXINC 32
+
+	// dx and dy are now +/- 2^16
+	// we can generate increments of up to +/- MAXINC;
+
+	while (dx || dy) { 
+	    incx = min(MAXINC, abs(dx));
+	    incy = min(MAXINC, abs(dy));
+
+	    if (v3_send_mouse(v3_fd, sign(dx), incx, sign(dy), incy, buttonMask)) { 
+		fprintf(stderr, "Error in sending mouse event\n");
+		exit(-1);
+	    }
+	    
+	    dx += (dx>=0) ? -incx : +incx;
+	    dy += (dy>=0) ? -incy : +incy;
 	}
     }
     
     virtual void keyEvent(rdr::U32 key, bool down) {
 	vlog.info("Key event received (key=%d, down=%d.",key,down);
     
-	//STILL NEED TO FIND MAPPING FROM KEYSYM TO ACTUAL KEYSTROKES    
 	uint8_t scan_code = convert_to_scancode(key,down);
 
 	if (scan_code && v3_send_key(v3_fd,scan_code)) {
@@ -389,7 +433,9 @@ public:
 protected:
     int v3_fd;
     struct v3_frame_buffer_spec v3_spec;
-    
+    bool mouse_inited;
+    Point mouse_lastpos;
+
     PixelFormat pf;
     PixelBuffer* pb;
     VNCServer* server;
