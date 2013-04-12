@@ -158,7 +158,7 @@ struct keyboard_internal {
     // from the onboard microcontroller
     enum {// Normal mode measn we deliver keys
         // to the vm and accept commands from it
-        NORMAL,
+        NORMAL=0,
 	// after receiving cmd 0x60
 	// keybaord uC cmd will subsequently arrive
 	WRITING_CMD_BYTE,  
@@ -197,7 +197,7 @@ struct keyboard_internal {
 
     enum {
 	// Normal mouse state
-	STREAM, 
+	STREAM=0, 
 	// this is used for setting sample rate
 	SAMPLE,
 	// set resolution
@@ -234,6 +234,15 @@ static int update_kb_irq(struct keyboard_internal * state) {
     int irq_num = 0;
 
 
+    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: update_kb_irq: status = 0x%x parity_err = %d timeout_err = %d mouse_buf_full = %d enabled = %d cmd = %d self_test_ok = %d in_buf_full = %d out_buf_full = %d", state->status.val, state->status.parity_err, state->status.timeout_err, state->status.mouse_buf_full, state->status.enabled, state->status.cmd, state->status.self_test_ok, state->status.in_buf_full, state->status.out_buf_full);
+
+    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: update_kb_irq: cmd= 0x%x rsvd = %d translate = %d mouse_disable = %d disable = %d override = %d self_test_ok = %d mouse_irq_en = %d irq_en = %d", state->cmd.val, state->cmd.rsvd, state->cmd.translate, state->cmd.mouse_disable, state->cmd.disable, state->cmd.override, state->cmd.self_test_ok, state->cmd.mouse_irq_en, state->cmd.irq_en);
+
+
+    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: update_kb_irq: kbd_queue.couunt = %u mouse_queue.count = %u\n", 
+	       state->kbd_queue.count, state->mouse_queue.count);
+
+
     state->status.out_buf_full = 0;
     state->status.mouse_buf_full = 0;
 
@@ -246,7 +255,7 @@ static int update_kb_irq(struct keyboard_internal * state) {
 	state->status.mouse_buf_full = 1;
     } 
     
-    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: interrupt 0x%x\n", irq_num);
+    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: update_kb_irq: interrupt 0x%x\n", irq_num);
     
     if (irq_num) {
 	// Global output buffer flag (for both Keyboard and mouse)
@@ -254,6 +263,8 @@ static int update_kb_irq(struct keyboard_internal * state) {
 	
 	if ((irq_num==KEYBOARD_IRQ && state->cmd.irq_en == 1) || 
 	    (irq_num==MOUSE_IRQ && state->cmd.mouse_irq_en == 1)) { 
+
+	    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: update_kb_irq: raising 0x%x\n", irq_num);
 
 	    v3_raise_irq(state->vm, irq_num);
 	}
@@ -427,9 +438,15 @@ static int mouse_event_handler(struct v3_vm_info * vm,
     struct keyboard_internal * kbd = (struct keyboard_internal *)private_data;
     int ret = 0;
 
-    PrintDebug(vm, VCORE_NONE, "keyboard: injected mouse packet 0x %x %x %x\n",
-	       evt->data[0], evt->data[1], evt->data[2]);
+    PrintDebug(vm, VCORE_NONE, "keyboard: injected mouse packet sx=%u dx=%u sy=%u dy=%u buttons=0x%x\n",
+	       evt->sx, evt->dx, evt->sy, evt->dy, evt->buttons);
   
+
+    PrintDebug(vm, VCORE_NONE, "keyboard: mouse state is %s\n", 
+	       kbd->mouse_state==STREAM ? "STREAM" :
+	       kbd->mouse_state==SAMPLE ? "SAMPLE" :
+	       kbd->mouse_state==SET_RES ? "SET_RES" : "UNKNOWN");
+
     addr_t irq_state = v3_lock_irqsave(kbd->kb_lock);
 
     switch (kbd->mouse_state) { 
@@ -482,8 +499,9 @@ static int mouse_event_handler(struct v3_vm_info * vm,
 
 
 static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
+
     switch (kbd->mouse_state) { 
-	case NORMAL:
+       case STREAM: // NORMAL mode for mouse
 	    switch (data) {
 
 		case 0xff: //reset
@@ -507,55 +525,54 @@ static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
       
 		case 0xf6: // set defaults
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set defaults ");
-
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: mouse set defaults mouse_state=%u\n", kbd->mouse_state);
 		    break;
       
 		case 0xf5: // disable data reporting 
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse disable data reporting ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: mouse disable data reporting\n");
 		    break;
       
 		case 0xf4: // enable data reporting 
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse enable data reporting ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: mouse enable data reporting\n");
 		    break;
       
 		case 0xf3: // set sample rate
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
 		    kbd->mouse_state = SAMPLE;
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set sample rate begins ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard:  mouse set sample rate begins\n");
 		    break;
       
 		case 0xf2: // get device id
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
 		    push_to_output_queue(kbd, 0x0,  DATA, MOUSE); 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse get device id begins ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: mouse get device id begins\n");
 		    break;
       
 		case 0xf0: // set remote mode
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set remote mode  ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: mouse set remote mode (ignored)\n");
 		    break;
 
 		case 0xee: // set wrap mode
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintError(VM_NONE, VCORE_NONE, " mouse set wrap mode (ignored)  ");
+		    PrintError(VM_NONE, VCORE_NONE, "keyboard: mouse set wrap mode (ignored)\n");
 		    break;
 
 		case 0xec: // reset wrap mode
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintError(VM_NONE, VCORE_NONE, " mouse reset wrap mode (ignored)  ");
+		    PrintError(VM_NONE, VCORE_NONE, "keyboard:  mouse reset wrap mode (ignored)\n");
 		    break;
 
 		case 0xeb: // read data
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintError(VM_NONE, VCORE_NONE, " mouse switch to wrap mode (ignored)  ");
+		    PrintError(VM_NONE, VCORE_NONE, "keyboard:  mouse switch to wrap mode (ignored)\n");
 		    break;
       
 		case 0xea: // set stream mode
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set stream mode  ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard:  mouse set stream mode\n");
 		    break;
 
 		case 0xe9: // status request
@@ -563,35 +580,50 @@ static int mouse_write_output(struct keyboard_internal * kbd, uint8_t data) {
 		    push_to_output_queue(kbd, 0x00, DATA, MOUSE); 
 		    push_to_output_queue(kbd, 0x00, DATA, MOUSE);
 		    push_to_output_queue(kbd, 0x00, DATA, MOUSE); 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse status request begins  ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard:  mouse status request begins\n");
 		    break;
 
 		case 0xe8: // set resolution
 		    push_to_output_queue(kbd, MOUSE_ACK,  DATA, MOUSE) ; 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set resolution begins  ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard:  mouse set resolution begins\n");
 		    kbd->mouse_state = SET_RES;
 		    break;
 
 		case 0xe7: // set scaling 2:1
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set scaling 2:1 ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard:  mouse set scaling 2:1\n");
 		    break;
 
 		case 0xe6: // set scaling 1:1
 		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ; 
-		    PrintDebug(VM_NONE, VCORE_NONE, " mouse set scaling 1:1 ");
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard:  mouse set scaling 1:1\n");
+		    break;
+      
+
+		case 0xe1: // Read secondary ID
+		    push_to_output_queue(kbd, MOUSE_ACK, DATA, MOUSE) ;
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: mouse read secondary ID (ignored)\n");
 		    break;
       
 		default:
-		    PrintDebug(VM_NONE, VCORE_NONE, " receiving unknown mouse command (0x%x) in acceptable kbd ", data);
+		    PrintDebug(VM_NONE, VCORE_NONE, "keyboard:  receiving unknown mouse command (0x%x) in stream state\n", data);
 		    break;
 	    }
 
 	    break;
+
 	case SAMPLE:
+	    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: mouse setting sample rate to %u (ignored)", data);
+	    kbd->mouse_state = STREAM;
+	    break;
+
 	case SET_RES:
+	    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: mouse setting resolution to %u (ignored)", data);
+	    kbd->mouse_state = STREAM;
+	    break;
+
 	default:
-	    PrintDebug(VM_NONE, VCORE_NONE, " receiving mouse output in unhandled kbd (0x%x) ", kbd->mouse_state);
+	    PrintDebug(VM_NONE, VCORE_NONE, "keyboard: received mouse output in unknown state %u\n", kbd->mouse_state);
 	    return -1;
     }
 
@@ -747,9 +779,10 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
 	    PrintDebug(core->vm_info, core, "keyboard: prepare to inject mouse\n");
 	    break;
 
-	case 0xd4: // write mouse device (command to mouse?)
+	case 0xd4: // write mouse device (command to mouse)
 	    kbd->state = IN_MOUSE;
-	    PrintDebug(core->vm_info, core, "keyboard: prepare to inject mouse command\n");
+	    PrintDebug(core->vm_info, core, "keyboard: prepare to inject mouse command with mouse_state= %u \n", 
+		       kbd->mouse_state);
 	    break;
 
 	case 0xc0: //  read input port 
@@ -780,8 +813,8 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
 	case 0xf2:   // instead of what is currently in output_byte (I think)
 	case 0xf3:   // main effect is taht if bit zero is zero
 	case 0xf4:   // should cause reset
-	case 0xf5:   // I doubt anything more recent than a 286 running 
-	case 0xf6:   // OS2 with the penalty box will care
+	case 0xf5:   // I doubt anything more recent than a 286 running  OS2 with the penalty box will care
+	case 0xf6:   
 	case 0xf7:
 	case 0xf8:
 	case 0xf9:
@@ -791,7 +824,7 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
 	case 0xfd:
 	case 0xfe:
 	case 0xff:
-	    PrintDebug(core->vm_info, core, "keyboard: ignoring pulse of 0x%x (low=pulsed) on output port\n", (cmd & 0xf));
+	    PrintDebug(core->vm_info, core, "keyboard: ignoring command 0x%x on output port\n", cmd);
 	    break;
    
 	    // case ac  diagonstic - returns 16 bytes from keyboard microcontroler on 60h
@@ -837,7 +870,7 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 
     uint8_t data = *(uint8_t *)src;
   
-    PrintDebug(core->vm_info, core, "keyboard: output 0x%x on 60h\n", data);
+    PrintDebug(core->vm_info, core, "keyboard: output 0x%x on 60h with keyboard_state=%u\n", data,kbd->state);
 
     addr_t irq_state = v3_lock_irqsave(kbd->kb_lock);
 
@@ -868,11 +901,10 @@ static int keyboard_write_output(struct guest_info * core, ushort_t port, void *
 	    break;
 
 	case IN_MOUSE:
-	    PrintDebug(core->vm_info, core, "keyboard: mouse action: ");
+	    PrintDebug(core->vm_info, core, "keyboard: mouse action\n");
 	    if (mouse_write_output(kbd, data)) { 
 		kbd->state = NORMAL;
 	    }
-	    PrintDebug(core->vm_info, core, "\n");
 	    break;
 
 	case TRANSMIT_PASSWD:
@@ -1166,6 +1198,7 @@ static int keyboard_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
+    // Brings up keyboard in NORMAL and mouse in STREAM
     memset(kbd, 0, sizeof(struct keyboard_internal));
 
     kbd->vm = vm;
