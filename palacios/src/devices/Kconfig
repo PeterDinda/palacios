@@ -340,6 +340,25 @@ config DEBUG_PCI_FRONT
 	  Enable debugging for the PCI front-end device 
           
 
+config HOST_PCI_SELPRIV
+        bool "Host PCI selective privilege"
+        depends on HOST_PCI
+        depends on EXT_PRIV
+        default n
+        help
+          This device enables selective direct access to hardware for
+          passthrough PCI devices. The privilege extension under
+          GEARS must be enabled for this option.  This device
+          is a variant of the "always on" "host_pci" device.
+
+config DEBUG_HOST_PCI_SELPRIV
+    bool "Host PCI Debugging"
+    depends on HOST_PCI_SELPRIV
+    default n
+    help
+      This enables debugging output for the host_pci_selpriv device
+
+
 
 config PIC
 	bool "8259A PIC"

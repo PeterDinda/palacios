@@ -90,6 +90,9 @@ libv3_ctrl.a : v3_ctrl.c v3_ctrl.h
 	$(AR) ruv libv3_ctrl.a v3_ctrl.o
 	rm -rf v3_ctrl.o 
 
+#
+# JSON library for use in some tools
+#
 libjson.a : cJSON.c cJSON.h
 	$(CC) $(CFLAGS) -c cJSON.c
 	$(AR) ruv libjson.a cJSON.o
@@ -137,6 +140,9 @@ v3_user_host_dev_example : v3_user_host_dev_example.c libv3_user_host_dev.a
 v3_os_debug : v3_os_debug.c libv3_user_host_dev.a
 	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_host_dev -o $@
 
+#
+# Guarded module registration for GEARS
+#
 v3_register_gm: v3_register_gm.c libjson.a libv3_ctrl.a v3_ctrl.h
 	$(CC) $(CFLAGS) $< -L. -lm -lv3_ctrl -ljson -o $@
 
