@@ -372,6 +372,13 @@ config DEBUG_SCHEDULER
     help
       This turns on debugging for scheduler
 
+config DEBUG_CPU_MAPPER
+    bool "CPU Mapper"
+    default n
+    depends on DEBUG_ON
+    help
+      This turns on debugging for CPU Mapper
+
 config DEBUG_IO
 	bool "IO"
 	default n

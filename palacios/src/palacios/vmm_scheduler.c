@@ -94,12 +94,13 @@ int V3_enable_scheduler() {
         scheduler = v3_scheduler_lookup(default_strategy);
     }
 
-    PrintDebug(VM_NONE, VCORE_NONE,"Scheduler %s found",scheduler->name);
-    
     if (!scheduler) {
 	PrintError(VM_NONE, VCORE_NONE,"Specified Palacios scheduler \"%s\" not found.\n", default_strategy);
 	return -1;
     }
+
+    PrintDebug(VM_NONE, VCORE_NONE,"Scheduler %s found",scheduler->name);
+
     if (scheduler->init) {
 	return scheduler->init();
     } else {

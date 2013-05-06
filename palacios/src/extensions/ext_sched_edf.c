@@ -29,7 +29,7 @@
 #include <palacios/vmm_rbtree.h>
 
 
-#ifndef V3_CONFIG_DEBUG_EXT_EDF_SCHED
+#ifndef V3_CONFIG_DEBUG_EXT_SCHED_EDF
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
@@ -184,8 +184,13 @@ priv_data_init(struct v3_vm_info *vm){
 static bool 
 is_admissible_core(struct vm_core_edf_sched * new_sched_core, struct vm_edf_rq *runqueue){
 
+    struct v3_vm_info * vm = new_sched_core->info->vm_info;
+
+    struct v3_time *vm_ts = &(vm->time_state);
+    int tdf = vm_ts->td_denom;
+
     int curr_utilization = runqueue->cpu_u;
-    int new_utilization = curr_utilization + (100 * new_sched_core->slice / new_sched_core->period);
+    int new_utilization = curr_utilization + ((100/tdf) * new_sched_core->slice / new_sched_core->period);
     int cpu_percent = (runqueue->edf_config).cpu_percent; 
 
     if (new_utilization <= cpu_percent)
@@ -339,6 +344,11 @@ wakeup_core(struct guest_info *info){
 
 static void 
 activate_core(struct vm_core_edf_sched * core, struct vm_edf_rq *runqueue){
+
+    struct v3_vm_info * vm = core->info->vm_info;
+
+    struct v3_time *vm_ts = &(vm->time_state);
+    int tdf = vm_ts->td_denom;
     
     if (is_admissible_core(core, runqueue)){
 	     
@@ -359,7 +369,7 @@ activate_core(struct vm_core_edf_sched * core, struct vm_edf_rq *runqueue){
             ins = insert_core_edf(core, runqueue);  
         }    
      
-        runqueue->cpu_u += 100 * core->slice / core->period;
+        runqueue->cpu_u += (100/tdf) * core->slice / core->period;
         runqueue->nr_vCPU ++;
         
         /*

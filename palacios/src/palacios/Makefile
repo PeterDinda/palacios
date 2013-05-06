@@ -3,6 +3,7 @@ obj-y := \
 	vm_guest_mem.o \
 	vmm.o \
 	vmm_config.o \
+	vmm_cpu_mapper.o \
 	vmm_ctrl_regs.o \
 	vmm_debug.o \
 	vmm_decoder.o \

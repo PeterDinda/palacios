@@ -27,6 +27,7 @@
 #include <palacios/vmm_extensions.h>
 #include <palacios/vmm_timeout.h>
 #include <palacios/vmm_options.h>
+#include <palacios/vmm_cpu_mapper.h>
 
 #ifdef V3_CONFIG_SVM
 #include <palacios/svm.h>
@@ -125,11 +126,17 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
     // Register all shadow paging handlers
     V3_init_shdw_paging();
 
+    // Initialize the cpu_mapper framework (must be before extensions)
+    V3_init_cpu_mapper();
+
     // Initialize the scheduler framework (must be before extensions)
     V3_init_scheduling();
  
     // Register all extensions
     V3_init_extensions();
+
+    // Enabling cpu_mapper
+    V3_enable_cpu_mapper();
 
     // Enabling scheduler
     V3_enable_scheduler();
@@ -264,12 +271,8 @@ static int start_core(void * p)
     return 0;
 }
 
-
-// For the moment very ugly. Eventually we will shift the cpu_mask to an arbitrary sized type...
-#define MAX_CORES 32
-
-
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
+
     uint32_t i;
     uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
     uint32_t avail_cores = 0;
@@ -295,8 +298,6 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	}
     }
 
-
-
     /// CHECK IF WE ARE MULTICORE ENABLED....
 
     V3_Print(vm, VCORE_NONE, "V3 --  Starting VM (%u cores)\n", vm->num_cores);
@@ -304,7 +305,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
 
     // Check that enough cores are present in the mask to handle vcores
-    for (i = 0; i < MAX_CORES; i++) {
+    for (i = 0; i < V3_CONFIG_MAX_CPUS; i++) {
 	int major = i / 8;
 	int minor = i % 8;
 	
@@ -317,79 +318,45 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 	}
     }
 
-
     vm->avail_cores = avail_cores;
  
     if (v3_scheduler_admit_vm(vm) != 0){
-        PrintError(vm, VCORE_NONE,"Error admitting VM %s for scheduling", vm->name);
+       PrintError(vm, VCORE_NONE,"Error admitting VM %s for scheduling", vm->name);
+    }
+
+    if (v3_cpu_mapper_admit_vm(vm) != 0){
+        PrintError(vm, VCORE_NONE,"Error admitting VM %s for mapping", vm->name);
     }
 
     vm->run_state = VM_RUNNING;
 
-    // Spawn off threads for each core. 
-    // We work backwards, so that core 0 is always started last.
-    for (i = 0, vcore_id = vm->num_cores - 1; (i < MAX_CORES) && (vcore_id >= 0); i++) {
-	int major = 0;
- 	int minor = 0;
-	struct guest_info * core = &(vm->cores[vcore_id]);
-	char * specified_cpu = v3_cfg_val(core->core_cfg_data, "target_cpu");
-	uint32_t core_idx = 0;
+    if(v3_cpu_mapper_register_vm(vm,cpu_mask) == -1) {
 
-	if (specified_cpu != NULL) {
-	    core_idx = atoi(specified_cpu);
-	    
-	    if ((core_idx < 0) || (core_idx >= MAX_CORES)) {
-		PrintError(vm, VCORE_NONE, "Target CPU out of bounds (%d) (MAX_CORES=%d)\n", core_idx, MAX_CORES);
-	    }
+        PrintError(vm, VCORE_NONE,"Error registering VM with cpu_mapper\n");
+    }
 
-	    i--; // We reset the logical core idx. Not strictly necessary I guess... 
-	} else {
-	    core_idx = i;
-	}
 
-	major = core_idx / 8;
-	minor = core_idx % 8;
+    for (vcore_id = 0; vcore_id < vm->num_cores; vcore_id++) {
 
-	if ((core_mask[major] & (0x1 << minor)) == 0) {
-	    PrintError(vm, VCORE_NONE, "Logical CPU %d not available for virtual core %d; not started\n",
-		       core_idx, vcore_id);
-
-	    if (specified_cpu != NULL) {
-		PrintError(vm, VCORE_NONE, "CPU was specified explicitly (%d). HARD ERROR\n", core_idx);
-		v3_stop_vm(vm);
-		return -1;
-	    }
-
-	    continue;
-	}
+        struct guest_info * core = &(vm->cores[vcore_id]);
 
 	PrintDebug(vm, VCORE_NONE, "Starting virtual core %u on logical core %u\n", 
-		   vcore_id, core_idx);
+		   vcore_id, core->pcpu_id);
 	
 	sprintf(core->exec_name, "%s-%u", vm->name, vcore_id);
 
-	PrintDebug(vm, VCORE_NONE, "run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
-		   core_idx, start_core, core, core->exec_name);
+        PrintDebug(vm, VCORE_NONE, "run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
+		   core->pcpu_id, start_core, core, core->exec_name);
 
 	core->core_run_state = CORE_STOPPED;  // core zero will turn itself on
-	core->pcpu_id = core_idx;
-	core->core_thread = V3_CREATE_THREAD_ON_CPU(core_idx, start_core, core, core->exec_name);
+	core->core_thread = V3_CREATE_THREAD_ON_CPU(core->pcpu_id, start_core, core, core->exec_name);
 
 	if (core->core_thread == NULL) {
 	    PrintError(vm, VCORE_NONE, "Thread launch failed\n");
 	    v3_stop_vm(vm);
 	    return -1;
 	}
-
-	vcore_id--;
     }
-
-    if (vcore_id >= 0) {
-	PrintError(vm, VCORE_NONE, "Error starting VM: Not enough available CPU cores\n");
-	v3_stop_vm(vm);
-	return -1;
-    }
-
 
     return 0;
 
@@ -453,6 +420,11 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
     if (target_cpu != core->pcpu_id) {    
 
 	V3_Print(vm, core, "Moving Core\n");
+
+	if(v3_cpu_mapper_admit_core(vm, vcore_id, target_cpu) == -1){
+		PrintError(vm, core, "Core %d can not be admitted in cpu %d\n",vcore_id, target_cpu);
+		return -1;
+	}
 
 
 #ifdef V3_CONFIG_VMX

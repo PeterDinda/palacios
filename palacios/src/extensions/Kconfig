@@ -42,4 +42,15 @@ config DEBUG_EXT_SCHED_EDF
 	default n
 	depends on DEBUG_ON && EXT_SCHED_EDF
 
+config EXT_CPU_MAPPER_EDF
+	bool "CPU Mapper for EDF Scheduler"
+	default n
+	help
+	  Provides an CPU Mapper for EDF scheduler
+
+config DEBUG_EXT_CPU_MAPPER_EDF
+	bool "Debugging for EDF CPU Mapper"
+	default n
+	depends on DEBUG_ON && EXT_CPU_MAPPER_EDF
+
 endmenu
