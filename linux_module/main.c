@@ -27,6 +27,7 @@
 #include "mm.h"
 #include "vm.h"
 #include "allow_devmem.h"
+#include "lockcheck.h"
 
 #include "linux-exts.h"
 
@@ -113,7 +114,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    guest->img_size = user_image.size;
 
 	    DEBUG("Palacios: Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
-	    guest->img = vmalloc(guest->img_size);
+	    guest->img = palacios_valloc(guest->img_size);
 
 	    if (IS_ERR(guest->img)) {
 		ERROR("Palacios Error: Could not allocate space for guest image\n");
@@ -138,7 +139,7 @@ static long v3_dev_ioctl(struct file * filp,
 
 
 out_err2:
-            vfree(guest->img);
+            palacios_vfree(guest->img);
 out_err1:
             guest_map[vm_minor] = NULL; 
 out_err:
@@ -341,9 +342,11 @@ static int show_mem(char * buf, char ** start, off_t off, int count,
 
 
 static int __init v3_init(void) {
+
     dev_t dev = MKDEV(0, 0); // We dynamicallly assign the major number
     int ret = 0;
 
+    LOCKCHECK_INIT();
 
     palacios_init_mm();
 
@@ -434,6 +437,8 @@ static void __exit v3_exit(void) {
     extern u32 pg_frees;
     extern u32 mallocs;
     extern u32 frees;
+    extern u32 vmallocs;
+    extern u32 vfrees;
     int i = 0;
     struct v3_guest * guest;
     dev_t dev;
@@ -460,6 +465,7 @@ static void __exit v3_exit(void) {
     palacios_vmm_exit();
 
     DEBUG("Palacios Mallocs = %d, Frees = %d\n", mallocs, frees);
+    DEBUG("Palacios Vmallocs = %d, Vfrees = %d\n", vmallocs, vfrees);
     DEBUG("Palacios Page Allocs = %d, Page Frees = %d\n", pg_allocs, pg_frees);
 
     unregister_chrdev_region(MKDEV(v3_major_num, 0), MAX_VMS + 1);
@@ -483,6 +489,8 @@ static void __exit v3_exit(void) {
     remove_proc_entry("v3vee", NULL);
 
     DEBUG("Palacios Module Mallocs = %d, Frees = %d\n", mod_allocs, mod_frees);
+    
+    LOCKCHECK_DEINIT();
 }
 
 
@@ -496,7 +504,7 @@ void * trace_malloc(size_t size, gfp_t flags) {
     void * addr = NULL;
 
     mod_allocs++;
-    addr = kmalloc(size, flags);
+    addr = palacios_alloc_extended(size, flags);
 
     return addr;
 }
@@ -504,5 +512,5 @@ void * trace_malloc(size_t size, gfp_t flags) {
 
 void trace_free(const void * objp) {
     mod_frees++;
-    kfree(objp);
+    palacios_free((void*)objp);
 }

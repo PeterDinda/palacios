@@ -6,7 +6,6 @@
  */
 
 #include <linux/uaccess.h>
-#include <linux/vmalloc.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/list.h>
@@ -160,13 +159,13 @@ vm_register_mod (struct v3_guest * guest,
         return -1;
     }
 
-    kfree(gm->name);
-    kfree(gm->content_hash);
+    palacios_free(gm->name);
+    palacios_free(gm->content_hash);
     for (i = 0; i < gm->num_entries; i++) {
-        kfree(gm->entry_points[i].name);
+        palacios_free(gm->entry_points[i].name);
     }
-    kfree(gm->entry_points);
-    kfree(gm);
+    palacios_free(gm->entry_points);
+    palacios_free(gm);
     return 0;
 }
 

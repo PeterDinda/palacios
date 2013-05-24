@@ -14,15 +14,15 @@
 #include <linux/kthread.h>
 #include <asm/uaccess.h>
 #include <linux/smp.h>
+#include <linux/vmalloc.h>
 
 #include <palacios/vmm.h>
 #include <palacios/vmm_host_events.h>
 #include "palacios.h"
 
-
-
-
 #include "mm.h"
+
+#include "lockcheck.h"
 
 // The following can be used to track heap bugs
 // zero memory after allocation
@@ -35,7 +35,8 @@ u32 pg_allocs = 0;
 u32 pg_frees = 0;
 u32 mallocs = 0;
 u32 frees = 0;
-
+u32 vmallocs = 0;
+u32 vfrees = 0;
 
 static struct v3_vm_info * irq_to_guest_map[256];
 
@@ -211,6 +212,28 @@ palacios_alloc_extended(unsigned int size, unsigned int flags) {
     return addr+ALLOC_PAD;
 }
 
+void *
+palacios_valloc(unsigned int size)
+{
+    void * addr = NULL;
+
+    addr = vmalloc(size);
+
+    if (!addr) { 
+       ERROR("ALERT ALERT  vmalloc has FAILED FAILED FAILED\n");
+       return NULL;
+    }	
+
+    vmallocs++;
+
+    return addr;
+}
+
+void palacios_vfree(void *p)
+{
+  vfree(p);
+  vfrees++;
+}
 
 /**
  * Allocates 'size' bytes of kernel memory.
@@ -615,6 +638,7 @@ palacios_mutex_alloc(void)
 
     if (lock) {
 	spin_lock_init(lock);
+	LOCKCHECK_ALLOC(lock);
     } else {
 	ERROR("ALERT ALERT Unable to allocate lock\n");
 	return NULL;
@@ -623,12 +647,24 @@ palacios_mutex_alloc(void)
     return lock;
 }
 
+void palacios_mutex_init(void *mutex)
+{
+  spinlock_t *lock = (spinlock_t*)mutex;
+  
+  if (lock) {
+    spin_lock_init(lock);
+    LOCKCHECK_ALLOC(lock);
+  }
+}
+
+
 /**
  * Frees a mutex.
  */
 void
 palacios_mutex_free(void * mutex) {
     palacios_free(mutex);
+    LOCKCHECK_FREE(mutex);
 }
 
 /**
@@ -637,6 +673,7 @@ palacios_mutex_free(void * mutex) {
 void 
 palacios_mutex_lock(void * mutex, int must_spin) {
     spin_lock((spinlock_t *)mutex);
+    LOCKCHECK_LOCK(mutex);
 }
 
 
@@ -649,6 +686,7 @@ palacios_mutex_lock_irqsave(void * mutex, int must_spin) {
     unsigned long flags; 
     
     spin_lock_irqsave((spinlock_t *)mutex,flags);
+    LOCKCHECK_LOCK_IRQSAVE(mutex,flags);
 
     return (void *)flags;
 }
@@ -663,6 +701,7 @@ palacios_mutex_unlock(
 ) 
 {
     spin_unlock((spinlock_t *)mutex);
+    LOCKCHECK_UNLOCK(mutex);
 }
 
 
@@ -674,6 +713,7 @@ palacios_mutex_unlock_irqrestore(void *mutex, void *flags)
 {
     // This is correct, flags is opaque
     spin_unlock_irqrestore((spinlock_t *)mutex,(unsigned long)flags);
+    LOCKCHECK_UNLOCK_IRQRESTORE(mutex,(unsigned long)flags);
 }
 
 /**

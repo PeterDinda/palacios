@@ -12,7 +12,6 @@
 #include <linux/poll.h>
 #include <linux/anon_inodes.h>
 #include <linux/sched.h>
-#include <linux/vmalloc.h>
 #include <linux/file.h>
 #include <linux/spinlock.h>
 #include <linux/rbtree.h>
@@ -124,7 +123,7 @@ int remove_guest_ctrl(struct v3_guest * guest, unsigned int cmd) {
 
     rb_erase(&(ctrl->tree_node), &(guest->vm_ctrls));
 
-    kfree(ctrl);
+    palacios_free(ctrl);
 
     return 0;
 }
@@ -140,7 +139,7 @@ static void free_guest_ctrls(struct v3_guest * guest) {
 	
 	WARNING("Cleaning up guest ctrl that was not removed explicitly (%d)\n", ctrl->cmd);
 
-	kfree(ctrl);
+	palacios_free(ctrl);
     }
 }
 
@@ -444,7 +443,7 @@ int free_palacios_vm(struct v3_guest * guest) {
     free_guest_ctrls(guest);
 
 
-    vfree(guest->img);
+    palacios_vfree(guest->img);
     palacios_free(guest);
 
     return 0;

@@ -237,7 +237,7 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
     strncpy(pfile->path, path, strlen(path));
     pfile->guest = guest;
     
-    spin_lock_init(&(pfile->lock));
+    palacios_spinlock_init(&(pfile->lock));
 
     if (guest == NULL) {
 	list_add(&(pfile->file_node), &(global_files));

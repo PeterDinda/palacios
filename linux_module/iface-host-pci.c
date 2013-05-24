@@ -81,9 +81,9 @@ static struct v3_host_pci_dev * request_pci_dev(char * url, void * v3_ctx) {
     unsigned long flags;
     struct host_pci_device * host_dev = NULL;
 
-    spin_lock_irqsave(&lock, flags);
+    palacios_spinlock_lock_irqsave(&lock, flags);
     host_dev = find_dev_by_name(url);
-    spin_unlock_irqrestore(&lock, flags);
+    palacios_spinlock_unlock_irqrestore(&lock, flags);
     
     if (host_dev == NULL) {
 	printk("Could not find host device (%s)\n", url);
@@ -192,16 +192,16 @@ static int register_pci_hw_dev(unsigned int cmd, unsigned long arg) {
     host_dev->hw_dev.devfn = PCI_DEVFN(hw_dev_arg.dev, hw_dev_arg.func);
     
 
-    spin_lock_irqsave(&lock, flags);
+    palacios_spinlock_lock_irqsave(&lock, flags);
     if (!find_dev_by_name(hw_dev_arg.name)) {
 	list_add(&(host_dev->dev_node), &device_list);
 	ret = 1;
     }
-    spin_unlock_irqrestore(&lock, flags);
+    palacios_spinlock_unlock_irqrestore(&lock, flags);
 
     if (ret == 0) {
 	// Error device already exists
-	kfree(host_dev);
+        palacios_free(host_dev);
 	return -EFAULT;
     }
 
@@ -221,7 +221,7 @@ static int register_pci_user_dev(unsigned int cmd, unsigned long arg) {
 
 static int host_pci_init( void ) {
     INIT_LIST_HEAD(&(device_list));
-    spin_lock_init(&lock);
+    palacios_spinlock_init(&lock);
 
     V3_Init_Host_PCI(&pci_hooks);
     

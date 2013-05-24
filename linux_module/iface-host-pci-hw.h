@@ -30,7 +30,7 @@ static int setup_hw_pci_dev(struct host_pci_device * host_dev) {
     host_dev->hw_dev.dev = dev;
 
     host_dev->hw_dev.intx_disabled = 1;
-    spin_lock_init(&(host_dev->hw_dev.intx_lock));
+    palacios_spinlock_init(&(host_dev->hw_dev.intx_lock));
 
     if (pci_enable_device(dev)) {
 	printk("Could not enable Device\n");
@@ -153,10 +153,10 @@ static irqreturn_t host_pci_intx_irq_handler(int irq, void * priv_data) {
 
     //   printk("Host PCI IRQ handler (%d)\n", irq);
 
-    spin_lock(&(host_dev->hw_dev.intx_lock));
+    palacios_spinlock_lock(&(host_dev->hw_dev.intx_lock));
     disable_irq_nosync(irq);
     host_dev->hw_dev.intx_disabled = 1;
-    spin_unlock(&(host_dev->hw_dev.intx_lock));
+    palacios_spinlock_unlock(&(host_dev->hw_dev.intx_lock));
 
     V3_host_pci_raise_irq(&(host_dev->v3_dev), 0);
 
@@ -289,7 +289,7 @@ static int hw_pci_cmd(struct host_pci_device * host_dev, host_pci_cmd_t cmd, u64
 	    }
 
 	    host_dev->hw_dev.num_msix_vecs = 0;
-	    kfree(host_dev->hw_dev.msix_entries);
+	    palacios_free(host_dev->hw_dev.msix_entries);
 
 	    pci_disable_msix(dev);
 
@@ -311,11 +311,11 @@ static int hw_ack_irq(struct host_pci_device * host_dev, u32 vector) {
 
     //    printk("Acking IRQ vector %d\n", vector);
 
-    spin_lock_irqsave(&(host_dev->hw_dev.intx_lock), flags);
+    palacios_spinlock_lock_irqsave(&(host_dev->hw_dev.intx_lock), flags);
     //    printk("Enabling IRQ %d\n", dev->irq);
     enable_irq(dev->irq);
     host_dev->hw_dev.intx_disabled = 0;
-    spin_unlock_irqrestore(&(host_dev->hw_dev.intx_lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(host_dev->hw_dev.intx_lock), flags);
     
     return 0;
 }
@@ -329,13 +329,13 @@ static int reserve_hw_pci_dev(struct host_pci_device * host_dev, void * v3_ctx) 
     struct v3_host_pci_dev * v3_dev = &(host_dev->v3_dev);
     struct pci_dev * dev = host_dev->hw_dev.dev;
 
-    spin_lock_irqsave(&lock, flags);
+    palacios_spinlock_lock_irqsave(&lock, flags);
     if (host_dev->hw_dev.in_use == 0) {
 	host_dev->hw_dev.in_use = 1;
     } else {
 	ret = -1;
     }
-    spin_unlock_irqrestore(&lock, flags);
+    palacios_spinlock_unlock_irqrestore(&lock, flags);
 
 
     if (v3_dev->iface == IOMMU) {

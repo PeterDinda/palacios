@@ -544,10 +544,10 @@ static int inject_route(struct vnet_route_iter * route) {
     
     route->idx = v3_vnet_add_route(route->route);
 
-    spin_lock_irqsave(&(vnet_ctrl_s.lock), flags);
+    palacios_spinlock_lock_irqsave(&(vnet_ctrl_s.lock), flags);
     list_add(&(route->node), &(vnet_ctrl_s.route_list));
     vnet_ctrl_s.num_routes ++;
-    spin_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
 
     INFO("VNET Control: One route added to VNET core\n");
 
@@ -560,10 +560,10 @@ static void delete_route(struct vnet_route_iter * route) {
 
     v3_vnet_del_route(route->idx);
 
-    spin_lock_irqsave(&(vnet_ctrl_s.lock), flags);
+    palacios_spinlock_lock_irqsave(&(vnet_ctrl_s.lock), flags);
     list_del(&(route->node));
     vnet_ctrl_s.num_routes --;
-    spin_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
 
     INFO("VNET Control: Route %d deleted from VNET\n", route->idx);
 
@@ -672,10 +672,10 @@ static void delete_link(struct vnet_link_iter * link){
 
     vnet_brg_delete_link(link->idx);
 
-    spin_lock_irqsave(&(vnet_ctrl_s.lock), flags);
+    palacios_spinlock_lock_irqsave(&(vnet_ctrl_s.lock), flags);
     list_del(&(link->node));
     vnet_ctrl_s.num_links --;
-    spin_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
 
     palacios_free(link);
     link = NULL;
@@ -768,10 +768,10 @@ link_write(struct file * file, const char * buf, size_t size, loff_t * ppos) {
 	    link->proto = d_proto;
 	    link->idx = link_idx;
 
-    	    spin_lock_irqsave(&(vnet_ctrl_s.lock), flags);
+    	    palacios_spinlock_lock_irqsave(&(vnet_ctrl_s.lock), flags);
     	    list_add(&(link->node), &(vnet_ctrl_s.link_iter_list));
     	    vnet_ctrl_s.num_links ++;
-    	    spin_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
+    	    palacios_spinlock_unlock_irqrestore(&(vnet_ctrl_s.lock), flags);
 	} else if (strnicmp("DEL", token, strlen("DEL")) == 0) {
 	    char * idx_str = NULL;
 	    uint32_t d_idx;
@@ -989,7 +989,7 @@ int vnet_ctrl_init(void) {
 
     INIT_LIST_HEAD(&(vnet_ctrl_s.link_iter_list));
     INIT_LIST_HEAD(&(vnet_ctrl_s.route_list));
-    spin_lock_init(&(vnet_ctrl_s.lock));
+    palacios_spinlock_init(&(vnet_ctrl_s.lock));
 
     init_proc_files();
 	

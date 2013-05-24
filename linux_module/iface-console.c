@@ -115,9 +115,9 @@ console_read(struct file * filp, char __user * buf, size_t size, loff_t * offset
 
     palacios_free(msg);
 
-    spin_lock_irqsave(&(cons->queue->lock), flags);
+    palacios_spinlock_lock_irqsave(&(cons->queue->lock), flags);
     entries =  cons->queue->num_entries;
-    spin_unlock_irqrestore(&(cons->queue->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(cons->queue->lock), flags);
     
     if (entries > 0) {
 	wake_up_interruptible(&(cons->intr_queue));
@@ -163,9 +163,9 @@ console_poll(struct file * filp, struct poll_table_struct * poll_tb) {
 
     poll_wait(filp, &(cons->intr_queue), poll_tb);
 
-    spin_lock_irqsave(&(cons->queue->lock), flags);
+    palacios_spinlock_lock_irqsave(&(cons->queue->lock), flags);
     entries = cons->queue->num_entries;
-    spin_unlock_irqrestore(&(cons->queue->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(cons->queue->lock), flags);
 
     if (entries > 0) {
 	//	DEBUG("Returning from POLL\n");
@@ -183,9 +183,9 @@ static int console_release(struct inode * i, struct file * filp) {
 
     DEBUG("Releasing the Console File desc\n");
     
-    spin_lock_irqsave(&(cons->queue->lock), flags);
+    palacios_spinlock_lock_irqsave(&(cons->queue->lock), flags);
     cons->connected = 0;
-    spin_unlock_irqrestore(&(cons->queue->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(cons->queue->lock), flags);
 
     while ((msg = dequeue(cons->queue))) {
 	palacios_free(msg);
@@ -216,12 +216,12 @@ static int console_connect(struct v3_guest * guest, unsigned int cmd,
 	return -1;
     }
 
-    spin_lock_irqsave(&(cons->lock), flags);
+    palacios_spinlock_lock_irqsave(&(cons->lock), flags);
     if (cons->connected == 0) {
 	cons->connected = 1;
 	acquired = 1;
     }
-    spin_unlock_irqrestore(&(cons->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(cons->lock), flags);
 
     if (acquired == 0) {
 	ERROR("Console already connected\n");
@@ -270,7 +270,7 @@ static void * palacios_tty_open(void * private_data, unsigned int width, unsigne
 
 
     cons->queue = create_queue(CONSOLE_QUEUE_LEN);
-    spin_lock_init(&(cons->lock));
+    palacios_spinlock_init(&(cons->lock));
     init_waitqueue_head(&(cons->intr_queue));
 
     cons->guest = guest;
@@ -418,7 +418,7 @@ static void palacios_tty_close(void * console) {
     remove_guest_ctrl(cons->guest, V3_VM_CONSOLE_CONNECT);
     deinit_queue(cons->queue);
        
-    kfree(cons);
+    palacios_free(cons);
 }
 
 

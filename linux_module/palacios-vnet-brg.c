@@ -105,11 +105,11 @@ static void _delete_link(struct vnet_link * link){
 
     link->sock->ops->release(link->sock);
 
-    spin_lock_irqsave(&(vnet_brg_s.lock), flags);
+    palacios_spinlock_lock_irqsave(&(vnet_brg_s.lock), flags);
     list_del(&(link->node));
     vnet_htable_remove(vnet_brg_s.ip2link, (addr_t)&(link->dst_ip), 0);
     vnet_brg_s.num_links --;
-    spin_unlock_irqrestore(&(vnet_brg_s.lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(vnet_brg_s.lock), flags);
 
     INFO("VNET Bridge: Link deleted, ip 0x%x, port: %d, idx: %d\n", 
 	   link->dst_ip, 
@@ -179,12 +179,12 @@ static uint32_t _create_link(struct vnet_link * link) {
     }
 
 
-    spin_lock_irqsave(&(vnet_brg_s.lock), flags);
+    palacios_spinlock_lock_irqsave(&(vnet_brg_s.lock), flags);
     list_add(&(link->node), &(vnet_brg_s.link_list));
     vnet_brg_s.num_links ++;
     link->idx = ++ vnet_brg_s.link_idx;
     vnet_htable_insert(vnet_brg_s.ip2link, (addr_t)&(link->dst_ip), (addr_t)link);
-    spin_unlock_irqrestore(&(vnet_brg_s.lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(vnet_brg_s.lock), flags);
 
     INFO("VNET Bridge: Link created, ip 0x%x, port: %d, idx: %d, link: %p, protocol: %s\n", 
 	   link->dst_ip, 
@@ -556,7 +556,7 @@ int vnet_bridge_init(void) {
     memset(&vnet_brg_s, 0, sizeof(struct vnet_brg_state));
 
     INIT_LIST_HEAD(&(vnet_brg_s.link_list));
-    spin_lock_init(&(vnet_brg_s.lock));
+    palacios_spinlock_init(&(vnet_brg_s.lock));
 
     vnet_brg_s.serv_proto = UDP;
 

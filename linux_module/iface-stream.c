@@ -102,9 +102,9 @@ static ssize_t stream_read(struct file * filp, char __user * buf, size_t size, l
 	int tmp_len = (TMP_BUF_LEN > bytes_left) ? bytes_left : TMP_BUF_LEN;
 	int tmp_read = 0;
 
-	spin_lock_irqsave(&(stream->lock), flags);
+	palacios_spinlock_lock_irqsave(&(stream->lock), flags);
 	tmp_read = ringbuf_read(stream->out_ring, tmp_buf, tmp_len);
-	spin_unlock_irqrestore(&(stream->lock), flags);
+	palacios_spinlock_unlock_irqrestore(&(stream->lock), flags);
 
 	if (tmp_read == 0) {
 	    // If userspace reads more than we have
@@ -121,9 +121,9 @@ static ssize_t stream_read(struct file * filp, char __user * buf, size_t size, l
     }
     
 
-    spin_lock_irqsave(&(stream->lock), flags); 
+    palacios_spinlock_lock_irqsave(&(stream->lock), flags); 
     total_bytes_left = ringbuf_data_len(stream->out_ring);
-    spin_unlock_irqrestore(&(stream->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(stream->lock), flags);
 
     if (total_bytes_left > 0) {
 	wake_up_interruptible(&(stream->intr_queue));
@@ -141,9 +141,9 @@ stream_poll(struct file * filp, struct poll_table_struct * poll_tb) {
 
     poll_wait(filp, &(stream->intr_queue), poll_tb);
 
-    spin_lock_irqsave(&(stream->lock), flags);
+    palacios_spinlock_lock_irqsave(&(stream->lock), flags);
     data_avail = ringbuf_data_len(stream->out_ring);
-    spin_unlock_irqrestore(&(stream->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(stream->lock), flags);
 
     if (data_avail > 0) {
 	return mask;
@@ -183,9 +183,9 @@ static int stream_release(struct inode * i, struct file * filp) {
     struct stream_state * stream = filp->private_data;
     unsigned long flags;
     
-    spin_lock_irqsave(&(stream->lock), flags);
+    palacios_spinlock_lock_irqsave(&(stream->lock), flags);
     stream->connected = 0;
-    spin_unlock_irqrestore(&(stream->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(stream->lock), flags);
 
     
     return 0;
@@ -235,7 +235,7 @@ static void * palacios_stream_open(struct v3_stream * v3_stream, const char * na
     strncpy(stream->name, name, STREAM_NAME_LEN - 1);
 
     init_waitqueue_head(&(stream->intr_queue));
-    spin_lock_init(&(stream->lock));
+    palacios_spinlock_init(&(stream->lock));
 
     if (guest == NULL) {
 	list_add(&(stream->stream_node), &(global_streams));
@@ -258,9 +258,9 @@ static uint64_t palacios_stream_output(struct v3_stream * v3_stream, char * buf,
     }
 
     while (bytes_written < len) {
-	spin_lock_irqsave(&(stream->lock), flags);
+	palacios_spinlock_lock_irqsave(&(stream->lock), flags);
 	bytes_written += ringbuf_write(stream->out_ring, buf + bytes_written, len - bytes_written);
-	spin_unlock_irqrestore(&(stream->lock), flags);
+	palacios_spinlock_unlock_irqrestore(&(stream->lock), flags);
 
 	wake_up_interruptible(&(stream->intr_queue));
 
@@ -337,12 +337,12 @@ static int stream_connect(struct v3_guest * guest, unsigned int cmd, unsigned lo
 	return -EFAULT;
     }
 
-    spin_lock_irqsave(&(stream->lock), flags);
+    palacios_spinlock_lock_irqsave(&(stream->lock), flags);
     if (stream->connected == 0) {
 	stream->connected = 1;
 	ret = 1;
     }
-    spin_unlock_irqrestore(&(stream->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(stream->lock), flags);
 
 
     if (ret == -1) {

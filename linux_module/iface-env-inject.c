@@ -6,7 +6,6 @@
  */
 
 #include <linux/uaccess.h>
-#include <linux/vmalloc.h>
 
 #include <gears/env_inject.h>
 

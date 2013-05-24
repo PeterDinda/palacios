@@ -136,6 +136,8 @@ void  palacios_free_pages(void *page_addr, int num_pages);
 void *palacios_alloc(unsigned int size);
 void *palacios_alloc_extended(unsigned int size, unsigned int flags);
 void  palacios_free(void *);
+void *palacios_valloc(unsigned int size); // use instead of vmalloc
+void  palacios_vfree(void *);             // use instead of vfree
 void *palacios_vaddr_to_paddr(void *vaddr);
 void *palacios_paddr_to_vaddr(void *paddr);
 void *palacios_start_kernel_thread(int (*fn)(void * arg), void *arg, char *thread_name);
@@ -145,13 +147,22 @@ void  palacios_yield_cpu(void);
 void  palacios_yield_cpu_timed(unsigned int us);
 unsigned int palacios_get_cpu(void);
 unsigned int palacios_get_cpu_khz(void);
-void *palacios_mutex_alloc(void);
+void *palacios_mutex_alloc(void);        // allocates and inits a lock
+void  palacios_mutex_init(void *mutex);  // use instead of spin_lock_init
 void  palacios_mutex_free(void *mutex);
 void  palacios_mutex_lock(void *mutex, int must_spin);
 void  palacios_mutex_unlock(void *mutex);
 void *palacios_mutex_lock_irqsave(void *mutex, int must_spin);
 void  palacios_mutex_unlock_irqrestore(void *mutex, void *flags);
 
+// Macros for spin-locks in the module code
+// By using these macros, the lock checker will be able
+// to see the module code as well as the core VMM
+#define palacios_spinlock_init(l) palacios_mutex_init(l)
+#define palacios_spinlock_lock(l) palacios_mutex_lock(l,0)
+#define palacios_spinlock_unlock(l) palacios_mutex_unlock(l)
+#define palacios_spinlock_lock_irqsave(l,f) do { f=(unsigned long)palacios_mutex_lock_irqsave(l,0); } while (0)
+#define palacios_spinlock_unlock_irqrestore(l,f) palacios_mutex_unlock_irqrestore(l,(void*)f)
 
 
 // Palacios Printing Support

@@ -299,11 +299,11 @@ static unsigned int host_dev_poll(struct file * filp,
 	return -EFAULT;
     }
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     if (dev->waiting) { 
 	// Yes, we have a request if you want it!
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	DEEP_DEBUG_PRINT("palacios: hostdev: poll done immediate\n");
 	return  POLLIN | POLLRDNORM;
     } 
@@ -313,7 +313,7 @@ static unsigned int host_dev_poll(struct file * filp,
     // register ourselves on the user wait queue
     poll_wait(filp, &(dev->user_wait_queue), poll_tb);
 
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     DEEP_DEBUG_PRINT("palacios: hostdev: poll delayed\n");
     // We will get called again when that queue is woken up
@@ -329,9 +329,9 @@ static int host_dev_release(struct inode * i, struct file * filp)
 
     INFO("palacios: user side is closing host device \"%s\"\n",dev->url);
     
-    spin_lock_irqsave(&(dev->lock), f);
+    palacios_spinlock_lock_irqsave(&(dev->lock), f);
     dev->connected = 0;
-    spin_unlock_irqrestore(&(dev->lock), f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock), f);
 
     // it is the palacios->host interface's responsibility to ignore
     // reads/writes until connected is true
@@ -456,23 +456,23 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 
 	    DEEP_DEBUG_PRINT("palacios: hostdev: request size of request\n");
 	    
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    
 	    if (!(dev->waiting)) { 
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		DEEP_DEBUG_PRINT("palacios: hostdev: no request available\n");
 		schedule();  // avoid livelock for polling user space process  SUSPICOUS
 		return 0; // no request available now
 	    } 
 	    
 	    if (copy_to_user(argp,&(dev->req->data_len),sizeof(uint64_t))) { 
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: unable to copy to user for host device \"%s\"\n",dev->url);
 		return -EFAULT; // failed to copy!
 
 	    }
 	    
-	    spin_unlock_irqrestore(&(dev->lock),f);
+	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
 	    DEEP_DEBUG_PRINT("palacios: hostdev: have request\n");
 
@@ -486,24 +486,24 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 	    
 	    unsigned long f;
 	    
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    
 	    DEEP_DEBUG_PRINT("palacios: hostdev: pull request\n");
 
 	    if (!(dev->waiting) || !(dev->req)) { 
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		DEEP_DEBUG_PRINT("palacios: hostdev: no request to pull\n");
 		return 0; // no request available now
 	    } 
 
 	    
 	    if (copy_to_user(argp,dev->req,dev->req->data_len)) { 
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: unable to copy to user for host device \"%s\"\n",dev->url);
 		return -EFAULT; // failed to copy!
 	    }
     
-	    spin_unlock_irqrestore(&(dev->lock),f);
+	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
 	    DEEP_DEBUG_PRINT("palacios: hostdev: request pulled\n");
 	    
@@ -517,25 +517,25 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 	    uint64_t user_datalen;
 	    uint64_t old_len;
 	    
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    
 	    DEEP_DEBUG_PRINT("palacios: hostdev: push response\n");
 
 	    if (!(dev->waiting)) { 
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: hostdev: no matching request for pushed response\n");
 		return 0; // no request outstanding, so we do not need a response!
 	    }
 	    
 	    if (copy_from_user(&user_datalen,argp,sizeof(uint64_t))) { 
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: unable to copy from user for host device \"%s\"\n",dev->url);
 		return -EFAULT; // failed to copy!
 	    } 
 
 	    if (user_datalen<sizeof(struct palacios_host_dev_host_request_response)) { 
 		// bad user
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: user has response that is too small on host device \"%s\"\n",dev->url);
 		return -EFAULT;
 	    }
@@ -545,7 +545,7 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 		// we drop the lock, turn on interrupts, resize, and then retry
 		DEEP_DEBUG_PRINT("palacios: response not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
 
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		
 		if (palacios_resize_reqresp(&(dev->resp),user_datalen-sizeof(struct palacios_host_dev_host_request_response),0)) {
 		    ERROR("palacios: unable to resize to accept response of size %llu from user for host device \"%s\"\n",user_datalen,dev->url);
@@ -555,7 +555,7 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 		    // There shouldn't be a race here, since there should
 		    // be exactly one user space thread giving us a response for this device
 		    // and it is blocked waiting for us to finish
-		    spin_lock_irqsave(&(dev->lock),f);
+		    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 		    DEEP_DEBUG_PRINT("palacios: reacuired lock on device \"%s\"\n",dev->url);
 		}
 	    }
@@ -565,7 +565,7 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 	    old_len = dev->resp->len;
 	    if (copy_from_user(dev->resp, argp, user_datalen)) { 
 		dev->resp->len=old_len;
-		spin_unlock_irqrestore(&(dev->lock),f);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: unable to copy from user for host device \"%s\"\n",dev->url);
 		return -EFAULT; // failed to copy!
 	    } 
@@ -575,7 +575,7 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 	    // now have valid response!
 	    dev->waiting=0;
 
-	    spin_unlock_irqrestore(&(dev->lock),f);
+	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
 	    // wake the palacios side up so that it sees it
 	    cycle_response_request(dev);
@@ -629,22 +629,22 @@ static int host_dev_connect(struct v3_guest * guest, unsigned int cmd, unsigned 
     // URL.  If we don't find it after a while, we give up
     
     for (i=0;i<RENDEZVOUS_WAIT_SECS/RENDEZVOUS_RETRY_SECS;i++) { 
-	spin_lock_irqsave(&(host_dev->lock),f1);
+	palacios_spinlock_lock_irqsave(&(host_dev->lock),f1);
 	list_for_each_entry(dev,&(host_dev->devs), node) {
 	    if (!strncasecmp(url,dev->url,MAX_URL)) { 
 		// found it
-		spin_lock_irqsave(&(dev->lock),f2);
+		palacios_spinlock_lock_irqsave(&(dev->lock),f2);
 		if (dev->connected) { 
 		    ERROR("palacios: device for \"%s\" is already connected!\n",url);
-		    spin_unlock_irqrestore(&(dev->lock),f2);
-		    spin_unlock_irqrestore(&(host_dev->lock),f1);
+		    palacios_spinlock_unlock_irqrestore(&(dev->lock),f2);
+		    palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f1);
 		    return -1;
 		} else {
 		    dev->fd = anon_inode_getfd("v3-hostdev", &host_dev_fops, dev, 0);
 		    if (dev->fd<0) { 
 			ERROR("palacios: cannot create fd for device \"%s\"\n",url);
-			spin_unlock_irqrestore(&(dev->lock),f2);
-			spin_unlock_irqrestore(&(host_dev->lock),f1);
+			palacios_spinlock_unlock_irqrestore(&(dev->lock),f2);
+			palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f1);
 			return -1;
 		    }
 		    dev->connected=1;
@@ -658,14 +658,14 @@ static int host_dev_connect(struct v3_guest * guest, unsigned int cmd, unsigned 
 			dev->resp=0;
 		    }
 		    INFO("palacios: connected fd for device \"%s\"\n",url);
-		    spin_unlock_irqrestore(&(dev->lock),f2);
-		    spin_unlock_irqrestore(&(host_dev->lock),f1);
+		    palacios_spinlock_unlock_irqrestore(&(dev->lock),f2);
+		    palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f1);
 		    return dev->fd;
 		}
-		spin_unlock_irqrestore(&(dev->lock),f2);
+		palacios_spinlock_unlock_irqrestore(&(dev->lock),f2);
 	    }
 	}
-	spin_unlock_irqrestore(&(host_dev->lock),f1);
+	palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f1);
 	
 	ssleep(RENDEZVOUS_RETRY_SECS);
     }
@@ -705,13 +705,13 @@ static int palacios_host_dev_rendezvous(struct palacios_host_device_user *dev)
 
     // Now wait until we are noticed!
     for (i=0;i<RENDEZVOUS_WAIT_SECS/RENDEZVOUS_RETRY_SECS;i++) { 
-	spin_lock_irqsave(&(dev->lock),f);
+	palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	if (dev->connected) { 
 	    INFO("palacios: connection with user side established for host device \"%s\" fd=%d\n",dev->url,dev->fd);
-	    spin_unlock_irqrestore(&(dev->lock),f);
+	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	    return 0;
 	}
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ssleep(RENDEZVOUS_RETRY_SECS);
     }
     
@@ -758,16 +758,16 @@ static v3_host_dev_t palacios_host_dev_open_deferred(char *url,
     }
 
     // Check to see if a device of this url already exists, which would be ugly
-    spin_lock_irqsave(&(host_dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(host_dev->lock),f);
     list_for_each_entry(dev,&(host_dev->devs), node) {
 	if (!strncasecmp(url,dev->url,MAX_URL)) { 
 	    // found it
-	    spin_unlock_irqrestore(&(host_dev->lock),f);
+	    palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f);
 	    ERROR("palacios: a host device with url \"%s\" already exists in the guest!\n",url);
 	    return NULL;
 	}
     }
-    spin_unlock_irqrestore(&(host_dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f);
 
 
     INFO("palacios: creating host device \"%s\"\n",url);
@@ -787,15 +787,15 @@ static v3_host_dev_t palacios_host_dev_open_deferred(char *url,
     
     dev->guest = guest;
 
-    spin_lock_init(&(dev->lock));
+    palacios_spinlock_init(&(dev->lock));
 
     init_waitqueue_head(&(dev->user_wait_queue));
     init_waitqueue_head(&(dev->host_wait_queue));
 
     // Insert ourselves into the list
-    spin_lock_irqsave(&(host_dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(host_dev->lock),f);
     list_add(&(dev->node),&(host_dev->devs));
-    spin_unlock_irqrestore(&(host_dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f);
 
     INFO("palacios: host device \"%s\" created with deferred rendezvous\n",url);
 
@@ -825,9 +825,9 @@ static int palacios_host_dev_close(v3_host_dev_t hostdev)
 	return -1;
     }
 
-    spin_lock_irqsave(&(host_dev->lock),f1);
+    palacios_spinlock_lock_irqsave(&(host_dev->lock),f1);
 
-    spin_lock_irqsave(&(dev->lock),f2);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f2);
 
     if (dev->connected) { 
 	dev->connected=0;
@@ -836,8 +836,8 @@ static int palacios_host_dev_close(v3_host_dev_t hostdev)
 
     list_del(&(dev->node));
     
-    spin_unlock_irqrestore(&(dev->lock),f2);
-    spin_unlock_irqrestore(&(host_dev->lock),f1);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f2);
+    palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f1);
     
     palacios_host_dev_user_free(dev);
 
@@ -859,16 +859,16 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
     DEEP_DEBUG_PRINT("palacios: hostdev: read io port 0x%x\n",port);
 	    
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
 
     if (dev->waiting) { 
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued i/o read request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
 	return 0;
     }
@@ -881,7 +881,7 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
 	// we drop the lock, turn on interrupts, resize, and then retry
 	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
 	
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	
 	if (palacios_resize_reqresp(&(dev->req),0,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
@@ -890,7 +890,7 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
 	    // reacquire the lock
 	    // There shouldn't be a race here since there should not be another
 	    // request from palacios until this one finishes
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
 	}
     }
@@ -905,20 +905,20 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
 
     memcpy(dest,dev->resp->data, op_len);
     
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
@@ -934,16 +934,16 @@ static uint64_t palacios_host_dev_read_mem(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: read mem  0x%p\n",gpa);
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
 
     if (dev->waiting) { 
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued memory read request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
 	return 0;
     }
@@ -954,7 +954,7 @@ static uint64_t palacios_host_dev_read_mem(v3_host_dev_t hostdev,
 	// we drop the lock, turn on interrupts, resize, and then retry
 	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
 	
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	
 	if (palacios_resize_reqresp(&(dev->req),0,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
@@ -963,7 +963,7 @@ static uint64_t palacios_host_dev_read_mem(v3_host_dev_t hostdev,
 	    // reacquire the lock
 	    // There shouldn't be a race here since there should not be another
 	    // request from palacios until this one finishes
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
 	}
     }
@@ -977,20 +977,20 @@ static uint64_t palacios_host_dev_read_mem(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
 
     memcpy(dest,dev->resp->data, op_len);
     
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
@@ -1006,16 +1006,16 @@ static uint64_t palacios_host_dev_read_conf(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: read conf 0x%p\n",(void*)offset);
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
 
     if (dev->waiting) { 
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued config read request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
 	return 0;
     }
@@ -1026,7 +1026,7 @@ static uint64_t palacios_host_dev_read_conf(v3_host_dev_t hostdev,
 	// we drop the lock, turn on interrupts, resize, and then retry
 	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
 	
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	
 	if (palacios_resize_reqresp(&(dev->req),0,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
@@ -1035,7 +1035,7 @@ static uint64_t palacios_host_dev_read_conf(v3_host_dev_t hostdev,
 	    // reacquire the lock
 	    // There shouldn't be a race here since there should not be another
 	    // request from palacios until this one finishes
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
 	}
     }
@@ -1049,20 +1049,20 @@ static uint64_t palacios_host_dev_read_conf(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
 
     memcpy(dest,dev->resp->data, op_len);
     
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
@@ -1079,16 +1079,16 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: write io port 0x%x \n",port);
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
 
     if (dev->waiting) { 
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued i/o write request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
 	return 0;
     }
@@ -1099,7 +1099,7 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 	// we drop the lock, turn on interrupts, resize, and then retry
 	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
 	
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	
 	if (palacios_resize_reqresp(&(dev->req),len,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
@@ -1108,7 +1108,7 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 	    // reacquire the lock
 	    // There shouldn't be a race here since there should not be another
 	    // request from palacios until this one finishes
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
 	}
     }
@@ -1124,18 +1124,18 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 
     dev->waiting=1;
 
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
    
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
 
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
@@ -1152,16 +1152,16 @@ static uint64_t palacios_host_dev_write_mem(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: write mem 0x%p\n",gpa);
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
 
     if (dev->waiting) { 
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued memory write request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
 	return 0;
     }
@@ -1172,7 +1172,7 @@ static uint64_t palacios_host_dev_write_mem(v3_host_dev_t hostdev,
 	// we drop the lock, turn on interrupts, resize, and then retry
 	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
 	
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	
 	if (palacios_resize_reqresp(&(dev->req),len,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
@@ -1181,7 +1181,7 @@ static uint64_t palacios_host_dev_write_mem(v3_host_dev_t hostdev,
 	    // reacquire the lock
 	    // There shouldn't be a race here since there should not be another
 	    // request from palacios until this one finishes
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
 	}
     }
@@ -1197,18 +1197,18 @@ static uint64_t palacios_host_dev_write_mem(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     op_len= dev->resp->op_len < len ? dev->resp->op_len : len ;
 
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
@@ -1227,16 +1227,16 @@ static uint64_t palacios_host_dev_write_conf(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: write conf 0x%p\n",(void*)offset);
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
 
     if (dev->waiting) { 
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: guest issued config write request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
 	return 0;
     }
@@ -1247,7 +1247,7 @@ static uint64_t palacios_host_dev_write_conf(v3_host_dev_t hostdev,
 	// we drop the lock, turn on interrupts, resize, and then retry
 	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
 	
-	spin_unlock_irqrestore(&(dev->lock),f);
+	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	
 	if (palacios_resize_reqresp(&(dev->req),len,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
@@ -1256,7 +1256,7 @@ static uint64_t palacios_host_dev_write_conf(v3_host_dev_t hostdev,
 	    // reacquire the lock
 	    // There shouldn't be a race here since there should not be another
 	    // request from palacios until this one finishes
-	    spin_lock_irqsave(&(dev->lock),f);
+	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
 	}
     }
@@ -1272,18 +1272,18 @@ static uint64_t palacios_host_dev_write_conf(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    spin_lock_irqsave(&(dev->lock),f);
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
 
-    spin_unlock_irqrestore(&(dev->lock),f);
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
@@ -1330,7 +1330,7 @@ static int host_dev_guest_init(struct v3_guest * guest, void ** vm_data ) {
     
     
     INIT_LIST_HEAD(&(host_dev->devs));
-    spin_lock_init(&(host_dev->lock));
+    palacios_spinlock_init(&(host_dev->lock));
 
     *vm_data = host_dev;
 

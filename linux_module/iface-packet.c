@@ -253,9 +253,9 @@ palacios_packet_connect(struct v3_packet * packet,
     struct raw_interface * iface;
     unsigned long flags;
     
-    spin_lock_irqsave(&(packet_state.lock), flags);
+    palacios_spinlock_lock_irqsave(&(packet_state.lock), flags);
     iface = find_interface(host_nic);
-    spin_unlock_irqrestore(&(packet_state.lock),flags);
+    palacios_spinlock_unlock_irqrestore(&(packet_state.lock),flags);
 
     if(iface == NULL){
 	iface = (struct raw_interface *)palacios_alloc(sizeof(struct raw_interface));
@@ -268,9 +268,9 @@ palacios_packet_connect(struct v3_packet * packet,
 	    palacios_free(iface);
 	    return -1;
 	}
-	spin_lock_irqsave(&(packet_state.lock), flags);	
+	palacios_spinlock_lock_irqsave(&(packet_state.lock), flags);	
 	list_add(&(iface->node), &(packet_state.open_interfaces));
-	spin_unlock_irqrestore(&(packet_state.lock),flags);
+	palacios_spinlock_unlock_irqrestore(&(packet_state.lock),flags);
     }
     
     packet->host_packet_data = iface;
@@ -346,7 +346,7 @@ static int packet_init( void ) {
     V3_Init_Packet(&palacios_packet_hooks);
     
     memset(&packet_state, 0, sizeof(struct palacios_packet_state));
-    spin_lock_init(&(packet_state.lock));
+    palacios_spinlock_init(&(packet_state.lock));
     INIT_LIST_HEAD(&(packet_state.open_interfaces));
     
     // REGISTER GLOBAL CONTROL to add interfaces...

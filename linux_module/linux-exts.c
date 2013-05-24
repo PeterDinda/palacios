@@ -43,7 +43,7 @@ static inline struct global_ctrl * __insert_global_ctrl(struct global_ctrl * ctr
 
 int add_global_ctrl(unsigned int cmd, 
                    int (*handler)(unsigned int cmd, unsigned long arg)) {
-    struct global_ctrl * ctrl = kmalloc(sizeof(struct global_ctrl), GFP_KERNEL);
+    struct global_ctrl * ctrl = palacios_alloc_extended(sizeof(struct global_ctrl), GFP_KERNEL);
 
     if (ctrl == NULL) {
         printk("Error: Could not allocate global ctrl %d\n", cmd);
@@ -55,7 +55,7 @@ int add_global_ctrl(unsigned int cmd,
 
     if (__insert_global_ctrl(ctrl) != NULL) {
         printk("Could not insert guest ctrl %d\n", cmd);
-        kfree(ctrl);
+        palacios_free(ctrl);
         return -1;
     }
     

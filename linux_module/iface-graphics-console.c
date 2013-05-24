@@ -22,7 +22,6 @@
 #include "linux-exts.h"
 #include "vm.h"
 
-#include <linux/vmalloc.h>
 
 /*
 
@@ -107,7 +106,7 @@ static v3_graphics_console_t g_open(void * priv_data,
     DEBUG("palacios: allocating %u bytes for %u by %u by %u buffer\n",
 	   mem, desired_spec->width, desired_spec->height, desired_spec->bytes_per_pixel);
 
-    gc->data = vmalloc(mem);
+    gc->data = palacios_valloc(mem);
 
     if (!(gc->data)) { 
 	ERROR("palacios: unable to allocate memory for frame buffer\n");
@@ -149,7 +148,7 @@ static  void g_close(v3_graphics_console_t cons)
 	    return;
 	}
 	if (gc->data) { 
-	    vfree(gc->data);
+	    palacios_vfree(gc->data);
 	    gc->data=0;
 	}
     }
@@ -321,7 +320,7 @@ static int graphics_console_deinit( void ) {
         list_del(&(gc->gcons_node));
 
         if (gc->data) 
-            vfree(gc->data);
+            palacios_vfree(gc->data);
 
         palacios_free(gc);
     }
@@ -477,7 +476,7 @@ static int graphics_console_guest_deinit(struct v3_guest * guest, void * vm_data
     list_del(&(graphics_cons->gcons_node));
 
     if (graphics_cons->data) { 
-	vfree(graphics_cons->data);
+	palacios_vfree(graphics_cons->data);
     }
 
     palacios_free(graphics_cons);

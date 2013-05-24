@@ -13,7 +13,7 @@ void init_queue(struct gen_queue * queue, unsigned int max_entries) {
     queue->max_entries = max_entries;
 
     INIT_LIST_HEAD(&(queue->entries));
-    spin_lock_init(&(queue->lock));
+    palacios_spinlock_init(&(queue->lock));
 }
 
 void deinit_queue(struct gen_queue * queue) {
@@ -47,13 +47,13 @@ int enqueue(struct gen_queue * queue, void * entry) {
 	return -1;
     }
 
-    spin_lock_irqsave(&(queue->lock), flags);
+    palacios_spinlock_lock_irqsave(&(queue->lock), flags);
 
     q_entry->entry = entry;
     list_add_tail(&(q_entry->node), &(queue->entries));
     queue->num_entries++;
 
-    spin_unlock_irqrestore(&(queue->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(queue->lock), flags);
 
     return 0;
 }
@@ -63,7 +63,7 @@ void * dequeue(struct gen_queue * queue) {
     void * entry_val = 0;
     unsigned long flags;
 
-    spin_lock_irqsave(&(queue->lock), flags);
+    palacios_spinlock_lock_irqsave(&(queue->lock), flags);
 
     if (!list_empty(&(queue->entries))) {
 	struct list_head * q_entry = queue->entries.next;
@@ -77,7 +77,7 @@ void * dequeue(struct gen_queue * queue) {
 
     }
 
-    spin_unlock_irqrestore(&(queue->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(queue->lock), flags);
 
     return entry_val;
 }

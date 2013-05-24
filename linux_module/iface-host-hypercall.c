@@ -7,7 +7,6 @@
 
 #include <linux/elf.h>
 #include <linux/uaccess.h>
-#include <linux/vmalloc.h>
 
 #include <linux/module.h>
 

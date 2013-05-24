@@ -79,7 +79,7 @@ endif
 
 CFLAGS += -I../linux_module
 
-CC = gcc
+CC = gcc -g
 AR = ar
 
 all: $(BUILD_EXECS) $(BUILD_LIBS) $(COPIED_EXECS)
