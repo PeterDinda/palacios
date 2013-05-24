@@ -722,6 +722,10 @@ static int pit_save(struct v3_chkpt_ctx * ctx, void * private_data) {
       V3_CHKPT_SAVE(ctx, key, c->counter, savefailout);
       MAKE_KEY("RELOAD_VALUE");
       V3_CHKPT_SAVE(ctx, key, c->reload_value, savefailout);
+
+      MAKE_KEY("LATCH_VALUE");
+      V3_CHKPT_SAVE(ctx, key, c->latched_value, savefailout);
+
       MAKE_KEY("LATCH_STATE");
       V3_CHKPT_SAVE(ctx, key, c->latch_state, savefailout);
       MAKE_KEY("READ_STATE");
@@ -773,6 +777,10 @@ static int pit_load(struct v3_chkpt_ctx * ctx, void * private_data) {
       V3_CHKPT_LOAD(ctx, key, c->counter, loadfailout);
       MAKE_KEY("RELOAD_VALUE");
       V3_CHKPT_LOAD(ctx, key, c->reload_value, loadfailout);
+
+      MAKE_KEY("LATCH_VALUE");
+      V3_CHKPT_LOAD(ctx, key, c->latched_value, loadfailout);
+
       MAKE_KEY("LATCH_STATE");
       V3_CHKPT_LOAD(ctx, key, c->latch_state, loadfailout);
       MAKE_KEY("READ_STATE");

@@ -865,17 +865,17 @@ static int serial_free(struct serial_state * state) {
 
 #include <palacios/vmm_sprintf.h>
 
-static int serial_buffer_save(struct v3_chkpt_ctx * ctx, int port, struct serial_buffer *sb) {
+static int serial_buffer_save(struct v3_chkpt_ctx * ctx, int port, struct serial_buffer *sb, char * bufname) {
   
   char keyname[128];
   
-  snprintf(keyname,128,"COM%d_SB_HEAD", port);
+  snprintf(keyname,128,"COM%d_%s_HEAD", port, bufname);
   V3_CHKPT_SAVE(ctx,keyname,sb->head,failout);
-  snprintf(keyname,128,"COM%d_SB_TAIL", port);
+  snprintf(keyname,128,"COM%d_%s_TAIL", port, bufname);
   V3_CHKPT_SAVE(ctx,keyname,sb->tail,failout);
-  snprintf(keyname,128,"COM%d_SB_FULL", port);
+  snprintf(keyname,128,"COM%d_%s_FULL", port, bufname);
   V3_CHKPT_SAVE(ctx,keyname,sb->full,failout);
-  snprintf(keyname,128,"COM%d_SB_DATA", port);
+  snprintf(keyname,128,"COM%d_%s_DATA", port, bufname);
   V3_CHKPT_SAVE(ctx,keyname,sb->buffer,failout);
   
   return 0;
@@ -886,17 +886,17 @@ static int serial_buffer_save(struct v3_chkpt_ctx * ctx, int port, struct serial
 }
 
  
-static int serial_buffer_load(struct v3_chkpt_ctx * ctx, int port,  struct serial_buffer *sb) {
+static int serial_buffer_load(struct v3_chkpt_ctx * ctx, int port,  struct serial_buffer *sb, char * bufname) {
 
   char keyname[128];
 
-  snprintf(keyname,128,"COM%d_SB_HEAD", port);
+  snprintf(keyname,128,"COM%d_%s_HEAD", port, bufname);
   V3_CHKPT_LOAD(ctx,keyname,sb->head,failout);
-  snprintf(keyname,128,"COM%d_SB_TAIL", port);
+  snprintf(keyname,128,"COM%d_%s_TAIL", port, bufname);
   V3_CHKPT_LOAD(ctx,keyname,sb->tail,failout);
-  snprintf(keyname,128,"COM%d_SB_FULL", port);
+  snprintf(keyname,128,"COM%d_%s_FULL", port, bufname);
   V3_CHKPT_LOAD(ctx,keyname,sb->full,failout);
-  snprintf(keyname,128,"COM%d_SB_DATA", port);
+  snprintf(keyname,128,"COM%d_%s_DATA", port, bufname);
   V3_CHKPT_LOAD(ctx,keyname,sb->buffer,failout);
   
   return 0;
@@ -939,16 +939,17 @@ static int serial_save(struct v3_chkpt_ctx * ctx, void * private_data) {
     snprintf(keyname, 128,"COM%d_DLM",i);
     V3_CHKPT_SAVE(ctx, keyname, serial->dlm.data,failout);
     
-    if (serial_buffer_save(ctx, i, &(serial->tx_buffer))) { 
+    if (serial_buffer_save(ctx, i, &(serial->tx_buffer), "TX")) { 
       PrintError(VM_NONE, VCORE_NONE, "Failed to save serial tx buffer %d\n",i);
       goto failout;
     }
     
-    if (serial_buffer_save(ctx, i, &(serial->rx_buffer))) { 
+    if (serial_buffer_save(ctx, i, &(serial->rx_buffer), "RX")) { 
       PrintError(VM_NONE, VCORE_NONE, "Failed to save serial rx buffer %d\n",i);
       goto failout;
     }
     
+    snprintf(keyname, 128,"COM%d_IRQ_NUM",i);
     V3_CHKPT_SAVE(ctx, keyname, serial->irq_number,failout);
   }
 
@@ -993,16 +994,17 @@ static int serial_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     snprintf(keyname, 128,"COM%d_DLM",i);
     V3_CHKPT_LOAD(ctx, keyname, serial->dlm.data,failout);
     
-    if (serial_buffer_load(ctx, i, &(serial->tx_buffer))) { 
+    if (serial_buffer_load(ctx, i, &(serial->tx_buffer), "RX")) { 
       PrintError(VM_NONE, VCORE_NONE, "Failed to load serial tx buffer %d\n",i);
       goto failout;
     }
     
-    if (serial_buffer_load(ctx, i, &(serial->rx_buffer))) { 
+    if (serial_buffer_load(ctx, i, &(serial->rx_buffer), "TX")) { 
       PrintError(VM_NONE, VCORE_NONE, "Failed to load serial rx buffer %d\n",i);
       goto failout;
     }
     
+    snprintf(keyname, 128,"COM%d_IRQ_NUM",i);
     V3_CHKPT_LOAD(ctx, keyname, serial->irq_number,failout);
   }
 

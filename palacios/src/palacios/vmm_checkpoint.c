@@ -748,7 +748,7 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
         
     // Some components of guest state captured in the shadow pager
     V3_CHKPT_LOAD(ctx, "GUEST_CR3", info->shdw_pg_state.guest_cr3, loadfailout);
-    V3_CHKPT_LOAD(ctx, "GUEST_CRO", info->shdw_pg_state.guest_cr0, loadfailout);
+    V3_CHKPT_LOAD(ctx, "GUEST_CR0", info->shdw_pg_state.guest_cr0, loadfailout);
     V3_CHKPT_LOAD(ctx, "GUEST_EFER", info->shdw_pg_state.guest_efer, loadfailout);
 
     v3_chkpt_close_ctx(ctx); ctx=0;
@@ -929,7 +929,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
         
     // Some components of guest state captured in the shadow pager
     V3_CHKPT_SAVE(ctx, "GUEST_CR3", info->shdw_pg_state.guest_cr3, savefailout);
-    V3_CHKPT_SAVE(ctx, "GUEST_CRO", info->shdw_pg_state.guest_cr0, savefailout);
+    V3_CHKPT_SAVE(ctx, "GUEST_CR0", info->shdw_pg_state.guest_cr0, savefailout);
     V3_CHKPT_SAVE(ctx, "GUEST_EFER", info->shdw_pg_state.guest_efer, savefailout);
 
     v3_chkpt_close_ctx(ctx); ctx=0;
