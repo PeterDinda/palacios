@@ -430,6 +430,14 @@ config DEBUG_MEM_ERRORS
     help
       This turns on debugging for memory translations and lookups
 
+config DEBUG_LOCKS
+    bool "Lock debugging (if host supports it)"
+    default n
+    depends on DEBUG_ON
+    help
+      This turns on lock debugging for locks in Palacios and in its host-specifc glue code.  This requires host support.
+
+
 endmenu
 
 
