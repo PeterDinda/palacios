@@ -214,7 +214,7 @@ palacios_alloc_extended(unsigned int size, unsigned int flags) {
     memset(addr,0,size+2*ALLOC_PAD);
 #endif
 
-    MEMCHECK_KMALLOC(addr+ALLOC_PAD,size+2*ALLOC_PAD);
+    MEMCHECK_KMALLOC(addr,size+2*ALLOC_PAD);
 
     return addr+ALLOC_PAD;
 }
