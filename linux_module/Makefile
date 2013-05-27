@@ -50,6 +50,7 @@ v3vee-$(V3_CONFIG_EXT_GUARD_MODULES) += iface-guard-mods.o
 v3vee-$(V3_CONFIG_HOST_PCI) += iface-host-pci.o
 
 v3vee-$(V3_CONFIG_DEBUG_LOCKS) += lockcheck.o
+v3vee-$(V3_CONFIG_DEBUG_MEM_ALLOC) += memcheck.o
 
 
 v3vee-objs := $(v3vee-y) ../libv3vee.a

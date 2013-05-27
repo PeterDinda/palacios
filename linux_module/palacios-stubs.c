@@ -22,6 +22,7 @@
 
 #include "mm.h"
 
+#include "memcheck.h"
 #include "lockcheck.h"
 
 // The following can be used to track heap bugs
@@ -176,6 +177,8 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment) {
 
     pg_allocs += num_pages;
 
+    MEMCHECK_ALLOC_PAGES(pg_addr,num_pages*4096);
+
     return pg_addr;
 }
 
@@ -189,6 +192,8 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment) {
 void palacios_free_pages(void * page_paddr, int num_pages) {
     pg_frees += num_pages;
     free_palacios_pgs((uintptr_t)page_paddr, num_pages);
+    MEMCHECK_FREE_PAGES(page_paddr,num_pages*4096);
+
 }
 
 
@@ -209,6 +214,8 @@ palacios_alloc_extended(unsigned int size, unsigned int flags) {
     memset(addr,0,size+2*ALLOC_PAD);
 #endif
 
+    MEMCHECK_KMALLOC(addr+ALLOC_PAD,size+2*ALLOC_PAD);
+
     return addr+ALLOC_PAD;
 }
 
@@ -226,6 +233,8 @@ palacios_valloc(unsigned int size)
 
     vmallocs++;
 
+    MEMCHECK_VMALLOC(addr,size);
+
     return addr;
 }
 
@@ -233,6 +242,7 @@ void palacios_vfree(void *p)
 {
   vfree(p);
   vfrees++;
+  MEMCHECK_VFREE(p);
 }
 
 /**
@@ -264,7 +274,7 @@ palacios_free(
 {
     frees++;
     kfree(addr-ALLOC_PAD);
-    return;
+    MEMCHECK_KFREE(addr-ALLOC_PAD);
 }
 
 /**

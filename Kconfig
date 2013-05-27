@@ -437,6 +437,13 @@ config DEBUG_LOCKS
     help
       This turns on lock debugging for locks in Palacios and in its host-specifc glue code.  This requires host support.
 
+config DEBUG_MEM_ALLOC
+    bool "Memory allocation debugging (if host supports it)"
+    default n
+    depends on DEBUG_ON
+    help
+      This turns on memory allocation debugging in Palacios, using the mechanisms provided by the host
+
 
 endmenu
 

@@ -27,6 +27,7 @@
 #include "mm.h"
 #include "vm.h"
 #include "allow_devmem.h"
+#include "memcheck.h"
 #include "lockcheck.h"
 
 #include "linux-exts.h"
@@ -347,6 +348,7 @@ static int __init v3_init(void) {
     int ret = 0;
 
     LOCKCHECK_INIT();
+    MEMCHECK_INIT();
 
     palacios_init_mm();
 
@@ -490,6 +492,7 @@ static void __exit v3_exit(void) {
 
     DEBUG("Palacios Module Mallocs = %d, Frees = %d\n", mod_allocs, mod_frees);
     
+    MEMCHECK_DEINIT();
     LOCKCHECK_DEINIT();
 }
 
