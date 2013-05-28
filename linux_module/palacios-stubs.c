@@ -168,6 +168,11 @@ void palacios_print_scoped(void * vm, int vcore, const char *fmt, ...) {
 void *palacios_allocate_pages(int num_pages, unsigned int alignment) {
     void * pg_addr = NULL;
 
+    if (num_pages<=0) { 
+      ERROR("ALERT ALERT Attempt to allocate zero or fewer pages\n");
+      return NULL;
+    }
+
     pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment);
 
     if (!pg_addr) { 
@@ -201,6 +206,14 @@ void *
 palacios_alloc_extended(unsigned int size, unsigned int flags) {
     void * addr = NULL;
 
+    if (size==0) { 
+      // note that modern kernels will respond to a zero byte
+      // kmalloc and return the address 0x10...  In Palacios, 
+      // we will simply not allow 0 byte allocs at all, of any kind
+      ERROR("ALERT ALERT attempt to kmalloc zero bytes rejected\n");
+      return NULL;
+    }
+
     addr = kmalloc(size+2*ALLOC_PAD, flags);
 
     if (!addr) { 
@@ -223,6 +236,11 @@ void *
 palacios_valloc(unsigned int size)
 {
     void * addr = NULL;
+
+    if (size==0) { 
+      ERROR("ALERT ALERT attempt to vmalloc zero bytes rejected\n");
+      return NULL;
+    }
 
     addr = vmalloc(size);
 
@@ -664,6 +682,17 @@ void palacios_mutex_init(void *mutex)
   if (lock) {
     spin_lock_init(lock);
     LOCKCHECK_ALLOC(lock);
+  }
+}
+
+void palacios_mutex_deinit(void *mutex)
+{
+  spinlock_t *lock = (spinlock_t*)mutex;
+  
+  if (lock) {
+    // no actual spin_lock_deinit on linux
+    // our purpose here is to drive the lock checker
+    LOCKCHECK_FREE(lock);
   }
 }
 
