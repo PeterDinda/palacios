@@ -552,7 +552,10 @@ static int virtio_free(struct virtio_vnet_state * vnet_state) {
 
     // unregister from PCI
 
+    v3_lock_deinit(&(vnet_state->lock));
+
     V3_Free(vnet_state);
+
     return 0;
 }
 

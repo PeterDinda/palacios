@@ -1074,6 +1074,8 @@ static int keyboard_free(struct keyboard_internal * kbd) {
 
     // unhook host events
 
+    v3_lock_deinit(&(kbd->kb_lock));
+
     V3_Free(kbd);
     return 0;
 }

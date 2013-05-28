@@ -280,6 +280,7 @@ static void palacios_stream_close(struct v3_stream * v3_stream) {
 
     free_ringbuf(stream->out_ring);
     list_del(&(stream->stream_node));
+    palacios_spinlock_deinit(&(stream->lock));
     palacios_free(stream);
 
 }

@@ -256,6 +256,8 @@ static int palacios_file_close(void * file_ptr) {
     
     list_del(&(pfile->file_node));
 
+    palacios_spinlock_deinit(&(pfile->lock));
+
     palacios_free(pfile->path);    
     palacios_free(pfile);
 

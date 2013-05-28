@@ -451,3 +451,9 @@ static int read_hw_pci_config(struct host_pci_device * host_dev, u32 reg, void *
 
     return 0; 
 }
+
+
+//
+// Should be a matching teardown function here, otherwise we
+// are at least leaking the lock from the lockchecker's perspective
+// we would like to be able to do a palacios_spinlock_deinit() here...

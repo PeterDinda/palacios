@@ -283,7 +283,7 @@ static int apic_write(struct guest_info * core, addr_t guest_addr, void * src, u
 static void set_apic_tpr(struct apic_state *apic, uint32_t val);
 
 
-// No lcoking done
+// No locking done
 static void init_apic_state(struct apic_state * apic, uint32_t id) {
     apic->base_addr = DEFAULT_BASE_ADDR;
 
@@ -1872,11 +1872,15 @@ static int apic_free(struct apic_dev_state * apic_dev) {
 	    v3_remove_timer(core, apic->timer);
 	}
 
+	v3_lock_deinit(&(apic->irq_queue.lock));
+
 	// unhook memory
 
     }
 
     v3_unhook_msr(vm, BASE_ADDR_MSR);
+
+    v3_lock_deinit(&(apic_dev->state_lock));
 
     V3_Free(apic_dev);
     return 0;

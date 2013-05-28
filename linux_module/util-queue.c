@@ -20,6 +20,7 @@ void deinit_queue(struct gen_queue * queue) {
     while (dequeue(queue)) {
 	ERROR("Freeing non-empty queue. PROBABLE MEMORY LEAK DETECTED\n");
     }
+    palacios_spinlock_deinit(&(queue->lock));
 }
 
 struct gen_queue * create_queue(unsigned int max_entries) {

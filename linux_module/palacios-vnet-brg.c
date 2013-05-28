@@ -610,6 +610,8 @@ void vnet_bridge_deinit(void){
 
     vnet_brg_s.status = 0;
 
+    palacios_spinlock_deinit(&(vnet_brg_s.lock));
+
     INFO("VNET LNX Bridge Deinit Finished\n");
 }
 

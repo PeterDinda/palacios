@@ -3156,6 +3156,8 @@ static int deinit_keyed_streams( void )
 {
     palacios_free_htable(mem_streams,1,1);
 
+    palacios_spinlock_deinit(&(user_streams->lock));
+
     palacios_free(user_streams);
 
     WARNING("Deinit of Palacios Keyed Streams likely leaked memory\n");

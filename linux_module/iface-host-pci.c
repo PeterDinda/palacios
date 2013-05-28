@@ -232,11 +232,15 @@ static int host_pci_init( void ) {
     return 0;
 }
 
-
+static int host_pci_deinit(void) {
+  palacios_spinlock_deinit(&lock);
+  return 0;
+}
 
 static struct linux_ext host_pci_ext = {
     .name = "HOST_PCI",
     .init = host_pci_init,
+    .deinit = host_pci_deinit,
 };
 
 

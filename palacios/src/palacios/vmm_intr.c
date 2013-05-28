@@ -72,6 +72,9 @@ void v3_deinit_intr_controllers(struct guest_info * core) {
     list_for_each_entry_safe(ctrlr, tmp, &(intr_state->controller_list), ctrl_node) {
 	v3_remove_intr_controller(core, ctrlr);
     }
+
+    v3_lock_deinit(&(intr_state->irq_lock));
+
 }
 
 
@@ -93,6 +96,8 @@ void v3_deinit_intr_routers(struct v3_vm_info * vm) {
     list_for_each_entry_safe(rtr, tmp, &(vm->intr_routers.router_list), router_node) {
 	v3_remove_intr_router(vm, rtr);
     }  
+
+    v3_lock_deinit(&(vm->intr_routers.irq_lock));
 }
 
 void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data) {

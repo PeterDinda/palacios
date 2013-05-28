@@ -1010,6 +1010,8 @@ void vnet_ctrl_deinit(void){
 
     vnet_ctrl_s.status = 0;
 
+    palacios_spinlock_deinit(&(vnet_ctrl_s.lock));
+
     INFO("VNET Control Deinit Finished\n");
 }
 

@@ -361,6 +361,8 @@ static int packet_deinit( void ) {
 	deinit_raw_interface(iface);
 	palacios_free(iface);
     }
+
+    palacios_spinlock_deinit(&(packet_state.lock));
     
     return 0;
 }

@@ -839,6 +839,8 @@ static int palacios_host_dev_close(v3_host_dev_t hostdev)
     palacios_spinlock_unlock_irqrestore(&(dev->lock),f2);
     palacios_spinlock_unlock_irqrestore(&(host_dev->lock),f1);
     
+    palacios_spinlock_deinit(&(dev->lock));
+
     palacios_host_dev_user_free(dev);
 
     return 0;
@@ -1343,7 +1345,9 @@ static int host_dev_guest_init(struct v3_guest * guest, void ** vm_data ) {
 
 static int host_dev_guest_deinit(struct v3_guest * guest, void * vm_data) {
 
-    palacios_free(vm_data);
+    struct palacios_host_dev * host_dev = (struct palacios_host_dev *) vm_data;
+    palacios_spinlock_deinit(&(host_dev->lock));
+    palacios_free(host_dev);
     return 0;
 }
 

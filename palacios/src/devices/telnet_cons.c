@@ -397,6 +397,8 @@ static int cons_free(struct cons_state * state) {
 
     // kill thread... ?
 
+    v3_lock_deinit(&(state->cons_lock));
+
     V3_Free(state);
     return 0;
 }

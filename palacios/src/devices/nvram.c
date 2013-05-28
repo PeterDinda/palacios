@@ -779,6 +779,8 @@ static int nvram_free(struct nvram_internal * nvram_state) {
 	v3_remove_timer(info,nvram_state->timer);
     }
 
+    v3_lock_deinit(&(nvram_state->nvram_lock));
+
     V3_Free(nvram_state);
     return 0;
 }

@@ -753,6 +753,9 @@ static int virtio_free(struct virtio_dev_state * virtio) {
 	V3_Free(backend);
     }
 
+    v3_lock_deinit(&(virtio->rx_lock));
+    v3_lock_deinit(&(virtio->tx_lock));
+
     V3_Free(virtio);
 
     return 0;
