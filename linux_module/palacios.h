@@ -147,18 +147,19 @@ void  palacios_yield_cpu(void);
 void  palacios_yield_cpu_timed(unsigned int us);
 unsigned int palacios_get_cpu(void);
 unsigned int palacios_get_cpu_khz(void);
-void *palacios_mutex_alloc(void);        // allocates and inits a lock
-void  palacios_mutex_init(void *mutex);  // use instead of spin_lock_init
-void  palacios_mutex_free(void *mutex);
+void *palacios_mutex_alloc(void);         // allocates and inits a lock
+void  palacios_mutex_init(void *mutex);   // only inits a lock
+void  palacios_mutex_deinit(void *mutex); // only deinits a lock
+void  palacios_mutex_free(void *mutex);   // deinits and frees a lock
 void  palacios_mutex_lock(void *mutex, int must_spin);
 void  palacios_mutex_unlock(void *mutex);
 void *palacios_mutex_lock_irqsave(void *mutex, int must_spin);
 void  palacios_mutex_unlock_irqrestore(void *mutex, void *flags);
-
 // Macros for spin-locks in the module code
 // By using these macros, the lock checker will be able
 // to see the module code as well as the core VMM
 #define palacios_spinlock_init(l) palacios_mutex_init(l)
+#define palacios_spinlock_deinit(l) palacios_mutex_deinit(l)
 #define palacios_spinlock_lock(l) palacios_mutex_lock(l,0)
 #define palacios_spinlock_unlock(l) palacios_mutex_unlock(l)
 #define palacios_spinlock_lock_irqsave(l,f) do { f=(unsigned long)palacios_mutex_lock_irqsave(l,0); } while (0)

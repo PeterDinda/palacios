@@ -6,6 +6,11 @@
 
 #include "lockcheck.h"
 
+#define PRINT_LOCK_ALLOC  0
+#define PRINT_LOCK_FREE   0
+#define PRINT_LOCK_LOCK   0
+#define PRINT_LOCK_UNLOCK 0
+
 // How far up the stack to track the caller
 // 0 => palacios_...
 // 1 => v3_lock...
@@ -331,8 +336,9 @@ void palacios_lockcheck_alloc(void *lock)
   clear_trace(l->lastirqlocker);
   clear_trace(l->lastirqunlocker);
   //INFO("LOCKCHECK: LOCK ALLOCATE 0x%p\n",lock);
+#if PRINT_LOCK_ALLOC
   printlock("NEW LOCK", l);
- //dump_stack();
+#endif
 }
   
 void palacios_lockcheck_free(void *lock)
@@ -351,6 +357,11 @@ void palacios_lockcheck_free(void *lock)
   if ((l->irqcount)) { 
     printlock("BAD IRQ COUNT AT FREE",l);
   }
+
+#if PRINT_LOCK_FREE
+  printlock("FREE LOCK",l);
+#endif
+
   free_lock_entry(l);
 }
 
@@ -377,6 +388,10 @@ void palacios_lockcheck_lock(void *lock)
 
   lock_stack_lock(lock,0);
 
+#if PRINT_LOCK_LOCK
+  printlock("LOCK",l);
+#endif
+
 }
 void palacios_lockcheck_unlock(void *lock)
 {
@@ -398,6 +413,11 @@ void palacios_lockcheck_unlock(void *lock)
   
   l->lockcount--;
   backtrace(l->lastunlocker);
+
+#if PRINT_LOCK_UNLOCK
+  printlock("UNLOCK",l);
+#endif
+
 
 }
 
@@ -426,6 +446,11 @@ void palacios_lockcheck_lock_irqsave(void *lock,unsigned long flags)
 
   lock_stack_lock(lock,1);
 
+#if PRINT_LOCK_LOCK
+  printlock("LOCK_IRQSAVE",l);
+#endif
+
+
 
 }
 
@@ -451,5 +476,9 @@ void palacios_lockcheck_unlock_irqrestore(void *lock,unsigned long flags)
   lock_stack_unlock(lock,1);
 
   backtrace(l->lastirqunlocker);
+
+#if PRINT_LOCK_UNLOCK
+  printlock("UNLOCK_IRQRESTORE",l);
+#endif
   
 }
