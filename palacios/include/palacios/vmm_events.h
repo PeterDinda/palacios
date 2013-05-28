@@ -28,8 +28,9 @@
 struct guest_info;
 struct v3_vm_info;
 
-typedef enum { 
-	       V3_EVENT_INVALID /* This entry must always be last */
+typedef enum {        
+  /* First event must be zero */
+  V3_EVENT_INVALID /* This entry must always be last */
 } v3_event_type_t;
 
 

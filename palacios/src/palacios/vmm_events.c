@@ -28,7 +28,7 @@ int v3_init_events(struct v3_vm_info * vm) {
     struct v3_event_map * map = &(vm->event_map);
     int i = 0;
 
-    map->events = V3_Malloc(sizeof(struct list_head) * V3_EVENT_INVALID);
+    map->events = V3_Malloc(sizeof(struct list_head) * (V3_EVENT_INVALID+1));
 
     if (map->events == NULL) {
 	PrintError(vm, VCORE_NONE, "Error: could not allocate event map\n");
