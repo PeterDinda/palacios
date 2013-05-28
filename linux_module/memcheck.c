@@ -172,6 +172,9 @@ void palacios_memcheck_deinit()
       printmem("ALLOCATED MEMORY AT DEINIT",m);
     } 
   }
+
+  palacios_spinlock_deinit(&lock);
+
   INFO("MEMCHECK: DEINITED\n");
 
   // Note that this function could garbage collect at this 
