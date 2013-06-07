@@ -27,6 +27,10 @@
 
 #include <quix86/quix86.h>
 
+#ifdef V3_CONFIG_TM_FUNC
+#include <extensions/trans_mem.h>
+#endif
+
 #ifndef V3_CONFIG_DEBUG_DECODER
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -148,6 +152,33 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     qx86_insn qx86_inst;
     uint8_t inst_buf[QX86_INSN_SIZE_MAX];
 
+    /* 441-tm: add 'escape' trap for Haswell instructions, dont want to stumble
+     * on them!
+     */
+#ifdef V3_CONFIG_TM_FUNC
+    {
+        struct v3_trans_mem * tm = (struct v3_trans_mem *)v3_get_ext_core_state(info, "trans_mem");
+        if (tm->TM_MODE == TM_ON) {
+          int byte1 = *(uint8_t *)(instr_ptr);
+          int byte2 = *(uint8_t *)(instr_ptr + 1);
+          int byte3 = *(uint8_t *)(instr_ptr + 2);
+          if (byte1 == 0xc7 && byte2 == 0xf8) {  /* third byte is an immediate */
+            //V3_Print("Decoding  %x %x %d\n", byte1, byte2, byte3);
+            instr->instr_length = 6;
+            return 0;
+          } else if (byte1 == 0xc6 && byte2 == 0xf8) { /* third byte is an immediate */
+            //V3_Print("Decoding XABORT %x %x %d\n", byte1, byte2, byte3);
+            instr->instr_length = 3;
+            return 0;
+          } else if (byte1 == 0x0f && byte2 == 0x01 && byte3 == 0xd5) {
+            //V3_Print("Decoding XEND %x %x %x\n", byte1, byte2, byte3);
+            instr->instr_length = 3;
+            return 0;
+          }
+        }
+    }
+#endif
+
     memset(instr, 0, sizeof(struct x86_instr));
     memset(&qx86_inst, 0, sizeof(qx86_inst));
 
@@ -204,6 +235,14 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
     instr->instr_length = qx86_inst.rawSize;
 
+    // 441 - dump memory for quix86 debugging
+    if ((instr->op_type = get_opcode(&qx86_inst,info)) == V3_INVALID_OP) {
+        PrintError(info->vm_info, info, "++==++ QX86 DECODE ++==++\n");
+        v3_dump_mem((void *)instr_ptr, 15);
+        PrintError(info->vm_info, info, "Could not get opcode. (mnemonic=%s)\n",
+                qx86_minfo(qx86_inst.mnemonic)->name);
+        return -1;
+    }
     if ((instr->op_type = get_opcode(&qx86_inst, info)) == V3_INVALID_OP) {
         PrintError(info->vm_info, info, "Could not get opcode. (mnemonic=%s)\n",
                 qx86_minfo(qx86_inst.mnemonic)->name);
@@ -274,6 +313,10 @@ static int get_opcode(qx86_insn *inst, struct guest_info *core) {
             return V3_OP_MOV2CR;
         if(IS_CR(1))
             return V3_OP_MOVCR2;
+        // 441 - mov reg reg is also ok
+        if(inst->operands[0].ot == QX86_OPERAND_TYPE_REGISTER
+                || inst->operands[1].ot == QX86_OPERAND_TYPE_REGISTER)
+            return V3_OP_MOV;
 
         PrintError(core->vm_info, core, "Bad operand types for MOV: %d %d\n", inst->operands[0].ot,
                 inst->operands[1].ot);
@@ -395,6 +438,66 @@ static int get_opcode(qx86_insn *inst, struct guest_info *core) {
     case QX86_MNEMONIC_STOSQ:
         return V3_OP_STOS;
 
+    /* 441-tm: add in CMP, POP, JLE, CALL cases */
+    case QX86_MNEMONIC_CMP:
+        return V3_OP_CMP;
+
+    case QX86_MNEMONIC_POP:
+        return V3_OP_POP;
+
+    case QX86_MNEMONIC_JLE:
+        return V3_OP_JLE;
+
+    case QX86_MNEMONIC_CALL:
+        return V3_OP_CALL;
+
+    case QX86_MNEMONIC_TEST:
+        return V3_OP_TEST;
+
+    case QX86_MNEMONIC_PUSH:
+        return V3_OP_PUSH;
+
+    case QX86_MNEMONIC_JAE:
+        return V3_OP_JAE;
+
+    case QX86_MNEMONIC_JMP:
+        return V3_OP_JMP;
+
+    case QX86_MNEMONIC_JNZ:
+        return V3_OP_JNZ;
+
+    case QX86_MNEMONIC_JZ:
+        return V3_OP_JZ;
+
+    case QX86_MNEMONIC_RET:
+        return V3_OP_RET;
+
+    case QX86_MNEMONIC_IMUL:
+        return V3_OP_IMUL;
+
+    case QX86_MNEMONIC_LEA:
+        return V3_OP_LEA;
+
+    case QX86_MNEMONIC_JL:
+        return V3_OP_JL;
+
+    case QX86_MNEMONIC_CMOVZ:
+        return V3_OP_CMOVZ;
+
+    case QX86_MNEMONIC_MOVSXD:
+        return V3_OP_MOVSXD;
+
+    case QX86_MNEMONIC_JNS:
+        return V3_OP_JNS;
+
+    case QX86_MNEMONIC_CMOVS:
+        return V3_OP_CMOVS;
+
+    case QX86_MNEMONIC_SHL:
+        return V3_OP_SHL;
+
+    case QX86_MNEMONIC_INT:
+        return V3_OP_INT;
 
     default:
         return V3_INVALID_OP;
