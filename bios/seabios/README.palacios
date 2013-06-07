@@ -1,0 +1,1 @@
+cp palacios_config .config and then make

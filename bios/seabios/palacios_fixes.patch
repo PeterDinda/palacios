@@ -1,0 +1,147 @@
+From 83f115d2f7f26dddcbbffe89aa8a7a97b28a6228 Mon Sep 17 00:00:00 2001
+From: Alexander Kudryavtsev <alexk@ispras.ru>
+Date: Mon, 12 Mar 2012 13:07:07 +0400
+Subject: [PATCH] Fixes needed to launch SEABIOS inside Palacios's VM: 1.
+ Allow to build ACPI tables without PIIX4 PM device 2.
+ Disable HPET table generation 3. Do not perform PCI setup
+ since it breaks Palacios 4. Do not initialize AP cores
+ since it breaks Palacios 5. Fix SRAT generation - do not
+ cut PCI hole since it is already cut off by Palacios
+
+---
+ src/acpi.c    |   44 +++++++++++++++++++++++++++++---------------
+ src/pciinit.c |    2 +-
+ src/smp.c     |    5 ++++-
+ 3 files changed, 34 insertions(+), 17 deletions(-)
+
+diff --git a/src/acpi.c b/src/acpi.c
+index 3d8b7c8..7d50990 100644
+--- a/src/acpi.c
++++ b/src/acpi.c
+@@ -262,18 +262,32 @@ build_fadt(struct pci_device *pci)
+     fadt->dsdt = cpu_to_le32((u32)dsdt);
+     fadt->model = 1;
+     fadt->reserved1 = 0;
+-    int pm_sci_int = pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
++    int pm_sci_int;
++    if (pci)
++        pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
++    else
++        pm_sci_int = 0;
+     fadt->sci_int = cpu_to_le16(pm_sci_int);
+-    fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
+-    fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
+-    fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
+-    fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
+-    fadt->pm1_evt_len = 4;
+-    fadt->pm1_cnt_len = 2;
+-    fadt->pm_tmr_len = 4;
++    if (pci) {
++        fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
++        fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
++        fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
++        fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
++        fadt->pm1_evt_len = 4;
++        fadt->pm1_cnt_len = 2;
++        fadt->pm_tmr_len = 4;
++        pci_init_device(fadt_init_tbl, pci, fadt);
++    } else {
++        fadt->smi_cmd = 0;
++        fadt->pm1a_evt_blk = 0;
++        fadt->pm1a_cnt_blk = 0;
++        fadt->pm_tmr_blk = 0;
++        fadt->pm1_evt_len = 0;
++        fadt->pm1_cnt_len = 0;
++        fadt->pm_tmr_len = 0;
++    }
+     fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
+     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
+-    pci_init_device(fadt_init_tbl, pci, fadt);
+     /* WBINVD + PROC_C1 + SLP_BUTTON + FIX_RTC + RTC_S4 */
+     fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 6) | (1 << 7));
+ 
+@@ -516,6 +530,7 @@ build_srat(void)
+     if (nb_numa_nodes == 0)
+         return NULL;
+ 
++
+     u64 *numadata = malloc_tmphigh(sizeof(u64) * (MaxCountCPUs + nb_numa_nodes));
+     if (!numadata) {
+         warn_noalloc();
+@@ -577,7 +592,7 @@ build_srat(void)
+         next_base = mem_base + mem_len;
+ 
+         /* Cut out the PCI hole */
+-        if (mem_base <= RamSize && next_base > RamSize) {
++        /*if (mem_base <= RamSize && next_base > RamSize) {
+             mem_len -= next_base - RamSize;
+             if (mem_len > 0) {
+                 acpi_build_srat_memory(numamem, mem_base, mem_len, i-1, 1);
+@@ -587,7 +602,7 @@ build_srat(void)
+             mem_base = 1ULL << 32;
+             mem_len = next_base - RamSize;
+             next_base += (1ULL << 32) - RamSize;
+-        }
++        }*/
+         acpi_build_srat_memory(numamem, mem_base, mem_len, i-1, 1);
+         numamem++;
+         slots++;
+@@ -623,9 +638,7 @@ acpi_bios_init(void)
+ 
+     // This code is hardcoded for PIIX4 Power Management device.
+     struct pci_device *pci = pci_find_init_device(acpi_find_tbl, NULL);
+-    if (!pci)
+-        // Device not found
+-        return;
++    // If no PIIX4 is found we will not build certain structures and init it.
+ 
+     // Build ACPI tables
+     u32 tables[MAX_ACPI_TABLES], tbl_idx = 0;
+@@ -640,7 +653,8 @@ acpi_bios_init(void)
+     ACPI_INIT_TABLE(build_fadt(pci));
+     ACPI_INIT_TABLE(build_ssdt());
+     ACPI_INIT_TABLE(build_madt());
+-    ACPI_INIT_TABLE(build_hpet());
++    if(pci)
++        ACPI_INIT_TABLE(build_hpet());
+     ACPI_INIT_TABLE(build_srat());
+ 
+     u16 i, external_tables = qemu_cfg_acpi_additional_tables();
+diff --git a/src/pciinit.c b/src/pciinit.c
+index 0d8758e..ef8ccda 100644
+--- a/src/pciinit.c
++++ b/src/pciinit.c
+@@ -575,7 +575,7 @@ static int pci_bios_init_root_regions(u32 start, u32 end)
+ void
+ pci_setup(void)
+ {
+-    if (CONFIG_COREBOOT || usingXen()) {
++    if (1 || CONFIG_COREBOOT || usingXen()) {
+         // PCI setup already done by coreboot or Xen - just do probe.
+         pci_probe_devices();
+         return;
+diff --git a/src/smp.c b/src/smp.c
+index 8c077a1..21e7437 100644
+--- a/src/smp.c
++++ b/src/smp.c
+@@ -81,7 +81,7 @@ smp_probe(void)
+         MaxCountCPUs = 1;
+         return;
+     }
+-
++#if 0
+     // Init the counter.
+     writel(&CountCPUs, 1);
+ 
+@@ -121,6 +121,9 @@ smp_probe(void)
+ 
+     // Restore memory.
+     *(u64*)BUILD_AP_BOOT_ADDR = old;
++#endif
+
++    CountCPUs = inb_cmos(CMOS_BIOS_SMP_COUNT) + 1; // Fix for Palacios
+ 
+     MaxCountCPUs = qemu_cfg_get_max_cpus();
+     if (!MaxCountCPUs || MaxCountCPUs < CountCPUs)
+-- 
+1.7.5.4
