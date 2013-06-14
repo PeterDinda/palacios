@@ -711,8 +711,10 @@ palacios_mutex_free(void * mutex) {
  */
 void 
 palacios_mutex_lock(void * mutex, int must_spin) {
+
+    LOCKCHECK_LOCK_PRE(mutex);
     spin_lock((spinlock_t *)mutex);
-    LOCKCHECK_LOCK(mutex);
+    LOCKCHECK_LOCK_POST(mutex);
 }
 
 
@@ -724,8 +726,9 @@ palacios_mutex_lock_irqsave(void * mutex, int must_spin) {
     
     unsigned long flags; 
     
+    LOCKCHECK_LOCK_IRQSAVE_PRE(mutex,flags);
     spin_lock_irqsave((spinlock_t *)mutex,flags);
-    LOCKCHECK_LOCK_IRQSAVE(mutex,flags);
+    LOCKCHECK_LOCK_IRQSAVE_POST(mutex,flags);
 
     return (void *)flags;
 }
@@ -739,8 +742,9 @@ palacios_mutex_unlock(
 	void *			mutex
 ) 
 {
+    LOCKCHECK_UNLOCK_PRE(mutex);
     spin_unlock((spinlock_t *)mutex);
-    LOCKCHECK_UNLOCK(mutex);
+    LOCKCHECK_UNLOCK_POST(mutex);
 }
 
 
@@ -750,9 +754,10 @@ palacios_mutex_unlock(
 void 
 palacios_mutex_unlock_irqrestore(void *mutex, void *flags)
 {
+    LOCKCHECK_UNLOCK_IRQRESTORE_PRE(mutex,(unsigned long)flags);
     // This is correct, flags is opaque
     spin_unlock_irqrestore((spinlock_t *)mutex,(unsigned long)flags);
-    LOCKCHECK_UNLOCK_IRQRESTORE(mutex,(unsigned long)flags);
+    LOCKCHECK_UNLOCK_IRQRESTORE_POST(mutex,(unsigned long)flags);
 }
 
 /**

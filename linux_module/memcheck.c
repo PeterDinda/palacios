@@ -260,7 +260,8 @@ void palacios_memcheck_free(void *addr,unsigned long size, palacios_memcheck_mem
   memcheck_state_t *m=find_mem_entry(addr,0,type); // don't care about the size now
   
   if (!m){
-    DEBUG("MEMCHECK: FREEING UNTRACKED %s MEMORY AT 0x%p FOR %lu BYTES\n",TYPE_TO_STR(type),addr,size);
+    DEBUG("MEMCHECK: FREEING UNTRACKED %s MEMORY AT 0x%p FOR %lu BYTES - stack trace follows\n",TYPE_TO_STR(type),addr,size);
+    dump_stack();
     return;
   }
 

@@ -6,6 +6,18 @@
 
 #include "lockcheck.h"
 
+
+// Number of outputs possible before output stops
+// set to zero to remove the limit
+#define OUTPUT_LIMIT      0
+//
+// Number of outputs to skip before
+// printing and counting
+#define OUTPUT_SKIP       0
+
+//
+// Whether or not to print these events
+//
 #define PRINT_LOCK_ALLOC  0
 #define PRINT_LOCK_FREE   0
 #define PRINT_LOCK_LOCK   0
@@ -24,9 +36,29 @@
 // This is the minimum number
 #define WARN_MULTIPLE_THRESHOLD 3
 
+// Detect when last lock a processor holds is released
+// but interrupts remain off, similarly for first acquire
+#define CHECK_IRQ_LAST_RELEASE   0
+#define CHECK_IRQ_FIRST_ACQUIRE  1
+
+//
+// Whether lockcheck should lock its own data structures during an
+// event (alloc, dealloc, lock, unlock, etc) and the subsequent
+// checking.  If this is off, it will only lock on a lock allocation,
+// in order to assure each lock has a distinct slot.  If this is off,
+// lockcheck may miss problems (or see additional problems) due to
+// internal race conditions.  However, if it is on, lockcheck is
+// essentially adding a global lock acuire to each lock operation in
+// palacios, which will perturb palacios.
+//
+#define LOCK_SELF 1
+
+
 typedef struct {
   int  inuse;         // nonzero if this is in use
   void *lock;         // the lock
+  void *holder;       // current thread holding it
+  u32   holdingcpu;   // on which cpu it acquired it
   void *allocator[STEP_BACK_DEPTH];
                       // who allocated this
   int   lockcount;    // how many times it's been locked/unlocked (lock=+1, unlock=-1)
@@ -46,8 +78,49 @@ typedef struct {
 
 // This lock is currently used only to control
 // allocation of entries in the global state
-static spinlock_t lock; 
+static spinlock_t mylock; 
 static lockcheck_state_t state[NUM_LOCKS];
+
+static int numout=0;
+
+#define DEBUG_OUTPUT(fmt, args...)					\
+do {									\
+  numout++;   								\
+  if (numout>=OUTPUT_SKIP) {                                            \
+    if (OUTPUT_LIMIT==0 ||(numout-OUTPUT_SKIP)<OUTPUT_LIMIT) {	        \
+      DEBUG(fmt, ##args);						\
+    } else {								\
+      if ((numout-OUTPUT_SKIP)==OUTPUT_LIMIT) {			        \
+        DEBUG("LOCKCHECK: Output limit hit - no further printouts\n");	\
+      }									\
+    }									\
+  }                                                                     \
+} while (0)
+
+#define DEBUG_DUMPSTACK()			                        \
+do {						                        \
+  if (numout>=OUTPUT_SKIP) {                                            \
+    if (OUTPUT_LIMIT==0 || (numout-OUTPUT_SKIP)<OUTPUT_LIMIT) {	        \
+      dump_stack();				                        \
+    }                                                                   \
+  }						                        \
+} while (0)
+
+#if LOCK_SELF
+#define LOCK_DECL unsigned long f
+#define LOCK() spin_lock_irqsave(&mylock,f)
+#define UNLOCK() spin_unlock_irqrestore(&mylock,f)
+#define LOCK_ALLOC_DECL 
+#define LOCK_ALLOC()  
+#define UNLOCK_ALLOC() 
+#else
+#define LOCK_DECL 
+#define LOCK()  
+#define UNLOCK() 
+#define LOCK_ALLOC_DECL unsigned long f
+#define LOCK_ALLOC() spin_lock_irqsave(&mylock,f)
+#define UNLOCK_ALLOC() spin_unlock_irqrestore(&mylock,f)
+#endif
 
 static void printlock(char *prefix, lockcheck_state_t *l);
 
@@ -56,6 +129,7 @@ typedef struct {
   u32 top;               // next open slot 0..
   void *lock[LOCK_STACK_DEPTH]; // the stack
   char irq[LOCK_STACK_DEPTH];   // locked with irqsave?
+  char irqoff[LOCK_STACK_DEPTH]; // if so, what was the flag?
 } lock_stack_t;
 
 static DEFINE_PER_CPU(lock_stack_t, lock_stack);
@@ -63,11 +137,10 @@ static DEFINE_PER_CPU(lock_stack_t, lock_stack);
 static lockcheck_state_t *get_lock_entry(void)
 {
   int i;
-  unsigned long f;
   lockcheck_state_t *l;
+  LOCK_ALLOC_DECL;
 
-  spin_lock_irqsave(&lock,f);
-
+  LOCK_ALLOC();
   for (i=0;i<NUM_LOCKS;i++) { 
     l=&(state[i]);
     if (!(l->inuse)) { 
@@ -75,8 +148,7 @@ static lockcheck_state_t *get_lock_entry(void)
       break;
     }
   }
-
-  spin_unlock_irqrestore(&lock,f);
+  UNLOCK_ALLOC();
   
   if (i<NUM_LOCKS) { 
     return l;
@@ -116,7 +188,7 @@ static void lock_stack_print(void)
   
   if ((mystack->top)>0) { 
     for (i=mystack->top; i>0;i--) {
-      snprintf(buf,64,"LOCK STACK (cpu=%u, index=%u, irq=%d)",cpu, i-1, (int)(mystack->irq[i-1]));
+      snprintf(buf,64,"LOCK STACK (cpu=%u, index=%u, irq=%d, irqoff=%d)",cpu, i-1, (int)(mystack->irq[i-1]), (int)(mystack->irqoff[i-1]));
       printlock(buf,find_lock_entry(mystack->lock[i-1]));
     }
   }
@@ -124,48 +196,88 @@ static void lock_stack_print(void)
 }
 
 
-static void lock_stack_lock(void *lock, char irq)
+static void lock_stack_lock(void *lock, char irq, unsigned long flags)
 {
   lock_stack_t *mystack = &(get_cpu_var(lock_stack));
   u32 cpu = get_cpu();  put_cpu();
 
   if (mystack->top>=(LOCK_STACK_DEPTH-1)) {
     put_cpu_var(lock_stack);
-    DEBUG("LOCKCHECK: Locking lock 0x%p on cpu %u exceeds stack limit of %d\n",lock,cpu,LOCK_STACK_DEPTH);
+    DEBUG_OUTPUT("LOCKCHECK: Locking lock 0x%p on cpu %u exceeds stack limit of %d\n",lock,cpu,LOCK_STACK_DEPTH);
     lock_stack_print();
   } else {
+    int oldtop = mystack->top;
     mystack->lock[mystack->top] = lock;
     mystack->irq[mystack->top] = irq;
+    mystack->irqoff[mystack->top] = irqs_disabled_flags(flags);
     mystack->top++;
     put_cpu_var(lock_stack);
+    if (CHECK_IRQ_FIRST_ACQUIRE && oldtop==0 && irqs_disabled_flags(flags) ) { 
+       DEBUG_OUTPUT("LOCKCHECK: First lock on lock stack of processor %d but irqs were already disabled - stack trace follows\n", cpu);
+       DEBUG_DUMPSTACK();
+    }
+       
   }
+  
+  
 }
 
-static void lock_stack_unlock(void *lock, char irq)
+static void lock_stack_unlock(void *lock, char irq, unsigned long flags)
 {
   lock_stack_t *mystack = &(get_cpu_var(lock_stack));
   u32 cpu = get_cpu(); put_cpu();
 
   if (mystack->top==0) {
     put_cpu_var(lock_stack);
-    DEBUG("LOCKCHECK: Unlocking lock 0x%p on cpu %u when lock stack is empty\n",lock,cpu);
+    DEBUG_OUTPUT("LOCKCHECK: Unlocking lock 0x%p on cpu %u when lock stack is empty\n",lock,cpu);
   } else {
     if (mystack->lock[mystack->top-1] != lock) { 
       void *otherlock=mystack->lock[mystack->top-1];
       put_cpu_var(lock_stack);
-      DEBUG("LOCKCHECK: Unlocking lock 0x%p on cpu %u when top of stack is lock 0x%p\n",lock,cpu, otherlock);
+      DEBUG_OUTPUT("LOCKCHECK: Unlocking lock 0x%p on cpu %u when top of stack is lock 0x%p\n",lock,cpu, otherlock);
       lock_stack_print();
     } else {
       if (irq!=mystack->irq[mystack->top-1]) {
 	char otherirq = mystack->irq[mystack->top-1];
 	put_cpu_var(lock_stack);
-	DEBUG("LOCKCHECK: Unlocking lock 0x%p on cpu %u with irq=%d, but was locked with irq=%d\n",lock,cpu,irq,otherirq);
+	DEBUG_OUTPUT("LOCKCHECK: Unlocking lock 0x%p on cpu %u with irq=%d, but was locked with irq=%d\n",lock,cpu,irq,otherirq);
 	lock_stack_print();
+        mystack = &(get_cpu_var(lock_stack));
+        mystack->top--;
+        put_cpu_var(lock_stack);
       } else {
-	mystack->top--;
-	put_cpu_var(lock_stack);
+	if (irq) { 
+          if (irqs_disabled_flags(flags)!=mystack->irqoff[mystack->top-1]) {
+             char otherirqoff = mystack->irqoff[mystack->top-1];
+             put_cpu_var(lock_stack);
+             DEBUG_OUTPUT("LOCKCHECK: Unlocking lock 0x%p on cpu %u sets irqoff=%d but the matching lock returned irqoff=%d\n", lock, cpu, irqs_disabled_flags(flags), otherirqoff);
+             lock_stack_print();
+             mystack = &(get_cpu_var(lock_stack));
+             mystack->top--;
+             put_cpu_var(lock_stack);
+          } else {
+            // irq, and irq states match - good
+            mystack->top--;
+            put_cpu_var(lock_stack);
+          }
+        } else {
+          // !irq - we are good
+ 	  mystack->top--;
+	  put_cpu_var(lock_stack);
+        }
       }
     }
+  }
+
+  mystack = &(get_cpu_var(lock_stack));
+  if (mystack->top == 0) {
+    put_cpu_var(lock_stack);
+    if (CHECK_IRQ_LAST_RELEASE && irqs_disabled()) { 
+       DEBUG_OUTPUT("LOCKCHECK: Lock stack on cpu %u is now empty, but irqs are still disabled! Stack trace follows\n", cpu);
+       DEBUG_DUMPSTACK();
+    }
+  } else {
+    put_cpu_var(lock_stack);
   }
 
 }
@@ -173,8 +285,8 @@ static void lock_stack_unlock(void *lock, char irq)
 void palacios_lockcheck_init()
 {
   memset(state,0,sizeof(lockcheck_state_t)*NUM_LOCKS);
-  spin_lock_init(&lock);
-  DEBUG("LOCKCHECK: LOCK CHECKING INITED\n");
+  spin_lock_init(&mylock);
+  DEBUG_OUTPUT("LOCKCHECK: LOCK CHECKING INITED (internal locking: %d, output limit: %d, output skip: %d)\n",LOCK_SELF,OUTPUT_LIMIT,OUTPUT_SKIP);
 }
 
 //
@@ -207,11 +319,11 @@ static void clear_trace(void **trace)
 static void printlock(char *prefix, lockcheck_state_t *l)
 {
   if (!l || !(l->lock) ) { 
-    DEBUG("LOCKCHECK: %s: lock 0x%p BOGUS\n",prefix,l);
+    DEBUG_OUTPUT("LOCKCHECK: %s: lock 0x%p BOGUS\n",prefix,l);
     return;
   }
   if (l->lock) { 
-    DEBUG("LOCKCHECK: %s: lock 0x%p, allocator=" 
+    DEBUG_OUTPUT("LOCKCHECK: %s: lock 0x%p, holder %s on %u, allocator=" 
 	  backtrace_format
           ", lockcount=%d, lastlocker="
 	  backtrace_format
@@ -223,6 +335,8 @@ static void printlock(char *prefix, lockcheck_state_t *l)
 	  backtrace_format
 	  ", lastunlockflags=%lu\n",
 	  prefix,l->lock,
+	  l->holder ? ((struct task_struct *)(l->holder))->comm : "none",
+	  l->holdingcpu,
 	  backtrace_expand(l->allocator),
 	  l->lockcount,
 	  backtrace_expand(l->lastlocker),
@@ -304,7 +418,10 @@ void palacios_lockcheck_deinit()
 {
   int i;
   lockcheck_state_t *l;
+  LOCK_DECL;
   
+  LOCK();
+
   for (i=0;i<NUM_LOCKS;i++) { 
     l=&(state[i]);
     if (l->lock) { 
@@ -317,16 +434,22 @@ void palacios_lockcheck_deinit()
       }
     }
   } 
+  UNLOCK();
   INFO("LOCKCHECK: DEINITED\n");
 }
 
 
 void palacios_lockcheck_alloc(void *lock)
 {
-  lockcheck_state_t *l=get_lock_entry();
+  lockcheck_state_t *l;
+  LOCK_DECL;
 
+  LOCK();
+
+  l=get_lock_entry();
+  
   if (!l) { 
-    DEBUG("LOCKCHECK: UNABLE TO ALLOCATE TRACKING DATA FOR LOCK 0x%p\n",lock);
+    DEBUG_OUTPUT("LOCKCHECK: UNABLE TO ALLOCATE TRACKING DATA FOR LOCK 0x%p\n",lock);
   }
   l->lock=lock;
   backtrace(l->allocator);
@@ -339,14 +462,22 @@ void palacios_lockcheck_alloc(void *lock)
 #if PRINT_LOCK_ALLOC
   printlock("NEW LOCK", l);
 #endif
+  
+  UNLOCK();
 }
   
 void palacios_lockcheck_free(void *lock)
 {
-  lockcheck_state_t *l=find_lock_entry(lock);
+  lockcheck_state_t *l;
+  LOCK_DECL;
+
+  LOCK();
+  l=find_lock_entry(lock);
   
   if (!l){
-    DEBUG("LOCKCHECK: FREEING UNTRACKED LOCK 0x%p\n",lock);
+    UNLOCK();
+    DEBUG_OUTPUT("LOCKCHECK: FREEING UNTRACKED LOCK 0x%p - stack trace follows\n",lock);
+    DEBUG_DUMPSTACK();
     return;
   }
 
@@ -363,54 +494,82 @@ void palacios_lockcheck_free(void *lock)
 #endif
 
   free_lock_entry(l);
+
+  UNLOCK();
+
 }
 
 void palacios_lockcheck_lock(void *lock)
 {
-  lockcheck_state_t *l=find_lock_entry(lock);
-  
+  LOCK_DECL;
+  lockcheck_state_t *l;
+
+
+  LOCK();
+
+  l=find_lock_entry(lock); 
+ 
   if (!l) { 
-    DEBUG("LOCKCHECK: LOCKING UNTRACKED LOCK 0x%p\n",lock);
+    UNLOCK();
+    DEBUG_OUTPUT("LOCKCHECK: LOCKING UNTRACKED LOCK 0x%p - stack follows\n",lock);
+    DEBUG_DUMPSTACK();
     return;
   }
   
   if (l->lockcount!=0) { 
-    printlock("BAD LOCKCOUNT AT LOCK",l);
+    printlock("BAD LOCKCOUNT AT LOCK - stack follows",l);
+    DEBUG_DUMPSTACK();
   }
   if (l->irqcount!=0) { 
-    printlock("BAD IRQCOUNT AT LOCK",l);
+    printlock("BAD IRQCOUNT AT LOCK - stack follows",l);
+    DEBUG_DUMPSTACK();
   }
   
   l->lockcount++;
+  l->holder=current;
+  l->holdingcpu=get_cpu(); put_cpu();
   backtrace(l->lastlocker);
 
   find_multiple_locks_held();
 
-  lock_stack_lock(lock,0);
+  lock_stack_lock(lock,0,0);
 
 #if PRINT_LOCK_LOCK
   printlock("LOCK",l);
 #endif
 
+  UNLOCK();
+
 }
 void palacios_lockcheck_unlock(void *lock)
 {
-  lockcheck_state_t *l=find_lock_entry(lock);
+  LOCK_DECL;
+  lockcheck_state_t *l;
+
+  LOCK();
+
+  l=find_lock_entry(lock);
   
   if (!l) { 
-    DEBUG("LOCKCHECK: UNLOCKING UNTRACKED LOCK 0x%p\n",lock);
+    UNLOCK();
+    DEBUG_OUTPUT("LOCKCHECK: UNLOCKING UNTRACKED LOCK 0x%p - stack follows\n",lock);
+    DEBUG_DUMPSTACK();
     return;
   }
   
   if (l->lockcount!=1) { 
-    printlock("LOCKCHECK: BAD LOCKCOUNT AT UNLOCK",l);
+    printlock("LOCKCHECK: BAD LOCKCOUNT AT UNLOCK - stack follows",l);
+    DEBUG_DUMPSTACK();
   }
   if (l->irqcount!=0) { 
-    printlock("LOCKCHECK: BAD IRQCOUNT AT UNLOCK",l);
+    printlock("LOCKCHECK: BAD IRQCOUNT AT UNLOCK - stack follows",l);
+    DEBUG_DUMPSTACK();
   }
 
-  lock_stack_unlock(lock,0);
+  lock_stack_unlock(lock,0,0);
   
+  l->holder=0;
+  l->holdingcpu=0;
   l->lockcount--;
   backtrace(l->lastunlocker);
 
@@ -418,67 +577,122 @@ void palacios_lockcheck_unlock(void *lock)
   printlock("UNLOCK",l);
 #endif
 
+  UNLOCK();
 
 }
 
 void palacios_lockcheck_lock_irqsave(void *lock,unsigned long flags)
 {
-  lockcheck_state_t *l=find_lock_entry(lock);
+  LOCK_DECL;
+  lockcheck_state_t *l;
   
+  LOCK();
+
+  l=find_lock_entry(lock);
+
   if (!l) { 
-    DEBUG("LOCKCHECK: IRQ LOCKING UNTRACKED LOCK 0x%p\n",lock);
+    UNLOCK();
+    DEBUG_OUTPUT("LOCKCHECK: IRQ LOCKING UNTRACKED LOCK 0x%p - stack follows\n",lock);
+    DEBUG_DUMPSTACK();
     return;
   }
   
   if (l->lockcount!=0) { 
-    printlock("BAD LOCKCOUNT AT IRQ LOCK",l);
+    printlock("BAD LOCKCOUNT AT IRQ LOCK - stack follows",l);
+    DEBUG_DUMPSTACK();
   }
   if (l->irqcount!=0) { 
-    printlock("BAD IRQCOUNT AT IRQ LOCK",l);
+    printlock("BAD IRQCOUNT AT IRQ LOCK - stack follows",l);
+    DEBUG_DUMPSTACK();
   }
   
   l->irqcount++;
+  l->holder=current;
+  l->holdingcpu=get_cpu(); put_cpu();
   l->lastlockflags=flags;
   backtrace(l->lastirqlocker);
 
-
   find_multiple_irqs_held();
 
-  lock_stack_lock(lock,1);
+  lock_stack_lock(lock,1,flags);
 
 #if PRINT_LOCK_LOCK
   printlock("LOCK_IRQSAVE",l);
 #endif
 
+  UNLOCK();
 
 
 }
 
-void palacios_lockcheck_unlock_irqrestore(void *lock,unsigned long flags)
+
+//
+// This is separated into two components to avoid a race between
+// the underlying spin_unlock_irqrestore and the next lockcheck_lock_irqsave
+// If simply record the state after the unlock, we might see that the 
+// irqcount has already increased.  Therefore, we will acquire the 
+// lockchecker lock in _pre and release it in _post.  Note that when
+// we release the lock in _post, we restore the flags provided by the 
+// code under test - NOT our original flags
+//
+// unlock_pre() - stores flags, takes mylock discard flags
+// At this point, a lockcheck_lock cannot enter, since it's stuck on mylock
+// spinunlock - restores lock, restores original flags
+// unlock_post() - restores mylock WITH orig flags
+//
+void palacios_lockcheck_unlock_irqrestore_pre(void *lock,unsigned long flags)
 {
-  lockcheck_state_t *l=find_lock_entry(lock);
+  LOCK_DECL;
   
+  LOCK();  // flags are discarded
+  // at this point, the actual spin unlock can run 
+  // if another thread hits lockcheck_irqsave at this point, it
+  // will block on mylock
+}
+
+void palacios_lockcheck_unlock_irqrestore_post(void *lock,unsigned long flags)
+{
+  LOCK_DECL;
+  lockcheck_state_t *l;
+
+#if LOCK_SELF
+  // when we unlock, want to restore the flags *the user wants*
+  f = flags;
+#endif
+
+  // Note that we DO NOT take mylock here, since we already took it in
+  // _pre
+
+  l=find_lock_entry(lock);
+
   if (!l) { 
-    DEBUG("LOCKCHECK: IRQ UNLOCKING UNTRACKED LOCK 0x%p\n",lock);
+    UNLOCK();  // release any waiting threads on lockcheck_lock_irqsave
+    DEBUG_OUTPUT("LOCKCHECK: IRQ UNLOCKING UNTRACKED LOCK 0x%p - stack follows\n",lock);
+    DEBUG_DUMPSTACK();
     return;
   }
   
   if (l->lockcount!=0) { 
-    printlock("LOCKCHECK: BAD LOCKCOUNT AT IRQ UNLOCK",l);
+    printlock("LOCKCHECK: BAD LOCKCOUNT AT IRQ UNLOCK - stack follows",l);
+    DEBUG_DUMPSTACK();
   }
   if (l->irqcount!=1) { 
-    printlock("LOCKCHECK: BAD IRQCOUNT AT IRQ UNLOCK",l);
+    printlock("LOCKCHECK: BAD IRQCOUNT AT IRQ UNLOCK - stack follows",l);
+    DEBUG_DUMPSTACK();
   }
   
+  l->holder=0;
+  l->holdingcpu=0;
   l->irqcount--;
   l->lastunlockflags = flags;
 
-  lock_stack_unlock(lock,1);
+  lock_stack_unlock(lock,1,flags);
 
   backtrace(l->lastirqunlocker);
 
 #if PRINT_LOCK_UNLOCK
   printlock("UNLOCK_IRQRESTORE",l);
 #endif
-  
+  UNLOCK(); // release any waiting threads on lockcheck_lock_irqsave
+
 }
