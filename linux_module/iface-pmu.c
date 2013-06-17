@@ -39,7 +39,7 @@ static DEFINE_PER_CPU(u32, pmu_refcount) = 0;
 
 static inline void cpuid_string(u32 id, u32 dest[4]) {
   asm volatile("cpuid"
-	       :"=a"(dest),"=b"(*(dest+1)),"=c"(*(dest+2)),"=d"(*(dest+3))
+	       :"=a"(*dest),"=b"(*(dest+1)),"=c"(*(dest+2)),"=d"(*(dest+3))
 	       :"a"(id));
 }
 
