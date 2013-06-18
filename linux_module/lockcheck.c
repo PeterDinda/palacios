@@ -1,6 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
+#include <linux/sort.h>
 
 #include "palacios.h"
 
@@ -41,6 +42,10 @@
 #define CHECK_IRQ_LAST_RELEASE   0
 #define CHECK_IRQ_FIRST_ACQUIRE  1
 
+// Show hottest locks every this many locks or lock_irqsaves
+// 0 indicates this should not be shown
+#define HOT_LOCK_INTERVAL        1000
+
 //
 // Whether lockcheck should lock its own data structures during an
 // event (alloc, dealloc, lock, unlock, etc) and the subsequent
@@ -73,6 +78,7 @@ typedef struct {
   void *lastirqunlocker[STEP_BACK_DEPTH]
                     ; // who last unlocked
   unsigned long lastunlockflags; // their flags
+  int   hotlockcount; // how many times it's been locked
 } lockcheck_state_t;
 
 
@@ -80,8 +86,11 @@ typedef struct {
 // allocation of entries in the global state
 static spinlock_t mylock; 
 static lockcheck_state_t state[NUM_LOCKS];
+static lockcheck_state_t *sorted_state[NUM_LOCKS];
 
 static int numout=0;
+
+static int globallockcount=0;
 
 #define DEBUG_OUTPUT(fmt, args...)					\
 do {									\
@@ -281,6 +290,58 @@ static void lock_stack_unlock(void *lock, char irq, unsigned long flags)
   }
 
 }
+
+
+// pointers are to the pointers in the sorted_state array
+int compare(const void *a, const void *b)
+{
+  lockcheck_state_t *l = *((lockcheck_state_t **)a);
+  lockcheck_state_t *r = *((lockcheck_state_t **)b);
+
+  return -(l->hotlockcount - r->hotlockcount);
+}
+
+static void hot_lock_show(void)
+{
+  int n, i;
+  char buf[64];
+
+  n=0;
+  for (i=0;i<NUM_LOCKS;i++) { 
+    if (state[i].inuse) { 
+      sorted_state[n]=&(state[i]);
+      n++;
+    }
+  }
+
+  sort(sorted_state,n,sizeof(lockcheck_state_t *),compare,NULL);
+  
+  for (i=0;i<n;i++) {
+    snprintf(buf,64,"HOT LOCK (%d of %d) %d acquires", i,n,sorted_state[i]->hotlockcount);
+    printlock(buf,sorted_state[i]);
+  }
+}
+
+
+static void hot_lock_lock(void *lock)
+{ 
+  lockcheck_state_t *l = find_lock_entry(lock);
+   
+  if (!l) { return; }
+
+  l->hotlockcount++;
+  globallockcount++;
+
+  if (HOT_LOCK_INTERVAL && !(globallockcount % HOT_LOCK_INTERVAL )) {
+    DEBUG_OUTPUT("LOCKCHECK: Hot locks after %d acquires Follow\n",globallockcount);
+    hot_lock_show();
+  }
+}
+
+
+#define hot_lock_unlock(X) // nothing for now
+
+
 
 void palacios_lockcheck_init()
 {
@@ -534,6 +595,8 @@ void palacios_lockcheck_lock(void *lock)
 
   lock_stack_lock(lock,0,0);
 
+  hot_lock_lock(lock);
+
 #if PRINT_LOCK_LOCK
   printlock("LOCK",l);
 #endif
@@ -567,6 +630,8 @@ void palacios_lockcheck_unlock(void *lock)
   }
 
   lock_stack_unlock(lock,0,0);
+
+  hot_lock_unlock(lock);
   
   l->holder=0;
   l->holdingcpu=0;
@@ -615,6 +680,8 @@ void palacios_lockcheck_lock_irqsave(void *lock,unsigned long flags)
   find_multiple_irqs_held();
 
   lock_stack_lock(lock,1,flags);
+
+  hot_lock_lock(lock);
 
 #if PRINT_LOCK_LOCK
   printlock("LOCK_IRQSAVE",l);
@@ -687,6 +754,8 @@ void palacios_lockcheck_unlock_irqrestore_post(void *lock,unsigned long flags)
   l->lastunlockflags = flags;
 
   lock_stack_unlock(lock,1,flags);
+
+  hot_lock_unlock(lock);
 
   backtrace(l->lastirqunlocker);
 
