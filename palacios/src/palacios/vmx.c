@@ -1027,6 +1027,10 @@ int v3_vmx_enter(struct guest_info * info) {
 	uint64_t entry_tsc = 0;
 	uint64_t exit_tsc = 0;
 
+#ifdef V3_CONFIG_PWRSTAT_TELEMETRY
+	v3_pwrstat_telemetry_enter(info);
+#endif
+
 #ifdef V3_CONFIG_PMU_TELEMETRY
 	v3_pmu_telemetry_enter(info);
 #endif
@@ -1048,6 +1052,10 @@ int v3_vmx_enter(struct guest_info * info) {
 
 #ifdef V3_CONFIG_PMU_TELEMETRY
 	v3_pmu_telemetry_exit(info);
+#endif
+
+#ifdef V3_CONFIG_PWRSTAT_TELEMETRY
+	v3_pwrstat_telemetry_exit(info);
 #endif
     }
 
@@ -1202,6 +1210,10 @@ int v3_start_vmx_guest(struct guest_info * info) {
     v3_pmu_telemetry_start(info);
 #endif
 
+#ifdef V3_CONFIG_PWRSTAT_TELEMETRY
+    v3_pwrstat_telemetry_start(info);
+#endif
+
     while (1) {
 
 	if (info->vm_info->run_state == VM_STOPPED) {
@@ -1260,6 +1272,10 @@ int v3_start_vmx_guest(struct guest_info * info) {
 
 #ifdef V3_CONFIG_PMU_TELEMETRY
     v3_pmu_telemetry_end(info);
+#endif
+
+#ifdef V3_CONFIG_PWRSTAT_TELEMETRY
+    v3_pwrstat_telemetry_end(info);
 #endif
 
     return 0;

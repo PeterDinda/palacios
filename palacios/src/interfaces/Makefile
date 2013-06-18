@@ -9,6 +9,7 @@ obj-$(V3_CONFIG_HOST_DEVICE) += vmm_host_dev.o
 obj-$(V3_CONFIG_HOST_HYPERCALL) += vmm_host_hypercall.o
 obj-$(V3_CONFIG_HOST_PCI) += host_pci.o
 obj-$(V3_CONFIG_HOST_PMU) += vmm_pmu.o
+obj-$(V3_CONFIG_HOST_PWRSTAT) += vmm_pwrstat.o
 
 obj-y += null.o
 

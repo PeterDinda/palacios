@@ -81,4 +81,11 @@ config HOST_PMU
        help
           Select this if you would like to access performance
           counters (the PMU) within Palacios
+
+config HOST_PWRSTAT
+	bool "Host power statistics monitoring support"
+	default n
+	help
+		Select this if you would like to access energy/power
+		measurements within Palacios
 endmenu

@@ -165,7 +165,13 @@ config PMU_TELEMETRY
         Enable telemetry information for a range of PMU counters
           This causes the currently configured PMU counts to be printed
 
-
+config PWRSTAT_TELEMETRY
+	bool "Enable power statistics telemetry"
+	default n
+	depends on TELEMETRY && HOST_PWRSTAT
+	help
+		Enable telemetry information for power/energy counters 
+		
 
 config EXPERIMENTAL
 	bool "Enable Experimental options"
