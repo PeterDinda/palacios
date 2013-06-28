@@ -267,6 +267,80 @@ static int parse_operands(struct guest_info * core, uint8_t * instr_ptr,
 
 	    break;
 	}
+	case MOV_MEM2AL_8:
+	case MOV_MEM2AX: {
+
+	    /* Use AX for destination operand */
+	    instr->dst_operand.size = operand_width;
+	    instr->dst_operand.type = REG_OPERAND;
+	    instr->dst_operand.operand = (addr_t)&(core->vm_regs.rax);
+	    instr->dst_operand.write = 1;
+
+	    /* Get the correct offset -- (seg + offset) */
+	    struct v3_segment * src_reg = get_instr_segment(core, instr);
+	    addr_t offset = 0;
+
+	    if (addr_width == 2) {
+		offset = *(uint16_t *)instr_ptr;
+	    } else if (addr_width == 4) {
+		offset = *(uint32_t *)instr_ptr;
+	    } else if (addr_width == 8) {
+		offset = *(uint64_t *)instr_ptr;
+	    } else {
+		PrintError(core->vm_info, core, "illegal address width for %s (width=%d)\n", 
+			   op_form_to_str(form), addr_width);
+		return -1;
+	    }
+
+	    instr->src_operand.operand = ADDR_MASK(get_addr_linear(core, offset, src_reg),
+						   get_addr_width(core, instr));
+	    
+	    instr->src_operand.read = 1;
+	    instr->src_operand.type = MEM_OPERAND;
+	    instr->src_operand.size = addr_width;
+
+	    instr_ptr += addr_width;
+	    instr->num_operands = 2;
+	    
+	    break;
+	}
+	case MOV_AL2MEM_8:
+	case MOV_AX2MEM: {
+
+	    /* Use AX for src operand */
+	    instr->src_operand.size = operand_width;
+	    instr->src_operand.type = REG_OPERAND;
+	    instr->src_operand.operand = (addr_t)&(core->vm_regs.rax);
+	    instr->src_operand.write = 1;
+
+	    /* Get the correct offset -- (seg + offset) */
+	    struct v3_segment * dst_reg = get_instr_segment(core, instr);
+	    addr_t offset = 0;
+
+	    if (addr_width == 2) {
+		offset = *(uint16_t *)instr_ptr;
+	    } else if (addr_width == 4) {
+		offset = *(uint32_t *)instr_ptr;
+	    } else if (addr_width == 8) {
+		offset = *(uint64_t *)instr_ptr;
+	    } else {
+		PrintError(core->vm_info, core, "illegal address width for %s (width=%d)\n", 
+			   op_form_to_str(form), addr_width);
+		return -1;
+	    }
+
+	    instr->dst_operand.operand = ADDR_MASK(get_addr_linear(core, offset, dst_reg),
+						   get_addr_width(core, instr));
+	    
+	    instr->dst_operand.read = 1;
+	    instr->dst_operand.type = MEM_OPERAND;
+	    instr->dst_operand.size = addr_width;
+
+	    instr_ptr += addr_width;
+	    instr->num_operands = 2;
+	    
+	    break;
+	}
 	case MOVSX_8:
 	case MOVZX_8: {
 	    uint8_t reg_code = 0;

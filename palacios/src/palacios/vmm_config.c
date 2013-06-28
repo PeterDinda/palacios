@@ -452,6 +452,13 @@ static int post_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
 
 
+
+    // Initialize fw_cfg state for VMM<->VM SEABIOS communication
+    if (v3_fw_cfg_init(vm) == -1) {
+	PrintError(vm, VCORE_NONE, "Error initializing Firmware Config (fw_cfg) state\n");
+	return -1;
+    }
+
     /* 
      * Initialize configured devices
      */

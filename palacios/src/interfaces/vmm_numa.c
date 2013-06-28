@@ -28,7 +28,7 @@ static struct v3_numa_hooks * numa_hooks = NULL;
 
 void V3_Init_NUMA(struct v3_numa_hooks * hooks) {
     numa_hooks = hooks;
-    V3_Print("V3 NUMA interface initialized\n");
+    V3_Print(VM_NONE, VCORE_NONE, "V3 NUMA interface initialized\n");
     return;
 }
 
@@ -49,7 +49,7 @@ int v3_numa_gpa_to_node(struct v3_vm_info * vm, addr_t gpa) {
     }
 
     if (v3_gpa_to_hpa(&(vm->cores[0]), gpa, &hpa) == -1) {
-	PrintError("Tried to find NUMA node for invalid GPA (%p)\n", (void *)gpa);
+	PrintError(vm, VCORE_NONE, "Tried to find NUMA node for invalid GPA (%p)\n", (void *)gpa);
 	return -1;
     }
     

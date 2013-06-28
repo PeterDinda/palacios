@@ -478,6 +478,24 @@ static inline int decode_cr(struct guest_info * core,
     return 0;
 }
 
+static struct v3_segment * get_instr_segment(struct guest_info * core, struct x86_instr * instr) {
+    struct v3_segment * seg = &(core->segments.ds);
+
+    if (instr->prefixes.cs_override) {
+	seg = &(core->segments.cs);
+    } else if (instr->prefixes.es_override) {
+	seg = &(core->segments.es);
+    } else if (instr->prefixes.ss_override) {
+	seg = &(core->segments.ss);
+    } else if (instr->prefixes.fs_override) {
+	seg = &(core->segments.fs);
+    } else if (instr->prefixes.gs_override) {
+	seg = &(core->segments.gs);
+    } 
+
+    return seg;
+}
+
 
 
 #define ADDR_MASK(val, length) ({			      \

@@ -42,6 +42,7 @@
 #include <palacios/vmm_exits.h>
 #include <palacios/vmm_events.h>
 #include <palacios/vmm_scheduler.h>
+#include <palacios/vmm_fw_cfg.h>
 
 #include <palacios/vmm_perftune.h>
 
@@ -167,6 +168,7 @@ struct v3_vm_info {
     char name[128];
 
     v3_vm_class_t vm_class;
+    struct v3_fw_cfg_state fw_cfg_state;
 
     addr_t mem_size; /* In bytes for now */
     uint32_t mem_align;

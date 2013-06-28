@@ -142,7 +142,7 @@ static int fw_cfg_ctl_read(struct guest_info * core, uint16_t port, void * src, 
 }
 
 static int fw_cfg_ctl_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
-    V3_ASSERT(length == 2);
+    V3_ASSERT(core->vm_info, core, length == 2);
 
     struct v3_fw_cfg_state * cfg_state = (struct v3_fw_cfg_state *)priv_data;
     uint16_t key = *(uint16_t *)src;
@@ -163,7 +163,7 @@ static int fw_cfg_ctl_write(struct guest_info * core, uint16_t port, void * src,
 
 
 static int fw_cfg_data_read(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
-    V3_ASSERT(length == 1);
+    V3_ASSERT(core->vm_info, core, length == 1);
 
     struct v3_fw_cfg_state * cfg_state = (struct v3_fw_cfg_state *)priv_data;
     int arch = !!(cfg_state->cur_entry & FW_CFG_ARCH_LOCAL);
@@ -185,7 +185,7 @@ static int fw_cfg_data_read(struct guest_info * core, uint16_t port, void * src,
 }
 
 static int fw_cfg_data_write(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
-    V3_ASSERT(length == 1);
+    V3_ASSERT(core->vm_info, core, length == 1);
 
     struct v3_fw_cfg_state * cfg_state = (struct v3_fw_cfg_state *)priv_data;
     int arch = !!(cfg_state->cur_entry & FW_CFG_ARCH_LOCAL);
@@ -212,14 +212,14 @@ static struct e820_table * e820_populate(struct v3_vm_info * vm) {
     int i = 0;
 
     if (vm->mem_map.e820_count > E820_MAX_COUNT) {
-        PrintError("Too much E820 table entries! (max is %d)\n", E820_MAX_COUNT);
+        PrintError(vm, VCORE_NONE,"Too much E820 table entries! (max is %d)\n", E820_MAX_COUNT);
         return NULL;
     }
 
     e820 = V3_Malloc(sizeof(struct e820_table));
 
     if (e820 == NULL) {
-        PrintError("Out of memory!\n");
+        PrintError(vm, VCORE_NONE, "Out of memory!\n");
         return NULL;
     }
 
@@ -248,7 +248,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
        struct e820_table * e820 = e820_populate(vm);
 
        if (e820 == NULL) {
-        PrintError("Failed to populate E820 for FW interface!\n");
+        PrintError(vm, VCORE_NONE, "Failed to populate E820 for FW interface!\n");
         return -1;
 	}
 
@@ -260,7 +260,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 
     if (ret != 0) {
 	//  V3_Free(e820);
-        PrintError("Failed to hook FW CFG ports!\n");
+        PrintError(vm, VCORE_NONE, "Failed to hook FW CFG ports!\n");
         return -1;
     }
 
@@ -320,7 +320,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 	    numa_fw_cfg = V3_Malloc((1 + vm->num_cores + num_nodes) * sizeof(uint64_t));
 
 	    if (numa_fw_cfg == NULL) {
-		PrintError("Could not allocate fw_cfg NUMA config space\n");
+		PrintError(vm, VCORE_NONE, "Could not allocate fw_cfg NUMA config space\n");
 		return -1;
 	    }
 
@@ -369,7 +369,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 		    int vnode_id = 0;
 
 		    if ((!start_addr_str) || (!end_addr_str) || (!vnode_id_str)) {
-			PrintError("Invalid memory layout in configuration\n");
+			PrintError(vm, VCORE_NONE, "Invalid memory layout in configuration\n");
 			V3_Free(numa_fw_cfg);
 			return -1;
 		    }
@@ -389,14 +389,14 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 	    {
 		uint64_t region_start = 0;
 		
-		V3_Print("NUMA CONFIG: (nodes=%llu)\n", numa_fw_cfg[0]);
+		V3_Print(vm, VCORE_NONE, "NUMA CONFIG: (nodes=%llu)\n", numa_fw_cfg[0]);
 	
 		for (i = 0; i < vm->num_cores; i++) {
-		    V3_Print("\tCore %d -> Node %llu\n", i, numa_fw_cfg[core_offset + i]);
+		    V3_Print(vm, VCORE_NONE, "\tCore %d -> Node %llu\n", i, numa_fw_cfg[core_offset + i]);
 		}
 	
 		for (i = 0; i < num_nodes; i++) {
-		    V3_Print("\tMem (%p - %p) -> Node %d\n", (void *)region_start, 
+		    V3_Print(vm, VCORE_NONE, "\tMem (%p - %p) -> Node %d\n", (void *)region_start, 
 			     (void *)numa_fw_cfg[mem_offset + i], i);
 		    
 		    region_start += numa_fw_cfg[mem_offset + i];

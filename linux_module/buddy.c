@@ -152,7 +152,7 @@ int buddy_add_pool(struct buddy_memzone * zone,
 	return -1;
     }
 
-    mp = kmalloc_node(sizeof(struct buddy_mempool), GFP_KERNEL, zone->node_id);
+    mp = palacios_alloc_node_extended(sizeof(struct buddy_mempool), GFP_KERNEL, zone->node_id);
 
     if (IS_ERR(mp)) {
 	ERROR("Could not allocate mempool\n");
@@ -167,28 +167,28 @@ int buddy_add_pool(struct buddy_memzone * zone,
     /* Allocate a bitmap with 1 bit per minimum-sized block */
     mp->num_blocks = (1UL << pool_order) / (1UL << zone->min_order);
 
-    mp->tag_bits   = kmalloc_node(
+    mp->tag_bits   = palacios_alloc_node_extended(
 				  BITS_TO_LONGS(mp->num_blocks) * sizeof(long), GFP_KERNEL, zone->node_id
 				  );
 
     /* Initially mark all minimum-sized blocks as allocated */
     bitmap_zero(mp->tag_bits, mp->num_blocks);
 
-    spin_lock_irqsave(&(zone->lock), flags);
+    palacios_spinlock_lock_irqsave(&(zone->lock), flags);
     ret = insert_mempool(zone, mp);
-    spin_unlock_irqrestore(&(zone->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 
     if (ret == -1) {
 	ERROR("Error: Could not insert mempool into zone\n");
-	kfree(mp->tag_bits);
-	kfree(mp);
+	palacios_free(mp->tag_bits);
+	palacios_free(mp);
 
 	return -1;
     }
 
     buddy_free(zone, base_addr, pool_order);
 
-    printk("Added memory pool (addr=%p), order=%lu\n", (void *)base_addr, pool_order);
+    INFO("Added memory pool (addr=%p), order=%lu\n", (void *)base_addr, pool_order);
 
     return 0;
 }
@@ -222,8 +222,8 @@ static int __buddy_remove_mempool(struct buddy_memzone * zone,
     list_del(&(block->link));
     rb_erase(&(pool->tree_node), &(zone->mempools));
 
-    kfree(pool->tag_bits);
-    kfree(pool);
+    palacios_free(pool->tag_bits);
+    palacios_free(pool);
 
     zone->num_pools--;
 
@@ -236,9 +236,9 @@ int buddy_remove_pool(struct buddy_memzone * zone,
     unsigned long flags = 0;
     int ret = 0;
 
-    spin_lock_irqsave(&(zone->lock), flags);    
+    palacios_spinlock_lock_irqsave(&(zone->lock), flags);    
     ret = __buddy_remove_mempool(zone, base_addr, force);
-    spin_unlock_irqrestore(&(zone->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 
     return ret;
 }
@@ -275,13 +275,13 @@ buddy_alloc(struct buddy_memzone *zone, unsigned long order)
 	order = zone->min_order;
     }
 
-    printk("zone=%p, order=%lu\n", zone, order);
+    INFO("zone=%p, order=%lu\n", zone, order);
 
-    spin_lock_irqsave(&(zone->lock), flags);
+    palacios_spinlock_lock_irqsave(&(zone->lock), flags);
 
     for (j = order; j <= zone->max_order; j++) {
 
-	printk("Order iter=%lu\n", j);
+	INFO("Order iter=%lu\n", j);
 
 	/* Try to allocate the first block in the order j list */
 	list = &zone->avail[j];
@@ -296,10 +296,10 @@ buddy_alloc(struct buddy_memzone *zone, unsigned long order)
 
 	mark_allocated(mp, block);
 
-	printk("pool=%p, block=%p, order=%lu, j=%lu\n", mp, block, order, j);
+	INFO("pool=%p, block=%p, order=%lu, j=%lu\n", mp, block, order, j);
 
 	/*
-	spin_unlock_irqrestore(&(zone->lock), flags);
+	palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 	return 0;
 	*/
 
@@ -315,12 +315,12 @@ buddy_alloc(struct buddy_memzone *zone, unsigned long order)
 
 	mp->num_free_blocks -= (1UL << (order - zone->min_order));
 
-	spin_unlock_irqrestore(&(zone->lock), flags);
+	palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 
 	return __pa(block);
     }
 
-    spin_unlock_irqrestore(&(zone->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 
     return (uintptr_t)NULL;
 }
@@ -359,13 +359,13 @@ buddy_free(
     }
 
 
-    spin_lock_irqsave(&(zone->lock), flags);
+    palacios_spinlock_lock_irqsave(&(zone->lock), flags);
 
     pool = find_mempool(zone, addr);
 
     if ((pool == NULL) || (order > pool->pool_order)) {
 	WARNING("Attempted to free an invalid page address (%p)\n", (void *)addr);
-	spin_unlock_irqrestore(&(zone->lock), flags);
+	palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 	return;
     }
 
@@ -374,8 +374,8 @@ buddy_free(
     block = (struct block *) __va(addr);
     
     if (is_available(pool, block)) {
-	printk(KERN_ERR "Error: Freeing an available block\n");
-	spin_unlock_irqrestore(&(zone->lock), flags);
+	ERROR("Error: Freeing an available block\n");
+	palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 	return;
     }
 
@@ -406,7 +406,7 @@ buddy_free(
     mark_available(pool, block);
     list_add(&(block->link), &(zone->avail[order]));
 
-    spin_unlock_irqrestore(&(zone->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 }
 
 
@@ -433,7 +433,7 @@ zone_mem_show(struct seq_file * s, void * v) {
     seq_printf(s, "  Zone Max Order=%lu, Min Order=%lu\n", 
 	   zone->max_order, zone->min_order);
 
-    spin_lock_irqsave(&(zone->lock), flags);
+    palacios_spinlock_lock_irqsave(&(zone->lock), flags);
 
     for (i = zone->min_order; i <= zone->max_order; i++) {
 
@@ -465,7 +465,7 @@ zone_mem_show(struct seq_file * s, void * v) {
 	}
     }
 
-    spin_unlock_irqrestore(&(zone->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 
     return 0;
 }
@@ -473,7 +473,7 @@ zone_mem_show(struct seq_file * s, void * v) {
 
 static int zone_proc_open(struct inode * inode, struct file * filp) {
     struct proc_dir_entry * proc_entry = PDE(inode);
-    printk("proc_entry at %p, data at %p\n", proc_entry, proc_entry->data);
+    INFO("proc_entry at %p, data at %p\n", proc_entry, proc_entry->data);
     return single_open(filp, zone_mem_show, proc_entry->data);
 }
 
@@ -487,15 +487,17 @@ static struct file_operations zone_proc_ops = {
 };
 
 
+extern struct proc_dir_entry * palacios_proc_dir;
 
 void buddy_deinit(struct buddy_memzone * zone) {
     unsigned long flags;
 
-    spin_lock_irqsave(&(zone->lock), flags);
+    palacios_spinlock_lock_irqsave(&(zone->lock), flags);
 
     // for each pool, free it
+#warning We really need to free the memory pools here
 
-    spin_unlock_irqrestore(&(zone->lock), flags);
+    palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
     
     {
 	char proc_file_name[128];
@@ -507,8 +509,8 @@ void buddy_deinit(struct buddy_memzone * zone) {
     }
 
 
-    kfree(zone->avail);
-    kfree(zone);
+    palacios_free(zone->avail);
+    palacios_free(zone);
 
     return;
 }
@@ -554,9 +556,9 @@ buddy_init(
     if (min_order > max_order)
 	return NULL;
 
-    zone = kmalloc_node(sizeof(struct buddy_memzone), GFP_KERNEL, node_id);
+    zone = palacios_alloc_node_extended(sizeof(struct buddy_memzone), GFP_KERNEL, node_id);
 	
-    printk("Allocated zone at %p\n", zone);
+    INFO("Allocated zone at %p\n", zone);
 
     if (IS_ERR(zone)) {
 	ERROR("Could not allocate memzone\n");
@@ -570,9 +572,9 @@ buddy_init(
     zone->node_id = node_id;
 
     /* Allocate a list for every order up to the maximum allowed order */
-    zone->avail = kmalloc_node((max_order + 1) * sizeof(struct list_head), GFP_KERNEL, zone->node_id);
+    zone->avail = palacios_alloc_node_extended((max_order + 1) * sizeof(struct list_head), GFP_KERNEL, zone->node_id);
 
-    printk("Allocated free lists at %p\n", zone->avail);
+    INFO("Allocated free lists at %p\n", zone->avail);
 
     /* Initially all lists are empty */
     for (i = 0; i <= max_order; i++) {
@@ -580,11 +582,11 @@ buddy_init(
     }
 
 
-    spin_lock_init(&(zone->lock));
+    palacios_spinlock_init(&(zone->lock));
 
     zone->mempools.rb_node = NULL;
 
-    printk("Allocated zone at %p\n", zone);
+    INFO("Allocated zone at %p\n", zone);
 
     {
 	struct proc_dir_entry * zone_entry = NULL;
@@ -598,7 +600,7 @@ buddy_init(
 	    zone_entry->proc_fops = &zone_proc_ops;
 	    zone_entry->data = zone;
 	} else {
-	    printk(KERN_ERR "Error creating memory zone proc file\n");
+	    ERROR("Error creating memory zone proc file\n");
 	}
 
     }

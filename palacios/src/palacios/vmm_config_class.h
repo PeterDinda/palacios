@@ -46,7 +46,7 @@ static int post_config_pc_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
 #define VGABIOS_START 0x000c0000
-#define ROMBIOS_START 0x000f0000
+#define ROMBIOS_START 0x000e0000
     
     /* layout vgabios */
     {
@@ -74,6 +74,15 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	}
 
 	memcpy(rombios_dst, v3_rombios_start, v3_rombios_end - v3_rombios_start);
+
+	// SEABIOS gets mapped into end of 4GB region
+	if (v3_add_shadow_mem(vm, V3_MEM_CORE_ANY, 
+			      0xfffe0000, 0xffffffff,
+			      (addr_t)V3_PAddr(rombios_dst)) == -1) {
+	    PrintError(vm, VCORE_NONE, "Error mapping SEABIOS to end of memory\n");
+	    return -1;
+	}
+
     }
 
 

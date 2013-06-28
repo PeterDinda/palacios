@@ -12,4 +12,4 @@ obj-$(V3_CONFIG_HOST_PMU) += vmm_pmu.o
 obj-$(V3_CONFIG_HOST_PWRSTAT) += vmm_pwrstat.o
 
 obj-y += null.o
-
+obj-y += vmm_numa.o

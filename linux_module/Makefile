@@ -20,7 +20,9 @@ v3vee-y := 	palacios-stubs.o \
 		allow_devmem.o \
 		util-queue.o \
 	        util-hashtable.o \
-		linux-exts.o 
+		linux-exts.o \
+		buddy.o \
+		numa.o
 
 v3vee-$(V3_CONFIG_CONSOLE) += iface-console.o
 v3vee-$(V3_CONFIG_FILE) += iface-file.o

@@ -44,6 +44,7 @@ obj-y := \
 	vmm_exits.o \
 	vmm_events.o \
 	vmm_perftune.o \
+	vmm_fw_cfg.o 
 
 
 obj-$(V3_CONFIG_XED) +=	vmm_xed.o

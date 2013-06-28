@@ -4,8 +4,10 @@
 
 #include <linux/mm.h>
 
-#include "palacios.h"
 #include <interfaces/vmm_numa.h>
+
+#include "palacios.h"
+
 
 
 
@@ -48,9 +50,7 @@ int create_numa_topology_from_user(void __user * argp) {
 
     /* Read in the CPU to Node mapping */
     {
-	topology.cpu_to_node_map = kmalloc(GFP_KERNEL, 
-					   sizeof(u32) * 
-					   topology.num_cpus);
+	topology.cpu_to_node_map = palacios_alloc(sizeof(u32) * topology.num_cpus);
 	
 	if (IS_ERR(topology.cpu_to_node_map)) {
 	    ERROR("Could  not allocate cpu to node map\n");
@@ -61,7 +61,7 @@ int create_numa_topology_from_user(void __user * argp) {
 	if (copy_from_user(topology.cpu_to_node_map, argp,
 			   sizeof(u32) * topology.num_cpus)) {
 	    ERROR("Could not copy cpu to node map from user space\n");
-	    kfree(topology.cpu_to_node_map);
+	    palacios_free(topology.cpu_to_node_map);
 	    return -1;
 	}
 	
@@ -72,21 +72,19 @@ int create_numa_topology_from_user(void __user * argp) {
     {
 	int i = 0;
 
-	topology.mem_to_node_map = kmalloc(GFP_KERNEL, 
-					   sizeof(struct mem_region) * 
-					   topology.num_mem_regions);
+	topology.mem_to_node_map = palacios_alloc(sizeof(struct mem_region) * topology.num_mem_regions);
 
 	if (IS_ERR(topology.mem_to_node_map)) {
 	    ERROR("Could not allocate mem to node map\n");
-	    kfree(topology.cpu_to_node_map);
+	    palacios_free(topology.cpu_to_node_map);
 	    return -1;
 	}
 
 	if (copy_from_user(topology.mem_to_node_map, argp,
 			   sizeof(struct mem_region) * topology.num_mem_regions)) {
 	    ERROR("Coudl not copy mem to node map from user space\n");
-	    kfree(topology.cpu_to_node_map);
-	    kfree(topology.mem_to_node_map);
+	    palacios_free(topology.cpu_to_node_map);
+	    palacios_free(topology.mem_to_node_map);
 	    return -1;
 	}
 
@@ -105,14 +103,12 @@ int create_numa_topology_from_user(void __user * argp) {
     
     /* Read in the distance table */
     {
-	topology.distance_table = kmalloc(GFP_KERNEL,
-					  sizeof(u32) * 
-					  (topology.num_nodes * topology.num_nodes));
+	topology.distance_table = palacios_alloc(sizeof(u32) * (topology.num_nodes * topology.num_nodes));
 	
 	if (IS_ERR(topology.distance_table)) {
 	    ERROR("Could not allocate distance table\n");
-	    kfree(topology.cpu_to_node_map);
-	    kfree(topology.mem_to_node_map);
+	    palacios_free(topology.cpu_to_node_map);
+	    palacios_free(topology.mem_to_node_map);
 	    return -1;
 	}
 	
@@ -120,9 +116,9 @@ int create_numa_topology_from_user(void __user * argp) {
 	if (copy_from_user(topology.distance_table, argp,
 			   sizeof(u32) * (topology.num_nodes * topology.num_nodes))) {
 	    ERROR("Could not copy distance table from user space\n");
-	    kfree(topology.cpu_to_node_map);
-	    kfree(topology.mem_to_node_map);
-	    kfree(topology.distance_table);
+	    palacios_free(topology.cpu_to_node_map);
+	    palacios_free(topology.mem_to_node_map);
+	    palacios_free(topology.distance_table);
 	    return -1;
 	}
 
@@ -133,40 +129,40 @@ int create_numa_topology_from_user(void __user * argp) {
 	int i = 0;
 	int j = 0;
 
-	printk("Created NUMA topology from user space\n");
-	printk("Number of Nodes: %d, CPUs: %d, MEM regions: %d\n", 
+	INFO("Created NUMA topology from user space\n");
+	INFO("Number of Nodes: %d, CPUs: %d, MEM regions: %d\n", 
 	       topology.num_nodes, topology.num_cpus, topology.num_mem_regions);
 
-	printk("CPU mapping\n");
+	INFO("CPU mapping\n");
 	for (i = 0; i < topology.num_cpus; i++) {
-	    printk("\tCPU %d -> Node %d\n", i, topology.cpu_to_node_map[i]);
+	    INFO("\tCPU %d -> Node %d\n", i, topology.cpu_to_node_map[i]);
 	}
 
-	printk("Memory mapping\n");
+	INFO("Memory mapping\n");
 
 	for (i = 0; i < topology.num_mem_regions; i++) {
 	    struct mem_region * region = &(topology.mem_to_node_map[i]);
-	    printk("\tMEM %p - %p -> Node %d\n", 
+	    INFO("\tMEM %p - %p -> Node %d\n", 
 		   region->start_addr, 
 		   region->end_addr, 
 		   region->node_id);
 	}
 
 
-	printk("Distance Table\n");
+	INFO("Distance Table\n");
 	for (i = 0; i < topology.num_nodes; i++) {
-	    printk("\t%d", i);
+	    INFO("\t%d", i);
 	}
-	printk("\n");
+	INFO("\n");
 	
 	for (i = 0; i < topology.num_nodes; i++) {
-	    printk("%d", i);
+	    INFO("%d", i);
 
 	    for (j = 0; j < topology.num_nodes; j++) {
-		printk("\t%d", topology.distance_table[j + (i * topology.num_nodes)]);
+		INFO("\t%d", topology.distance_table[j + (i * topology.num_nodes)]);
 	    }
 
-	    printk("\n");
+	    INFO("\n");
 
 	}	    
 
