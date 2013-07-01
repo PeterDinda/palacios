@@ -51,7 +51,7 @@ static int handle_info_write(struct guest_info * core, ushort_t port, void * src
     state->info_buf[state->info_offset++] = *(char*)src;
 
     if ((*(char*)src == 0xa) ||  (state->info_offset == (BUF_SIZE - 1))) {
-	PrintDebug(core->vm_info, core, "BOCHSINFO>%s", state->info_buf);
+	PrintDebug(core->vm_info, core, "BIOSINFO>%s", state->info_buf);
 	memset(state->info_buf, 0, BUF_SIZE);
 	state->info_offset = 0;
     }
@@ -66,7 +66,7 @@ static int handle_debug_write(struct guest_info * core, ushort_t port, void * sr
     state->debug_buf[state->debug_offset++] = *(char*)src;
 
     if ((*(char*)src == 0xa) ||  (state->debug_offset == (BUF_SIZE - 1))) {
-	PrintDebug(core->vm_info, core, "BOCHSDEBUG>%s", state->debug_buf);
+	PrintDebug(core->vm_info, core, "BIOSDEBUG>%s", state->debug_buf);
 	memset(state->debug_buf, 0, BUF_SIZE);
 	state->debug_offset = 0;
     }
@@ -81,7 +81,7 @@ static int handle_console_write(struct guest_info * core, ushort_t port, void * 
     state->cons_buf[state->cons_offset++] = *(char *)src;
 
     if ((*(char *)src == 0xa) ||  (state->cons_offset == (BUF_SIZE - 1))) {
-	V3_Print(core->vm_info, core, "BOCHSCONSOLE>%s", state->cons_buf);
+	V3_Print(core->vm_info, core, "BIOSCONSOLE>%s", state->cons_buf);
 	memset(state->cons_buf, 0, BUF_SIZE);
 	state->cons_offset = 0;
     }

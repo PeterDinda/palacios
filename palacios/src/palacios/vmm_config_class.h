@@ -45,10 +45,8 @@ static int post_config_pc_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
 static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
-#
 
-
-#if defined(V3_CONFIG_SEABIOS) || defined(V3_CONFIG_ROMBIOS)
+#if defined(V3_CONFIG_SEABIOS) || defined(V3_CONFIG_BOCHSBIOS)
 
 #define VGABIOS_START 0x000c0000
     /* layout vgabios */
@@ -62,6 +60,7 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    return -1;
 	}
 
+	V3_Print(vm,VCORE_NONE,"Mapping VGA BIOS of %llu bytes at address %p\n", (uint64_t)(v3_vgabios_end-v3_vgabios_start), (void*)VGABIOS_START);
 	memcpy(vgabios_dst, v3_vgabios_start, v3_vgabios_end - v3_vgabios_start);	
     }
     
@@ -79,6 +78,7 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    return -1;
 	}
 
+	V3_Print(vm,VCORE_NONE,"Mapping BIOS of %llu bytes at address %p\n", (uint64_t)(v3_rombios_end-v3_rombios_start), (void*)V3_CONFIG_BIOS_START);
 	memcpy(rombios_dst, v3_rombios_start, v3_rombios_end - v3_rombios_start);
 
 #ifdef V3_CONFIG_SEABIOS
@@ -89,6 +89,7 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    PrintError(vm, VCORE_NONE, "Error mapping SEABIOS to end of memory\n");
 	    return -1;
 	}
+	V3_Print(vm,VCORE_NONE,"Additionally mapping SEABIOS of %llu bytes at address %p\n", (uint64_t)(v3_rombios_end-v3_rombios_start), (void*)0xfffe0000);
 #endif
 
     }

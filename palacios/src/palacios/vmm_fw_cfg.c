@@ -25,6 +25,64 @@
 #include <palacios/vm_guest.h>
 
 
+/*
+  This subsystem of Palacios interacts with the SEABIOS in order to 
+  create highly customized configurations for the guest.  Currently,
+  the primary purpose of such configuration is to pass a NUMA configuration
+  to the guest via ACPI.  Currently, we are able to create NUMA domains,
+  map regions of guest physical addresses to them, and map vcores to them.
+  Additionally, these virtual NUMA domains are then mapped to physical
+  (host) NUMA domains.   Other elements of Palacios handle vcore to 
+  physical core mapping, as well as guest memory allocation such that
+  the needed physical NUMA domain mapping is correct.
+
+  The following describes how the XML configuration of a virtual NUMA guest
+  works.
+
+  <mem_layout vnodes=n>  (How many numa domains the guest will see)
+      (guest physical addresses x to y-1 are numa domain i and 
+       numa domain i is mapped to host numa domain j)
+     <region vnode=i start_addr=x end_addr=y node=j> 
+     ...
+  <mem_layout>
+  
+  For example, a 4 virtual domain guest mapped toa 2 domain host:
+  
+  <mem_layout vnodes="4">
+    <region vnode="0" start_addr="0x00000000" end_addr="0x10000000" node="0" />
+    <region vnode="1" start_addr="0x10000000" end_addr="0x20000000" node="1" />
+    <region vnode="2" start_addr="0x20000000" end_addr="0x30000000" node="0" />
+    <region vnode="3" start_addr="0x30000000" end_addr="0x40000000" node="1" />
+  </mem_layout>
+	
+  You also need to map the virtual cores to the domains, which is 
+  done with the <cores> tag.  This usually also indicates which physical core
+  the virtual core maps to, so that the NUMA topology the guest sees has 
+  performance characteristics that make sense.
+       
+  <cores count=m>  (How many virtual cores we have)
+     <core vnode=i target_cpu=q> (vcore 0 maps to virtual numa zone i and pcore q)
+     <core vnode=j target_cpu=r> (vcore 1 maps to virtual numa zone j and pcore r)
+      ...
+   <cores>
+
+   For example, here are 8 virtual cores maped across our numa domains, pairwise
+
+   <cores count="8">
+      <core target_cpu="1" vnode="0"/>
+      <core target_cpu="2" vnode="0"/>
+      <core target_cpu="3" vnode="1"/>
+      <core target_cpu="4" vnode="1"/>
+      <core target_cpu="5" vnode="2"/>
+      <core target_cpu="6" vnode="2"/>
+      <core target_cpu="7" vnode="3"/>
+      <core target_cpu="8" vnode="3"/>
+   </cores>
+
+*/
+
+
+
 #define FW_CFG_CTL_PORT     0x510
 #define FW_CFG_DATA_PORT    0x511
 
@@ -236,6 +294,22 @@ static struct e820_table * e820_populate(struct v3_vm_info * vm) {
 }
 */
 
+void v3_fw_cfg_deinit(struct v3_vm_info *vm) {
+    struct v3_fw_cfg_state * cfg_state = &(vm->fw_cfg_state);
+    int i, j;
+
+    for (i = 0; i < 2; ++i) {
+        for (j = 0; j < FW_CFG_MAX_ENTRY; ++j) {
+            if (cfg_state->entries[i][j].data != NULL)
+                V3_Free(cfg_state->entries[i][j].data);
+        }
+    }
+
+    v3_unhook_io_port(vm, FW_CFG_CTL_PORT);
+    v3_unhook_io_port(vm, FW_CFG_DATA_PORT);
+
+}
+
 int v3_fw_cfg_init(struct v3_vm_info * vm) {
 
 
@@ -243,6 +317,10 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
     struct v3_fw_cfg_state * cfg_state = &(vm->fw_cfg_state);
     int ret = 0;
 
+
+#ifndef V3_CONFIG_SEABIOS
+    V3_Print(vm,VCORE_NONE,"Warning: Configuring SEABIOS firmware, but SEABIOS is not being used in this build of Palacios.  Configuration will be dormant.\n");
+#endif
 
     /* 
        struct e820_table * e820 = e820_populate(vm);
@@ -261,6 +339,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
     if (ret != 0) {
 	//  V3_Free(e820);
         PrintError(vm, VCORE_NONE, "Failed to hook FW CFG ports!\n");
+	v3_fw_cfg_deinit(vm);
         return -1;
     }
 
@@ -321,6 +400,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 
 	    if (numa_fw_cfg == NULL) {
 		PrintError(vm, VCORE_NONE, "Could not allocate fw_cfg NUMA config space\n");
+		v3_fw_cfg_deinit(vm);
 		return -1;
 	    }
 
@@ -370,7 +450,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 
 		    if ((!start_addr_str) || (!end_addr_str) || (!vnode_id_str)) {
 			PrintError(vm, VCORE_NONE, "Invalid memory layout in configuration\n");
-			V3_Free(numa_fw_cfg);
+			v3_fw_cfg_deinit(vm);
 			return -1;
 		    }
 		    
@@ -413,18 +493,6 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 
 
     return 0;
-}
-
-void v3_fw_cfg_deinit(struct v3_vm_info *vm) {
-    struct v3_fw_cfg_state * cfg_state = &(vm->fw_cfg_state);
-    int i, j;
-
-    for (i = 0; i < 2; ++i) {
-        for (j = 0; j < FW_CFG_MAX_ENTRY; ++j) {
-            if (cfg_state->entries[i][j].data != NULL)
-                V3_Free(cfg_state->entries[i][j].data);
-        }
-    }
 }
 
 
