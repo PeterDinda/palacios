@@ -45,9 +45,12 @@ static int post_config_pc_core(struct guest_info * info, v3_cfg_tree_t * cfg) {
 
 static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
+#
+
+
+#if defined(V3_CONFIG_SEABIOS) || defined(V3_CONFIG_ROMBIOS)
+
 #define VGABIOS_START 0x000c0000
-#define ROMBIOS_START 0x000e0000
-    
     /* layout vgabios */
     {
 	extern uint8_t v3_vgabios_start[];
@@ -62,26 +65,31 @@ static int post_config_pc(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	memcpy(vgabios_dst, v3_vgabios_start, v3_vgabios_end - v3_vgabios_start);	
     }
     
+#endif
+
+
     /* layout rombios */
     {
 	extern uint8_t v3_rombios_start[];
 	extern uint8_t v3_rombios_end[];
 	void * rombios_dst = 0;
 	
-	if (v3_gpa_to_hva(&(vm->cores[0]), ROMBIOS_START, (addr_t *)&rombios_dst) == -1) {
+	if (v3_gpa_to_hva(&(vm->cores[0]), V3_CONFIG_BIOS_START, (addr_t *)&rombios_dst) == -1) {
 	    PrintError(vm, VCORE_NONE, "Could not find ROMBIOS destination address\n");
 	    return -1;
 	}
 
 	memcpy(rombios_dst, v3_rombios_start, v3_rombios_end - v3_rombios_start);
 
-	// SEABIOS gets mapped into end of 4GB region
+#ifdef V3_CONFIG_SEABIOS
+	// SEABIOS is also mapped into end of 4GB region
 	if (v3_add_shadow_mem(vm, V3_MEM_CORE_ANY, 
 			      0xfffe0000, 0xffffffff,
 			      (addr_t)V3_PAddr(rombios_dst)) == -1) {
 	    PrintError(vm, VCORE_NONE, "Error mapping SEABIOS to end of memory\n");
 	    return -1;
 	}
+#endif
 
     }
 

@@ -456,17 +456,76 @@ endmenu
 
 menu "BIOS Selection"
 
-config ROMBIOS_PATH
-	string "Path to pre-built ROMBIOS binary"
+choice 
+       prompt "Boot Code Selection"
+       default SEABIOS
+	help
+           Select which BIOSes to map into the default PC Class Hardware Configuration
+
+config SEABIOS
+	bool "Use the SEABIOS and SEABIOS-VGA Boot Code"
+        help
+            Use the SEABIOS and SEABIOS-VGA Boot code
+
+
+config BOCHSBIOS
+	bool "Use the BOCHS BIOS and BOCHS BIOS-compatible VGA Boot Code"
+        help
+            Use the BOCHS BIOS and BOCHS-BIOS-compatible VGA Boot Code
+
+
+config OTHERBIOS
+	bool "Use a user-specified BIOS"
+        help
+            Use a user-specified BIOS
+
+
+endchoice
+
+
+config SEABIOS_PATH
+	string "Path to pre-built SEABIOS binary"
+        depends on SEABIOS
+	default "./bios/seabios/out/bios.bin"
+	help
+	  Path to the SEABIOS binary to use
+
+config SEABIOSVGA_PATH
+	string "Path to pre-built SEABIOS-VGA binary"
+	depends on SEABIOS
+	default "./bios/seabios-vga/VGABIOS-lgpl-latest.bin"
+	help 
+	  This is the SEABIOS-compatible vgabios that will be used for the guest
+
+config BOCHSBIOS_PATH
+	string "Path to pre-built BOCHS BIOS binary"
+        depends on BOCHSBIOS
 	default "./bios/rombios/BIOS-bochs-latest"
 	help
 	  This is the rombios that will be used for the guests
 
-config VGABIOS_PATH
-	string "Path to pre-built VGABIOS binary"
+config BOCHSBIOSVGA_PATH
+	string "Path to pre-built BOCHS-compatible VGABIOS binary"
+	depends on BOCHSBIOS
 	default "./bios/vgabios/VGABIOS-lgpl-latest.bin"
 	help
 	  This is the vgabios that will be used for the guests
+
+config OTHERBIOS_PATH
+	string "Path to user-specified Boot Code"
+	depends on OTHERBIOS
+	help
+	  This is a completely user-determined blob that will be mapped into the guest
+	  No VGA BIOS will be mapped!
+
+config BIOS_START
+	hex "Starting address (linear address) of BIOS"
+	range 0xe0000 0xe0000 if SEABIOS
+	range 0xf0000 0xf0000 if BOCHSBIOS
+	help
+	  This is the starting address (linear address) of the BIOS code
+
+
 
 config VMXASSIST_PATH
 	string "Path to pre-built VMXASSIST binary"

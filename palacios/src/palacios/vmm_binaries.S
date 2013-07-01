@@ -29,19 +29,32 @@ v3_vmxassist_start:
 v3_vmxassist_end:
 #endif
 
-
+#if V3_CONFIG_SEABIOS || V3_CONFIG_BOCHSBIOS
 .globl v3_vgabios_start
 v3_vgabios_start:
-.incbin V3_CONFIG_VGABIOS_PATH
+#if V3_CONFIG_SEABIOS
+.incbin V3_CONFIG_SEABIOSVGA_PATH
+#endif
+#if V3_CONFIG_BOCHSBIOS
+.incbin V3_CONFIG_BOCHSBIOSVGA_PATH
+#endif
 .global v3_vgabios_end
 v3_vgabios_end:
+#endif
 
 .globl v3_rombios_start
 v3_rombios_start:
-.incbin V3_CONFIG_ROMBIOS_PATH
+#if V3_CONFIG_SEABIOS
+.incbin V3_CONFIG_SEABIOS_PATH
+#endif
+#if V3_CONFIG_ROMBIOS
+.incbin V3_CONFIG_BOCHBIOS_PATH
+#endif
+#if V3_CONFIG_OTHERBIOS
+.incbin V3_CONFIG_OTHERBIOS_PATH
+#endif
 .globl v3_rombios_end
 v3_rombios_end:
-
 
 #ifdef V3_CONFIG_USE_PXE_BIOS
 .globl pxebios_start
