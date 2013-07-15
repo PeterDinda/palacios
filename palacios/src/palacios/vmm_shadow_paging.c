@@ -191,9 +191,27 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
     struct v3_shdw_pg_impl * impl = NULL;
    
     PrintDebug(vm, VCORE_NONE, "Checking if shadow paging requested.\n");
-    if ((pg_mode != NULL) && (strcasecmp(pg_mode, "nested") == 0)) {
-	PrintDebug(vm, VCORE_NONE, "Nested paging specified - not initializing shadow paging.\n");
-	return 0;
+    if (pg_mode == NULL) { 
+	V3_Print(vm, VCORE_NONE, "No paging mode specified, assuming shadow with defaults\n");
+	pg_mode = "shadow";
+    } else {
+	if (strcasecmp(pg_mode, "nested") == 0) {
+	    // this check is repeated here (compare to vmm_config's determine paging mode) since
+	    // shadow paging initialization *precedes* per-core pre-config.
+	    extern v3_cpu_arch_t v3_mach_type;
+	    if ((v3_mach_type == V3_SVM_REV3_CPU) || 
+		(v3_mach_type == V3_VMX_EPT_CPU) ||
+		(v3_mach_type == V3_VMX_EPT_UG_CPU)) {
+		PrintDebug(vm, VCORE_NONE, "Nested paging specified on machine that supports it - not initializing shadow paging\n");
+		return 0;
+	    } else {
+		V3_Print(vm, VCORE_NONE, "Nested paging specified but machine does not support it - falling back to shadow paging with defaults\n");
+		pg_mode = "shadow";
+	    }
+	} else if (strcasecmp(pg_mode, "shadow") != 0) { 
+	    V3_Print(vm, VCORE_NONE, "Unknown paging mode '%s' specified - falling back to shadow paging with defaults\n",pg_mode);
+	    pg_mode = "shadow";
+	}
     }
 
     if (pg_strat == NULL) {
