@@ -2,6 +2,8 @@
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
 #include <linux/sort.h>
+#include <linux/timer.h>
+#include <linux/time.h>
 
 #include "palacios.h"
 
@@ -44,7 +46,13 @@
 
 // Show hottest locks every this many locks or lock_irqsaves
 // 0 indicates this should not be shown
-#define HOT_LOCK_INTERVAL        1000
+#define HOT_LOCK_INTERVAL        100000
+
+// How often the long lock timer checker should run
+// And how long a lock needs to be held before it complains
+// set to zero to deactivate
+#define LONG_LOCK_INTERVAL_MS    10
+#define LONG_LOCK_HELD_MS        20
 
 //
 // Whether lockcheck should lock its own data structures during an
@@ -75,6 +83,8 @@ typedef struct {
   void *lastirqlocker[STEP_BACK_DEPTH];
                       // who last locked
   unsigned long lastlockflags; // their flags
+  unsigned long locktime; 
+                      // when it was locked
   void *lastirqunlocker[STEP_BACK_DEPTH]
                     ; // who last unlocked
   unsigned long lastunlockflags; // their flags
@@ -91,6 +101,9 @@ static lockcheck_state_t *sorted_state[NUM_LOCKS];
 static int numout=0;
 
 static int globallockcount=0;
+
+static struct timer_list  long_lock_timer;
+
 
 #define DEBUG_OUTPUT(fmt, args...)					\
 do {									\
@@ -132,7 +145,6 @@ do {						                        \
 #endif
 
 static void printlock(char *prefix, lockcheck_state_t *l);
-
 
 typedef struct {
   u32 top;               // next open slot 0..
@@ -342,11 +354,65 @@ static void hot_lock_lock(void *lock)
 #define hot_lock_unlock(X) // nothing for now
 
 
+void long_lock_callback(unsigned long ignored)
+{
+  // See if any lock has been held for too long
+  // then print all the locks if it has
+
+  // Note that this function does not lock because the 
+  // idea is to try to catch a deadlock, which might
+  // imply that we are stalled waiting on our lock already
+  
+  int i;
+  int have=0;
+  lockcheck_state_t *l;
+  char buf[64];
+  unsigned long now;
+
+
+  now = jiffies;
+
+  for (i=0;i<NUM_LOCKS;i++) { 
+    l=&(state[i]);
+    if (l->inuse && (l->irqcount>0 || l->lockcount>0)) {
+      if (jiffies_to_msecs(now-l->locktime)>LONG_LOCK_HELD_MS) { 
+	have++;
+      }
+    }
+  }
+  
+  if (have>0) { 
+    DEBUG_OUTPUT("LOCKCHECK: LONG LOCK: %d locks have been held longer than %u ms - Dump of all held locks Follows\n",have,LONG_LOCK_HELD_MS);
+    have=0;
+    for (i=0;i<NUM_LOCKS;i++) { 
+      l=&(state[i]);
+      if (l->inuse && (l->irqcount>0 || l->lockcount>0)) { 
+	snprintf(buf,64,"LONG LOCK (%d - %s)",
+		 have,
+		 jiffies_to_msecs(now-l->locktime)>LONG_LOCK_HELD_MS ? "**OLD**" : "ok");
+	printlock(buf,l);
+	have++;
+      }
+    }
+  }
+  
+  // reset the timer to run again
+  
+  mod_timer(&long_lock_timer,jiffies+msecs_to_jiffies(LONG_LOCK_INTERVAL_MS));
+
+}
+
 
 void palacios_lockcheck_init()
 {
   memset(state,0,sizeof(lockcheck_state_t)*NUM_LOCKS);
   spin_lock_init(&mylock);
+
+#if LONG_LOCK_INTERVAL_MS>0
+  setup_timer(&long_lock_timer,long_lock_callback,0);
+  mod_timer(&long_lock_timer, jiffies + msecs_to_jiffies(LONG_LOCK_INTERVAL_MS));
+#endif
+
   DEBUG_OUTPUT("LOCKCHECK: LOCK CHECKING INITED (internal locking: %d, output limit: %d, output skip: %d)\n",LOCK_SELF,OUTPUT_LIMIT,OUTPUT_SKIP);
 }
 
@@ -394,8 +460,9 @@ static void printlock(char *prefix, lockcheck_state_t *l)
 	  backtrace_format
 	  ", lastlockflags=%lu, lastirqunlocker="
 	  backtrace_format
-	  ", lastunlockflags=%lu\n",
-	  prefix,l->lock,
+	  ", lastunlockflags=%lu"
+  	  ", lockage=%ums\n",
+ 	  prefix,l->lock,
 	  l->holder ? ((struct task_struct *)(l->holder))->comm : "none",
 	  l->holdingcpu,
 	  backtrace_expand(l->allocator),
@@ -406,9 +473,13 @@ static void printlock(char *prefix, lockcheck_state_t *l)
 	  backtrace_expand(l->lastirqlocker),
 	  l->lastlockflags,
 	  backtrace_expand(l->lastirqunlocker),
-	  l->lastunlockflags);
+          l->lastunlockflags,
+ 	  (l->lockcount>0) || (l->irqcount>0) ? jiffies_to_msecs(jiffies-l->locktime) : 0);
   }
 }
+
+
+
 
 
 
@@ -495,6 +566,9 @@ void palacios_lockcheck_deinit()
       }
     }
   } 
+#if LONG_LOCK_INTERVAL_MS>0
+  del_timer(&long_lock_timer);
+#endif
   UNLOCK();
   INFO("LOCKCHECK: DEINITED\n");
 }
@@ -589,6 +663,7 @@ void palacios_lockcheck_lock(void *lock)
   l->lockcount++;
   l->holder=current;
   l->holdingcpu=get_cpu(); put_cpu();
+  l->locktime=jiffies;
   backtrace(l->lastlocker);
 
   find_multiple_locks_held();
@@ -675,6 +750,7 @@ void palacios_lockcheck_lock_irqsave(void *lock,unsigned long flags)
   l->holder=current;
   l->holdingcpu=get_cpu(); put_cpu();
   l->lastlockflags=flags;
+  l->locktime=jiffies;
   backtrace(l->lastirqlocker);
 
   find_multiple_irqs_held();
