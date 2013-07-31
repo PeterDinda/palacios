@@ -51,6 +51,9 @@ void v3_init_cpuid_map(struct v3_vm_info * vm) {
     v3_cpuid_add_fields(vm, 0x00000001, 0, 0, 0, 0, 0, 0, (1 << 12), 0);
     // disable PAT
     v3_cpuid_add_fields(vm, 0x00000001, 0, 0, 0, 0, 0, 0, (1 << 16), 0);
+    // disable HTT
+    v3_cpuid_add_fields(vm, 0x00000001, 0, 0, 0, 0, 0, 0, (1 << 28), 0);
+
     // disable X2APIC
     v3_cpuid_add_fields(vm, 0x00000001, 0, 0, 0, 0, (1 << 21), 0, 0, 0);
 
