@@ -60,7 +60,7 @@ int      v3_get_vcore(struct guest_info *);
 	extern struct v3_os_hooks * os_hooks;		        	\
 	void * ptr = 0;					        	\
 	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
-	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB);	\
+	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB,-1);	\
 	}						        	\
 	ptr;						        	\
     })
@@ -71,10 +71,22 @@ int      v3_get_vcore(struct guest_info *);
 	extern struct v3_os_hooks * os_hooks;		        	\
 	void * ptr = 0;					        	\
 	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
-	    ptr = (os_hooks)->allocate_pages(num_pages,align);  	\
+	    ptr = (os_hooks)->allocate_pages(num_pages,align,-1);  	\
 	}						        	\
 	ptr;						        	\
     })
+
+
+#define V3_AllocPagesNode(num_pages, node_id)                           \
+    ({                                                                  \
+        extern struct v3_os_hooks * os_hooks;                           \
+        void * ptr = 0;                                                 \
+        if ((os_hooks) && (os_hooks)->allocate_pages) {                 \
+            ptr = (os_hooks)->allocate_pages(num_pages, PAGE_SIZE_4KB, node_id); \
+        }                                                               \
+        ptr;                                                            \
+    })
+
 
 
 #define V3_FreePages(page, num_pages)			\
@@ -299,7 +311,7 @@ struct v3_os_hooks {
     void (*print)(void *vm, int vcore, const char * format, ...)
   	__attribute__ ((format (printf, 3, 4)));
   
-    void *(*allocate_pages)(int num_pages, unsigned int alignment);
+    void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id);
     void (*free_pages)(void * page, int num_pages);
 
     void *(*malloc)(unsigned int size);
@@ -356,7 +368,12 @@ typedef enum {V3_VCORE_CPU_UNKNOWN, V3_VCORE_CPU_REAL, V3_VCORE_CPU_PROTECTED, V
 typedef enum {V3_VCORE_MEM_STATE_UNKNOWN, V3_VCORE_MEM_STATE_SHADOW, V3_VCORE_MEM_STATE_NESTED} v3_vcore_mem_state_t;
 typedef enum {V3_VCORE_MEM_MODE_UNKNOWN, V3_VCORE_MEM_MODE_PHYSICAL, V3_VCORE_MEM_MODE_VIRTUAL} v3_vcore_mem_mode_t;
 
-struct v3_vcore_state {
+
+struct v3_vm_base_state {
+    v3_vm_state_t       state;
+};
+
+struct v3_vm_vcore_state {
   v3_vcore_state_t state;
   v3_vcore_cpu_mode_t cpu_mode;
   v3_vcore_mem_state_t mem_state;
@@ -366,12 +383,20 @@ struct v3_vcore_state {
   unsigned long long num_exits;
 };
 
-struct v3_vm_state {
-  v3_vm_state_t state;
-  void *   mem_base_paddr;
-  unsigned long long  mem_size;
-  unsigned long  num_vcores;
-  struct v3_vcore_state vcore[0];
+struct v3_vm_core_state {
+    unsigned long         num_vcores;
+    struct v3_vm_vcore_state vcore[];
+};
+
+struct v3_vm_mem_region {
+    void               *host_paddr;
+    unsigned long long  size;
+};
+
+struct v3_vm_mem_state {
+    unsigned long long      mem_size;
+    unsigned long           num_regions;
+    struct v3_vm_mem_region region[]; 
 };
 
 char *v3_lookup_option(char *name);
@@ -396,7 +421,11 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu);
 
 int v3_free_vm(struct v3_vm_info * vm);
 
-int v3_get_state_vm(struct v3_vm_info *vm, struct v3_vm_state *out);
+int v3_get_state_vm(struct v3_vm_info        *vm, 
+		    struct v3_vm_base_state  *base,
+		    struct v3_vm_core_state  *core,
+		    struct v3_vm_mem_state   *mem);
+
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr);
 

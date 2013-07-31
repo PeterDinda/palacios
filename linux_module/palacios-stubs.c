@@ -165,7 +165,7 @@ void palacios_print_scoped(void * vm, int vcore, const char *fmt, ...) {
  * Allocates a contiguous region of pages of the requested size.
  * Returns the physical address of the first page in the region.
  */
-void *palacios_allocate_pages(int num_pages, unsigned int alignment) {
+void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id) {
     void * pg_addr = NULL;
 
     if (num_pages<=0) { 
@@ -173,7 +173,7 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment) {
       return NULL;
     }
 
-    pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment);
+    pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment, node_id);
 
     if (!pg_addr) { 
 	ERROR("ALERT ALERT  Page allocation has FAILED Warning\n");

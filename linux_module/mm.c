@@ -109,7 +109,7 @@ static uintptr_t alloc_contig_pgs(u64 num_pages, u32 alignment) {
 
 
 // alignment is in bytes
-uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment) {
+uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node) {
     uintptr_t addr = 0; 
 
     if (num_pages < OFFLINE_POOL_THRESHOLD) {

@@ -7,7 +7,7 @@
 
 
 
-uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment);
+uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id);
 void free_palacios_pg(uintptr_t base_addr);
 void free_palacios_pgs(uintptr_t base_addr, u64 num_pages);
 

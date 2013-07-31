@@ -71,16 +71,20 @@ struct v3_mem_region {
 
     void * priv_data;
 
-    int core_id;
+    int core_id;     // The virtual core this region is assigned to (-1 means all cores)
+    int numa_id;     // The NUMA node this region is allocated from
 
     struct rb_node tree_node; // This for memory regions mapped to the global map
 };
 
 
 struct v3_mem_map {
-    struct v3_mem_region base_region;
 
     struct rb_root mem_regions;
+    
+    uint32_t num_base_regions;
+    struct v3_mem_region * base_regions;
+
 };
 
 
@@ -106,6 +110,7 @@ int v3_add_shadow_mem(struct v3_vm_info * vm, uint16_t core_id,
 
 
 struct v3_mem_region * v3_get_mem_region(struct v3_vm_info * vm, uint16_t core_id, addr_t guest_addr);
+struct v3_mem_region * v3_get_base_region(struct v3_vm_info * vm, addr_t gpa);
 
 
 uint32_t v3_get_max_page_size(struct guest_info * core, addr_t fault_addr, v3_cpu_mode_t mode);

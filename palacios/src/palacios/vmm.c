@@ -18,6 +18,7 @@
  */
 
 #include <palacios/vmm.h>
+#include <palacios/vmm_mem.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_config.h>
 #include <palacios/vm_guest.h>
@@ -273,7 +274,7 @@ static int start_core(void * p)
 
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
-    uint32_t i;
+    uint32_t i,j;
     uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
     uint32_t avail_cores = 0;
     int vcore_id = 0;
@@ -288,16 +289,18 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     // Do not run if any core is using shadow paging and we are out of 4 GB bounds
     for (i=0;i<vm->num_cores;i++) { 
 	if (vm->cores[i].shdw_pg_mode == SHADOW_PAGING) {
-	    if ((vm->mem_map.base_region.host_addr + vm->mem_size ) >= 0x100000000ULL) {
-		PrintError(vm, VCORE_NONE, "Base memory region exceeds 4 GB boundary with shadow paging enabled on core %d.\n",i);
-		PrintError(vm, VCORE_NONE, "Any use of non-64 bit mode in the guest is likely to fail in this configuration.\n");
-		PrintError(vm, VCORE_NONE, "If you would like to proceed anyway, remove this check and recompile Palacios.\n");
-		PrintError(vm, VCORE_NONE, "Alternatively, change this VM to use nested paging.\n");
-		return -1;
+	    for (j=0;j<vm->mem_map.num_base_regions;j++) {
+		if ((vm->mem_map.base_regions[i].host_addr + V3_CONFIG_MEM_BLOCK_SIZE)  >= 0x100000000ULL) {
+		    PrintError(vm, VCORE_NONE, "Base memory region %d exceeds 4 GB boundary with shadow paging enabled on core %d.\n",j, i);
+		    PrintError(vm, VCORE_NONE, "Any use of non-64 bit mode in the guest is likely to fail in this configuration.\n");
+		    PrintError(vm, VCORE_NONE, "If you would like to proceed anyway, remove this check and recompile Palacios.\n");
+		    PrintError(vm, VCORE_NONE, "Alternatively, change this VM to use nested paging.\n");
+		    return -1;
+		}
 	    }
 	}
     }
-
+    
     /// CHECK IF WE ARE MULTICORE ENABLED....
 
     V3_Print(vm, VCORE_NONE, "V3 --  Starting VM (%u cores)\n", vm->num_cores);
@@ -633,59 +636,68 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
 
 }
 
-int v3_get_state_vm(struct v3_vm_info *vm, struct v3_vm_state *s)
+int v3_get_state_vm(struct v3_vm_info        *vm, 
+		    struct v3_vm_base_state  *base,
+		    struct v3_vm_core_state  *core,
+		    struct v3_vm_mem_state   *mem)
 {
-  uint32_t i;
-  uint32_t numcores = s->num_vcores > vm->num_cores ? vm->num_cores : s->num_vcores;
+    uint32_t i;
+    uint32_t numcores = core->num_vcores > vm->num_cores ? vm->num_cores : core->num_vcores;
+    uint32_t numregions = mem->num_regions > vm->mem_map.num_base_regions ? vm->mem_map.num_base_regions : mem->num_regions;
 
-  switch (vm->run_state) { 
-  case VM_INVALID: s->state = V3_VM_INVALID; break;
-  case VM_RUNNING: s->state = V3_VM_RUNNING; break;
-  case VM_STOPPED: s->state = V3_VM_STOPPED; break;
-  case VM_PAUSED: s->state = V3_VM_PAUSED; break;
-  case VM_ERROR: s->state = V3_VM_ERROR; break;
-  case VM_SIMULATING: s->state = V3_VM_SIMULATING; break;
-  default: s->state = V3_VM_UNKNOWN; break;
-  }
 
-  s->mem_base_paddr = (void*)(vm->mem_map.base_region.host_addr);
-  s->mem_size = vm->mem_size;
-
-  s->num_vcores = numcores;
-
-  for (i=0;i<numcores;i++) {
-    switch (vm->cores[i].core_run_state) {
-    case CORE_INVALID: s->vcore[i].state = V3_VCORE_INVALID; break;
-    case CORE_RUNNING: s->vcore[i].state = V3_VCORE_RUNNING; break;
-    case CORE_STOPPED: s->vcore[i].state = V3_VCORE_STOPPED; break;
-    default: s->vcore[i].state = V3_VCORE_UNKNOWN; break;
-    }
-    switch (vm->cores[i].cpu_mode) {
-    case REAL: s->vcore[i].cpu_mode = V3_VCORE_CPU_REAL; break;
-    case PROTECTED: s->vcore[i].cpu_mode = V3_VCORE_CPU_PROTECTED; break;
-    case PROTECTED_PAE: s->vcore[i].cpu_mode = V3_VCORE_CPU_PROTECTED_PAE; break;
-    case LONG: s->vcore[i].cpu_mode = V3_VCORE_CPU_LONG; break;
-    case LONG_32_COMPAT: s->vcore[i].cpu_mode = V3_VCORE_CPU_LONG_32_COMPAT; break;
-    case LONG_16_COMPAT: s->vcore[i].cpu_mode = V3_VCORE_CPU_LONG_16_COMPAT; break;
-    default: s->vcore[i].cpu_mode = V3_VCORE_CPU_UNKNOWN; break;
-    }
-    switch (vm->cores[i].shdw_pg_mode) { 
-    case SHADOW_PAGING: s->vcore[i].mem_state = V3_VCORE_MEM_STATE_SHADOW; break;
-    case NESTED_PAGING: s->vcore[i].mem_state = V3_VCORE_MEM_STATE_NESTED; break;
-    default: s->vcore[i].mem_state = V3_VCORE_MEM_STATE_UNKNOWN; break;
-    }
-    switch (vm->cores[i].mem_mode) { 
-    case PHYSICAL_MEM: s->vcore[i].mem_mode = V3_VCORE_MEM_MODE_PHYSICAL; break;
-    case VIRTUAL_MEM: s->vcore[i].mem_mode=V3_VCORE_MEM_MODE_VIRTUAL; break;
-    default: s->vcore[i].mem_mode=V3_VCORE_MEM_MODE_UNKNOWN; break;
+    switch (vm->run_state) { 
+	case VM_INVALID: base->state = V3_VM_INVALID; break;
+	case VM_RUNNING: base->state = V3_VM_RUNNING; break;
+	case VM_STOPPED: base->state = V3_VM_STOPPED; break;
+	case VM_PAUSED: base->state = V3_VM_PAUSED; break;
+	case VM_ERROR: base->state = V3_VM_ERROR; break;
+	case VM_SIMULATING: base->state = V3_VM_SIMULATING; break;
+	default: base->state = V3_VM_UNKNOWN; break;
     }
 
-    s->vcore[i].pcore=vm->cores[i].pcpu_id;
-    s->vcore[i].last_rip=(void*)(vm->cores[i].rip);
-    s->vcore[i].num_exits=vm->cores[i].num_exits;
-  }
+    for (i=0;i<numcores;i++) {
+	switch (vm->cores[i].core_run_state) {
+	    case CORE_INVALID: core->vcore[i].state = V3_VCORE_INVALID; break;
+	    case CORE_RUNNING: core->vcore[i].state = V3_VCORE_RUNNING; break;
+	    case CORE_STOPPED: core->vcore[i].state = V3_VCORE_STOPPED; break;
+	    default: core->vcore[i].state = V3_VCORE_UNKNOWN; break;
+	}
+	switch (vm->cores[i].cpu_mode) {
+	    case REAL: core->vcore[i].cpu_mode = V3_VCORE_CPU_REAL; break;
+	    case PROTECTED: core->vcore[i].cpu_mode = V3_VCORE_CPU_PROTECTED; break;
+	    case PROTECTED_PAE: core->vcore[i].cpu_mode = V3_VCORE_CPU_PROTECTED_PAE; break;
+	    case LONG: core->vcore[i].cpu_mode = V3_VCORE_CPU_LONG; break;
+	    case LONG_32_COMPAT: core->vcore[i].cpu_mode = V3_VCORE_CPU_LONG_32_COMPAT; break;
+	    case LONG_16_COMPAT: core->vcore[i].cpu_mode = V3_VCORE_CPU_LONG_16_COMPAT; break;
+	    default: core->vcore[i].cpu_mode = V3_VCORE_CPU_UNKNOWN; break;
+	}
+	switch (vm->cores[i].shdw_pg_mode) { 
+	    case SHADOW_PAGING: core->vcore[i].mem_state = V3_VCORE_MEM_STATE_SHADOW; break;
+	    case NESTED_PAGING: core->vcore[i].mem_state = V3_VCORE_MEM_STATE_NESTED; break;
+	    default: core->vcore[i].mem_state = V3_VCORE_MEM_STATE_UNKNOWN; break;
+	}
+	switch (vm->cores[i].mem_mode) { 
+	    case PHYSICAL_MEM: core->vcore[i].mem_mode = V3_VCORE_MEM_MODE_PHYSICAL; break;
+	    case VIRTUAL_MEM: core->vcore[i].mem_mode=V3_VCORE_MEM_MODE_VIRTUAL; break;
+	    default: core->vcore[i].mem_mode=V3_VCORE_MEM_MODE_UNKNOWN; break;
+	}
+	
+	core->vcore[i].pcore=vm->cores[i].pcpu_id;
+	core->vcore[i].last_rip=(void*)(vm->cores[i].rip);
+	core->vcore[i].num_exits=vm->cores[i].num_exits;
+    }
+    
+    core->num_vcores=numcores;
 
-  return 0;
+    for (i=0;i<vm->mem_map.num_base_regions;i++) {
+	mem->region[i].host_paddr =  (void*)(vm->mem_map.base_regions[i].host_addr);
+	mem->region[i].size = V3_CONFIG_MEM_BLOCK_SIZE;
+    }
+
+    mem->num_regions=numregions;
+    
+    return 0;
 }
 
 
