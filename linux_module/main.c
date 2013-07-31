@@ -236,21 +236,39 @@ struct proc_dir_entry *palacios_get_procdir(void)
 }
 
 
-#define MAX_VCORES 32
+#define MAX_VCORES  256
+#define MAX_REGIONS 256
 
 static int read_guests(char * buf, char ** start, off_t off, int count,
 		       int * eof, void * data)
 {
     int len = 0;
     unsigned int i = 0;
+    struct v3_vm_base_state *base=0;
+    struct v3_vm_core_state *core=0;
+    struct v3_vm_mem_state *mem=0;
 
-    struct v3_vm_state *s =palacios_alloc(sizeof(struct v3_vm_state)+MAX_VCORES*sizeof(struct v3_vcore_state));
+    base = palacios_alloc(sizeof(struct v3_vm_base_state));
     
-    if (!s) { 
-      ERROR("No space for state structure\n");
+    if (!base) { 
+      ERROR("No space for base state structure\n");
       goto out;
     }
+
+    core = palacios_alloc(sizeof(struct v3_vm_core_state) + MAX_VCORES*sizeof(struct v3_vm_vcore_state));
     
+    if (!core) { 
+      ERROR("No space for core state structure\n");
+      goto out;
+    }
+
+    mem = palacios_alloc(sizeof(struct v3_vm_mem_state) + MAX_REGIONS*sizeof(struct v3_vm_mem_region));
+    
+    if (!mem) { 
+      ERROR("No space for memory state structure\n");
+      goto out;
+    }
+
     for(i = 0; i < MAX_VMS; i++) {
       if (guest_map[i] != NULL) {
 	if (len>=count) { 
@@ -265,8 +283,9 @@ static int read_guests(char * buf, char ** start, off_t off, int count,
 	    goto out;
 	  } else {
 	    // Get extended data
-	    s->num_vcores=MAX_VCORES; // max we can handle
-	    if (v3_get_state_vm(guest_map[i]->v3_ctx, s)) {
+	    core->num_vcores=MAX_VCORES; // max we can handle
+	    mem->num_regions=MAX_REGIONS; // max we can handle
+	    if (v3_get_state_vm(guest_map[i]->v3_ctx, base, core, mem)) {
 	      ERROR("Cannot get VM info\n");
 	      *(buf+len-1)='\n';
 	      goto out;
@@ -274,45 +293,73 @@ static int read_guests(char * buf, char ** start, off_t off, int count,
 	      unsigned long j;
 
 	      len+=snprintf(buf+len, count-len,
-			    "%s [0x%p-0x%p] %lu vcores ",
-			    s->state==V3_VM_INVALID ? "INVALID" :
-			    s->state==V3_VM_RUNNING ? "running" :
-			    s->state==V3_VM_STOPPED ? "stopped" :
-			    s->state==V3_VM_PAUSED ? "paused" :
-			    s->state==V3_VM_ERROR ? "ERROR" :
-			    s->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
-			    s->mem_base_paddr, s->mem_base_paddr+s->mem_size-1,
-			    s->num_vcores);
+			    "%s %lu regions [ ", 
+			    base->state==V3_VM_INVALID ? "INVALID" :
+			    base->state==V3_VM_RUNNING ? "running" :
+			    base->state==V3_VM_STOPPED ? "stopped" :
+			    base->state==V3_VM_PAUSED ? "paused" :
+			    base->state==V3_VM_ERROR ? "ERROR" :
+			    base->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
+			    mem->num_regions);
+
 	      if (len>=count) { 
 		*(buf+len-1)='\n';
 		goto out;
 	      }
-	      for (j=0;j<s->num_vcores;j++) {
+
+	      for (j=0;j<mem->num_regions;j++) { 
+		  len+=snprintf(buf+len, count-len,
+				"(region %lu 0x%p-0x%p) ",
+				j, mem->region[j].host_paddr, mem->region[j].host_paddr+mem->region[j].size);
+		  if (len>=count) { 
+		      *(buf+len-1)='\n';
+		      goto out;
+		  }
+	      }
+		  
+	      len+=snprintf(buf+len, count-len,
+			    "] %lu vcores [ ", 
+			    core->num_vcores);
+
+	      if (len>=count) { 
+		*(buf+len-1)='\n';
+		goto out;
+	      }
+		  
+	      for (j=0;j<core->num_vcores;j++) {
 		len+=snprintf(buf+len, count-len,
-			      "[vcore %lu %s on pcore %lu %llu exits rip=0x%p %s %s %s] ",
+			      "(vcore %lu %s on pcore %lu %llu exits rip=0x%p %s %s %s) ",
 			      j, 
-			      s->vcore[j].state==V3_VCORE_INVALID ? "INVALID" :
-			      s->vcore[j].state==V3_VCORE_RUNNING ? "running" :
-			      s->vcore[j].state==V3_VCORE_STOPPED ? "stopped" : "UNKNOWN",
-			      s->vcore[j].pcore,
-			      s->vcore[j].num_exits,
-			      s->vcore[j].last_rip,
-			      s->vcore[j].cpu_mode==V3_VCORE_CPU_REAL ? "real" :
-			      s->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED ? "protected" :
-			      s->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED_PAE ? "protectedpae" :
-			      s->vcore[j].cpu_mode==V3_VCORE_CPU_LONG ? "long" :
-			      s->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_32_COMPAT ? "long32" :
-			      s->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_16_COMPAT ? "long16" : "UNKNOWN",
-			      s->vcore[j].mem_mode==V3_VCORE_MEM_MODE_PHYSICAL ? "physical" :
-			      s->vcore[j].mem_mode==V3_VCORE_MEM_MODE_VIRTUAL ? "virtual" : "UNKNOWN",
-			      s->vcore[j].mem_state==V3_VCORE_MEM_STATE_SHADOW ? "shadow" :
-			      s->vcore[j].mem_state==V3_VCORE_MEM_STATE_NESTED ? "nested" : "UNKNOWN");
+			      core->vcore[j].state==V3_VCORE_INVALID ? "INVALID" :
+			      core->vcore[j].state==V3_VCORE_RUNNING ? "running" :
+			      core->vcore[j].state==V3_VCORE_STOPPED ? "stopped" : "UNKNOWN",
+			      core->vcore[j].pcore,
+			      core->vcore[j].num_exits,
+			      core->vcore[j].last_rip,
+			      core->vcore[j].cpu_mode==V3_VCORE_CPU_REAL ? "real" :
+			      core->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED ? "protected" :
+			      core->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED_PAE ? "protectedpae" :
+			      core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG ? "long" :
+			      core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_32_COMPAT ? "long32" :
+			      core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_16_COMPAT ? "long16" : "UNKNOWN",
+			      core->vcore[j].mem_mode==V3_VCORE_MEM_MODE_PHYSICAL ? "physical" :
+			      core->vcore[j].mem_mode==V3_VCORE_MEM_MODE_VIRTUAL ? "virtual" : "UNKNOWN",
+			      core->vcore[j].mem_state==V3_VCORE_MEM_STATE_SHADOW ? "shadow" :
+			      core->vcore[j].mem_state==V3_VCORE_MEM_STATE_NESTED ? "nested" : "UNKNOWN");
 		if (len>=count) {
-		  *(buf+len-1)='\n';
-		  goto out;
+		    *(buf+len-1)='\n';
+		    goto out;
 		}
 	      }
 
+	      len+=snprintf(buf+len, count-len,
+			    "] ");
+
+	      if (len>=count) { 
+		*(buf+len-1)='\n';
+		goto out;
+	      }
+		  
 	      *(buf+len-1)='\n';
 
 	    }
@@ -322,7 +369,9 @@ static int read_guests(char * buf, char ** start, off_t off, int count,
     }
  
  out:
-    if (s) { palacios_free(s); }
+    if (mem) { palacios_free(mem); }
+    if (core) { palacios_free(core); }
+    if (base) { palacios_free(base); }
 
     return len;
 }

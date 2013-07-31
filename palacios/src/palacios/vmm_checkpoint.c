@@ -315,8 +315,7 @@ static int load_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     void * guest_mem_base = NULL;
     void * ctx = NULL;
     uint64_t ret = 0;
-
-    guest_mem_base = V3_VAddr((void *)vm->mem_map.base_region.host_addr);
+    int i;
 
     ctx = v3_chkpt_open_ctx(chkpt, "memory_img");
     
@@ -325,10 +324,14 @@ static int load_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	return -1;
     }
 		     
-    if (v3_chkpt_load(ctx, "memory_img", vm->mem_size, guest_mem_base)) {
-	PrintError(vm, VCORE_NONE, "Unable to load all of memory (requested=%llu bytes, result=%llu bytes\n",(uint64_t)(vm->mem_size),ret);
-	v3_chkpt_close_ctx(ctx);
-	return -1;
+
+    for (i=0;i<vm->mem_map.num_base_regions;i++) {
+	guest_mem_base = V3_VAddr((void *)vm->mem_map.base_regions[i].host_addr);
+	if (v3_chkpt_load(ctx, "memory_img", V3_CONFIG_MEM_BLOCK_SIZE, guest_mem_base)) {
+	    PrintError(vm, VCORE_NONE, "Unable to load all of memory (region %d) (requested=%llu bytes, result=%llu bytes\n",i,(uint64_t)(vm->mem_size),ret);
+	    v3_chkpt_close_ctx(ctx);
+	    return -1;
+	}
     }
     
     v3_chkpt_close_ctx(ctx);
@@ -341,8 +344,8 @@ static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     void * guest_mem_base = NULL;
     void * ctx = NULL;
     uint64_t ret = 0;
+    int i;
 
-    guest_mem_base = V3_VAddr((void *)vm->mem_map.base_region.host_addr);
 
     ctx = v3_chkpt_open_ctx(chkpt, "memory_img");
 
@@ -351,10 +354,13 @@ static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 	return -1;
     }
 
-    if (v3_chkpt_save(ctx, "memory_img", vm->mem_size, guest_mem_base)) {
-	PrintError(vm, VCORE_NONE, "Unable to save all of memory (requested=%llu, received=%llu)\n",(uint64_t)(vm->mem_size),ret);
-	v3_chkpt_close_ctx(ctx);  
-	return -1;
+    for (i=0;i<vm->mem_map.num_base_regions;i++) {
+	guest_mem_base = V3_VAddr((void *)vm->mem_map.base_regions[i].host_addr);
+	if (v3_chkpt_save(ctx, "memory_img", V3_CONFIG_MEM_BLOCK_SIZE, guest_mem_base)) {
+	    PrintError(vm, VCORE_NONE, "Unable to save all of memory (region %d) (requested=%llu, received=%llu)\n",i,(uint64_t)(vm->mem_size),ret);
+	    v3_chkpt_close_ctx(ctx);  
+	    return -1;
+	}
     }
 
     v3_chkpt_close_ctx(ctx);
@@ -448,13 +454,10 @@ static int save_inc_memory(struct v3_vm_info * vm,
     int page_size_bytes = 1 << 12; // assuming 4k pages right now
     void * ctx = NULL;
     int i = 0; 
-    void * guest_mem_base = NULL;
     int bitmap_num_bytes = (mod_pgs_to_send->num_bits / 8) 
                            + ((mod_pgs_to_send->num_bits % 8) > 0);
 
    
-    guest_mem_base = V3_VAddr((void *)vm->mem_map.base_region.host_addr);
-    
     PrintDebug(vm, VCORE_NONE, "Saving incremental memory.\n");
 
     ctx = v3_chkpt_open_ctx(chkpt,"memory_bitmap_bits");
@@ -481,7 +484,12 @@ static int save_inc_memory(struct v3_vm_info * vm,
     // Dirty memory pages are sent in bitmap order
     for (i = 0; i < mod_pgs_to_send->num_bits; i++) {
         if (v3_bitmap_check(mod_pgs_to_send, i)) {
-           // PrintDebug(vm, VCORE_NONE, "Sending memory page %d.\n",i);
+	    struct v3_mem_region *region = v3_get_base_region(vm,page_size_bytes * i);
+	    if (!region) { 
+		PrintError(vm, VCORE_NONE, "Failed to find base region for page %d\n",i);
+		return -1;
+	    }
+	    // PrintDebug(vm, VCORE_NONE, "Sending memory page %d.\n",i);
             ctx = v3_chkpt_open_ctx(chkpt, "memory_page");
 	    if (!ctx) { 
 		PrintError(vm, VCORE_NONE, "Unable to open context to send memory page\n");
@@ -490,7 +498,7 @@ static int save_inc_memory(struct v3_vm_info * vm,
             if (v3_chkpt_save(ctx, 
 			      "memory_page", 
 			      page_size_bytes,
-			      guest_mem_base + (page_size_bytes * i))) {
+			      (void*)(region->host_addr + page_size_bytes * i - region->guest_start))) {
 		PrintError(vm, VCORE_NONE, "Unable to send a memory page\n");
 		v3_chkpt_close_ctx(ctx);
 		return -1;
@@ -515,13 +523,10 @@ static int load_inc_memory(struct v3_vm_info * vm,
     int page_size_bytes = 1 << 12; // assuming 4k pages right now
     void * ctx = NULL;
     int i = 0; 
-    void * guest_mem_base = NULL;
     bool empty_bitmap = true;
     int bitmap_num_bytes = (mod_pgs->num_bits / 8) 
                            + ((mod_pgs->num_bits % 8) > 0);
 
-
-    guest_mem_base = V3_VAddr((void *)vm->mem_map.base_region.host_addr);
 
     ctx = v3_chkpt_open_ctx(chkpt, "memory_bitmap_bits");
 
@@ -544,7 +549,12 @@ static int load_inc_memory(struct v3_vm_info * vm,
     // Receive also follows bitmap order
     for (i = 0; i < mod_pgs->num_bits; i ++) {
         if (v3_bitmap_check(mod_pgs, i)) {
-            PrintDebug(vm, VCORE_NONE, "Loading page %d\n", i);
+	    struct v3_mem_region *region = v3_get_base_region(vm,page_size_bytes * i);
+	    if (!region) { 
+		PrintError(vm, VCORE_NONE, "Failed to find base region for page %d\n",i);
+		return -1;
+	    }
+            //PrintDebug(vm, VCORE_NONE, "Loading page %d\n", i);
             empty_bitmap = false;
             ctx = v3_chkpt_open_ctx(chkpt, "memory_page");
 	    if (!ctx) { 
@@ -555,7 +565,7 @@ static int load_inc_memory(struct v3_vm_info * vm,
             if (v3_chkpt_load(ctx, 
 			      "memory_page", 
 			      page_size_bytes,
-			      guest_mem_base + (page_size_bytes * i))) {
+			      (void*)(region->host_addr + page_size_bytes * i - region->guest_start))) {
 		PrintError(vm, VCORE_NONE, "Did not receive all of memory page\n");
 		v3_chkpt_close_ctx(ctx);
 		return -1;
