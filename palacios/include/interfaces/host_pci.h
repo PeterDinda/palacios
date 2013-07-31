@@ -127,6 +127,6 @@ struct v3_host_pci_hooks {
 
 void V3_Init_Host_PCI(struct v3_host_pci_hooks * hooks);
 
-int V3_get_guest_mem_region(struct v3_vm_info * vm, struct v3_guest_mem_region * region);
+int V3_get_guest_mem_region(struct v3_vm_info * vm, struct v3_guest_mem_region * region, uint64_t gpa);
 int V3_host_pci_raise_irq(struct v3_host_pci_dev * v3_dev, uint32_t vec_index);
 

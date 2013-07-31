@@ -341,52 +341,50 @@ static int reserve_hw_pci_dev(struct host_pci_device * host_dev, void * v3_ctx) 
     if (v3_dev->iface == IOMMU) {
 	struct v3_guest_mem_region region;
 	int flags = 0;
+	uintptr_t gpa = 0;
 
 	host_dev->hw_dev.iommu_domain = iommu_domain_alloc();
 
-	if (V3_get_guest_mem_region(v3_ctx, &region) == -1) {
-	    printk("Error getting VM memory region for IOMMU support\n");
-	    return -1;
-	}
+	while (V3_get_guest_mem_region(v3_ctx, &region, gpa)) {
 	
-	printk("Memory region: start=%p, end=%p\n", (void *)region.start, (void *)region.end);
+	    printk("Memory region: start=%p, end=%p\n", (void *)region.start, (void *)region.end);
 
 
-	flags = IOMMU_READ | IOMMU_WRITE; // Need to see what IOMMU_CACHE means
+	    flags = IOMMU_READ | IOMMU_WRITE; // Need to see what IOMMU_CACHE means
 	
-	/* This version could be wrong */
+	    /* This version could be wrong */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38) 
-	// Guest VAs start at zero and go to end of memory
-	iommu_map_range(host_dev->hw_dev.iommu_domain, 0, region.start, (region.end - region.start), flags);
+	    // Guest VAs start at zero and go to end of memory
+	    iommu_map_range(host_dev->hw_dev.iommu_domain, 0, region.start, (region.end - region.start), flags);
 #else 
-	/* Linux actually made the interface worse... Now you can only map memory in powers of 2 (meant to only be pages...) */
-	{	
-	    u64 size = region.end - region.start;
-	    u32 page_size = 512 * 4096; // assume large 64bit pages (2MB)
-	    u64 dpa = 0; // same as gpa
-	    u64 hpa = region.start;
+	    /* Linux actually made the interface worse... Now you can only map memory in powers of 2 (meant to only be pages...) */
+	    {	
+		u64 size = region.end - region.start;
+		u32 page_size = 512 * 4096; // assume large 64bit pages (2MB)
+		u64 hpa = region.start;
 
-	    do {
-		if (size < page_size) {
-		    page_size = 4096; // less than a 2MB granularity, so we switch to small pages (4KB)
-		}
-		
-		printk("Mapping IOMMU region dpa=%p hpa=%p (size=%d)\n", (void *)dpa, (void *)hpa, page_size);
-
-		if (iommu_map(host_dev->hw_dev.iommu_domain, dpa, hpa, 
-			      get_order(page_size), flags)) {
-		    printk("ERROR: Could not map sub region (DPA=%p) (HPA=%p) (order=%d)\n", 
-			   (void *)dpa, (void *)hpa, get_order(page_size));
-		    break;
-		}
-
-		hpa += page_size;
-		dpa += page_size;
-
-		size -= page_size;
-	    } while (size);
-	}
+		do {
+		    if (size < page_size) {
+			page_size = 4096; // less than a 2MB granularity, so we switch to small pages (4KB)
+		    }
+		    
+		    printk("Mapping IOMMU region gpa=%p hpa=%p (size=%d)\n", (void *)gpa, (void *)hpa, page_size);
+		    
+		    if (iommu_map(host_dev->hw_dev.iommu_domain, gpa, hpa, 
+				  get_order(page_size), flags)) {
+			printk("ERROR: Could not map sub region (GPA=%p) (HPA=%p) (order=%d)\n", 
+			       (void *)gpa, (void *)hpa, get_order(page_size));
+			break;
+		    }
+		    
+		    hpa += page_size;
+		    gpa += page_size;
+		    
+		    size -= page_size;
+		} while (size > 0);
+	    }
 #endif
+	}
 
 	if (iommu_attach_device(host_dev->hw_dev.iommu_domain, &(dev->dev))) {
 	    printk("ERROR attaching host PCI device to IOMMU domain\n");
