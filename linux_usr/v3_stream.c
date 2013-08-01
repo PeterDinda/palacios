@@ -1,6 +1,6 @@
 /* 
- * V3 Console utility
- * (c) Jack lange & Lei Xia, 2010
+ * V3 Stream Utility
+ * (c) Jack lange, Lei Xia, Peter Dinda 2010, 2013
  */
 
 
@@ -15,99 +15,260 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <errno.h>
-#include<linux/unistd.h>
-#include <curses.h>
-
+#include <linux/unistd.h>
+#include <termios.h>
+#include <signal.h>
 
 #include "v3_ctrl.h"
 
-#define BUF_LEN 1025
+#define BUF_LEN  512
 #define STREAM_NAME_LEN 128
+#define ESC_KEY '~'
 
-int main(int argc, char* argv[]) {
-    int vm_fd;
-    fd_set rset;
-    char * vm_dev = NULL;
-    char stream[STREAM_NAME_LEN];
-    char cons_buf[BUF_LEN];
-    int stream_fd = 0;
+int interactive=0;
+int found_esc=0;
+int stream_fd=0;
+struct termios ourterm, oldterm;
 
-    if (argc < 2) {
-	printf("usage: v3_stream <vm_device> <stream_name>\n");
-	return -1;
+int setup_term()
+{
+  if (interactive) { 
+    if (tcgetattr(0,&oldterm)) { 
+      fprintf(stderr,"Cannot get terminal attributes\n");
+      return -1;
+    }
+    
+    ourterm = oldterm;            // clone existing terminal behavior
+    ourterm.c_lflag &= ~ICANON;   // but without buffering
+    ourterm.c_lflag &= ~ECHO;     // or echoing
+    ourterm.c_lflag &= ~ISIG;     // or interrupt keys
+    ourterm.c_cc[VMIN] = 0;       // or weird delays to compose
+    ourterm.c_cc[VTIME] = 0;      // function keys (e.g., set raw)
+    fprintf(stderr, "Calling tcsetattr.\n");
+
+    if (tcsetattr(0,TCSANOW,&ourterm)) { 
+      fprintf(stderr,"Cannot set terminal attributes\n");
+      return -1;
+    }  
+    fprintf(stderr,"term setup interactive\n");
+  } else {
+    fprintf(stderr, "term setup noninteractive\n");
+  }
+  
+  return 0;
+}
+
+int restore_term()
+{
+  if (interactive) { 
+    return -!!tcsetattr(0,TCSANOW,&oldterm);
+  } else {
+    return 0;
+  }
+}
+
+int pump(int in, int out)
+{
+    int bytes_read;
+    int bytes_written;
+    int thiswrite;
+    int check_esc;
+    char buf[BUF_LEN];
+
+    // data from the stream
+    check_esc = interactive && (in == STDIN_FILENO);
+    bytes_read = read(in, buf, check_esc ? 1 : BUF_LEN);
+    
+    if (bytes_read<0) { 
+        return -1;
+    }
+    
+    if (check_esc) {
+	  if (found_esc) {
+	    switch(buf[0]) {
+		  case '.':
+            close(stream_fd);
+            restore_term();
+            fprintf(stderr,"Bye\n");
+		    exit(0);
+          case ESC_KEY:
+            /* Pass the second escape! */
+            break;
+		  default:
+            fprintf(stderr, "Unknown ESC sequence.\n");
+		    found_esc = 0;
+            return;
+        }
+	  } else if (buf[0] == ESC_KEY)  {
+	    found_esc = 1;
+        return;
+	  }
     }
 
-    vm_dev = argv[1];
+    fprintf(stderr,"read %d bytes\n", bytes_read);
 
-    if (strlen(argv[2]) >= STREAM_NAME_LEN) {
-	printf("ERROR: Stream name longer than maximum size (%d)\n", STREAM_NAME_LEN);
-	return -1;
+    bytes_written=0;
+
+    while (bytes_written<bytes_read) { 
+    thiswrite = write(out,&(buf[bytes_written]),bytes_read-bytes_written);
+    if (thiswrite<0) {
+        if (errno==EWOULDBLOCK) {
+                continue;
+            } else {
+      perror("Cannot write");
+      return -1;
+    }}
+    if (thiswrite==0) {
+      fprintf(stderr,"Hmm, surprise end-of-file on write\n");
+      return -1;
     }
+    bytes_written+=thiswrite;
+  }
 
-    memcpy(stream, argv[2], strlen(argv[2]));
+  fprintf(stderr,"wrote %d bytes\n",bytes_written);
+  
+  return 0;
+}
 
-    vm_fd = open(vm_dev, O_RDONLY);
-    if (vm_fd == -1) {
-	printf("Error opening VM device: %s\n", vm_dev);
-	return -1;
+
+
+void signal_handler(int num)
+{
+  switch (num) { 
+  case SIGINT:
+    close(stream_fd);
+    restore_term();
+    fprintf(stderr,"Bye\n");
+    exit(0);
+    break;
+  default:
+    fprintf(stderr,"Unknown signal %d ignored\n",num);
+  }   
+}
+
+int main(int argc, char* argv[]) 
+{
+  int ret; 
+  int vm_fd;
+  fd_set rset;
+  char * vm_dev = NULL;
+  char stream[STREAM_NAME_LEN];
+  int argstart;
+  
+  if (argc < 2) {
+    fprintf(stderr, 
+	    "usage: v3_stream [-i] <vm_device> <stream_name>\n\n"
+	    "Connects stdin/stdout to a bidirectional stream on the VM,\n"
+	    "for example a serial port.\n\n"
+	    "If the [-i] option is given, a terminal is assumed\n"
+	    "and it is placed in non-echoing, interactive mode, \n"
+	    "which is what you probably want for use as a console.\n");
+    exit(0);
+  }
+  
+  if (!strcasecmp(argv[1],"-i")) { 
+    interactive=1;
+    argstart=2;
+  } else {
+    // noninteractive mode
+    interactive=0;
+    argstart=1;
+  }
+  
+  vm_dev = argv[argstart];
+  
+  if (strlen(argv[argstart+1]) >= STREAM_NAME_LEN) {
+    fprintf(stderr, "ERROR: Stream name longer than maximum size (%d)\n", STREAM_NAME_LEN);
+    exit(-1);
+  }
+
+  memcpy(stream, argv[argstart+1], strlen(argv[argstart+1]));
+  
+  vm_fd = open(vm_dev, O_RDONLY);
+  
+  if (vm_fd == -1) {
+    fprintf(stderr,"Error opening VM device: %s\n", vm_dev);
+    exit(-1);
+  }
+  
+  stream_fd = ioctl(vm_fd, V3_VM_SERIAL_CONNECT, stream); 
+  
+  close(vm_fd);
+  
+  if (stream_fd<0) { 
+      fprintf(stderr,"Error opening VM device: %s\n", vm_dev);
+      exit(-1);
+  }
+  
+  if (setup_term()) { 
+    fprintf(stderr,"Cannot setup terminal for %s mode\n", interactive ? "interactive" : "noninteraInteractive");
+    close(stream_fd);
+    exit(-1);
+  }
+  
+  signal(SIGINT,signal_handler);
+  
+  while (1) {
+    
+    FD_ZERO(&rset);
+    FD_SET(stream_fd, &rset);
+    FD_SET(STDIN_FILENO, &rset);
+    
+    // wait for data from stdin or from the stream
+    ret = select(stream_fd + 1, &rset, NULL, NULL, NULL);
+  
+    fprintf(stderr,"select ret=%d\n", ret);
+
+    if (ret==0) {
+      perror("select returned zero without a timer!");
+      goto error;
+    } else if (ret<0) {
+      if (errno==EAGAIN) { 
+	continue;
+      } else {
+	perror("select failed");
+	goto error;
+      }
     }
-
-    stream_fd = ioctl(vm_fd, V3_VM_SERIAL_CONNECT, stream); 
-
-    /* Close the file descriptor.  */ 
-    close(vm_fd);
- 
-    if (stream_fd < 0) {
-	printf("Error opening stream Console\n");
-	return -1;
+    
+    // positive return - we have data on one or both
+    
+    // check data from stream
+    if (FD_ISSET(stream_fd, &rset)) {
+      fprintf(stderr,"stream is readable\n");
+      if (pump(stream_fd, STDOUT_FILENO)) { 
+	fprintf(stderr,"Cannot transfer all data from stream to stdout...\n");
+	goto error;
+      }
     }
+    
+    // check data from stdin
+    
+    if (FD_ISSET(STDIN_FILENO, &rset)) {
+      fprintf(stderr,"stdin is readable\n");
+      if (pump(STDIN_FILENO,stream_fd)) { 
+	fprintf(stderr,"Cannot transfer all data from stdin to stream...\n");
+	goto error;
+      }
+    }
+  } 
+  
+ error:
+  ret = -1;
+  goto out;
+  
+ done:
+  ret = 0;
+  goto out;
+  
+ out:
+  
+  close(stream_fd);
+  restore_term();
+  
+  return ret; 
+  
 
-    while (1) {
-	int ret; 
-	int bytes_read = 0;
-	char in_buf[512];
-
-	memset(cons_buf, 0, BUF_LEN);
-
-
-	FD_ZERO(&rset);
-	FD_SET(stream_fd, &rset);
-	FD_SET(STDIN_FILENO, &rset);
-
-	ret = select(stream_fd + 1, &rset, NULL, NULL, NULL);
-	
-	if (ret == 0) {
-	    continue;
-	} else if (ret == -1) {
-	    perror("Select returned error\n");
-	    return -1;
-	}
-
-	if (FD_ISSET(stream_fd, &rset)) {
-
-	    bytes_read = read(stream_fd, cons_buf, BUF_LEN - 1);
-
-	    cons_buf[bytes_read]='\0';
-	    printf("%s", cons_buf);
-	    fflush(stdout);
-
-	} else if (FD_ISSET(STDIN_FILENO, &rset)) {
-	    fgets(in_buf, 512, stdin);
-
-	    if (write(stream_fd, in_buf, strlen(in_buf)) != strlen(in_buf)) {
-		fprintf(stderr, "Error sending input bufer\n");
-		return -1;
-	    }
-	} else {
-	    printf("v3_cons ERROR: select returned %d\n", ret);
-	    return -1;
-	}
-	
-
-    } 
-
-
-    return 0; 
 }
 
 
