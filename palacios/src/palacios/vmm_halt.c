@@ -58,6 +58,8 @@ int v3_handle_halt(struct guest_info * info)
 	    v3_advance_time(info, &cycles);
 
 	    v3_update_timers(info);
+	    
+
     	    
 	    /* At this point, we either have some combination of 
 	       interrupts, including perhaps a timer interrupt, or 
@@ -66,6 +68,14 @@ int v3_handle_halt(struct guest_info * info)
 	    if (!v3_intr_pending(info)) {
 		/* if no interrupt, then we do halt */
 		/* asm("hlt"); */
+	    }
+
+	    // participate in any barrier that might be raised
+	    v3_wait_at_barrier(info);
+
+	    // stop if the VM is being halted
+	    if (info->core_run_state == CORE_STOPPED) { 
+		break;
 	    }
 
 	}
