@@ -527,7 +527,11 @@ static int update_irq_entry_state(struct guest_info * info) {
     } else {
 	switch (v3_intr_pending(info)) {
 	    case V3_EXTERNAL_IRQ: {
-		uint32_t irq = v3_get_intr(info);
+ 	        int irq = v3_get_intr(info); 
+
+		if (irq<0) {
+		  break;
+		}
 
 		guest_ctrl->guest_ctrl.V_IRQ = 1;
 		guest_ctrl->guest_ctrl.V_INTR_VECTOR = irq;

@@ -369,7 +369,7 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 
     // External IRQs have lowest priority
     list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
-	if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data) == 1) {
+	if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data)) {
 	    ret = V3_EXTERNAL_IRQ;
 	    break;
 	}
@@ -394,12 +394,14 @@ v3_intr_type_t v3_intr_pending(struct guest_info * info) {
 }
 
 
-uint32_t v3_get_intr(struct guest_info * info) {
+int v3_get_intr(struct guest_info * info) {
     struct v3_intr_core_state * intr_state = &(info->intr_core_state);
     struct intr_controller * ctrl = NULL;
-    uint_t ret = 0;
+    int ret = -1;
     int i = 0;
     int j = 0;
+    int found_virq=0;
+    int found_irq=0;
 
     addr_t irq_state = v3_lock_irqsave(intr_state->irq_lock);    
 
@@ -409,6 +411,8 @@ uint32_t v3_get_intr(struct guest_info * info) {
 	    for (j = 0; j < 8; j++) {
 		if (intr_state->virq_map[i] & (1 << j)) {
 		    ret = (i * 8) + j;
+		    // need to be able to find virq 0
+		    found_virq=1;
 		    break;
 		}
 	    }
@@ -416,19 +420,27 @@ uint32_t v3_get_intr(struct guest_info * info) {
 	}
     }
 
-    if (!ret) {
+    if (!found_virq) {
 	list_for_each_entry(ctrl, &(intr_state->controller_list), ctrl_node) {
 	    if (ctrl->ctrl_ops->intr_pending(info, ctrl->priv_data)) {
-		uint_t intr_num = ctrl->ctrl_ops->get_intr_number(info, ctrl->priv_data);
+		int intr_num = ctrl->ctrl_ops->get_intr_number(info, ctrl->priv_data);
 		
-		//	PrintDebug(info->vm_info, info, "[get_intr_number] intr_number = %d\n", intr_num);
-		ret = intr_num;
-		break;
+		if (intr_num >= 0) {
+		  //	PrintDebug(info->vm_info, info, "[get_intr_number] intr_number = %d\n", intr_num);
+		  ret = intr_num;
+		  found_irq=1;
+		  break;
+		}
+
 	    }
 	}
     }
 
     v3_unlock_irqrestore(intr_state->irq_lock, irq_state);
+
+    if (!found_virq && !found_irq) { 
+      PrintError(info->vm_info,info,"Strange... neither a VIRQ nor an IRQ was found...\n");
+    }
 
     return ret;
 }

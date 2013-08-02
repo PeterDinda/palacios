@@ -820,7 +820,14 @@ static int update_irq_entry_state(struct guest_info * info) {
 
             switch (v3_intr_pending(info)) {
                 case V3_EXTERNAL_IRQ: {
-                    info->intr_core_state.irq_vector = v3_get_intr(info); 
+		  
+ 	            int irq = v3_get_intr(info); 
+
+		    if (irq<0) {
+		      break;
+		    }
+
+                    info->intr_core_state.irq_vector = irq; 
                     ent_int.vector = info->intr_core_state.irq_vector;
                     ent_int.type = 0;
                     ent_int.error_code = 0;

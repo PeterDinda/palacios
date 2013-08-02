@@ -28,7 +28,7 @@
 #include <palacios/vmm_lock.h>
 
 
-typedef enum {V3_INVALID_INTR, V3_EXTERNAL_IRQ, V3_VIRTUAL_IRQ, V3_NMI, V3_SOFTWARE_INTR} v3_intr_type_t;
+typedef enum {V3_INVALID_INTR=0, V3_EXTERNAL_IRQ, V3_VIRTUAL_IRQ, V3_NMI, V3_SOFTWARE_INTR} v3_intr_type_t;
 
 struct guest_info;
 struct v3_vm_info;
@@ -121,7 +121,7 @@ void v3_remove_intr_controller(struct guest_info * core, void * handle);
 void v3_remove_intr_router(struct v3_vm_info * vm, void * handle);
 
 v3_intr_type_t v3_intr_pending(struct guest_info * info);
-uint32_t v3_get_intr(struct guest_info * info);
+int v3_get_intr(struct guest_info * info);
 int v3_injecting_intr(struct guest_info * info, uint_t intr_num, v3_intr_type_t type);
 
 
