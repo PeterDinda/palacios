@@ -57,9 +57,17 @@ struct v3_guest_img {
 } __attribute__((packed));
 
 
+typedef enum { PREALLOCATED=0,          // user space-allocated (e.g. hot remove)
+	       REQUESTED,               // kernel will attempt allocation (anywhere)
+	       REQUESTED32,             // kernel will attempt allocation (<4GB)
+} v3_mem_region_type_t;
+
 struct v3_mem_region {
-    unsigned long long base_addr;
-    unsigned long long num_pages;
+    v3_mem_region_type_t type;         // 
+    int                  node;         // numa node for REQUESTED (-1 = any)
+    unsigned long long   base_addr;    // region start (hpa) for PREALLOCATED
+    unsigned long long   num_pages;    // size for PREALLOCATED or request size for REQUESTED
+                                       // should be power of 2 and > V3_CONFIG_MEM_BLOCK
 } __attribute__((packed));
 
 
@@ -67,7 +75,6 @@ struct v3_core_move_cmd{
     unsigned short vcore_id;
     unsigned short pcore_id;
 } __attribute__((packed));
-
 
 struct v3_debug_cmd {
     unsigned int core; 

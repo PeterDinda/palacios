@@ -188,7 +188,7 @@ out_err:
 
 	    DEBUG("Adding %llu pages to Palacios memory\n", mem.num_pages);
 
-	    if (add_palacios_memory(mem.base_addr, mem.num_pages) == -1) {
+	    if (add_palacios_memory(&mem) == -1) {
 		ERROR("Error adding memory to Palacios\n");
 		return -EFAULT;
 	    }

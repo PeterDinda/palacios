@@ -7,7 +7,7 @@
 #include "v3_guest_mem.h"
 
 
-# Warning FIX THE PARSER TO CONFORM TO NEW /proc/v3 VM output format
+#warning FIX THE PARSER TO CONFORM TO NEW /proc/v3 VM output format
 
 
 #define GUEST_FILE "/proc/v3vee/v3-guests"
