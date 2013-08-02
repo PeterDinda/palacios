@@ -96,6 +96,8 @@ int process_escapes(char in)
 	found_esc = 1;
     return 1;
   }
+
+  return 0;
 }
 
 int pump(int in, int out)
