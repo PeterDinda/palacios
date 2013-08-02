@@ -48,6 +48,8 @@ struct buddy_mempool {
 				    */
 
     unsigned long num_free_blocks;
+    
+    void             *user_metadata; // whatever the user wants
 
     struct rb_node tree_node;
 };
@@ -77,14 +79,16 @@ buddy_deinit(struct buddy_memzone * zone);
 extern int 
 buddy_add_pool(struct buddy_memzone * zone, 
 	       unsigned long base_addr, 
-	       unsigned long pool_order);
+	       unsigned long pool_order,
+	       void          *user_metadata);
 			  
 
 /* Remove pool based at given physical address */
 extern int
 buddy_remove_pool(struct buddy_memzone * zone, 
 		  unsigned long base_addr, 
-		  unsigned char force);
+		  unsigned char force,
+		  void          **user_metadata);
 
 
 /* Allocate pages, returns physical address */

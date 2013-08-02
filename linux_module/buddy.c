@@ -139,7 +139,8 @@ insert_mempool(struct buddy_memzone * zone,
 
 int buddy_add_pool(struct buddy_memzone * zone, 
 		   unsigned long base_addr, 
-		   unsigned long pool_order) {
+		   unsigned long pool_order,
+		   void *user_metadata) {
     struct buddy_mempool * mp = NULL;
     unsigned long flags = 0;
     int ret = 0;
@@ -163,6 +164,8 @@ int buddy_add_pool(struct buddy_memzone * zone,
     mp->pool_order = pool_order;
     mp->zone = zone;
     mp->num_free_blocks = 0;
+
+    mp->user_metadata = user_metadata;
 
     /* Allocate a bitmap with 1 bit per minimum-sized block */
     mp->num_blocks = (1UL << pool_order) / (1UL << zone->min_order);
@@ -200,7 +203,9 @@ int buddy_add_pool(struct buddy_memzone * zone,
  */
 static int __buddy_remove_mempool(struct buddy_memzone * zone, 
 				  unsigned long base_addr, 
-				  unsigned char force) {
+				  unsigned char force,
+				  void **user_metadata) 
+{
 
     struct buddy_mempool * pool = NULL;
     struct block * block = NULL;
@@ -217,6 +222,8 @@ static int __buddy_remove_mempool(struct buddy_memzone * zone,
 	return -1;
     }
 
+    *user_metadata = pool->user_metadata;
+    
     block = (struct block *)__va(pool->base_addr);
 
     list_del(&(block->link));
@@ -231,13 +238,15 @@ static int __buddy_remove_mempool(struct buddy_memzone * zone,
 }
 
 int buddy_remove_pool(struct buddy_memzone * zone,
-			 unsigned long base_addr, 
-			 unsigned char force) {
+		      unsigned long base_addr, 
+		      unsigned char force,
+		      void          **user_metadata)
+{
     unsigned long flags = 0;
     int ret = 0;
 
     palacios_spinlock_lock_irqsave(&(zone->lock), flags);    
-    ret = __buddy_remove_mempool(zone, base_addr, force);
+    ret = __buddy_remove_mempool(zone, base_addr, force, user_metadata);
     palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 
     return ret;
