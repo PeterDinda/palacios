@@ -318,7 +318,9 @@ static int pic_lower_intr(struct v3_vm_info * vm, void * private_data, struct v3
 static int pic_intr_pending_from_master(struct guest_info * info, void * private_data) {
     struct pic_internal * state = (struct pic_internal*)private_data;
 
-    return state->master_irr & (~(state->master_imr));
+    return state->master_irr        // interrupt pending in the master's irr
+	& (~(state->master_imr))    // and is not masked in the master 
+	& (~(state->master_icw3));  // and the pin is not hooked to slave
 }
 
 static int pic_intr_pending_from_slave(struct guest_info * info, void * private_data) {
