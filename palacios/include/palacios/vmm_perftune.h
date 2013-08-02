@@ -35,9 +35,9 @@ struct v3_yield_strategy {
     uint64_t  threshold_usec;   // the point at which we transiton from untimed to timed yield
     uint64_t  time_usec;        // the amount of time for a timed yield call
 
-#define V3_DEFAULT_YIELD_STRATEGY       V3_YIELD_STRATEGY_GREEDY
+#define V3_DEFAULT_YIELD_STRATEGY       V3_YIELD_STRATEGY_FRIENDLY
 #define V3_DEFAULT_YIELD_THRESHOLD_USEC 100
-#define V3_DEFAULT_YIELD_TIME_USEC      1000
+#define V3_DEFAULT_YIELD_TIME_USEC      10000
 };
 
 
