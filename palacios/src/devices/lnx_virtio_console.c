@@ -155,7 +155,7 @@ static int handle_kick(struct guest_info * core, struct virtio_console_state * v
 }
 
 
-static uint64_t virtio_input(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * private_data) {
+static sint64_t virtio_input(struct v3_vm_info * vm, uint8_t * buf, sint64_t len, void * private_data) {
     struct virtio_console_state * cons_state = private_data;
     struct virtio_queue * q = &(cons_state->queue[0]);
     int xfer_len = 0;
