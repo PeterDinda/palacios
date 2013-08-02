@@ -23,10 +23,10 @@
 
 #define BUF_LEN  512
 #define STREAM_NAME_LEN 128
-#define ESC_KEY '~'
+/* ^\ is the escape key we're going to use */
+#define ESC_KEY 0x1c
 
 int interactive=0;
-int found_esc=0;
 int stream_fd=0;
 struct termios ourterm, oldterm;
 
@@ -44,15 +44,15 @@ int setup_term()
     ourterm.c_lflag &= ~ISIG;     // or interrupt keys
     ourterm.c_cc[VMIN] = 0;       // or weird delays to compose
     ourterm.c_cc[VTIME] = 0;      // function keys (e.g., set raw)
-    fprintf(stderr, "Calling tcsetattr.\n");
+    //fprintf(stderr, "Calling tcsetattr.\n");
 
     if (tcsetattr(0,TCSANOW,&ourterm)) { 
       fprintf(stderr,"Cannot set terminal attributes\n");
       return -1;
     }  
-    fprintf(stderr,"term setup interactive\n");
+    //fprintf(stderr,"term setup interactive\n");
   } else {
-    fprintf(stderr, "term setup noninteractive\n");
+    //fprintf(stderr, "term setup noninteractive\n");
   }
   
   return 0;
@@ -67,14 +67,46 @@ int restore_term()
   }
 }
 
+int process_escapes(char in)
+{
+  static int found_esc = 0;
+  if (found_esc) {
+    switch(in) {
+      case 'q':
+        close(stream_fd);
+        restore_term();
+        fprintf(stderr,"Bye\n");
+		exit(0);
+      case 'h':
+        fprintf(stderr, 
+                "Control codes: ^-\\ q: quit\n"
+                "               ^-\\ h: help\n"
+                "               ^-\\ ^-\\: send ^-\\;\n");
+        return 1;
+      case ESC_KEY:
+        /* Pass the second escape! */
+	    found_esc = 0;
+        return 0;
+	  default:
+        fprintf(stderr, "Unknown ESC sequence.\n");
+	    found_esc = 0;
+        return 1;
+        }
+  } else if (in == ESC_KEY)  {
+	found_esc = 1;
+    return 1;
+  }
+}
+
 int pump(int in, int out)
 {
     int bytes_read;
     int bytes_written;
     int thiswrite;
     int check_esc;
+    int ret;
     char buf[BUF_LEN];
-
+    
     // data from the stream
     check_esc = interactive && (in == STDIN_FILENO);
     bytes_read = read(in, buf, check_esc ? 1 : BUF_LEN);
@@ -82,30 +114,13 @@ int pump(int in, int out)
     if (bytes_read<0) { 
         return -1;
     }
-    
-    if (check_esc) {
-	  if (found_esc) {
-	    switch(buf[0]) {
-		  case '.':
-            close(stream_fd);
-            restore_term();
-            fprintf(stderr,"Bye\n");
-		    exit(0);
-          case ESC_KEY:
-            /* Pass the second escape! */
-            break;
-		  default:
-            fprintf(stderr, "Unknown ESC sequence.\n");
-		    found_esc = 0;
-            return;
-        }
-	  } else if (buf[0] == ESC_KEY)  {
-	    found_esc = 1;
-        return;
-	  }
+ 
+    if (check_esc) {   
+      ret = process_escapes(buf[0]);
+      if (ret) return 0;
     }
 
-    fprintf(stderr,"read %d bytes\n", bytes_read);
+    //fprintf(stderr,"read %d bytes\n", bytes_read);
 
     bytes_written=0;
 
@@ -125,7 +140,7 @@ int pump(int in, int out)
     bytes_written+=thiswrite;
   }
 
-  fprintf(stderr,"wrote %d bytes\n",bytes_written);
+  //fprintf(stderr,"wrote %d bytes\n",bytes_written);
   
   return 0;
 }
@@ -146,6 +161,18 @@ void signal_handler(int num)
   }   
 }
 
+int usage(char *argv0)
+{
+    fprintf(stderr, 
+	    "usage: %s [-i] <vm_device> <stream_name>\n\n"
+	    "Connects stdin/stdout to a bidirectional stream on the VM,\n"
+	    "for example a serial port.\n\n"
+	    "If the [-i] option is given, a terminal is assumed\n"
+	    "and it is placed in non-echoing, interactive mode, \n"
+	    "which is what you probably want for use as a console.\n",
+        argv0);
+}
+
 int main(int argc, char* argv[]) 
 {
   int ret; 
@@ -156,19 +183,17 @@ int main(int argc, char* argv[])
   int argstart;
   
   if (argc < 2) {
-    fprintf(stderr, 
-	    "usage: v3_stream [-i] <vm_device> <stream_name>\n\n"
-	    "Connects stdin/stdout to a bidirectional stream on the VM,\n"
-	    "for example a serial port.\n\n"
-	    "If the [-i] option is given, a terminal is assumed\n"
-	    "and it is placed in non-echoing, interactive mode, \n"
-	    "which is what you probably want for use as a console.\n");
+    usage(argv[0]);
     exit(0);
   }
   
   if (!strcasecmp(argv[1],"-i")) { 
     interactive=1;
     argstart=2;
+    if (argc < 3) {
+        usage(argv[0]);
+        exit(0);
+    } 
   } else {
     // noninteractive mode
     interactive=0;
@@ -217,7 +242,7 @@ int main(int argc, char* argv[])
     // wait for data from stdin or from the stream
     ret = select(stream_fd + 1, &rset, NULL, NULL, NULL);
   
-    fprintf(stderr,"select ret=%d\n", ret);
+    //fprintf(stderr,"select ret=%d\n", ret);
 
     if (ret==0) {
       perror("select returned zero without a timer!");
@@ -235,9 +260,9 @@ int main(int argc, char* argv[])
     
     // check data from stream
     if (FD_ISSET(stream_fd, &rset)) {
-      fprintf(stderr,"stream is readable\n");
+      //fprintf(stderr,"stream is readable\n");
       if (pump(stream_fd, STDOUT_FILENO)) { 
-	fprintf(stderr,"Cannot transfer all data from stream to stdout...\n");
+	//fprintf(stderr,"Cannot transfer all data from stream to stdout...\n");
 	goto error;
       }
     }
@@ -245,9 +270,9 @@ int main(int argc, char* argv[])
     // check data from stdin
     
     if (FD_ISSET(STDIN_FILENO, &rset)) {
-      fprintf(stderr,"stdin is readable\n");
+      //fprintf(stderr,"stdin is readable\n");
       if (pump(STDIN_FILENO,stream_fd)) { 
-	fprintf(stderr,"Cannot transfer all data from stdin to stream...\n");
+	//fprintf(stderr,"Cannot transfer all data from stdin to stream...\n");
 	goto error;
       }
     }
