@@ -10,150 +10,33 @@
 //static struct list_head pools;
 
 #include "palacios.h"
-
-#define OFFLINE_POOL_THRESHOLD 12
-
-struct mempool {
-    uintptr_t base_addr;
-    u64 num_pages;
-
-    u8 * bitmap;
-};
+#include "mm.h"
+#include "buddy.h"
+#include "numa.h"
 
 
-static struct mempool pool;
-
-static inline int get_page_bit(int index) {
-    int major = index / 8;
-    int minor = index % 8;
-
-    return (pool.bitmap[major] & (0x1 << minor));
-}
-
-static inline void set_page_bit(int index) {
-    int major = index / 8;
-    int minor = index % 8;
-
-    pool.bitmap[major] |= (0x1 << minor);
-}
-
-static inline void clear_page_bit(int index) {
-    int major = index / 8;
-    int minor = index % 8;
-
-    pool.bitmap[major] &= ~(0x1 << minor);
-}
-
-
-uintptr_t get_palacios_base_addr(void) {
-    return pool.base_addr;
-}
-
-u64 get_palacios_num_pages(void) {
-    return pool.num_pages;
-}
-
-
-static uintptr_t alloc_contig_pgs(u64 num_pages, u32 alignment) {
-    int step = 1;
-    int i = 0;
-    int start = 0;
-
-    DEBUG("Allocating %llu pages (align=%lu)\n", 
-	   num_pages, (unsigned long)alignment);
-
-    if (pool.bitmap == NULL) {
-	ERROR("ERROR: Attempting to allocate from non initialized memory\n");
-	return 0;
-    }
-
-    if (alignment > 0) {
-	step = alignment / PAGE_SIZE;
-    }
-
-    // Start the search at the correct alignment 
-    if (pool.base_addr % alignment) {
-	start = ((alignment - (pool.base_addr % alignment)) >> 12);
-    }
-
-    DEBUG("\t Start idx %d (base_addr=%p)\n", start, (void *)(u64)pool.base_addr);
-
-    for (i = start; i < (pool.num_pages - num_pages); i += step) {
-	if (get_page_bit(i) == 0) {
-	    int j = 0;
-	    int collision = 0;
-
-	    for (j = i; (j - i) < num_pages; j++) {
-		if (get_page_bit(j) == 1) {
-		    collision = 1;
-		    break;
-		}
-	    }
-
-	    if (collision == 1) {
-		break;
-	    }
-
-	    for (j = i; (j - i) < num_pages; j++) {
-		set_page_bit(j);
-	    }
-
-	    return pool.base_addr + (i * PAGE_SIZE);
-	}
-    }
-
-    ERROR("ALERT ALERT Allocation of Large Number of Contiguous Pages FAILED\n"); 
-
-    return 0;
-}
+static struct buddy_memzone ** memzones = NULL;
+static uintptr_t * seed_addrs = NULL;
 
 
 // alignment is in bytes
-uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node) {
+uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id) {
     uintptr_t addr = 0; 
 
-    if (num_pages < OFFLINE_POOL_THRESHOLD) {
-	struct page * pgs = NULL;
-	void *temp;
-	int order = get_order(num_pages * PAGE_SIZE);
-	 
-	pgs = alloc_pages(GFP_DMA32, order);
-    
-	if (!pgs) { 
-	    ERROR("Could not allocate small number of contigious pages - retrying with internal allocation\n");
-	    goto trybig;
-	}
- 
-	/* DEBUG("%llu pages (order=%d) aquired from alloc_pages\n", 
-	       num_pages, order); */
-
-	addr = page_to_pfn(pgs) << PAGE_SHIFT; 
-
-	temp = (void*)addr;
-
-	if ( (temp>=(void*)(pool.base_addr) && 
-	      (temp<((void*)(pool.base_addr)+pool.num_pages*PAGE_SIZE))) 
-	     || ((temp+num_pages*PAGE_SIZE)>=(void*)(pool.base_addr) && 
-		 ((temp+num_pages*PAGE_SIZE)<((void*)(pool.base_addr)+pool.num_pages*PAGE_SIZE))) ) {
-
-	    ERROR("ALERT ALERT Allocation of small number of contiguous pages returned block that "
-		  "OVERLAPS with the offline page pool addr=%p, addr+numpages=%p, "
-		  "pool.base_addr=%p, pool.base_addr+pool.numpages=%p\n", 
-		  temp, temp+num_pages*PAGE_SIZE, (void*)(pool.base_addr), 
-		  (void*)(pool.base_addr)+pool.num_pages*PAGE_SIZE);
-	}
-
+    if (node_id == -1) {
+	int cpu_id = get_cpu();
+	put_cpu();
 	
-    } else {
-    trybig:
-	//DEBUG("Allocating %llu pages from bitmap allocator\n", num_pages);
-	//addr = pool.base_addr;
-	addr = alloc_contig_pgs(num_pages, alignment);
-	if (!addr) { 
-	    ERROR("Could not allocate large number of contiguous pages\n");
-	}
+	node_id = numa_cpu_to_node(cpu_id);
+    } else if (numa_num_nodes() == 1) {
+	node_id = 0;
+    } else if (node_id >= numa_num_nodes()) {
+	ERROR("Requesting memory from an invalid NUMA node. (Node: %d) (%d nodes on system)\n", 
+	      node_id, numa_num_nodes());
+	return 0;
     }
 
+    addr = buddy_alloc(memzones[node_id], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT);
 
     //DEBUG("Returning from alloc addr=%p, vaddr=%p\n", (void *)addr, __va(addr));
     return addr;
@@ -161,96 +44,199 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node) {
 
 
 
-void free_palacios_pgs(uintptr_t pg_addr, int num_pages) {
+void free_palacios_pgs(uintptr_t pg_addr, u64 num_pages) {
+    int node_id = numa_addr_to_node(pg_addr);
+
     //DEBUG("Freeing Memory page %p\n", (void *)pg_addr);
+    buddy_free(memzones[node_id], pg_addr, get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT);
+    
+    return;
+}
 
-    if ((pg_addr >= pool.base_addr) && 
-	(pg_addr < pool.base_addr + (PAGE_SIZE * pool.num_pages))) {
-	int pg_idx = (pg_addr - pool.base_addr) / PAGE_SIZE;
-	int i = 0;
+
+int pow2(int i)
+{
+    int x=1;
+    for (;i>0;i--) { x*=2; } 
+    return x;
+}
+
+int add_palacios_memory(struct v3_mem_region *r) {
+    int pool_order = 0;
+    int node_id = 0;
+
+    struct v3_mem_region *keep;
+
+    // fixup request regardless of its type
+    if (r->num_pages*4096 < V3_CONFIG_MEM_BLOCK_SIZE) { 
+	WARNING("Allocating a memory pool smaller than the Palacios block size - may not be useful\n");
+    }
+
+    if (pow2(get_order(r->num_pages)) != r->num_pages) { 
+	WARNING("Allocating a memory pool that is not a power of two - it will be rounded down!\n");
+	r->num_pages=pow2(get_order(r->num_pages));
+    }
 
 
-	if (num_pages<OFFLINE_POOL_THRESHOLD) { 
-	    ERROR("ALERT ALERT  small page deallocation from offline pool\n");
-	    return;
-        }	
+    if (!(keep=palacios_alloc(sizeof(struct v3_mem_region)))) { 
+	ERROR("Error allocating space for tracking region\n");
+	return -1;
+    }
 
-	if ((pg_idx + num_pages) > pool.num_pages) {
-	    ERROR("Freeing memory bounds exceeded for offline pool\n");
-	    return;
+
+    if (r->type==REQUESTED || r->type==REQUESTED32) { 
+	struct page * pgs = alloc_pages_node(r->node, 
+					     r->type==REQUESTED ? GFP_KERNEL :
+					     r->type==REQUESTED32 ? GFP_DMA32 : GFP_KERNEL, 
+					     get_order(r->num_pages));
+	if (!pgs) { 
+	    ERROR("Unable to satisfy allocation request\n");
+	    palacios_free(keep);
+	    return -1;
 	}
-
-	for (i = 0; i < num_pages; i++) {
-	    if (get_page_bit(pg_idx + i) == 0) { 
-		ERROR("Trying to free unallocated page from offline pool\n");
-	    }
-	    clear_page_bit(pg_idx + i);
-	}
+	r->base_addr = page_to_pfn(pgs) << PAGE_SHIFT;
+    }
 	
-    } else {
-	if (num_pages>=OFFLINE_POOL_THRESHOLD) {
-	   ERROR("ALERT ALERT Large page deallocation from linux pool\n");
+
+    *keep = *r;
+
+    node_id = numa_addr_to_node(r->base_addr);
+
+    if (node_id == -1) {
+	ERROR("Error locating node for addr %p\n", (void *)(r->base_addr));
+	return -1;
+    }
+
+    pool_order = get_order(r->num_pages * PAGE_SIZE) + PAGE_SHIFT;
+
+    if (buddy_add_pool(memzones[node_id], r->base_addr, pool_order, keep)) {
+	ERROR("ALERT ALERT ALERT Unable to add pool to buddy allocator...\n");
+	if (r->type==REQUESTED || r->type==REQUESTED32) { 
+	    free_pages((uintptr_t)__va(r->base_addr), get_order(r->num_pages));
 	}
-	__free_pages(pfn_to_page(pg_addr >> PAGE_SHIFT), get_order(num_pages * PAGE_SIZE));
-    }
-}
-
-
-int add_palacios_memory(uintptr_t base_addr, u64 num_pages) {
-    /* JRL: OK.... so this is horrible, terrible and if anyone else did it I would yell at them.
-     * But... the fact that you can do this in C is so ridiculous that I can't help myself.
-     * Note that we're repurposing "true" to be 1 here
-     */
-
-    int bitmap_size = (num_pages / 8) + ((num_pages % 8) > 0); 
-
-    if (pool.num_pages != 0) {
-	ERROR("ERROR: Memory has already been added\n");
+	palacios_free(keep);
 	return -1;
     }
-
-    DEBUG("Managing %dMB of memory starting at %llu (%lluMB)\n", 
-	   (unsigned int)(num_pages * PAGE_SIZE) / (1024 * 1024), 
-	   (unsigned long long)base_addr, 
-	   (unsigned long long)(base_addr / (1024 * 1024)));
-
-
-    pool.bitmap = palacios_alloc(bitmap_size);
-    
-    if (IS_ERR(pool.bitmap)) {
-	ERROR("Error allocating Palacios MM bitmap\n");
-	return -1;
-    }
-    
-    memset(pool.bitmap, 0, bitmap_size);
-
-    pool.base_addr = base_addr;
-    pool.num_pages = num_pages;
 
     return 0;
 }
 
 
 
-int palacios_init_mm( void ) {
+int palacios_remove_memory(uintptr_t base_addr) {
+    int node_id = numa_addr_to_node(base_addr);
+    struct v3_mem_region *r;
 
-    pool.base_addr = 0;
-    pool.num_pages = 0;
-    pool.bitmap = NULL;
+    if (buddy_remove_pool(memzones[node_id], base_addr, 0, (void**)(&r))) { //unforced remove
+	ERROR("Cannot remove memory at base address 0x%p because it is in use\n", (void*)base_addr);
+	return -1;
+    }
+
+    if (r->type==REQUESTED || r->type==REQUESTED32) { 
+	free_pages((uintptr_t)__va(r->base_addr), get_order(r->num_pages));
+    } else {
+	// user space resposible for onlining
+    }
+    
+    palacios_free(r);
 
     return 0;
 }
+
+
 
 int palacios_deinit_mm( void ) {
 
-    palacios_free(pool.bitmap);
+    int i = 0;
 
-    pool.bitmap=0;
-    pool.base_addr=0;
-    pool.num_pages=0;
+    if (memzones) {
+	for (i = 0; i < numa_num_nodes(); i++) {
+	    
+	    if (memzones[i]) {
+		buddy_deinit(memzones[i]);
+	    }
+	    
+	    // note that the memory is not onlined here - offlining and onlining
+	    // is the resposibility of the caller
+	    
+	    if (seed_addrs[i]) {
+		// free the seed regions
+		free_pages((uintptr_t)__va(seed_addrs[i]), MAX_ORDER - 1);
+	    }
+	}
+	
+	palacios_free(memzones);
+	palacios_free(seed_addrs);
+    }
 
-    // note that the memory is not onlined here - offlining and onlining
-    // is the resposibility of the caller
-    
     return 0;
 }
+
+int palacios_init_mm( void ) {
+    int num_nodes = numa_num_nodes();
+    int node_id = 0;
+
+    memzones = palacios_alloc_extended(sizeof(struct buddy_memzone *) * num_nodes, GFP_KERNEL);
+
+    if (!memzones) { 
+	ERROR("Cannot allocate space for memory zones\n");
+	palacios_deinit_mm();
+	return -1;
+    }
+
+    memset(memzones, 0, sizeof(struct buddy_memzone *) * num_nodes);
+
+    seed_addrs = palacios_alloc_extended(sizeof(uintptr_t) * num_nodes, GFP_KERNEL);
+
+    if (!seed_addrs) { 
+	ERROR("Cannot allocate space for seed addrs\n");
+	palacios_deinit_mm();
+	return -1;
+    }
+
+    memset(seed_addrs, 0, sizeof(uintptr_t) * num_nodes);
+
+    for (node_id = 0; node_id < num_nodes; node_id++) {
+	struct buddy_memzone * zone = NULL;
+
+	// Seed the allocator with a small set of pages to allow initialization to complete. 
+	// For now we will just grab some random pages, but in the future we will need to grab NUMA specific regions
+	// See: alloc_pages_node()
+
+	{
+	    struct page * pgs = alloc_pages_node(node_id, GFP_KERNEL, MAX_ORDER - 1);
+
+	    if (!pgs) {
+		ERROR("Could not allocate initial memory block for node %d\n", node_id);
+		BUG_ON(!pgs);
+		palacios_deinit_mm();
+		return -1;
+	    }
+
+	    seed_addrs[node_id] = page_to_pfn(pgs) << PAGE_SHIFT;
+	}
+
+	zone = buddy_init(get_order(V3_CONFIG_MEM_BLOCK_SIZE) + PAGE_SHIFT, PAGE_SHIFT, node_id);
+
+	if (zone == NULL) {
+	    ERROR("Could not initialization memory management for node %d\n", node_id);
+	    palacios_deinit_mm();
+	    return -1;
+	}
+
+	printk("Zone initialized, Adding seed region (order=%d)\n", 
+	       (MAX_ORDER - 1) + PAGE_SHIFT);
+
+	if (buddy_add_pool(zone, seed_addrs[node_id], (MAX_ORDER - 1) + PAGE_SHIFT,0)) { 
+	    ERROR("Could not add pool to buddy allocator\n");
+	    palacios_deinit_mm();
+	    return -1;
+	}
+
+	memzones[node_id] = zone;
+    }
+
+    return 0;
+
+}
+
