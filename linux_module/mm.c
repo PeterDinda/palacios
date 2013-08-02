@@ -54,10 +54,10 @@ void free_palacios_pgs(uintptr_t pg_addr, u64 num_pages) {
 }
 
 
-int pow2(int i)
+unsigned long long pow2(int i)
 {
-    int x=1;
-    for (;i>0;i--) { x*=2; } 
+    unsigned long long x=1;
+    for (;i!=0;i--) { x*=2; } 
     return x;
 }
 
@@ -72,9 +72,10 @@ int add_palacios_memory(struct v3_mem_region *r) {
 	WARNING("Allocating a memory pool smaller than the Palacios block size - may not be useful\n");
     }
 
-    if (pow2(get_order(r->num_pages)) != r->num_pages) { 
-	WARNING("Allocating a memory pool that is not a power of two - it will be rounded down!\n");
-	r->num_pages=pow2(get_order(r->num_pages));
+    if (pow2(get_order(r->num_pages*PAGE_SIZE)) != r->num_pages*PAGE_SIZE) { 
+	WARNING("Allocating a memory pool that is not a power of two (is %llu) - it will be rounded down!\n", r->num_pages*PAGE_SIZE);
+	r->num_pages=pow2(get_order(r->num_pages*PAGE_SIZE));
+	WARNING("Rounded power Allocating a memory pool that is not a power of two (rounded to %llu)\n", r->num_pages*PAGE_SIZE);
     }
 
 
