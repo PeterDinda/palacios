@@ -37,14 +37,14 @@ struct stream_state {
 };
 
 
-static uint64_t  stream_input(struct v3_stream * stream, uint8_t * buf, uint64_t len) {
+static sint64_t  stream_input(struct v3_stream * stream, uint8_t * buf, sint64_t len) {
     struct stream_state * state = stream->guest_stream_data;
 
     return state->char_ops.input(state->vm, buf, len, state->push_fn_arg);
 
 }
 
-static uint64_t  stream_output(uint8_t * buf, uint64_t length, void * private_data) {
+static sint64_t  stream_output(uint8_t * buf, sint64_t length, void * private_data) {
     struct stream_state * state = (struct stream_state *)private_data;
    
     return v3_stream_output(state->stream, buf, length);
