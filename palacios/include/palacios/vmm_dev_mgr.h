@@ -187,6 +187,9 @@ void v3_print_dev_mgr(struct v3_vm_info * vm);
 struct v3_dev_blk_ops {
     uint64_t (*get_capacity)(void * private_data);
     // Reads always operate on 2048 byte blocks
+
+    // how does this signal bytes_read < requested but not error? 
+
     int (*read)(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data);
     int (*write)(uint8_t * buf, uint64_t lba, uint64_t num_bytes, void * private_data);
 };
@@ -224,11 +227,11 @@ struct v3_dev_console_ops {
 
 struct v3_dev_char_ops {
     /* Backend implemented functions */
-    uint64_t (*output)(uint8_t * buf, uint64_t len, void * private_data);
+    sint64_t (*output)(uint8_t * buf, sint64_t len, void * private_data);
     //  int (*read)(uint8_t * buf, uint64_t len, void * private_data);
 
     /* Frontend Implemented functions */
-    uint64_t (*input)(struct v3_vm_info * vm, uint8_t * buf, uint64_t len, void * private_data);
+    sint64_t (*input)(struct v3_vm_info * vm, uint8_t * buf, sint64_t len, void * private_data);
 };
 
 

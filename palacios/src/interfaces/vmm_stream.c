@@ -29,7 +29,7 @@ static struct v3_stream_hooks * stream_hooks = NULL;
 
 // VM can be NULL
 struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name, 
-				  uint64_t (*input)(struct v3_stream * stream, uint8_t * buf, uint64_t len),
+				  sint64_t (*input)(struct v3_stream * stream, uint8_t * buf, sint64_t len),
 				  void * guest_stream_data) {
     struct v3_stream * stream = NULL;
 
@@ -50,7 +50,7 @@ struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name,
     return stream;
 }
 
-uint64_t v3_stream_output(struct v3_stream * stream, uint8_t * buf, uint32_t len) {
+sint64_t v3_stream_output(struct v3_stream * stream, uint8_t * buf, sint64_t len) {
     V3_ASSERT(VM_NONE, VCORE_NONE, stream_hooks != NULL);
     V3_ASSERT(VM_NONE, VCORE_NONE, stream_hooks->output != NULL);
 

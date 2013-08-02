@@ -26,7 +26,11 @@
 struct v3_stream {
     void * host_stream_data;
     void * guest_stream_data;
-    uint64_t (*input)(struct v3_stream * stream, uint8_t * buf, uint64_t len);
+  // the semantics are:
+  // negative return = error
+  // zero return = would block
+  // otherwise = amount of data transfered
+    sint64_t (*input)(struct v3_stream * stream, uint8_t * buf, sint64_t len);
 };
 
 
@@ -37,10 +41,14 @@ struct v3_stream {
 
 /* VM Can be NULL */
 struct v3_stream * v3_stream_open(struct v3_vm_info * vm, const char * name,
-				  uint64_t (*input)(struct v3_stream * stream, uint8_t * buf, uint64_t len),
+				  sint64_t (*input)(struct v3_stream * stream, uint8_t * buf, sint64_t len),
 				  void * guest_stream_data);
 
-uint64_t  v3_stream_output(struct v3_stream * stream, uint8_t * buf, uint32_t len);
+// the semantics are:
+// negative return = error
+// zero return = would block
+// otherwise = amount of data transfered
+sint64_t  v3_stream_output(struct v3_stream * stream, uint8_t * buf, sint64_t len);
 
 void v3_stream_close(struct v3_stream * stream);
 
@@ -49,7 +57,7 @@ void v3_stream_close(struct v3_stream * stream);
 
 struct v3_stream_hooks {
     void *(*open)(struct v3_stream * stream, const char * name, void * host_vm_data);
-    uint64_t (*output)(struct v3_stream * stream, char * buf, int len);
+    sint64_t (*output)(struct v3_stream * stream, uint8_t * buf, sint64_t len);
     void (*close)(struct v3_stream * stream);
 };
 
