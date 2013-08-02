@@ -1,3 +1,8 @@
+/* 
+   Palacios lock-checking framework
+   (c) Peter Dinda, 2013
+ */
+
 #include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
