@@ -1759,12 +1759,12 @@ static unsigned int keyed_stream_poll_user(struct file *filp, poll_table *wait)
     
     palacios_spinlock_lock_irqsave(&(s->lock), flags);
 
+    poll_wait(filp, &(s->user_wait_queue), wait);
+
     if (s->waiting) {
 	palacios_spinlock_unlock_irqrestore(&(s->lock), flags);
 	return POLLIN | POLLRDNORM;
     }
-
-    poll_wait(filp, &(s->user_wait_queue), wait);
     
     palacios_spinlock_unlock_irqrestore(&(s->lock), flags);
 

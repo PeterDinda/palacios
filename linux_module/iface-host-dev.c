@@ -301,6 +301,10 @@ static unsigned int host_dev_poll(struct file * filp,
 
     palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
+
+    // register ourselves on the user wait queue
+    poll_wait(filp, &(dev->user_wait_queue), poll_tb);
+
     if (dev->waiting) { 
 	// Yes, we have a request if you want it!
 	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
@@ -309,9 +313,6 @@ static unsigned int host_dev_poll(struct file * filp,
     } 
 
     // No request yet, so we need to wait for one to show up.
-
-    // register ourselves on the user wait queue
-    poll_wait(filp, &(dev->user_wait_queue), poll_tb);
 
     palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
