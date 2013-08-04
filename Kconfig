@@ -121,8 +121,10 @@ config MEM_BLOCK_SIZE
         int "Allocation size for underlying VM memory"
         default 134217728
         help 
-          This is the size in bytes of the underlying memory allocations used for the base memory regions.
-          A good default value is 128MB (134217728 or 0x8000000 bytes)
+          This is the default size in bytes of the underlying memory allocations used for the base memory regions.
+          A good default value is 128MB (134217728 or 0x8000000 bytes).  Note that the host interface must be able
+          to provide contiguous memory of at least this size in order for VMs to typically work.   This 
+          value can be overriden via a load-time option, provided the host supports this.
 
 config ALIGNED_PG_ALLOC
 	bool "Host support for aligned page allocations"

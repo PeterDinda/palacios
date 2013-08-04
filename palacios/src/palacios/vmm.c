@@ -50,7 +50,6 @@ int v3_dbg_enable = 0;
 
 
 
-
 static void init_cpu(void * arg) {
     uint32_t cpu_id = (uint32_t)(addr_t)arg;
 
@@ -120,6 +119,9 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
 
     // Parse host-os defined options into an easily-accessed format.
     v3_parse_options(options);
+
+    // Memory manager initialization
+    v3_init_mem();
 
     // Register all the possible device types
     V3_init_devices();
@@ -196,6 +198,8 @@ void Shutdown_V3() {
 	    }
 	}
     }
+
+    v3_deinit_mem();
 
 }
 
@@ -278,6 +282,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
     uint32_t avail_cores = 0;
     int vcore_id = 0;
+    extern uint64_t v3_mem_block_size;
 
 
     if (vm->run_state != VM_STOPPED) {
@@ -290,7 +295,7 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     for (i=0;i<vm->num_cores;i++) { 
 	if (vm->cores[i].shdw_pg_mode == SHADOW_PAGING) {
 	    for (j=0;j<vm->mem_map.num_base_regions;j++) {
-		if ((vm->mem_map.base_regions[i].host_addr + V3_CONFIG_MEM_BLOCK_SIZE)  >= 0x100000000ULL) {
+		if ((vm->mem_map.base_regions[i].host_addr + v3_mem_block_size)  >= 0x100000000ULL) {
 		    PrintError(vm, VCORE_NONE, "Base memory region %d exceeds 4 GB boundary with shadow paging enabled on core %d.\n",j, i);
 		    PrintError(vm, VCORE_NONE, "Any use of non-64 bit mode in the guest is likely to fail in this configuration.\n");
 		    PrintError(vm, VCORE_NONE, "If you would like to proceed anyway, remove this check and recompile Palacios.\n");
@@ -644,7 +649,7 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
     uint32_t i;
     uint32_t numcores = core->num_vcores > vm->num_cores ? vm->num_cores : core->num_vcores;
     uint32_t numregions = mem->num_regions > vm->mem_map.num_base_regions ? vm->mem_map.num_base_regions : mem->num_regions;
-
+    extern uint64_t v3_mem_block_size;
 
     switch (vm->run_state) { 
 	case VM_INVALID: base->state = V3_VM_INVALID; break;
@@ -692,7 +697,7 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 
     for (i=0;i<vm->mem_map.num_base_regions;i++) {
 	mem->region[i].host_paddr =  (void*)(vm->mem_map.base_regions[i].host_addr);
-	mem->region[i].size = V3_CONFIG_MEM_BLOCK_SIZE;
+	mem->region[i].size = v3_mem_block_size;
     }
 
     mem->num_regions=numregions;

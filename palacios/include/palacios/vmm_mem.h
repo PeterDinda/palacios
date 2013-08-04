@@ -119,6 +119,9 @@ uint32_t v3_get_max_page_size(struct guest_info * core, addr_t fault_addr, v3_cp
 void v3_print_mem_map(struct v3_vm_info * vm);
 
 
+void v3_init_mem();
+void v3_deinit_mem();
+
 
 #endif /* ! __V3VEE__ */
 

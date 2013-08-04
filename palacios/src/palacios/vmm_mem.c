@@ -28,12 +28,14 @@
 #include <palacios/vmm_direct_paging.h>
 
 
+uint64_t v3_mem_block_size = V3_CONFIG_MEM_BLOCK_SIZE;
+
 
 struct v3_mem_region * v3_get_base_region(struct v3_vm_info * vm, addr_t gpa) {
     struct v3_mem_map * map = &(vm->mem_map);
-    uint32_t block_index = gpa / V3_CONFIG_MEM_BLOCK_SIZE;
+    uint32_t block_index = gpa / v3_mem_block_size;
 
-    if (gpa > (map->num_base_regions * V3_CONFIG_MEM_BLOCK_SIZE) ||
+    if (gpa > (map->num_base_regions * v3_mem_block_size) ||
         (block_index >= map->num_base_regions)) {
         PrintError(vm, VCORE_NONE, "Guest Address Exceeds Base Memory Size (ga=0x%p), (limit=0x%p)\n", 
                    (void *)gpa, (void *)vm->mem_size);
@@ -106,11 +108,11 @@ static int gpa_to_node_from_cfg(struct v3_vm_info * vm, addr_t gpa) {
 
 int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
-    addr_t block_pages = V3_CONFIG_MEM_BLOCK_SIZE >> 12;
+    addr_t block_pages = v3_mem_block_size >> 12;
     int i = 0;
 
-    map->num_base_regions = (vm->mem_size / V3_CONFIG_MEM_BLOCK_SIZE) + \
-        ((vm->mem_size % V3_CONFIG_MEM_BLOCK_SIZE) > 0);
+    map->num_base_regions = (vm->mem_size / v3_mem_block_size) + \
+        ((vm->mem_size % v3_mem_block_size) > 0);
 
 
     map->mem_regions.rb_node = NULL;
@@ -128,10 +130,10 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     for (i = 0; i < map->num_base_regions; i++) {
 	struct v3_mem_region * region = &(map->base_regions[i]);
 	int node_id = -1;
-	
+
 	// 2MB page alignment needed for 2MB hardware nested paging
-        region->guest_start = V3_CONFIG_MEM_BLOCK_SIZE * i;
-        region->guest_end = region->guest_start + V3_CONFIG_MEM_BLOCK_SIZE;
+        region->guest_start = v3_mem_block_size * i;
+        region->guest_end = region->guest_start + v3_mem_block_size;
 
         // We assume that the xml config was smart enough to align the layout to the block size
         // If they didn't we're going to ignore their settings 
@@ -152,7 +154,7 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
         }
 
 	// Clear the memory...
-	memset(V3_VAddr((void *)region->host_addr), 0, V3_CONFIG_MEM_BLOCK_SIZE);
+	memset(V3_VAddr((void *)region->host_addr), 0, v3_mem_block_size);
 
 	region->flags.read = 1;
 	region->flags.write = 1;
@@ -174,7 +176,7 @@ void v3_delete_mem_map(struct v3_vm_info * vm) {
     struct rb_node * node = v3_rb_first(&(map->mem_regions));
     struct v3_mem_region * reg;
     struct rb_node * tmp_node = NULL;
-    addr_t block_pages = V3_CONFIG_MEM_BLOCK_SIZE >> 12;
+    addr_t block_pages = v3_mem_block_size >> 12;
     int i = 0;
 
     while (node) {
@@ -650,3 +652,20 @@ void v3_print_mem_map(struct v3_vm_info * vm) {
     } while ((node = v3_rb_next(node)));
 }
 
+
+void v3_init_mem()
+{
+    char *arg = v3_lookup_option("mem_block_size");
+
+    if (arg) { 
+	v3_mem_block_size = atoi(arg);
+	V3_Print(VM_NONE,VCORE_NONE,"memory block size set to %llu bytes\n",v3_mem_block_size);
+    } else {
+	V3_Print(VM_NONE,VCORE_NONE,"default memory block size of %llu bytes is in use\n",v3_mem_block_size);
+    }
+}
+
+void v3_deinit_mem()
+{
+    // currently nothing
+}

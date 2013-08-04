@@ -316,6 +316,7 @@ static int load_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     void * ctx = NULL;
     uint64_t ret = 0;
     int i;
+    extern uint64_t v3_mem_block_size;
 
     ctx = v3_chkpt_open_ctx(chkpt, "memory_img");
     
@@ -327,7 +328,7 @@ static int load_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     for (i=0;i<vm->mem_map.num_base_regions;i++) {
 	guest_mem_base = V3_VAddr((void *)vm->mem_map.base_regions[i].host_addr);
-	if (v3_chkpt_load(ctx, "memory_img", V3_CONFIG_MEM_BLOCK_SIZE, guest_mem_base)) {
+	if (v3_chkpt_load(ctx, "memory_img", v3_mem_block_size, guest_mem_base)) {
 	    PrintError(vm, VCORE_NONE, "Unable to load all of memory (region %d) (requested=%llu bytes, result=%llu bytes\n",i,(uint64_t)(vm->mem_size),ret);
 	    v3_chkpt_close_ctx(ctx);
 	    return -1;
@@ -344,6 +345,7 @@ static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     void * guest_mem_base = NULL;
     void * ctx = NULL;
     uint64_t ret = 0;
+    extern uint64_t v3_mem_block_size;
     int i;
 
 
@@ -356,7 +358,7 @@ static int save_memory(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 
     for (i=0;i<vm->mem_map.num_base_regions;i++) {
 	guest_mem_base = V3_VAddr((void *)vm->mem_map.base_regions[i].host_addr);
-	if (v3_chkpt_save(ctx, "memory_img", V3_CONFIG_MEM_BLOCK_SIZE, guest_mem_base)) {
+	if (v3_chkpt_save(ctx, "memory_img", v3_mem_block_size, guest_mem_base)) {
 	    PrintError(vm, VCORE_NONE, "Unable to save all of memory (region %d) (requested=%llu, received=%llu)\n",i,(uint64_t)(vm->mem_size),ret);
 	    v3_chkpt_close_ctx(ctx);  
 	    return -1;
