@@ -57,7 +57,7 @@ int mod_frees = 0;
 static int v3_major_num = 0;
 
 static struct v3_guest * guest_map[MAX_VMS] = {[0 ... MAX_VMS - 1] = 0};
-struct proc_dir_entry * palacios_proc_dir = NULL;
+static struct proc_dir_entry * palacios_proc_dir = NULL;
 
 struct class * v3_class = NULL;
 static struct cdev ctrl_dev;
@@ -232,6 +232,7 @@ static struct file_operations v3_ctrl_fops = {
 
 struct proc_dir_entry *palacios_get_procdir(void) 
 {
+    INFO("Returning procdir=%p\n",palacios_proc_dir);
     return palacios_proc_dir;
 }
 
@@ -388,7 +389,17 @@ static int __init v3_init(void) {
     LOCKCHECK_INIT();
     MEMCHECK_INIT();
 
-    palacios_init_mm();
+    palacios_proc_dir = proc_mkdir("v3vee", NULL);
+    if (!palacios_proc_dir) {
+	ERROR("Could not create proc entry\n");
+	ret = -1;
+	goto failure1;
+    }
+
+    // this will populate the v3vee tree...
+    if (palacios_init_mm()) { 
+	goto failure2;
+    }
 
     if (allow_devmem) {
       palacios_allow_devmem();
@@ -397,7 +408,6 @@ static int __init v3_init(void) {
     // Initialize Palacios
     palacios_vmm_init(options);
 
-
     // initialize extensions
     init_lnx_extensions();
 
@@ -405,7 +415,8 @@ static int __init v3_init(void) {
     v3_class = class_create(THIS_MODULE, "vms");
     if (IS_ERR(v3_class)) {
 	ERROR("Failed to register V3 VM device class\n");
-	return PTR_ERR(v3_class);
+	ret =  PTR_ERR(v3_class);
+	goto failure3;
     }
 
     INFO("intializing V3 Control device\n");
@@ -414,7 +425,7 @@ static int __init v3_init(void) {
 
     if (ret < 0) {
 	ERROR("Error registering device region for V3 devices\n");
-	goto failure2;
+	goto failure4;
     }
 
     v3_major_num = MAJOR(dev);
@@ -432,33 +443,40 @@ static int __init v3_init(void) {
 
     if (ret != 0) {
 	ERROR("Error adding v3 control device\n");
-	goto failure1;
+	goto failure5;
     }
 
-    palacios_proc_dir = proc_mkdir("v3vee", NULL);
-    if (palacios_proc_dir) {
+    {
 	struct proc_dir_entry *entry;
 
-	entry = create_proc_read_entry("v3-guests", 0444, palacios_proc_dir, 
-				       read_guests, NULL);
+	INFO("palacios_proc_dir=%p before v3-guests\n",palacios_proc_dir);
+	entry = create_proc_read_entry("v3-guests", 0444, palacios_proc_dir, read_guests, NULL);
         if (entry) {
 	    INFO("/proc/v3vee/v3-guests successfully created\n");
 	} else {
 	    ERROR("Could not create proc entry\n");
-	    goto failure1;
+	    goto failure6;
 	}
-	
-    } else {
-	ERROR("Could not create proc entry\n");
-	goto failure1;
     }
 	
     return 0;
 
- failure1:
+ failure6:
+    remove_proc_entry("v3-guests", palacios_proc_dir);
+ failure5:
     unregister_chrdev_region(MKDEV(v3_major_num, 0), MAX_VMS + 1);
- failure2:
+ failure4:
     class_destroy(v3_class);
+ failure3:
+    if (allow_devmem) {
+      palacios_restore_devmem();
+    }
+    palacios_deinit_mm();
+ failure2:
+    remove_proc_entry("v3vee", NULL);
+ failure1:   
+    MEMCHECK_DEINIT();
+    LOCKCHECK_DEINIT();
 
     return ret;
 }

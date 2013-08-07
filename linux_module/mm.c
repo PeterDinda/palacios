@@ -22,12 +22,14 @@ static uintptr_t * seed_addrs = NULL;
 // alignment is in bytes
 uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id) {
     uintptr_t addr = 0; 
+    int any = node_id==-1; // can allocate on any
 
     if (node_id == -1) {
 	int cpu_id = get_cpu();
 	put_cpu();
 	
-	node_id = numa_cpu_to_node(cpu_id);
+	node_id = numa_cpu_to_node(cpu_id); // try first preferentially for the calling pcore
+
     } else if (numa_num_nodes() == 1) {
 	node_id = 0;
     } else if (node_id >= numa_num_nodes()) {
@@ -37,6 +39,20 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id) {
     }
 
     addr = buddy_alloc(memzones[node_id], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT);
+
+    if (!addr && any) { 
+	int i;
+	// do a scan to see if we can satisfy request on any node
+	for (i=0; i< numa_num_nodes(); i++) { 
+	    if (i!=node_id) { 
+		addr = buddy_alloc(memzones[i], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT);
+		if (addr) {
+		    break;
+		}
+	    }
+	}
+    }
+		
 
     //DEBUG("Returning from alloc addr=%p, vaddr=%p\n", (void *)addr, __va(addr));
     return addr;
@@ -67,15 +83,17 @@ int add_palacios_memory(struct v3_mem_region *r) {
 
     struct v3_mem_region *keep;
 
+    INFO("Palacios Memory Add Request: type=%d, node=%d, base_addr=0x%llx, num_pages=%llu\n",r->type,r->node,r->base_addr,r->num_pages);
+
     // fixup request regardless of its type
     if (r->num_pages*4096 < V3_CONFIG_MEM_BLOCK_SIZE) { 
 	WARNING("Allocating a memory pool smaller than the Palacios block size - may not be useful\n");
     }
 
-    if (pow2(get_order(r->num_pages*PAGE_SIZE)) != r->num_pages*PAGE_SIZE) { 
-	WARNING("Allocating a memory pool that is not a power of two (is %llu) - it will be rounded down!\n", r->num_pages*PAGE_SIZE);
+    if (pow2(get_order(r->num_pages*PAGE_SIZE)) != r->num_pages) { 
+	WARNING("Allocating a memory pool that is not a power of two (is %llu) - it will be rounded down!\n", r->num_pages);
 	r->num_pages=pow2(get_order(r->num_pages*PAGE_SIZE));
-	WARNING("Rounded power Allocating a memory pool that is not a power of two (rounded to %llu)\n", r->num_pages*PAGE_SIZE);
+	WARNING("Rounded request is for %llu pages\n", r->num_pages);
     }
 
 
@@ -86,10 +104,16 @@ int add_palacios_memory(struct v3_mem_region *r) {
 
 
     if (r->type==REQUESTED || r->type==REQUESTED32) { 
-	struct page * pgs = alloc_pages_node(r->node, 
-					     r->type==REQUESTED ? GFP_KERNEL :
-					     r->type==REQUESTED32 ? GFP_DMA32 : GFP_KERNEL, 
-					     get_order(r->num_pages));
+	struct page *pgs;
+
+	INFO("Attempting to allocate %llu pages of %s memory\n", r->num_pages,
+	     r->type==REQUESTED ? "64 bit (unrestricted)" : 
+	     r->type==REQUESTED32 ? "32 bit (restricted)" : "unknown (assuming 64 bit unrestricted)");
+	     
+	pgs = alloc_pages_node(r->node, 
+			       r->type==REQUESTED ? GFP_KERNEL :
+			       r->type==REQUESTED32 ? GFP_DMA32 : GFP_KERNEL, 
+			       get_order(r->num_pages*PAGE_SIZE));
 	if (!pgs) { 
 	    ERROR("Unable to satisfy allocation request\n");
 	    palacios_free(keep);
@@ -177,6 +201,8 @@ int palacios_init_mm( void ) {
     int num_nodes = numa_num_nodes();
     int node_id = 0;
 
+    INFO("memory manager init: MAX_ORDER=%d (%llu bytes)\n",MAX_ORDER, PAGE_SIZE*pow2(MAX_ORDER));
+
     memzones = palacios_alloc_extended(sizeof(struct buddy_memzone *) * num_nodes, GFP_KERNEL);
 
     if (!memzones) { 
@@ -205,13 +231,26 @@ int palacios_init_mm( void ) {
 	// See: alloc_pages_node()
 
 	{
-	    struct page * pgs = alloc_pages_node(node_id, GFP_KERNEL, MAX_ORDER - 1);
+	    struct page * pgs;
+
+	    // attempt to first allocate below 4 GB for compatibility with
+	    // 32 bit shadow paging
+	    pgs = alloc_pages_node(node_id, GFP_DMA32, MAX_ORDER - 1);
 
 	    if (!pgs) {
-		ERROR("Could not allocate initial memory block for node %d\n", node_id);
-		BUG_ON(!pgs);
-		palacios_deinit_mm();
-		return -1;
+		INFO("Could not allocate initial memory block for node %d beloew 4GB\n", node_id);
+		
+		pgs = alloc_pages_node(node_id, GFP_KERNEL, MAX_ORDER - 1);
+
+		if (!pgs) {
+		    INFO("Could not allocate initial memory block for node %d beloew 4GB\n", node_id);
+		    if (!pgs) {
+			ERROR("Could not allocate initial memory block for node %d without restrictions\n", node_id);
+			BUG_ON(!pgs);
+			palacios_deinit_mm();
+			return -1;
+		    }
+		}
 	    }
 
 	    seed_addrs[node_id] = page_to_pfn(pgs) << PAGE_SHIFT;

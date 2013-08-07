@@ -496,8 +496,6 @@ static struct file_operations zone_proc_ops = {
 };
 
 
-extern struct proc_dir_entry * palacios_proc_dir;
-
 void buddy_deinit(struct buddy_memzone * zone) {
     unsigned long flags;
 
@@ -514,7 +512,7 @@ void buddy_deinit(struct buddy_memzone * zone) {
 	memset(proc_file_name, 0, 128);
 	snprintf(proc_file_name, 128, "v3-mem%d", zone->node_id);
 
-	remove_proc_entry(proc_file_name, palacios_proc_dir);
+	remove_proc_entry(proc_file_name, palacios_get_procdir());
     }
 
 
@@ -602,14 +600,15 @@ buddy_init(
 	char proc_file_name[128];
 
 	memset(proc_file_name, 0, 128);
-	snprintf(proc_file_name, 128, "v3-mem%d", zone->node_id);
+	snprintf(proc_file_name, 128, "v3-mem%u", zone->node_id);
 
-	zone_entry = create_proc_entry(proc_file_name, 0444, palacios_proc_dir);
+	zone_entry = create_proc_entry(proc_file_name, 0444, palacios_get_procdir());
 	if (zone_entry) {
 	    zone_entry->proc_fops = &zone_proc_ops;
 	    zone_entry->data = zone;
+	    INFO("Successfully created /proc/v3vee/v3-mem%d\n", zone->node_id);
 	} else {
-	    ERROR("Error creating memory zone proc file\n");
+	    ERROR("Cannot create /proc/v3vee/v3-mem%d\n", zone->node_id);
 	}
 
     }
