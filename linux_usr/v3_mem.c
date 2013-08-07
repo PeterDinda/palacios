@@ -12,7 +12,8 @@
 #include <sys/types.h> 
 #include <unistd.h> 
 #include <string.h>
-#include <dirent.h> 
+#include <dirent.h>
+#include <alloca.h> 
 
 #include "v3_ctrl.h"
 
@@ -40,28 +41,30 @@ int main(int argc, char * argv[]) {
     unsigned long long num_bytes, base_addr;
     struct v3_mem_region mem;
 
-    if (argc<2 || argc>5) {
-	printf("usage: v3_mem [-r] [-l] [-n k] <memory size (MB)> [min_start (MB)]\n\n"
+    if (argc<2 || argc>8) {
+	printf("usage: v3_mem [-r] [-l] [-n k] [-m n] <memory size (MB)>\n\n"
 	       "Allocate memory for use by Palacios.\n\n"
-	       "With    -r    this requests in-kernel allocation.\n"
-	       "Without -r    this attempts to offline memory via hot\n"
-	       "              remove.\n"
+	       "With    -k    this requests in-kernel allocation.\n"
+	       "Without -k    this attempts to offline memory via hot remove\n\n"
 	       "With    -l    the request or offlining is limited to first 4 GB\n"
 	       "Without -l    the request or offlining has no limits\n\n"
-	       "With    -n k  the request is for numa node k\n"
-	       "Without -n k  the request can be on any numa node\n\n"
-	       "For offlining, min_start is the minimum allowable starting address.\n"
-               "This is zero by default\n\n");  
+	       "With    -m n  the offline memory search starts at n MB\n"
+	       "Without -m n  the offline memory search starts at 0 MB\n\n"
+	       "With    -n i  the request is for numa node i\n"
+	       "Without -n i  the request can be on any numa node\n\n");
         return -1;
     }
 
-    while ((c=getopt(argc,argv,"rln:"))!=-1) {
+    while ((c=getopt(argc,argv,"klmn:"))!=-1) {
 	switch (c) {
-	    case 'r':
+	    case 'k':
 		request=1;
 		break;
 	    case 'l':
 		limit32=1;
+		break;
+	    case 'm':
+		mem_min_start = atoll(optarg) * (1024*1024);
 		break;
 	    case 'n':
 		node = atoi(optarg);
@@ -69,6 +72,8 @@ int main(int argc, char * argv[]) {
 	    case '?':
 		if (optopt=='n') { 
 		    printf("-n requires the numa node...\n");
+		} else if (optopt=='m') { 
+		    printf("-m requires the minimum starting address (in MB)...\n");
 		} else {
 		    printf("Unknown option %c\n",optopt);
 		}
@@ -79,12 +84,7 @@ int main(int argc, char * argv[]) {
 	}
     }
 	
-
     mem_size_bytes = atoll(argv[optind]) * (1024 * 1024);
-
-    if ((optind+1) < argc) { 
-        mem_min_start = atoll(argv[optind+1]) * (1024 * 1024);
-    }
 
     v3_fd = open(v3_dev, O_RDONLY);
     
@@ -107,9 +107,12 @@ int main(int argc, char * argv[]) {
 	printf("Generating memory allocation request (size=%llu, limit32=%d)\n", mem_size_bytes, limit32);
 	mem.type = limit32 ? REQUESTED32 : REQUESTED;
 	mem.node = node;
-	num_bytes = mem_size_bytes;
-	base_addr = 0;
+	mem.base_addr = 0;
+	mem.num_pages = mem_size_bytes / 4096;
     }
+    
+    printf("Allocation request is: type=%d, node=%d, base_addr=0x%llx, num_pages=%llu\n",
+	   mem.type, mem.node, mem.base_addr, mem.num_pages);
     
     if (ioctl(v3_fd, V3_ADD_MEMORY, &mem)<0) { 
 	printf("Request rejected by Palacios\n");
@@ -135,9 +138,29 @@ static int dir_filter(const struct dirent * dir) {
 static int dir_cmp(const struct dirent **dir1, const struct dirent ** dir2) {
     int num1 = atoi((*dir1)->d_name + 6);
     int num2 = atoi((*dir2)->d_name + 6);
-
+    
     return num1 - num2;
 }
+
+
+
+#define UNWIND(first,last)					\
+do {								\
+    int i;							\
+    for (i = first; i <= last; i++) {				\
+	FILE *f;						\
+	char name[256];						\
+	snprintf(name,256,"%smemory%d/state",SYS_PATH,i);	\
+	f=fopen(name,"r+");					\
+	if (!f) {						\
+	    perror("Cannot open state file\n");			\
+	    return -1;						\
+	}							\
+	printf("Re-onlining block %d (%s)\n",i,name);		\
+	fprintf(f,"online\n");					\
+	fclose(f);						\
+    }								\
+} while (0)
 
 
 static int offline_memory(unsigned long long mem_size_bytes,
@@ -153,6 +176,7 @@ static int offline_memory(unsigned long long mem_size_bytes,
     int num_blocks = 0;    
     int reg_start = 0;
     int mem_ready = 0;
+    
     
 
     printf("Trying to find %dMB (%d bytes) of memory above %llu with limit32=%d\n", mem_size_bytes/(1024*1024), mem_size_bytes, mem_min_start, limit32);
@@ -210,7 +234,8 @@ static int offline_memory(unsigned long long mem_size_bytes,
 	size = bitmap_entries / 8;
 	if (bitmap_entries % 8) size++;
 	    
-	bitmap = malloc(size);
+	bitmap = alloca(size);
+
 	if (!bitmap) {
 	    printf("ERROR: could not allocate space for bitmap\n");
 	    return -1;
@@ -244,36 +269,67 @@ static int offline_memory(unsigned long long mem_size_bytes,
 		continue;
 	    } 
 		
+
+	    // The prospective block must be (a) removable, and (b) currently online
 		
 	    printf("Checking %s...", fname);
 		
 	    block_fd = open(fname, O_RDONLY);
 		
 	    if (block_fd == -1) {
-		printf("Hotpluggable memory not supported...\n");
+		printf("Hotpluggable memory not supported or could not determine if block is removable...\n");
 		return -1;
 	    }
 		
 	    if (read(block_fd, status_str, BUF_SIZE) <= 0) {
-		perror("Could not read block status");
+		perror("Could not read block removability information\n");
 		return -1;
 	    }
+	    
+	    status_str[BUF_SIZE-1]=0;
 		
 	    close(block_fd);
 		
 	    if (atoi(status_str) == 1) {
-		printf("Removable\n");
-		bitmap[major] |= (0x1 << minor);
+		printf("Removable ");
 	    } else {
 		printf("Not removable\n");
+		continue;
 	    }
+	    
+	    snprintf(fname, BUF_SIZE, "%s%s/state", SYS_PATH, tmp_dir->d_name);
+	    
+	    block_fd = open(fname, O_RDONLY);
+	    
+	    if (block_fd<0) { 
+		perror("Could not open block state\n");
+		return -1;
+	    }
+
+	    if (read(block_fd, status_str, BUF_SIZE) <=0) { 
+		perror("Could not read block state information\n");
+		return -1;
+	    }
+
+	    status_str[BUF_SIZE-1]=0;
+
+	    close(block_fd);
+
+	    if (!strncasecmp(status_str,"offline",7)) {
+		printf("and Already Offline (unusable)\n");
+	    } else if (!strncasecmp(status_str,"online",6)) { 
+		printf("and Online (usable)\n");
+		bitmap[major] |= (0x1 << minor);
+	    } else {
+		printf("and in Unknown State '%s' (unusable)\n",status_str);
+	    }
+	    
 	}
 	
     }
     
     while (!mem_ready) {
-	
-	
+
 	/* Scan bitmap for enough consecutive space */
 	{
 	    // num_blocks: The number of blocks we need to find
@@ -304,6 +360,7 @@ static int offline_memory(unsigned long long mem_size_bytes,
 	    
 	    if (run_len < num_blocks) {
 		fprintf(stderr, "Could not find enough consecutive memory blocks... (found %d)\n", run_len);
+		// no offlining yet, so no need to unwind here
 		return -1;
 	    }
 	}
@@ -325,6 +382,7 @@ static int offline_memory(unsigned long long mem_size_bytes,
 		
 		if (block_file == NULL) {
 		    perror("Could not open block file");
+		    UNWIND(reg_start, i+reg_start-1);
 		    return -1;
 		}
 		
@@ -333,6 +391,7 @@ static int offline_memory(unsigned long long mem_size_bytes,
 		fprintf(block_file, "offline\n");
 		
 		fclose(block_file);
+		
 	    }
 	}
 	
@@ -362,20 +421,22 @@ static int offline_memory(unsigned long long mem_size_bytes,
 		block_fd = open(fname, O_RDONLY);
 		
 		if (block_fd == -1) {
-		    perror("Could not open block file");
+		    perror("Could not open block state file");
 		    return -1;
 		}
 		
 		if (read(block_fd, status_buf, BUF_SIZE) <= 0) {
-		    perror("Could not read block status");
+		    perror("Could not read block state");
 		    return -1;
 		}
+
+		status_buf[BUF_SIZE]=0;
 		
 		printf("Checking offlined block %d (%s)...", i + reg_start, fname);
 		
 		int ret = strncmp(status_buf, "offline", strlen("offline"));
 		
-		if (ret != 0) {
+		if (ret != 0) {  // uh oh
 		    int j = 0;
 		    int major = (i + reg_start) / 8;
 		    int minor = (i + reg_start) % 8;
@@ -384,45 +445,24 @@ static int offline_memory(unsigned long long mem_size_bytes,
 		    
 		    mem_ready = 0; // Keep searching
 		    
-		    printf("ERROR (%d)\n", ret);
-		    
-		    for (j = 0; j < i; j++) {
-			FILE * block_file = NULL;
-			char fname[256];
-			
-			memset(fname, 0, 256);
-			
-			snprintf(fname, 256, "%smemory%d/state", SYS_PATH, j + reg_start);
-			
-			block_file = fopen(fname, "r+");
-			
-			if (block_file == NULL) {
-			    perror("Could not open block file");
-			    return -1;
-			}
-			
-			fprintf(block_file, "online\n");
-			
-			fclose(block_file);
-		    }
+		    printf("ERROR - block status is '%s'\n", status_buf);
+
+		    // Unwind space
+		    UNWIND(reg_start,reg_start+num_blocks-1);
 		    
 		    break;
 		} 
-		
-		printf("OK\n");
-		
 	    }
 	    
-	    
+	    printf("Offlined Memory OK\n");
+		
 	}
     }
-    
-    free(bitmap);
     
     /* Memory is offlined. Calculate size and phys start addr to send to Palacios */
     *num_bytes = (unsigned long long)(num_blocks) * (unsigned long long)(block_size_bytes);
     *base_addr = (unsigned long long)(reg_start) * (unsigned long long)(block_size_bytes);
-
+    
     return 0;
 }
 
