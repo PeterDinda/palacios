@@ -925,7 +925,7 @@ static int init_proc_files(void) {
 	return -1;
     }
 
-    route_entry = create_proc_entry("routes", 0, vnet_root);
+    route_entry = create_proc_entry("routes", 0644, vnet_root);
     if (route_entry == NULL) {
 	remove_proc_entry("vnet", NULL);
 	return -1;
@@ -933,7 +933,7 @@ static int init_proc_files(void) {
     route_entry->proc_fops = &route_fops;
 	
 
-    link_entry = create_proc_entry("links", 0, vnet_root);
+    link_entry = create_proc_entry("links", 0644, vnet_root);
     if (link_entry == NULL) {
 	remove_proc_entry("routes", vnet_root);
 	remove_proc_entry("vnet", NULL);
@@ -942,7 +942,7 @@ static int init_proc_files(void) {
     link_entry->proc_fops = &link_fops;
 	
 
-    stat_entry = create_proc_entry("stats", 0, vnet_root);
+    stat_entry = create_proc_entry("stats", 0644, vnet_root);
     if(stat_entry == NULL) {
 	remove_proc_entry("links", vnet_root);
 	remove_proc_entry("routes", vnet_root);
@@ -952,7 +952,7 @@ static int init_proc_files(void) {
     stat_entry->proc_fops = &stat_fops;
 
 
-    debug_entry = create_proc_entry("debug", 0, vnet_root);
+    debug_entry = create_proc_entry("debug", 0644, vnet_root);
     if(debug_entry == NULL) {
 	remove_proc_entry("links", vnet_root);
 	remove_proc_entry("routes", vnet_root);
