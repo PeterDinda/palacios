@@ -14,8 +14,8 @@
 #include <linux/timer.h>
 
 #include <vnet/vnet.h>
-#include "mm.h"
 #include "palacios.h"
+#include "mm.h"
 #include "palacios-vnet.h"
 #include "linux-exts.h"
 
@@ -139,6 +139,14 @@ host_del_timer(void * vnet_timer){
 }
 
 
+static void *
+host_allocate_pages(int num_pages, unsigned int alignment)
+{
+    // allocates pages preferentially on the caller's node
+    return palacios_allocate_pages(num_pages, alignment, -1);
+}
+
+
 
 static struct vnet_host_hooks vnet_host_hooks = {
     .timer_create	        = host_create_timer,
@@ -163,7 +171,7 @@ static struct vnet_host_hooks vnet_host_hooks = {
     .mutex_unlock_irqrestore    = palacios_mutex_unlock_irqrestore,
 
     .print			= palacios_print_scoped,
-    .allocate_pages	        = palacios_allocate_pages,
+    .allocate_pages	        = host_allocate_pages,
     .free_pages	                = palacios_free_pages,
     .malloc		        = palacios_alloc,
     .free			= palacios_free,

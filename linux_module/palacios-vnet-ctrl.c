@@ -975,7 +975,7 @@ static void destroy_proc_files(void) {
     remove_proc_entry("links", vnet_root);
     remove_proc_entry("routes", vnet_root);
     remove_proc_entry("stats", vnet_root);
-    remove_proc_entry("vnet", NULL);	
+    remove_proc_entry("vnet", palacios_get_procdir());	
 }
 
 

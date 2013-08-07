@@ -232,7 +232,7 @@ static struct file_operations v3_ctrl_fops = {
 
 struct proc_dir_entry *palacios_get_procdir(void) 
 {
-    INFO("Returning procdir=%p\n",palacios_proc_dir);
+    //    INFO("Returning procdir=%p\n",palacios_proc_dir);
     return palacios_proc_dir;
 }
 
