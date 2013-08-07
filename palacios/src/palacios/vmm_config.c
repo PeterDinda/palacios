@@ -595,7 +595,9 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     V3_Print(vm, VCORE_NONE, "Preconfiguration\n");
 
     if (pre_config_vm(vm, vm->cfg_data->cfg) == -1) {
-	PrintError(vm, VCORE_NONE, "Error in preconfiguration\n");
+	PrintError(vm, VCORE_NONE, "Error in preconfiguration, attempting to free\n");
+	vm->run_state=VM_ERROR;
+	v3_free_vm(vm);
 	return NULL;
     }
 
@@ -611,7 +613,9 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	info->core_cfg_data = per_core_cfg;
 
 	if (pre_config_core(info, per_core_cfg) == -1) {
-	    PrintError(vm, VCORE_NONE, "Error in core %d preconfiguration\n", i);
+	    PrintError(vm, VCORE_NONE, "Error in core %d preconfiguration, attempting to free guest\n", i);
+	    vm->run_state=VM_ERROR;
+	    v3_free_vm(vm);
 	    return NULL;
 	}
 
@@ -623,7 +627,9 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     V3_Print(vm, VCORE_NONE, "Post Configuration\n");
 
     if (post_config_vm(vm, vm->cfg_data->cfg) == -1) {
-        PrintError(vm, VCORE_NONE, "Error in postconfiguration\n");
+        PrintError(vm, VCORE_NONE, "Error in postconfiguration, attempting to free guest\n");
+	vm->run_state=VM_ERROR;
+	v3_free_vm(vm);
 	return NULL;
     }
 
