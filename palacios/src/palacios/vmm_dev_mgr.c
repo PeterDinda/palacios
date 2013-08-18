@@ -129,8 +129,10 @@ int v3_free_vm_devices(struct v3_vm_info * vm) {
     struct vm_device * dev;
     struct vm_device * tmp;
 
-    list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
-	v3_remove_device(dev);
+    if (mgr) { 
+	list_for_each_entry_safe(dev, tmp, &(mgr->dev_list), dev_link) {
+	    v3_remove_device(dev);
+	}
     }
 
     return 0;

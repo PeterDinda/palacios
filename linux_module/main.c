@@ -20,6 +20,7 @@
 #include <linux/kthread.h>
 
 #include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include <palacios/vmm.h>
 
@@ -238,13 +239,14 @@ struct proc_dir_entry *palacios_get_procdir(void)
 
 
 #define MAX_VCORES  256
-#define MAX_REGIONS 256
+#define MAX_REGIONS 1024
 
-static int read_guests(char * buf, char ** start, off_t off, int count,
-		       int * eof, void * data)
+
+
+static int read_guests_details(struct seq_file *s, void *v)
 {
-    int len = 0;
     unsigned int i = 0;
+    unsigned int j = 0;
     struct v3_vm_base_state *base=0;
     struct v3_vm_core_state *core=0;
     struct v3_vm_mem_state *mem=0;
@@ -259,126 +261,182 @@ static int read_guests(char * buf, char ** start, off_t off, int count,
     core = palacios_alloc(sizeof(struct v3_vm_core_state) + MAX_VCORES*sizeof(struct v3_vm_vcore_state));
     
     if (!core) { 
-      ERROR("No space for core state structure\n");
-      goto out;
+	ERROR("No space for core state structure\n");
+	goto out;
     }
-
+    
     mem = palacios_alloc(sizeof(struct v3_vm_mem_state) + MAX_REGIONS*sizeof(struct v3_vm_mem_region));
     
     if (!mem) { 
-      ERROR("No space for memory state structure\n");
-      goto out;
+	ERROR("No space for memory state structure\n");
+	goto out;
     }
-
+    
     for(i = 0; i < MAX_VMS; i++) {
-      if (guest_map[i] != NULL) {
-	if (len>=count) { 
-	  goto out;
-	} else {
-	  len += snprintf(buf+len, count-len,
-			  "%s\t/dev/v3-vm%d ", 
-			  guest_map[i]->name, i);
-	  
-	  if (len>=count) { 
-	    *(buf+len-1)='\n';
-	    goto out;
-	  } else {
+	if (guest_map[i] != NULL) {
+	    seq_printf(s,
+		       "---------------------------------------------------------------------------------------\n");
+	    seq_printf(s, 
+		       "Entry:        %d\n"
+		       "Name:         %s\n"
+		       "Device:       /dev/v3-vm%d\n", 
+		       i,guest_map[i]->name, i);
+	    
 	    // Get extended data
 	    core->num_vcores=MAX_VCORES; // max we can handle
 	    mem->num_regions=MAX_REGIONS; // max we can handle
+	    
 	    if (v3_get_state_vm(guest_map[i]->v3_ctx, base, core, mem)) {
-	      ERROR("Cannot get VM info\n");
-	      *(buf+len-1)='\n';
-	      goto out;
+		ERROR("Cannot get VM info\n");
+		seq_printf(s, "<unable to get data for this VM>\n");
 	    } else {
-	      unsigned long j;
-
-	      len+=snprintf(buf+len, count-len,
-			    "%s %lu regions [ ", 
-			    base->state==V3_VM_INVALID ? "INVALID" :
-			    base->state==V3_VM_RUNNING ? "running" :
-			    base->state==V3_VM_STOPPED ? "stopped" :
-			    base->state==V3_VM_PAUSED ? "paused" :
-			    base->state==V3_VM_ERROR ? "ERROR" :
-			    base->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
-			    mem->num_regions);
-
-	      if (len>=count) { 
-		*(buf+len-1)='\n';
-		goto out;
-	      }
-
-	      for (j=0;j<mem->num_regions;j++) { 
-		  len+=snprintf(buf+len, count-len,
-				"(region %lu 0x%p-0x%p) ",
-				j, mem->region[j].host_paddr, mem->region[j].host_paddr+mem->region[j].size);
-		  if (len>=count) { 
-		      *(buf+len-1)='\n';
-		      goto out;
-		  }
-	      }
-		  
-	      len+=snprintf(buf+len, count-len,
-			    "] %lu vcores [ ", 
-			    core->num_vcores);
-
-	      if (len>=count) { 
-		*(buf+len-1)='\n';
-		goto out;
-	      }
-		  
-	      for (j=0;j<core->num_vcores;j++) {
-		len+=snprintf(buf+len, count-len,
-			      "(vcore %lu %s on pcore %lu %llu exits rip=0x%p %s %s %s) ",
-			      j, 
-			      core->vcore[j].state==V3_VCORE_INVALID ? "INVALID" :
-			      core->vcore[j].state==V3_VCORE_RUNNING ? "running" :
-			      core->vcore[j].state==V3_VCORE_STOPPED ? "stopped" : "UNKNOWN",
-			      core->vcore[j].pcore,
-			      core->vcore[j].num_exits,
-			      core->vcore[j].last_rip,
-			      core->vcore[j].cpu_mode==V3_VCORE_CPU_REAL ? "real" :
-			      core->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED ? "protected" :
-			      core->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED_PAE ? "protectedpae" :
-			      core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG ? "long" :
-			      core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_32_COMPAT ? "long32" :
-			      core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_16_COMPAT ? "long16" : "UNKNOWN",
-			      core->vcore[j].mem_mode==V3_VCORE_MEM_MODE_PHYSICAL ? "physical" :
-			      core->vcore[j].mem_mode==V3_VCORE_MEM_MODE_VIRTUAL ? "virtual" : "UNKNOWN",
-			      core->vcore[j].mem_state==V3_VCORE_MEM_STATE_SHADOW ? "shadow" :
-			      core->vcore[j].mem_state==V3_VCORE_MEM_STATE_NESTED ? "nested" : "UNKNOWN");
-		if (len>=count) {
-		    *(buf+len-1)='\n';
-		    goto out;
+		seq_printf(s, 
+			   "State:        %s\n"
+			   "Cores:        %lu\n"
+			   "Regions:      %lu\n\n",
+			   base->state==V3_VM_INVALID ? "INVALID" :
+			   base->state==V3_VM_RUNNING ? "running" :
+			   base->state==V3_VM_STOPPED ? "stopped" :
+			   base->state==V3_VM_PAUSED ? "paused" :
+			   base->state==V3_VM_ERROR ? "ERROR" :
+			   base->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
+			   core->num_vcores,
+			   mem->num_regions);
+		seq_printf(s, "Core States\n");
+		
+		for (j=0;j<core->num_vcores;j++) {
+		    seq_printf(s,
+			       "   vcore %u %s on pcore %lu %llu exits rip=0x%p %s %s %s\n",
+			       j, 
+			       core->vcore[j].state==V3_VCORE_INVALID ? "INVALID" :
+			       core->vcore[j].state==V3_VCORE_RUNNING ? "running" :
+			       core->vcore[j].state==V3_VCORE_STOPPED ? "stopped" : "UNKNOWN",
+			       core->vcore[j].pcore,
+			       core->vcore[j].num_exits,
+			       core->vcore[j].last_rip,
+			       core->vcore[j].cpu_mode==V3_VCORE_CPU_REAL ? "real" :
+			       core->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED ? "protected" :
+			       core->vcore[j].cpu_mode==V3_VCORE_CPU_PROTECTED_PAE ? "protectedpae" :
+			       core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG ? "long" :
+			       core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_32_COMPAT ? "long32" :
+			       core->vcore[j].cpu_mode==V3_VCORE_CPU_LONG_16_COMPAT ? "long16" : "UNKNOWN",
+			       core->vcore[j].mem_mode==V3_VCORE_MEM_MODE_PHYSICAL ? "physical" :
+			       core->vcore[j].mem_mode==V3_VCORE_MEM_MODE_VIRTUAL ? "virtual" : "UNKNOWN",
+			       core->vcore[j].mem_state==V3_VCORE_MEM_STATE_SHADOW ? "shadow" :
+			       core->vcore[j].mem_state==V3_VCORE_MEM_STATE_NESTED ? "nested" : "UNKNOWN");
 		}
-	      }
 
-	      len+=snprintf(buf+len, count-len,
-			    "] ");
-
-	      if (len>=count) { 
-		*(buf+len-1)='\n';
-		goto out;
-	      }
-		  
-	      *(buf+len-1)='\n';
-
+		seq_printf(s, "\nMemory Regions\n");
+		for (j=0;j<mem->num_regions;j++) { 
+		    seq_printf(s,"   region %u has HPAs 0x%p-0x%p\n",
+			       j, mem->region[j].host_paddr, mem->region[j].host_paddr+mem->region[j].size);
+		}
 	    }
-	  }
+	    seq_printf(s,
+		       "---------------------------------------------------------------------------------------\n");
 	}
-      }
     }
- 
+    
+    
  out:
     if (mem) { palacios_free(mem); }
     if (core) { palacios_free(core); }
     if (base) { palacios_free(base); }
+    
+    return 0;
+}
 
-    return len;
+static int read_guests(struct seq_file *s, void *v)
+{
+    unsigned int i = 0;
+    struct v3_vm_base_state *base=0;
+    struct v3_vm_core_state *core=0;
+    struct v3_vm_mem_state *mem=0;
+    
+    base = palacios_alloc(sizeof(struct v3_vm_base_state));
+    
+    if (!base) { 
+      ERROR("No space for base state structure\n");
+      goto out;
+    }
+
+    core = palacios_alloc(sizeof(struct v3_vm_core_state) + MAX_VCORES*sizeof(struct v3_vm_vcore_state));
+    
+    if (!core) { 
+	ERROR("No space for core state structure\n");
+	goto out;
+    }
+    
+    mem = palacios_alloc(sizeof(struct v3_vm_mem_state) + MAX_REGIONS*sizeof(struct v3_vm_mem_region));
+    
+    if (!mem) { 
+	ERROR("No space for memory state structure\n");
+	goto out;
+    }
+    
+    for(i = 0; i < MAX_VMS; i++) {
+	if (guest_map[i] != NULL) {
+	    seq_printf(s,"%s\t/dev/v3-vm%d", guest_map[i]->name, i);
+	    // Get extended data
+	    core->num_vcores=MAX_VCORES; // max we can handle
+	    mem->num_regions=MAX_REGIONS; // max we can handle
+	    
+	    if (v3_get_state_vm(guest_map[i]->v3_ctx, base, core, mem)) {
+		ERROR("Cannot get VM info\n");
+		seq_printf(s, "\t<unable to get data for this VM>\n");
+	    } else {
+		seq_printf(s,"\t%s\t%lu vcores\t%lu regions\n",
+			   base->state==V3_VM_INVALID ? "INVALID" :
+			   base->state==V3_VM_RUNNING ? "running" :
+			   base->state==V3_VM_STOPPED ? "stopped" :
+			   base->state==V3_VM_PAUSED ? "paused" :
+			   base->state==V3_VM_ERROR ? "ERROR" :
+			   base->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
+			   core->num_vcores,
+			   mem->num_regions);
+	    }
+	}
+    }
+	
+	
+ out:
+    if (mem) { palacios_free(mem); }
+    if (core) { palacios_free(core); }
+    if (base) { palacios_free(base); }
+    
+    return 0;
+}
+
+
+static int guests_short_proc_open(struct inode * inode, struct file * filp) 
+{
+    struct proc_dir_entry * proc_entry = PDE(inode);
+    return single_open(filp, read_guests, proc_entry->data);
+}
+
+static int guests_full_proc_open(struct inode * inode, struct file * filp) 
+{
+    struct proc_dir_entry * proc_entry = PDE(inode);
+    return single_open(filp, read_guests_details, proc_entry->data);
 }
 
 
 
+static struct file_operations guest_full_proc_ops = {
+    .owner = THIS_MODULE,
+    .open = guests_full_proc_open, 
+    .read = seq_read,
+    .llseek = seq_lseek, 
+    .release = single_release,
+};
+
+static struct file_operations guest_short_proc_ops = {
+    .owner = THIS_MODULE,
+    .open = guests_short_proc_open, 
+    .read = seq_read,
+    .llseek = seq_lseek, 
+    .release = single_release,
+};
 
 
 static int __init v3_init(void) {
@@ -449,18 +507,28 @@ static int __init v3_init(void) {
     {
 	struct proc_dir_entry *entry;
 
-	//INFO("palacios_proc_dir=%p before v3-guests\n",palacios_proc_dir);
-	entry = create_proc_read_entry("v3-guests", 0444, palacios_proc_dir, read_guests, NULL);
+	entry = create_proc_entry("v3-guests", 0444, palacios_proc_dir);
         if (entry) {
+	    entry->proc_fops = &guest_short_proc_ops;
 	    INFO("/proc/v3vee/v3-guests successfully created\n");
 	} else {
 	    ERROR("Could not create proc entry\n");
 	    goto failure6;
 	}
+	entry = create_proc_entry("v3-guests-details", 0444, palacios_proc_dir);
+        if (entry) {
+	    entry->proc_fops = &guest_full_proc_ops;
+	    INFO("/proc/v3vee/v3-guests-details successfully created\n");
+	} else {
+	    ERROR("Could not create proc entry\n");
+	    goto failure7;
+	}
     }
 	
     return 0;
 
+ failure7:
+    remove_proc_entry("v3-guests-details", palacios_proc_dir);
  failure6:
     remove_proc_entry("v3-guests", palacios_proc_dir);
  failure5:
@@ -534,6 +602,7 @@ static void __exit v3_exit(void) {
 
     palacios_deinit_mm();
 
+    remove_proc_entry("v3-guests-details", palacios_proc_dir);
     remove_proc_entry("v3-guests", palacios_proc_dir);
     remove_proc_entry("v3vee", NULL);
 
