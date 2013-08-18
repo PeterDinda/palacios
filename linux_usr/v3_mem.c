@@ -72,10 +72,13 @@ int main(int argc, char * argv[]) {
 	    case '?':
 		if (optopt=='n') { 
 		    printf("-n requires the numa node...\n");
+            return -1;
 		} else if (optopt=='m') { 
 		    printf("-m requires the minimum starting address (in MB)...\n");
+            return -1;
 		} else {
 		    printf("Unknown option %c\n",optopt);
+            return -1;
 		}
 		break;
 	    default:
@@ -100,7 +103,7 @@ int main(int argc, char * argv[]) {
 	    return -1;
 	}
 	mem.type=PREALLOCATED;
-	mem.node=0;
+	mem.node=node;
 	mem.base_addr=base_addr;
 	mem.num_pages=num_bytes/4096;
     } else {
