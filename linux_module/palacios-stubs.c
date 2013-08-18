@@ -165,7 +165,7 @@ void palacios_print_scoped(void * vm, int vcore, const char *fmt, ...) {
  * Allocates a contiguous region of pages of the requested size.
  * Returns the physical address of the first page in the region.
  */
-void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id) {
+void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id, int constraints) {
     void * pg_addr = NULL;
 
     if (num_pages<=0) { 
@@ -173,7 +173,7 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id
       return NULL;
     }
 
-    pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment, node_id);
+    pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment, node_id, constraints);
 
     if (!pg_addr) { 
 	ERROR("ALERT ALERT  Page allocation has FAILED Warning\n");
@@ -203,7 +203,7 @@ void palacios_free_pages(void * page_paddr, int num_pages) {
 
 
 void *
-palacios_alloc_extended(unsigned int size, unsigned int flags) {
+palacios_alloc_extended(unsigned int size, unsigned int flags, int node) {
     void * addr = NULL;
 
     if (size==0) { 
@@ -214,7 +214,11 @@ palacios_alloc_extended(unsigned int size, unsigned int flags) {
       return NULL;
     }
 
-    addr = kmalloc(size+2*ALLOC_PAD, flags);
+    if (node==-1) { 
+	addr = kmalloc(size+2*ALLOC_PAD, flags);
+    } else {
+	addr = kmalloc_node(size+2*ALLOC_PAD, flags, node);
+    }
 
     if (!addr) { 
        ERROR("ALERT ALERT  kmalloc has FAILED FAILED FAILED\n");
@@ -275,9 +279,9 @@ palacios_alloc(unsigned int size) {
     // module, both in places where interrupts are off and where they are on
     // a GFP_KERNEL call, when done with interrupts off can lead to DEADLOCK
     if (irqs_disabled()) {
-	return palacios_alloc_extended(size,GFP_ATOMIC);
+	return palacios_alloc_extended(size,GFP_ATOMIC,-1);
     } else {
-	return palacios_alloc_extended(size,GFP_KERNEL);
+	return palacios_alloc_extended(size,GFP_KERNEL,-1);
     }
 
 }

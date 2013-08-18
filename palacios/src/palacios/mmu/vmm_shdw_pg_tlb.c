@@ -53,6 +53,26 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core);
 #include "vmm_shdw_pg_tlb_64.h"
 
 
+static inline int get_constraints(struct guest_info *core) 
+{
+    switch (v3_get_vm_cpu_mode(core)) {
+	case PROTECTED:
+	case PROTECTED_PAE:
+	    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
+	    break;
+	case LONG:
+	case LONG_32_COMPAT:
+	case LONG_16_COMPAT:
+	    return 0;
+	    break;
+	default:
+	    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
+	    break;
+    }
+    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
+}
+
+
 static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) {
     struct v3_shdw_pg_state * state = &(core->shdw_pg_state);
     struct vtlb_local_state * impl_state = (struct vtlb_local_state *)(state->local_impl_data);
@@ -88,7 +108,7 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
 	return NULL;
     }
 
-    page_tail->page_pa = (addr_t)V3_AllocPages(1);
+    page_tail->page_pa = (addr_t)V3_AllocPagesExtended(1,PAGE_SIZE_4KB,-1,get_constraints(core));
 
     if (!page_tail->page_pa) {
 	PrintError(core->vm_info, core, "Cannot allocate page\n");
@@ -167,15 +187,19 @@ static int vtlb_activate_shdw_pt(struct guest_info * core) {
 
 	case PROTECTED:
 	    return activate_shadow_pt_32(core);
+	    break;
 	case PROTECTED_PAE:
 	    return activate_shadow_pt_32pae(core);
+	    break;
 	case LONG:
 	case LONG_32_COMPAT:
 	case LONG_16_COMPAT:
 	    return activate_shadow_pt_64(core);
+	    break;
 	default:
 	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 	    return -1;
+	    break;
     }
 
     return 0;

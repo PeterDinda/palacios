@@ -94,7 +94,10 @@ int V3_init_devices() {
 
 
 int V3_deinit_devices() {    
-    v3_free_htable(master_dev_table, 0, 0);
+    if (master_dev_table) { 
+	v3_free_htable(master_dev_table, 0, 0);
+	master_dev_table=0;
+    }
     return 0;
 }
 
@@ -329,7 +332,10 @@ int v3_deinit_dev_mgr(struct v3_vm_info * vm) {
 
     free_frontends(vm, mgr);
 
-    v3_free_htable(mgr->dev_table, 0, 0);
+    if (mgr->dev_table) { 
+	v3_free_htable(mgr->dev_table, 0, 0);
+	mgr->dev_table=0;
+    }
 
     return 0;
 }

@@ -112,12 +112,16 @@ static void shadow_free_pde_chain(struct guest_info *core, struct pde_chain *pc)
 }
 
 
+
 static void shadow_free_page (struct guest_info * core, struct shadow_page_cache_data * page) 
 {
     list_del(&page->link);
 
     V3_FreePages((void *)page->page_pa, 1);
-    page->page_pa=(addr_t)V3_AllocPages(1);
+    
+    // presumably the same page could be used for 32 or 64 bit tables, so, we'll make it 
+    // uniformly compatible
+    page->page_pa=(addr_t)V3_AllocPagesExtended(1,PAGE_SIZE_4KB,-1,V3_ALLOC_PAGES_CONSTRAINT_4GB);
 
     if (!page->page_pa) { 
 	PrintError(info->vm_info, info, "Freeing shadow page failed on allocation\n");
@@ -182,7 +186,11 @@ static int alloc_shadow_pages(struct guest_info * core)
 	page_header = &core->page_header_buf[i];
 
 	INIT_LIST_HEAD(&page_header->link);
-	if (!(page_header->page_pa = (addr_t)V3_AllocPages(1))) {
+	// presumably the same page could be used for 32 or 64 bit tables, so, we'll make it 
+	// uniformly compatible
+	page_headeer->page_pa=(addr_t)V3_AllocPagesExtended(1,PAGE_SIZE_4KB,-1,
+							    V3_ALLOC_PAGES_CONSTRAINT_4GB);
+	if (!(page_header->page_pa)) {
 	    PrintError(info->vm_info, info, "Allocation failed in allocating shadow page\n");
 	    goto error_1;
 	}

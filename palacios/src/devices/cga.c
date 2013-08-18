@@ -1252,7 +1252,7 @@ static int cga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
   
     video_state->dev = dev;
 
-    video_state->framebuf_pa = (addr_t)V3_AllocPages(FRAMEBUF_SIZE / 4096);
+    video_state->framebuf_pa = (addr_t)V3_AllocShadowSafePages(vm,FRAMEBUF_SIZE / 4096);
 
     if (!video_state->framebuf_pa) { 
 	PrintError(vm, VCORE_NONE, "Cannot allocate frame buffer\n");

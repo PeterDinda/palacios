@@ -31,11 +31,12 @@
 #endif
 
 
-static addr_t create_generic_pt_page() {
+static addr_t create_generic_pt_page(struct guest_info *core) {
     void * page = 0;
     void *temp;
 
-    temp = V3_AllocPages(1);
+    temp = V3_AllocPagesExtended(1, PAGE_SIZE_4KB, -1, 
+				 core->shdw_pg_mode==SHADOW_PAGING ? V3_ALLOC_PAGES_CONSTRAINT_4GB : 0);
     if (!temp) { 
 	PrintError(VM_NONE, VCORE_NONE,"Cannot allocate page\n");
 	return 0;
@@ -53,7 +54,7 @@ static addr_t create_generic_pt_page() {
 #include "vmm_direct_paging_64.h"
 
 int v3_init_passthrough_pts(struct guest_info * info) {
-    info->direct_map_pt = (addr_t)V3_PAddr((void *)create_generic_pt_page());
+    info->direct_map_pt = (addr_t)V3_PAddr((void *)create_generic_pt_page(info));
     return 0;
 }
 

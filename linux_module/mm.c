@@ -13,6 +13,7 @@
 #include "mm.h"
 #include "buddy.h"
 #include "numa.h"
+#include "palacios/vmm.h"
 
 
 static struct buddy_memzone ** memzones = NULL;
@@ -20,9 +21,20 @@ static uintptr_t * seed_addrs = NULL;
 
 
 // alignment is in bytes
-uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id) {
+uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id, int constraints) {
     uintptr_t addr = 0; 
     int any = node_id==-1; // can allocate on any
+    int buddy_constraints=0;
+
+    if (constraints && constraints!=V3_ALLOC_PAGES_CONSTRAINT_4GB) { 
+	ERROR("Unknown constraint mask 0x%x\n",constraints);
+	return 0;
+    }
+    
+    if (constraints & V3_ALLOC_PAGES_CONSTRAINT_4GB) { 
+	buddy_constraints |= LWK_BUDDY_CONSTRAINT_4GB;
+    }
+
 
     if (node_id == -1) {
 	int cpu_id = get_cpu();
@@ -38,14 +50,14 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id) {
 	return 0;
     }
 
-    addr = buddy_alloc(memzones[node_id], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT);
+    addr = buddy_alloc(memzones[node_id], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT, buddy_constraints);
 
     if (!addr && any) { 
 	int i;
 	// do a scan to see if we can satisfy request on any node
 	for (i=0; i< numa_num_nodes(); i++) { 
 	    if (i!=node_id) { 
-		addr = buddy_alloc(memzones[i], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT);
+		addr = buddy_alloc(memzones[i], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT, buddy_constraints);
 		if (addr) {
 		    break;
 		}
@@ -132,6 +144,10 @@ int add_palacios_memory(struct v3_mem_region *r) {
 	return -1;
     }
 
+    if ((node_id != r->node) && (r->node!=-1)) { 
+	INFO("Memory add request is for node %d, but memory is in node %d\n",r->node,node_id);
+    }
+
     pool_order = get_order(r->num_pages * PAGE_SIZE) + PAGE_SHIFT;
 
     if (buddy_add_pool(memzones[node_id], r->base_addr, pool_order, keep)) {
@@ -203,7 +219,7 @@ int palacios_init_mm( void ) {
 
     INFO("memory manager init: MAX_ORDER=%d (%llu bytes)\n",MAX_ORDER, PAGE_SIZE*pow2(MAX_ORDER));
 
-    memzones = palacios_alloc_extended(sizeof(struct buddy_memzone *) * num_nodes, GFP_KERNEL);
+    memzones = palacios_alloc_extended(sizeof(struct buddy_memzone *) * num_nodes, GFP_KERNEL,-1);
 
     if (!memzones) { 
 	ERROR("Cannot allocate space for memory zones\n");
@@ -213,7 +229,7 @@ int palacios_init_mm( void ) {
 
     memset(memzones, 0, sizeof(struct buddy_memzone *) * num_nodes);
 
-    seed_addrs = palacios_alloc_extended(sizeof(uintptr_t) * num_nodes, GFP_KERNEL);
+    seed_addrs = palacios_alloc_extended(sizeof(uintptr_t) * num_nodes, GFP_KERNEL,-1);
 
     if (!seed_addrs) { 
 	ERROR("Cannot allocate space for seed addrs\n");

@@ -70,7 +70,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 
     //Fix up the PML entry
     if (pml[pml_index].present == 0) {
-	pdpe = (pdpe64_t *)create_generic_pt_page();
+	pdpe = (pdpe64_t *)create_generic_pt_page(core);
    
 	// Set default PML Flags...
 	pml[pml_index].present = 1;
@@ -84,7 +84,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 
     // Fix up the PDPE entry
     if (pdpe[pdpe_index].present == 0) {
-	pde = (pde64_t *)create_generic_pt_page();
+	pde = (pde64_t *)create_generic_pt_page(core);
 	
 	// Set default PDPE Flags...
 	pdpe[pdpe_index].present = 1;
@@ -139,7 +139,7 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
     
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
-	pte = (pte64_t *)create_generic_pt_page();
+	pte = (pte64_t *)create_generic_pt_page(core);
 	
 	pde[pde_index].present = 1;
 	pde[pde_index].writable = 1;

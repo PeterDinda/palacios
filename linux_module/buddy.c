@@ -153,7 +153,7 @@ int buddy_add_pool(struct buddy_memzone * zone,
 	return -1;
     }
 
-    mp = palacios_alloc_node_extended(sizeof(struct buddy_mempool), GFP_KERNEL, zone->node_id);
+    mp = palacios_alloc_extended(sizeof(struct buddy_mempool), GFP_KERNEL, zone->node_id);
 
     if (IS_ERR(mp)) {
 	ERROR("Could not allocate mempool\n");
@@ -170,7 +170,7 @@ int buddy_add_pool(struct buddy_memzone * zone,
     /* Allocate a bitmap with 1 bit per minimum-sized block */
     mp->num_blocks = (1UL << pool_order) / (1UL << zone->min_order);
 
-    mp->tag_bits   = palacios_alloc_node_extended(
+    mp->tag_bits   = palacios_alloc_extended(
 				  BITS_TO_LONGS(mp->num_blocks) * sizeof(long), GFP_KERNEL, zone->node_id
 				  );
 
@@ -261,20 +261,26 @@ int buddy_remove_pool(struct buddy_memzone * zone,
  * Arguments:
  *       [IN] mp:    Buddy system memory allocator object.
  *       [IN] order: Block size to allocate (2^order bytes).
- *
+ *       [IN] constraints: bitmmask showing restrictions for scan. currently: 0=none, or LWK_BUDDY_CONSTRAINT_4GB
  * Returns:
  *       Success: Pointer to the start of the allocated memory block.
  *       Failure: NULL
  */
 uintptr_t
-buddy_alloc(struct buddy_memzone *zone, unsigned long order)
+buddy_alloc(struct buddy_memzone *zone, unsigned long order, int constraints)
 {
     unsigned long j;
     struct buddy_mempool * mp = NULL;
     struct list_head * list = NULL;
+    struct list_head * cur = NULL;
     struct block * block = NULL;
     struct block * buddy_block = NULL;
     unsigned long flags = 0;
+
+    if (constraints && constraints!=LWK_BUDDY_CONSTRAINT_4GB) { 
+	ERROR("Do not know how to satisfy constraint mask 0x%x\n", constraints);
+	return (uintptr_t) NULL;
+    }
 
     BUG_ON(zone == NULL);
     BUG_ON(order > zone->max_order);
@@ -292,13 +298,44 @@ buddy_alloc(struct buddy_memzone *zone, unsigned long order)
 
 	INFO("Order iter=%lu\n", j);
 
-	/* Try to allocate the first block in the order j list */
-	list = &zone->avail[j];
+	block=NULL;
 
-	if (list_empty(list)) 
+	list = &(zone->avail[j]);
+	
+	if (list_empty(list)) {
 	    continue;
+	}
 
-	block = list_entry(list->next, struct block, link);
+	list_for_each(cur, list) {
+	    block = list_entry(cur, struct block, link);
+
+	    if (!constraints) {
+		// without a constraint, we just want the first one
+		break;
+	    }
+	    
+	    if (constraints & LWK_BUDDY_CONSTRAINT_4GB) {
+		// under this constraint, we will only use if the entirity
+		// of the allocation within the block will be below 4 GB
+		void *block_pa = (void*)__pa(block);
+		if ((block_pa + (1ULL<<order)) <= (void*)(0x100000000ULL)) {
+		    // this block will work
+		    break;
+		} else {
+		    // look for the next block
+		    block=NULL;
+		    continue;
+		}
+	    }
+	}
+	
+	if (!block) { 
+	    // uh oh, no block, look to next order
+	    continue;
+	}
+
+	// have appropriate block, will allocate
+
 	list_del(&(block->link));
 
 	mp = block->mp;
@@ -306,11 +343,6 @@ buddy_alloc(struct buddy_memzone *zone, unsigned long order)
 	mark_allocated(mp, block);
 
 	INFO("pool=%p, block=%p, order=%lu, j=%lu\n", mp, block, order, j);
-
-	/*
-	palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
-	return 0;
-	*/
 
 	/* Trim if a higher order block than necessary was allocated */
 	while (j > order) {
@@ -563,11 +595,11 @@ buddy_init(
     if (min_order > max_order)
 	return NULL;
 
-    zone = palacios_alloc_node_extended(sizeof(struct buddy_memzone), GFP_KERNEL, node_id);
+    zone = palacios_alloc_extended(sizeof(struct buddy_memzone), GFP_KERNEL, node_id);
 	
     INFO("Allocated zone at %p\n", zone);
 
-    if (IS_ERR(zone)) {
+    if (!zone) {
 	ERROR("Could not allocate memzone\n");
 	return NULL;
     }
@@ -579,7 +611,13 @@ buddy_init(
     zone->node_id = node_id;
 
     /* Allocate a list for every order up to the maximum allowed order */
-    zone->avail = palacios_alloc_node_extended((max_order + 1) * sizeof(struct list_head), GFP_KERNEL, zone->node_id);
+    zone->avail = palacios_alloc_extended((max_order + 1) * sizeof(struct list_head), GFP_KERNEL, zone->node_id);
+
+    if (!(zone->avail)) { 
+	ERROR("Unable to allocate space for zone list\n");
+	palacios_free(zone);
+	return NULL;
+    }
 
     INFO("Allocated free lists at %p\n", zone->avail);
 

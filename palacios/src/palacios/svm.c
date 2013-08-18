@@ -74,7 +74,7 @@ extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs, vmcb_t * host_
 
 static vmcb_t * Allocate_VMCB() {
     vmcb_t * vmcb_page = NULL;
-    addr_t vmcb_pa = (addr_t)V3_AllocPages(1);
+    addr_t vmcb_pa = (addr_t)V3_AllocPages(1);   // need not be shadow safe, not exposed to guest
 
     if ((void *)vmcb_pa == NULL) {
       PrintError(VM_NONE, VCORE_NONE, "Error allocating VMCB\n");
@@ -1042,7 +1042,7 @@ void v3_init_svm_cpu(int cpu_id) {
     V3_Print(VM_NONE, VCORE_NONE,  "SVM Enabled\n");
 
     // Setup the host state save area
-    host_vmcbs[cpu_id] = (addr_t)V3_AllocPages(4);
+    host_vmcbs[cpu_id] = (addr_t)V3_AllocPages(4); // need not be shadow-safe, not exposed to guest
 
     if (!host_vmcbs[cpu_id]) {
 	PrintError(VM_NONE, VCORE_NONE,  "Failed to allocate VMCB\n");
@@ -1287,7 +1287,7 @@ void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
   
 
   ctrl_area->instrs.IOIO_PROT = 1;
-  ctrl_area->IOPM_BASE_PA = (uint_t)V3_AllocPages(3);
+  ctrl_area->IOPM_BASE_PA = (uint_t)V3_AllocPages(3); // need not be shadow-safe, not exposed to guest
 
   if (!ctrl_area->IOPM_BASE_PA) { 
       PrintError(core->vm_info, core, "Cannot allocate IO bitmap\n");

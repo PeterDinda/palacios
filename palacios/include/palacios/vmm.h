@@ -22,7 +22,6 @@
 
 
 
-
 #ifdef __V3VEE__
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_types.h>
@@ -60,18 +59,36 @@ int      v3_get_vcore(struct guest_info *);
 	extern struct v3_os_hooks * os_hooks;		        	\
 	void * ptr = 0;					        	\
 	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
-	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB,-1);	\
+	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB,-1,0); \
 	}						        	\
 	ptr;						        	\
     })
 
+
+// Use 32 bit constraints if the vm uses 32bit shadow paging at any point
+// Should be used for shadow page tables and any physical memory
+// mapped into the vm
+#define V3_AllocShadowSafePages(vm,num_pages)				\
+    ({							        	\
+	extern struct v3_os_hooks * os_hooks;		        	\
+	void * ptr = 0;					        	\
+	int c; int shadow=0;                                            \
+        for (c=0;c<(vm)->num_cores && !shadow;c++) {                    \
+            shadow|=vm->cores[c].shdw_pg_mode==SHADOW_PAGING;           \
+        }                                                               \
+	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
+	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB,-1,\
+                    shadow ? V3_ALLOC_PAGES_CONSTRAINT_4GB : 0);        \
+	}						        	\
+	ptr;						        	\
+    })
 
 #define V3_AllocAlignedPages(num_pages, align)		        	\
     ({							        	\
 	extern struct v3_os_hooks * os_hooks;		        	\
 	void * ptr = 0;					        	\
 	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
-	    ptr = (os_hooks)->allocate_pages(num_pages,align,-1);  	\
+	    ptr = (os_hooks)->allocate_pages(num_pages,align,-1,0);  	\
 	}						        	\
 	ptr;						        	\
     })
@@ -82,7 +99,17 @@ int      v3_get_vcore(struct guest_info *);
         extern struct v3_os_hooks * os_hooks;                           \
         void * ptr = 0;                                                 \
         if ((os_hooks) && (os_hooks)->allocate_pages) {                 \
-            ptr = (os_hooks)->allocate_pages(num_pages, PAGE_SIZE_4KB, node_id); \
+            ptr = (os_hooks)->allocate_pages(num_pages, PAGE_SIZE_4KB, node_id,0); \
+        }                                                               \
+        ptr;                                                            \
+    })
+
+#define V3_AllocPagesExtended(num_pages, align, node_id, constraints)			\
+    ({                                                                  \
+        extern struct v3_os_hooks * os_hooks;                           \
+        void * ptr = 0;                                                 \
+        if ((os_hooks) && (os_hooks)->allocate_pages) {                 \
+            ptr = (os_hooks)->allocate_pages(num_pages, align, node_id,constraints); \
         }                                                               \
         ptr;                                                            \
     })
@@ -304,14 +331,18 @@ struct v3_vm_info;
 
 /* This will contain function pointers that provide OS services */
 struct v3_os_hooks {
-  // the vm pointer is the host os's "priv_data" from v3_create_vm
-  // if vm is null, this is a general palacios printout
-  // if vm is not null, and vcore is negative, this is a general print form the vm
-  // if vm is not null, and vcore is non-negative, this is a print from a specific vcore
+    // the vm pointer is the host os's "priv_data" from v3_create_vm
+    // if vm is null, this is a general palacios printout
+    // if vm is not null, and vcore is negative, this is a general print form the vm
+    // if vm is not null, and vcore is non-negative, this is a print from a specific vcore
     void (*print)(void *vm, int vcore, const char * format, ...)
   	__attribute__ ((format (printf, 3, 4)));
-  
-    void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id);
+
+    // For page allocation:
+    //   - node_id -1 => any node, otherwise the numa node we want to alloc from
+    //   - constraint = 0 => no constraints, otherwise a bitwise-or of the following flags
+#define V3_ALLOC_PAGES_CONSTRAINT_4GB  1
+    void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id, int constraint);
     void (*free_pages)(void * page, int num_pages);
 
     void *(*malloc)(unsigned int size);

@@ -57,7 +57,7 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
 
     // Fix up the PDPE entry
     if (pdpe[pdpe_index].present == 0) {
-	pde = (pde32pae_t *)create_generic_pt_page();
+	pde = (pde32pae_t *)create_generic_pt_page(info);
    
 	pdpe[pdpe_index].present = 1;
 	// Set default PDPE Flags...
@@ -69,7 +69,7 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
 
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
-	pte = (pte32pae_t *)create_generic_pt_page();
+	pte = (pte32pae_t *)create_generic_pt_page(info);
 
 	pde[pde_index].present = 1;
 	pde[pde_index].writable = 1;

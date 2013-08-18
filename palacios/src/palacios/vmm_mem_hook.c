@@ -58,7 +58,7 @@ int v3_init_mem_hooks(struct v3_vm_info * vm) {
 
     struct v3_mem_hooks * hooks = &(vm->mem_hooks);
 
-    temp = V3_AllocPages(vm->num_cores);
+    temp = V3_AllocShadowSafePages(vm,vm->num_cores);
 
     if (!temp) {
 	PrintError(vm, VCORE_NONE, "Cannot allocate space for mem hooks\n");
@@ -67,7 +67,7 @@ int v3_init_mem_hooks(struct v3_vm_info * vm) {
 
     hooks->hook_hvas_1 = V3_VAddr(temp);
 
-    temp = V3_AllocPages(vm->num_cores);
+    temp = V3_AllocShadowSafePages(vm,vm->num_cores);
 
     if (!temp) {
 	PrintError(vm, VCORE_NONE,"Cannot allocate space for mem hooks\n");

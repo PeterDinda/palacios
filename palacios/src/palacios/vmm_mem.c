@@ -104,6 +104,36 @@ static int gpa_to_node_from_cfg(struct v3_vm_info * vm, addr_t gpa) {
     return -1;
 }
 
+//
+// This code parallels that in vmm_shadow_paging.c:v3_init_shdw_impl() 
+// and vmm_config.c:determine_paging_mode.   The determination of which
+// paging mode will be used is determined much later than the allocation of
+// the guest memory regions, so we need to do this here to decide if they
+// need to be below 4 GB or not.
+static int will_use_shadow_paging(struct v3_vm_info *vm)
+{
+    v3_cfg_tree_t * pg_cfg = v3_cfg_subtree(vm->cfg_data->cfg, "paging");
+    char * pg_mode = v3_cfg_val(pg_cfg, "mode");
+   
+    if (pg_mode == NULL) { 
+	return 1; // did not ask, get shadow
+    } else {
+	if (strcasecmp(pg_mode, "nested") == 0) {
+	    extern v3_cpu_arch_t v3_mach_type;
+	    if ((v3_mach_type == V3_SVM_REV3_CPU) || 
+		(v3_mach_type == V3_VMX_EPT_CPU) ||
+		(v3_mach_type == V3_VMX_EPT_UG_CPU)) {
+		return 0; // ask for nested, get nested
+	    } else { 
+		return 1; // ask for nested, get shadow
+	    }
+	} else if (strcasecmp(pg_mode, "shadow") != 0) { 
+	    return 1;     // ask for shadow, get shadow
+	} else {
+	    return 1;     // ask for something else, get shadow
+	}
+    }
+}
 
 
 int v3_init_mem_map(struct v3_vm_info * vm) {
@@ -141,13 +171,13 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
         node_id = gpa_to_node_from_cfg(vm, region->guest_start);
         
         V3_Print(vm, VCORE_NONE, "Allocating block %d on node %d\n", i, node_id);
-        
-        if (node_id != -1) {
-            region->host_addr = (addr_t)V3_AllocPagesNode(block_pages, node_id);
-        } else {
-            region->host_addr = (addr_t)V3_AllocPages(block_pages);
-        }
 
+	region->host_addr = (addr_t)V3_AllocPagesExtended(block_pages,
+							  PAGE_SIZE_4KB,
+							  node_id,
+							  will_use_shadow_paging(vm) ? 
+							  V3_ALLOC_PAGES_CONSTRAINT_4GB : 0 ); 
+							     
         if ((void *)region->host_addr == NULL) { 
             PrintError(vm, VCORE_NONE, "Could not allocate guest memory\n");
             return -1;

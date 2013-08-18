@@ -391,7 +391,9 @@ static struct shdw_pg_data * create_shdw_pt(struct v3_vm_info * vm, addr_t gpa, 
 	    return NULL;
 	}
 
-	pg_data->hpa = (addr_t)V3_AllocPages(1);
+	pg_data->hpa = (addr_t)V3_AllocPagesExtended(1,PAGE_SIZE_4KB,-1,
+						     V3_ALLOC_PAGES_CONSTRAINT_4GB);
+
 
 	if (!pg_data->hpa) {
 	    PrintError(vm, VCORE_NONE,  "Cannot allocate page for shadow page table\n");

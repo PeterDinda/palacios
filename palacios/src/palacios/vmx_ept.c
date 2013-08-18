@@ -30,7 +30,7 @@ static addr_t create_ept_page() {
     void * temp;
     void * page = 0;
     
-    temp = V3_AllocPages(1);
+    temp = V3_AllocPages(1);  // need not be shadow-safe, not exposed to guest
     if (!temp) {
 	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate EPT page\n");
 	return 0;

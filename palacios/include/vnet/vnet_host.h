@@ -92,7 +92,7 @@ extern struct vnet_host_hooks * host_hooks;
 /* 4KB-aligned */
 static inline void * Vnet_AllocPages(int num_pages){
     if ((host_hooks) && host_hooks->allocate_pages) {
-	return host_hooks->allocate_pages(num_pages, PAGE_SIZE_4KB);
+	return host_hooks->allocate_pages(num_pages, PAGE_SIZE_4KB,-1,0); // any zone, no constraints
     }
 
     return NULL;

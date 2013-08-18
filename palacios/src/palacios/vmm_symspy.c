@@ -117,7 +117,7 @@ static int symspy_msr_write(struct guest_info * core, uint_t msr, struct v3_msr 
 
 int v3_init_symspy_vm(struct v3_vm_info * vm, struct v3_symspy_global_state * state) {
 
-    state->global_page_pa = (addr_t)V3_AllocPages(1);
+    state->global_page_pa = (addr_t)V3_AllocShadowSafePages(vm, 1);
     if (!state->global_page_pa) { 
 	PrintError(vm, VCORE_NONE, "Cannot allocate page\n");
 	return -1;
@@ -137,7 +137,7 @@ int v3_init_symspy_vm(struct v3_vm_info * vm, struct v3_symspy_global_state * st
 
 
 int v3_init_symspy_core(struct guest_info * core, struct v3_symspy_local_state * state) {
-    state->local_page_pa = (addr_t)V3_AllocPages(1);
+    state->local_page_pa = (addr_t)V3_AllocShadowSafePages(core->vm_info, 1);
 
     if (!state->local_page_pa) { 
 	PrintError(core->vm_info, core, "Cannot allocate page\n");

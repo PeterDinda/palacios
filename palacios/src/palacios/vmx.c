@@ -97,7 +97,7 @@ static addr_t allocate_vmcs() {
 
     PrintDebug(VM_NONE, VCORE_NONE, "Allocating page\n");
 
-    temp = V3_AllocPages(1);
+    temp = V3_AllocPages(1); // need not be shadow-safe, not exposed to guest
     if (!temp) { 
 	PrintError(VM_NONE, VCORE_NONE, "Cannot allocate VMCS\n");
 	return -1;
@@ -456,7 +456,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	    return -1;
 	}
 
-	vmx_state->msr_area_paddr = (addr_t)V3_AllocPages(1);
+	vmx_state->msr_area_paddr = (addr_t)V3_AllocPages(1); // need not be shadow-safe, not exposed to guest
 	
 	if (vmx_state->msr_area_paddr == (addr_t)NULL) {
 	    PrintError(core->vm_info, core, "could not allocate msr load/store area\n");
@@ -687,7 +687,7 @@ int v3_vmx_load_core(struct guest_info * core, void * ctx){
   struct cr0_32 * shadow_cr0;
   addr_t vmcs_page_paddr;  //HPA
   
-  vmcs_page_paddr = (addr_t) V3_AllocPages(1);
+  vmcs_page_paddr = (addr_t) V3_AllocPages(1); // need not be shadow-safe, not exposed to guest
   
   if (!vmcs_page_paddr) { 
     PrintError(core->vm_info, core, "Could not allocate space for a vmcs in VMX\n");

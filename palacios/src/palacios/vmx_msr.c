@@ -73,7 +73,7 @@ int v3_init_vmx_msr_map(struct v3_vm_info * vm) {
 
     msr_map->update_map = update_map;
     
-    temp = V3_AllocPages(1);
+    temp = V3_AllocPages(1); // need not be shadow-safe, not exposed to guest
     if (!temp) { 
         PrintError(vm, VCORE_NONE, "Cannot allocat MSR bitmap\n");
 	return -1;

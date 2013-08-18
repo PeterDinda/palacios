@@ -57,7 +57,7 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
-	pte = (pte32_t *)create_generic_pt_page();
+	pte = (pte32_t *)create_generic_pt_page(info);
 	
 	pde[pde_index].present = 1;
 	pde[pde_index].writable = 1;

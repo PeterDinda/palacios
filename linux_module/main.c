@@ -449,7 +449,7 @@ static int __init v3_init(void) {
     {
 	struct proc_dir_entry *entry;
 
-	INFO("palacios_proc_dir=%p before v3-guests\n",palacios_proc_dir);
+	//INFO("palacios_proc_dir=%p before v3-guests\n",palacios_proc_dir);
 	entry = create_proc_read_entry("v3-guests", 0444, palacios_proc_dir, read_guests, NULL);
         if (entry) {
 	    INFO("/proc/v3vee/v3-guests successfully created\n");
@@ -554,7 +554,7 @@ void * trace_malloc(size_t size, gfp_t flags) {
     void * addr = NULL;
 
     mod_allocs++;
-    addr = palacios_alloc_extended(size, flags);
+    addr = palacios_alloc_extended(size, flags, -1);
 
     return addr;
 }

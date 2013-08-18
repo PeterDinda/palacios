@@ -296,7 +296,7 @@ static int swap_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     swap->active = 0;
     swap->hdr = (union swap_header *)swap;
 
-    swap->swap_base_addr = (addr_t)V3_AllocPages(swap->capacity / 4096);
+    swap->swap_base_addr = (addr_t)V3_AllocShadowSafePages(swap->capacity / 4096); 
 
     if (!swap->swap_base_addr) { 
 	PrintError(vm, VCORE_NONE, "Cannot allocate swap space\n");

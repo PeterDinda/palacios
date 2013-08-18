@@ -91,10 +91,14 @@ buddy_remove_pool(struct buddy_memzone * zone,
 		  void          **user_metadata);
 
 
+// constraint=0 => no constraints, otherwise bitmask of:
+#define LWK_BUDDY_CONSTRAINT_4GB 0x1
+
 /* Allocate pages, returns physical address */
 extern uintptr_t 
 buddy_alloc(struct buddy_memzone * zone,
-	    unsigned long order);
+	    unsigned long order,
+	    int constraints);
 
 
 /* Free a physical address */

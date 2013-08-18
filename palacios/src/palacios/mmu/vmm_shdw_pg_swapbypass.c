@@ -248,6 +248,25 @@ static addr_t map_swp_page(struct v3_vm_info * vm, pte32_t * shadow_pte, pte32_t
 #include "vmm_shdw_pg_swapbypass_32pae.h"
 #include "vmm_shdw_pg_swapbypass_64.h"
 
+static inline int get_constraints(struct guest_info *core) 
+{
+    switch (v3_get_vm_cpu_mode(core)) {
+	case PROTECTED:
+	case PROTECTED_PAE:
+	    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
+	    break;
+	case LONG:
+	case LONG_32_COMPAT:
+	case LONG_16_COMPAT:
+	    return 0;
+	    break;
+	default:
+	    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
+	    break;
+    }
+    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
+}
+
 
 static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) {
     struct v3_shdw_pg_state * state = &(core->shdw_pg_state);
@@ -284,7 +303,7 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
 	return NULL;
     }
 
-    page_tail->page_pa = (addr_t)V3_AllocPages(1);
+    page_tail->page_pa = (addr_t)V3_AllocPagesExtended(1,PAGE_SIZE_4KB,-1,get_constraints(core));
 
     if (!page_tail->page_pa) {
 	PrintError(core->vm_info, core, "Cannot allocate page\n");

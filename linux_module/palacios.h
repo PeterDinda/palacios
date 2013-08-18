@@ -140,14 +140,12 @@ struct proc_dir_entry *palacios_get_procdir(void);
 // The idea is that everything uses the same stubs
 void  palacios_print_scoped(void *vm, int vcore, const char *fmt, ...);
 #define palacios_print(...) palacios_print_scoped(0,-1, __VA_ARGS__)
-void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id);
+// node_id=-1 => no node constraint
+void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id, int constraints);
 void  palacios_free_pages(void *page_addr, int num_pages);
 void *palacios_alloc(unsigned int size);
-void *palacios_alloc_extended(unsigned int size, unsigned int flags);
-// FIX
-// NEED A palacios_alloc_node wrapper
-//
-#define palacios_alloc_node_extended(size, flags, node) kmalloc_node(size,flags,node)
+// node_id=-1 => no node constraint
+void *palacios_alloc_extended(unsigned int size, unsigned int flags, int node_id);
 void  palacios_free(void *);
 void *palacios_valloc(unsigned int size); // use instead of vmalloc
 void  palacios_vfree(void *);             // use instead of vfree

@@ -51,7 +51,7 @@ int v3_init_vmx_io_map(struct v3_vm_info * vm) {
 
     vm->io_map.update_map = update_map;
 
-    temp = V3_AllocPages(2);
+    temp = V3_AllocPages(2);  // need not be shadow-safe, not exposed to guest
     if (!temp) {
         PrintError(vm, VCORE_NONE, "Cannot allocate io bitmap\n");
 	return -1;
