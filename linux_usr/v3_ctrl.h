@@ -16,6 +16,8 @@
 
 #define V3_ADD_MEMORY 50
 #define V3_RESET_MEMORY 51
+#define V3_REMOVE_MEMORY 52
+
 #define V3_ADD_PCI_HW_DEV 55
 #define V3_ADD_PCI_USER_DEV 56
 

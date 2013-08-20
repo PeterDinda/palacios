@@ -21,7 +21,17 @@
 
 #define BUF_SIZE 128
 
+char offname[256];
+FILE *off;
 
+int num_offline;
+unsigned long long *start_offline;
+unsigned long long *len_offline;
+
+static int read_offlined();
+static int write_offlined();
+static int find_offlined(unsigned long long base_addr);
+static int clear_offlined();
 
 
 static int offline_memory(unsigned long long mem_size_bytes,
@@ -30,33 +40,37 @@ static int offline_memory(unsigned long long mem_size_bytes,
 			  unsigned long long *num_bytes, 
 			  unsigned long long *base_addr);
 
+static int online_memory(unsigned long long num_bytes, 
+			 unsigned long long base_addr);
+
+
+
+
 int main(int argc, char * argv[]) {
     unsigned long long mem_size_bytes = 0;
     unsigned long long mem_min_start = 0;
     int v3_fd = -1;
     int request = 0;
     int limit32 = 0;
+    int help=0;
+    int alloffline=0;
+    enum {NONE, ADD, REMOVE} op;
     int node = -1;
     int c;
     unsigned long long num_bytes, base_addr;
     struct v3_mem_region mem;
 
-    if (argc<2 || argc>8) {
-	printf("usage: v3_mem [-r] [-l] [-n k] [-m n] <memory size (MB)>\n\n"
-	       "Allocate memory for use by Palacios.\n\n"
-	       "With    -k    this requests in-kernel allocation.\n"
-	       "Without -k    this attempts to offline memory via hot remove\n\n"
-	       "With    -l    the request or offlining is limited to first 4 GB\n"
-	       "Without -l    the request or offlining has no limits\n\n"
-	       "With    -m n  the offline memory search starts at n MB\n"
-	       "Without -m n  the offline memory search starts at 0 MB\n\n"
-	       "With    -n i  the request is for numa node i\n"
-	       "Without -n i  the request can be on any numa node\n\n");
-        return -1;
-    }
-
-    while ((c=getopt(argc,argv,"klmn:"))!=-1) {
+    while ((c=getopt(argc,argv,"harklm:n:"))!=-1) {
 	switch (c) {
+	    case 'h':
+		help=1;
+		break;
+	    case 'a':
+		op=ADD;
+		break;
+	    case 'r':
+		op=REMOVE;
+		break;
 	    case 'k':
 		request=1;
 		break;
@@ -86,46 +100,166 @@ int main(int argc, char * argv[]) {
 		break;
 	}
     }
-	
-    mem_size_bytes = atoll(argv[optind]) * (1024 * 1024);
 
+
+    if (op==NONE || optind==argc || help) {
+	printf("usage: v3_mem [ [-k] [-l] [-n k] [-m n] -a <memory size (MB)>] | [-r <hexaddr> | offline]\n\n"
+	       "Palacios Memory Management\n\nMemory Addition\n"
+	       " -a <mem>      Allocate memory for use by Palacios (MB).\n\n"
+	       " With    -k    this requests in-kernel allocation\n"
+	       " Without -k    this attempts to offline memory via hot remove\n\n"
+	       " With    -l    the request or offlining is limited to first 4 GB\n"
+	       " Without -l    the request or offlining has no limits\n\n"
+	       " With    -m n  the search for offlineable memory starts at n MB\n"
+	       " Without -m n  the search for offlineable memory starts at 0 MB\n\n"
+	       " With    -n i  the request is for numa node i\n"
+	       " Without -n i  the request can be satified on any numa node\n\n"
+	       "Memory Removal\n"
+	       " -r <hexaddr>  Free Palacios memory containing hexaddr, online it if needed\n"
+	       " -r offline    Free all offline Palacios memory and online it\n"
+	       );
+	
+	return -1;
+    }
+
+    if (op==ADD) {
+	mem_size_bytes = atoll(argv[optind]) * (1024 * 1024);
+    } else if (op==REMOVE) { 
+	if (!strcasecmp(argv[optind],"offline")) {
+	    alloffline=1;
+	} else {
+	    base_addr=strtoll(argv[optind],NULL,16);
+	}
+    }
+    
+    if (!getenv("PALACIOS_DIR")) { 
+	printf("Please set the PALACIOS_DIR variable\n");
+	return -1;
+    }
+
+    strcpy(offname,getenv("PALACIOS_DIR"));
+    strcat(offname,"/.v3offlinedmem");
+
+    if (!(off=fopen(offname,"a+"))) { 
+	printf("Cannot open or create offline memory file %s",offname);
+	return -1;
+    }
+
+    // removing all offlined memory we added is a special case
+    if (op==REMOVE && alloffline) {
+	int i;
+	int rc=0;
+
+	// we just need to reinvoke ourselves
+	read_offlined();
+	for (i=0;i<num_offline;i++) {
+	    char cmd[256];
+	    sprintf(cmd,"v3_mem -r %llx", start_offline[i]);
+	    rc|=system(cmd);
+	}
+	clear_offlined();
+	return rc;
+    }
+
+	
     v3_fd = open(v3_dev, O_RDONLY);
     
     if (v3_fd == -1) {
 	printf("Error opening V3Vee control device\n");
+	fclose(off);
 	return -1;
     }
 
-    if (!request) { 
-	printf("Trying to offline memory (size=%llu, min_start=%llu, limit32=%d)\n",mem_size_bytes,mem_min_start,limit32);
-	if (offline_memory(mem_size_bytes,mem_min_start,limit32, &num_bytes, &base_addr)) { 
-	    printf("Could not offline memory\n");
-	    return -1;
+
+    if (op==ADD) { 
+	if (!request) { 
+	    printf("Trying to offline memory (size=%llu, min_start=%llu, limit32=%d)\n",mem_size_bytes,mem_min_start,limit32);
+	    if (offline_memory(mem_size_bytes,mem_min_start,limit32, &num_bytes, &base_addr)) { 
+		printf("Could not offline memory\n");
+		fclose(off);
+		close(v3_fd);
+		return -1;
+	    }
+	    
+	    fprintf(off,"%llx\t%llx\n",base_addr, num_bytes);
+	    
+	    mem.type=PREALLOCATED;
+	    mem.node=node;
+	    mem.base_addr=base_addr;
+	    mem.num_pages=num_bytes/4096;
+	    
+	} else {
+	    printf("Generating memory allocation request (size=%llu, limit32=%d)\n", mem_size_bytes, limit32);
+	    mem.type = limit32 ? REQUESTED32 : REQUESTED;
+	    mem.node = node;
+	    mem.base_addr = 0;
+	    mem.num_pages = mem_size_bytes / 4096;
 	}
-	mem.type=PREALLOCATED;
-	mem.node=node;
+	
+	printf("Allocation request is: type=%d, node=%d, base_addr=0x%llx, num_pages=%llu\n",
+	       mem.type, mem.node, mem.base_addr, mem.num_pages);
+	
+	if (ioctl(v3_fd, V3_ADD_MEMORY, &mem)<0) { 
+	    printf("Request rejected by Palacios\n");
+	    close(v3_fd);
+	    fclose(off);
+	    return -1;
+	} else {
+	    printf("Request accepted by Palacios\n");
+	    close(v3_fd); 	
+	    fclose(off);
+	    return 0;
+	}
+	
+    } else if (op==REMOVE) { 
+	int entry;
+
+	read_offlined();
+
+	entry=find_offlined(base_addr);
+	
+	if (entry<0) { 
+	    // no need to offline
+	    mem.type=REQUESTED;
+	} else {
+	    mem.type=PREALLOCATED;
+	}
+	
 	mem.base_addr=base_addr;
-	mem.num_pages=num_bytes/4096;
-    } else {
-	printf("Generating memory allocation request (size=%llu, limit32=%d)\n", mem_size_bytes, limit32);
-	mem.type = limit32 ? REQUESTED32 : REQUESTED;
-	mem.node = node;
-	mem.base_addr = 0;
-	mem.num_pages = mem_size_bytes / 4096;
-    }
-    
-    printf("Allocation request is: type=%d, node=%d, base_addr=0x%llx, num_pages=%llu\n",
-	   mem.type, mem.node, mem.base_addr, mem.num_pages);
-    
-    if (ioctl(v3_fd, V3_ADD_MEMORY, &mem)<0) { 
-	printf("Request rejected by Palacios\n");
-	close(v3_fd);
-	return -1;
-    } else {
+
+	// now remove it from palacios
+	printf("Deallocation request is: type=%d, base_addr=0x%llx\n",
+	       mem.type, mem.base_addr);
+	
+	if (ioctl(v3_fd, V3_REMOVE_MEMORY, &mem)<0) { 
+	    printf("Request rejected by Palacios\n");
+	    close(v3_fd);
+	    fclose(off);
+	    return -1;
+	} 
+
 	printf("Request accepted by Palacios\n");
-	close(v3_fd); 	
+
+	if (entry>=0) { 
+	    printf("Onlining the memory to make it available to the kernel\n");
+	    online_memory(start_offline[entry],len_offline[entry]);
+	
+	    len_offline[entry] = 0;
+
+	    write_offlined();
+
+	    
+	} else {
+	    printf("Memory was deallocated in the kernel\n");
+	}
+
+	clear_offlined();
+	close(v3_fd);
+	fclose(off);
+
 	return 0;
     }
+
 } 
 
 
@@ -468,4 +602,161 @@ static int offline_memory(unsigned long long mem_size_bytes,
     
     return 0;
 }
+
+
+static int online_memory(unsigned long long base_addr,
+			 unsigned long long num_bytes)
+{
+    
+    unsigned int block_size_bytes = 0;
+    int bitmap_entries = 0;
+    unsigned char * bitmap = NULL;
+    int num_blocks = 0;    
+    int reg_start = 0;
+    int mem_ready = 0;
+    
+    
+
+    printf("Trying to online memory from %llu to %llu\n",base_addr,base_addr+num_bytes-1);
+	
+    /* Figure out the block size */
+    {
+	int tmp_fd = 0;
+	char tmp_buf[BUF_SIZE];
+	
+	tmp_fd = open(SYS_PATH "block_size_bytes", O_RDONLY);
+	
+	if (tmp_fd == -1) {
+	    perror("Could not open block size file: " SYS_PATH "block_size_bytes");
+	    return -1;
+	}
+    
+	if (read(tmp_fd, tmp_buf, BUF_SIZE) <= 0) {
+	    perror("Could not read block size file: " SYS_PATH "block_size_bytes");
+	    return -1;
+	}
+	
+	close(tmp_fd);
+	
+	block_size_bytes = strtoll(tmp_buf, NULL, 16);
+	
+	printf("Memory block size is %dMB (%d bytes)\n", block_size_bytes / (1024 * 1024), block_size_bytes);
+	
+    }
+    
+    num_blocks =  num_bytes / block_size_bytes;
+    if (num_bytes % block_size_bytes) num_blocks++;
+
+    reg_start = base_addr / block_size_bytes;
+
+    printf("That is %lu blocks of size %llu starting at block %d\n", num_blocks, block_size_bytes, reg_start);
+   
+    
+	
+    /* Online memory blocks starting at reg_start */
+    {
+	int i = 0;
+	    
+	for (i = 0; i < num_blocks; i++) {	
+	    FILE * block_file = NULL;
+	    char fname[256];
+		
+	    memset(fname, 0, 256);
+	    
+	    snprintf(fname, 256, "%smemory%d/state", SYS_PATH, i + reg_start);
+	    
+	    block_file = fopen(fname, "r+");
+	    
+	    if (block_file == NULL) {
+		perror("Could not open block file");
+		return -1;
+	    }
+		
+	    
+	    printf("Onlining block %d (%s)\n", i + reg_start, fname);
+	    fprintf(block_file, "online\n");
+	    
+	    fclose(block_file);
+	    
+	}
+    }
+    
+    return 0;
+    
+}
+
+
+
+static int read_offlined()
+{
+    rewind(off);
+    unsigned long long base, len;
+    int i;
+    
+    num_offline=0;
+    while (fscanf(off,"%llx\t%llx\n",&base,&len)==2) { num_offline++; }
+
+
+    start_offline=(unsigned long long *)calloc(num_offline, sizeof(unsigned long long));
+    len_offline=(unsigned long long *)calloc(num_offline, sizeof(unsigned long long));
+
+    if (!start_offline || !len_offline) { 
+	printf("Cannot allocate space to load offline map\n");
+	return -1;
+    }
+
+    rewind(off);
+    for (i=0;i<num_offline;i++) { 
+	fscanf(off,"%llx\t%llx",&(start_offline[i]),&(len_offline[i]));
+    }
+    // we are now back to the end, and can keep appending
+    return 0;
+}
+
+
+static int write_offlined()
+{
+    int i;
+
+    fclose(off);
+    if (!(off=fopen(offname,"w+"))) {  // truncate
+	printf("Cannot open %s for writing!\n");
+	return -1;
+    }
+
+    for (i=0;i<num_offline;i++) { 
+	if (len_offline[i]) { 
+	    fprintf(off,"%llx\t%llx\n",start_offline[i],len_offline[i]);
+	}
+    }
+    // we are now back to the end, and can keep appending
+    return 0;
+}
+
+
+static int clear_offlined()
+{
+    free(start_offline);
+    free(len_offline);
+    return 0;
+}
+
+static int find_offlined(unsigned long long base_addr)
+{
+    int i;
+
+    for (i=0;i<num_offline;i++) { 
+	if (base_addr>=start_offline[i] &&
+	    base_addr<(start_offline[i]+len_offline[i])) { 
+	    return i;
+	}
+    }
+
+    return -1;
+
+}
+
+
+    
+
 
