@@ -146,7 +146,8 @@ END2
 #
 print "Writing ./ENV\n";
 open(ENV,">ENV");
-print ENV "export PATH=\$PATH:$pdir/linux_usr\n";
+print ENV "export PALACIOS_DIR=$pdir\n";
+print ENV "export PATH=$pdir/linux_usr:\$PATH\n";
 close(ENV);
 `chmod 644 ENV`;
 
@@ -155,13 +156,18 @@ open(INIT,">v3_init");
 print INIT "#!/bin/sh\n";
 print INIT "source $pdir/ENV\n";  # just in case
 
+# this file will track memory allocations
+# made at user level so that they can be recovered later
+# v3_mem will append to it
+print INIT "rm -f $pdir/.v3offlinedmem\n";
+
 print INIT "\n\n# insert the module\n";
 $cmd = "insmod $pdir/v3vee.ko";
 $cmd.= " allow_devmem=1 " if $devmem eq 'y';
 $cmd.= " options=\"mem_block_size=$memblocksize\" " if $override_memblocksize eq 'y';
 print INIT $cmd, "\n";
 
-$cmd = "v3_mem";
+$cmd = "v3_mem -a";
 $cmd.= " -k " if $hotremove eq 'n';
 $cmd.= " -l " if $shadow eq 'y';
 
@@ -176,7 +182,10 @@ close(INIT);
 print "Writing ./v3_deinit\n";
 open(DEINIT,">v3_deinit");
 print DEINIT "#!/bin/sh\n";
-print DEINIT "echo WARNING - THIS DOES NOT CURRENTLY ONLINE MEMORY\n";
+# bring any offlined memory back to the kernel
+print DEINIT "v3_mem -r offline\n";
+# a side effect here is that the offline file will be empty
+# the rmmod will free any in-kernel allocated memory
 print DEINIT "rmmod v3vee\n";
 close(DEINIT);
 `chmod 755 v3_deinit`;
