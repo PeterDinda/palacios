@@ -222,9 +222,13 @@ out_err:
         case V3_RESET_MEMORY: {
 	    DEBUG("Resetting memory\n");
             if (palacios_deinit_mm() == -1) {
-                ERROR("Error resetting Palacios memory\n");
+                ERROR("Error deiniting the Palacios memory manager\n");
                 return -EFAULT;
             }
+	    if (palacios_init_mm()) { 
+		ERROR("Error initing the Palacios memory manager\n");
+		return -EFAULT;
+	    }
             break;  
         }
 

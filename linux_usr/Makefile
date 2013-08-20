@@ -11,7 +11,7 @@ STATIC = 0
 # Executables that implement core functionality
 #
 BASE_EXECS = 	v3_mem \
-                v3_mem_free \
+                v3_mem_reset \
 		v3_create \
                 v3_create_bind \
 		v3_free  \
@@ -194,7 +194,7 @@ v3_x0vncserver :
 	else \
 		echo "In order to use v3_vncclient/server you must have" ; \
 		echo "previously built or received palacios/linux_usr/x0vncserver" ; \
-    		echo "To learn more about this, look in palacios/linux_usr/vnc"; \
+		echo "To learn more about this, look in palacios/linux_usr/vnc"; \
 	fi;
 
 #
