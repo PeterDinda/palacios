@@ -73,7 +73,8 @@ buddy_init(unsigned long pool_order,
 	   unsigned int node_id);
 
 extern void 
-buddy_deinit(struct buddy_memzone * zone);
+buddy_deinit(struct buddy_memzone * zone,
+	     int (*free_callback)(void *user_metadata));
 
 /* Add pool at given physical address */
 extern int 

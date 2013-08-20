@@ -197,8 +197,31 @@ out_err:
 	    break;
 	}
 
+	case V3_REMOVE_MEMORY: {
+	    struct v3_mem_region mem;
+	    
+	    memset(&mem, 0, sizeof(struct v3_mem_region));
+	    
+	    if (copy_from_user(&mem, argp, sizeof(struct v3_mem_region))) {
+		ERROR("copy from user error getting mem_region...\n");
+		return -EFAULT;
+	    }
+
+	    DEBUG("Removing memory at address %p\n", (void*)(mem.base_addr));
+
+	    if (remove_palacios_memory(&mem) == -1) {
+		ERROR("Error removing memory from Palacios\n");
+		return -EFAULT;
+	    }
+
+	    break;
+	}
+	    
+	    
+
         case V3_RESET_MEMORY: {
-            if (palacios_init_mm() == -1) {
+	    DEBUG("Resetting memory\n");
+            if (palacios_deinit_mm() == -1) {
                 ERROR("Error resetting Palacios memory\n");
                 return -EFAULT;
             }

@@ -153,7 +153,7 @@ int add_palacios_memory(struct v3_mem_region *r) {
     if (buddy_add_pool(memzones[node_id], r->base_addr, pool_order, keep)) {
 	ERROR("ALERT ALERT ALERT Unable to add pool to buddy allocator...\n");
 	if (r->type==REQUESTED || r->type==REQUESTED32) { 
-	    free_pages((uintptr_t)__va(r->base_addr), get_order(r->num_pages));
+	    free_pages((uintptr_t)__va(r->base_addr), get_order(r->num_pages*PAGE_SIZE));
 	}
 	palacios_free(keep);
 	return -1;
@@ -164,26 +164,46 @@ int add_palacios_memory(struct v3_mem_region *r) {
 
 
 
-int palacios_remove_memory(uintptr_t base_addr) {
-    int node_id = numa_addr_to_node(base_addr);
+int remove_palacios_memory(struct v3_mem_region *req) {
+    int node_id = numa_addr_to_node(req->base_addr);
     struct v3_mem_region *r;
 
-    if (buddy_remove_pool(memzones[node_id], base_addr, 0, (void**)(&r))) { //unforced remove
-	ERROR("Cannot remove memory at base address 0x%p because it is in use\n", (void*)base_addr);
+    if (buddy_remove_pool(memzones[node_id], req->base_addr, 0, (void**)(&r))) { //unforced remove
+	ERROR("Cannot remove memory at base address 0x%p\n", (void*)(req->base_addr));
 	return -1;
     }
 
-    if (r->type==REQUESTED || r->type==REQUESTED32) { 
-	free_pages((uintptr_t)__va(r->base_addr), get_order(r->num_pages));
-    } else {
-	// user space resposible for onlining
+    if (r) {
+	if (r->type==REQUESTED || r->type==REQUESTED32) { 
+	    free_pages((uintptr_t)__va(r->base_addr), get_order(r->num_pages*PAGE_SIZE));
+	} else {
+	    // user space responsible for onlining
+	}
+	palacios_free(r);
     }
-    
-    palacios_free(r);
 
     return 0;
 }
 
+
+static int handle_free(void *meta)
+{
+    struct v3_mem_region *r = (struct v3_mem_region *)meta;
+
+    if (r) { 
+	if (r->type==REQUESTED || r->type==REQUESTED32) { 
+	    //INFO("Freeing %llu pages at %p\n",r->num_pages,(void*)(r->base_addr));
+	    free_pages((uintptr_t)__va(r->base_addr), get_order(r->num_pages*PAGE_SIZE));
+	} else {
+	    // user space responsible for onlining
+	}
+	palacios_free(r);
+    }
+    
+    return 0;
+}
+
+	
 
 
 int palacios_deinit_mm( void ) {
@@ -194,7 +214,8 @@ int palacios_deinit_mm( void ) {
 	for (i = 0; i < numa_num_nodes(); i++) {
 	    
 	    if (memzones[i]) {
-		buddy_deinit(memzones[i]);
+		INFO("Deiniting memory zone %d\n",i);
+		buddy_deinit(memzones[i],handle_free);
 	    }
 	    
 	    // note that the memory is not onlined here - offlining and onlining
@@ -202,6 +223,7 @@ int palacios_deinit_mm( void ) {
 	    
 	    if (seed_addrs[i]) {
 		// free the seed regions
+		INFO("Freeing seed addrs %d\n",i);
 		free_pages((uintptr_t)__va(seed_addrs[i]), MAX_ORDER - 1);
 	    }
 	}
@@ -254,7 +276,7 @@ int palacios_init_mm( void ) {
 	    pgs = alloc_pages_node(node_id, GFP_DMA32, MAX_ORDER - 1);
 
 	    if (!pgs) {
-		INFO("Could not allocate initial memory block for node %d beloew 4GB\n", node_id);
+		INFO("Could not allocate initial memory block for node %d below 4GB\n", node_id);
 		
 		pgs = alloc_pages_node(node_id, GFP_KERNEL, MAX_ORDER - 1);
 

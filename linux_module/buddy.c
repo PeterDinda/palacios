@@ -210,6 +210,7 @@ static int __buddy_remove_mempool(struct buddy_memzone * zone,
     struct buddy_mempool * pool = NULL;
     struct block * block = NULL;
 
+
     pool = find_mempool(zone, base_addr);
 
     if (pool == NULL) {
@@ -217,15 +218,23 @@ static int __buddy_remove_mempool(struct buddy_memzone * zone,
 	return -1;
     }
 
-    if (!bitmap_empty(pool->tag_bits, pool->num_blocks)) {
-	ERROR("Trying to remove an in use memory pool\n");
-	return -1;
+    block = (struct block *)__va(pool->base_addr);
+
+    INFO("Removing Mempool %p, base=%p\n",pool,block);
+
+    // The largest order block in the memory pool must be free
+    if (!is_available(pool, block)) { 
+	if (!force) { 
+	    ERROR("Trying to remove an in use memory pool\n");
+	    *user_metadata=0;
+	    return -1;
+	} else {
+	    WARNING("Forcefully removing in use memory pool\n");
+	}
     }
 
     *user_metadata = pool->user_metadata;
     
-    block = (struct block *)__va(pool->base_addr);
-
     list_del(&(block->link));
     rb_erase(&(pool->tree_node), &(zone->mempools));
 
@@ -251,6 +260,7 @@ int buddy_remove_pool(struct buddy_memzone * zone,
 
     return ret;
 }
+
 
 
 
@@ -528,16 +538,66 @@ static struct file_operations zone_proc_ops = {
 };
 
 
-void buddy_deinit(struct buddy_memzone * zone) {
+void buddy_deinit(struct buddy_memzone * zone, int (*free_callback)(void *user_metadata)) {
     unsigned long flags;
+    struct rb_node *node;
+    struct buddy_mempool **pools;
+    unsigned long long base_addr;
+    void *meta;
+    int i;
+    unsigned long num_in_tree;
 
+    pools = (struct buddy_mempool **) palacios_alloc(sizeof(struct buddy_mempool *)*zone->num_pools);
+    if (!pools) { 
+	ERROR("Cannot allocate space for doing deinit of memory zone\n");
+	return ;
+    }
+    
+    // We will lock only to build up the memory pool list
+    // when we free memory, we need to be able to support free callbacks
+    // that could block.  This does leave a race with adds, allocs, and frees, however
+    // In Palacios, we expect a deinit will only really happen on the module unload
+    // so this should not present a problem
     palacios_spinlock_lock_irqsave(&(zone->lock), flags);
 
-    // for each pool, free it
-#warning We really need to free the memory pools here
+    // because it does not appear possible to erase while iterating
+    // over the rb tree, we do the following contorted mess
+    // get the pools 
+    for (num_in_tree=0, node=rb_first(&(zone->mempools));
+	 node && num_in_tree<zone->num_pools;
+	 node=rb_next(node), num_in_tree++) { 
+	
+	pools[num_in_tree]=rb_entry(node,struct buddy_mempool, tree_node);
+    }
 
     palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
-    
+
+    if (num_in_tree != zone->num_pools) { 
+	WARNING("Odd, the number of pools in the tree is %lu, but the zone reports %lu\n",
+		num_in_tree, zone->num_pools);
+    }
+
+    // now we'll free the memory
+    // note that buddy_remove_mempool also removes them
+    // from the rb tree, and frees them
+    for (i=0;i<num_in_tree;i++) { 
+	base_addr = pools[i]->base_addr;
+	
+	if (buddy_remove_pool(zone, base_addr, 1, &meta)) {
+	    WARNING("Cannot remove memory pool at %p during zone deinit...\n",(void*)(base_addr));
+	    continue;
+	}
+	
+	// pool and node are now gone... 
+
+	// invoke the callback to free the actual memory, if any
+	if (free_callback) { 
+	    free_callback(meta);
+	}
+    }
+
+
+    // get rid of /proc entry
     {
 	char proc_file_name[128];
 
@@ -548,6 +608,7 @@ void buddy_deinit(struct buddy_memzone * zone) {
     }
 
 
+    palacios_free(pools);
     palacios_free(zone->avail);
     palacios_free(zone);
 

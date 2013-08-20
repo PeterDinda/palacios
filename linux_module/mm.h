@@ -16,7 +16,7 @@ u64 get_palacios_num_pages(void);
 
 
 int add_palacios_memory(struct v3_mem_region *reg);
-int remove_palacios_memory(uintptr_t base_addr);
+int remove_palacios_memory(struct v3_mem_region *reg);
 int palacios_init_mm( void );
 int palacios_deinit_mm( void );
 
