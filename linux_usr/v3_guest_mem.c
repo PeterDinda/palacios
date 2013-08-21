@@ -7,66 +7,88 @@
 #include "v3_guest_mem.h"
 
 
-#warning FIX THE PARSER TO CONFORM TO NEW /proc/v3 VM output format
 
-
-#define GUEST_FILE "/proc/v3vee/v3-guests"
-//#define GUEST_FILE "/441/pdinda/test.proc"
+#define GUEST_FILE "/proc/v3vee/v3-guests-details"
+//#define GUEST_FILE "/v-test/numa/palacios-devel/test.proc"
 #define MAXLINE 65536
 
 struct v3_guest_mem_map * v3_guest_mem_get_map(char *vmdev)
 {
   FILE *f;
+  int rc;
+  int i;
   char buf[MAXLINE];
-  char name[MAXLINE];
   char dev[MAXLINE];
-  char state[MAXLINE];
-  uint64_t start, end;
+  uint64_t start, end, num;
+  uint64_t guest_cur;
+  uint64_t num_regions;
   
 
   if (!(f=fopen(GUEST_FILE,"r"))) { 
-    fprintf(stderr,"Cannot open %s - is Palacios active?\n",GUEST_FILE);
-    return 0;
+      fprintf(stderr,"Cannot open %s - is Palacios active?\n",GUEST_FILE);
+      return 0;
   }
-  
-  // This is using the current "single memory region" model
-  // and will change when /proc convention changes to conform to
-  // multiple region model
-  while (fgets(buf,MAXLINE,f)) {
-    if (sscanf(buf,
-	       "%s %s %s [0x%llx-0x%llx]",
-	       name,
-	       dev,
-	       state,
-	       &start,
-	       &end)!=5) { 
-      fprintf(stderr, "Cannot parse following line\n%s\n",buf);
+
+  while (1) {
+      if (!fgets(buf,MAXLINE,f)) {
+	  fprintf(stderr,"Could not find info for %s\n",vmdev);
+	  return 0;
+      }
+      if (sscanf(buf,"Device: %s",dev)==1) { 
+	  if (!strcmp(dev,vmdev)) {
+	      // found our VM
+	      break;
+	  } 
+      }
+  }
+	
+  // Now we need the number of regions
+  while (1) {
+      if (!fgets(buf,MAXLINE,f)) {
+	  fprintf(stderr,"Could not find number of regions for %s\n",vmdev);
+	  return 0;
+      }
+      if (sscanf(buf,"Regions: %llu",&num_regions)==1) {
+	  break;
+      }
+  }
+ 
+  struct v3_guest_mem_map *m = 
+      (struct v3_guest_mem_map *) malloc(sizeof(struct v3_guest_mem_map)+num_regions*sizeof(struct v3_guest_mem_block));
+  if (!m) { 
+      fprintf(stderr, "Cannot allocate space\n");
       fclose(f);
       return 0;
-    }
-    if (!strcmp(dev,vmdev)) { 
-      struct v3_guest_mem_map *m = 
-	(struct v3_guest_mem_map *) malloc(sizeof(struct v3_guest_mem_map)+1*sizeof(struct v3_guest_mem_block));
-      if (!m) { 
-	fprintf(stderr, "Cannot allocate space\n");
-	fclose(f);
-	return 0;
-      }
-
-      memset(m,0,sizeof(struct v3_guest_mem_map)+1*sizeof(struct v3_guest_mem_block));
-      
-      m->numblocks=1;
-      m->block[0].gpa=0;
-      m->block[0].hpa=(void*)start;
-      m->block[0].numpages = (end-start+1) / 4096;
-      fclose(f);
-      return m;
-    }
   }
   
-  fprintf(stderr,"%s not found\n",vmdev);
+  memset(m,0,sizeof(struct v3_guest_mem_map)+num_regions*sizeof(struct v3_guest_mem_block));
+
+  m->numblocks=num_regions;
+
+  // Now collect the region info
+  guest_cur=0;
+  while (i<num_regions) { 
+      if (!fgets(buf,MAXLINE,f)) {
+	  fprintf(stderr,"Did not find all regions...\n");
+	  free(m);
+	  return 0;
+      }
+      if (sscanf(buf," region %d has HPAs %llx-%llx",&num,&start,&end)==3) { 
+	  m->block[i].gpa = (void*)guest_cur;
+	  m->block[i].hpa = (void*)start;
+	  m->block[i].numpages = (end-start) / 4096 + !!((end-start) % 4096);
+	  if ((end-start)%4096) { 
+	      fprintf(stderr,"Odd, region %d is a non-integral number of pages");
+	  }
+	  guest_cur+=end-start;
+	  m->block[i].cumgpa=(void*)(guest_cur-1);
+	  i++;
+      }
+  }
+
   fclose(f);
-  return 0;
+
+  return m;
 
 }
 
@@ -88,8 +110,8 @@ int v3_map_guest_mem(struct v3_guest_mem_map *map)
   }
 
   for (i=0; i<map->numblocks; i++) { 
-    fprintf(stderr,"Mapping %llu bytes of /dev/mem offset 0x%llx\n",
-	    map->block[i].numpages*4096, (off_t)(map->block[i].hpa));
+      //fprintf(stderr,"Mapping %llu bytes of /dev/mem offset 0x%llx\n",
+      //    map->block[i].numpages*4096, (off_t)(map->block[i].hpa));
     map->block[i].uva = mmap(NULL, 
 			     map->block[i].numpages*4096,
 			     PROT_READ | PROT_WRITE, 
@@ -125,3 +147,99 @@ int v3_unmap_guest_mem(struct v3_guest_mem_map *map)
   }
   return 0;
 }
+
+
+void *v3_gpa_start(struct v3_guest_mem_map *map)
+{
+    return 0; // all guests start at zero for now
+}
+
+void *v3_gpa_end(struct v3_guest_mem_map *map)
+{
+    struct v3_guest_mem_block *l = &(map->block[map->numblocks-1]); 
+
+    // currently, the regions are consecutive, so we just need the last block
+    return l->gpa+l->numpages*4096-1; 
+}
+
+
+int v3_guest_mem_apply(void (*func)(void *data, uint64_t num_bytes, void *priv),
+		       struct v3_guest_mem_map *map, void *gpa, uint64_t num_bytes, void *priv)
+{
+    void *cur_gpa;
+    void *cur_uva;
+    uint64_t left_bytes;
+    uint64_t block_bytes;
+    
+    if (!(map->fd)) {
+	return -1;
+    }
+    
+    if (gpa < v3_gpa_start(map) || gpa+num_bytes-1 > v3_gpa_end(map)) { 
+	return -1;
+    }
+
+    cur_gpa = gpa;
+    left_bytes = num_bytes;
+
+    while (left_bytes) { 
+	cur_uva = v3_gpa_to_uva(map, cur_gpa, &block_bytes);
+	if (!cur_uva) { 
+	    return -1;
+	}
+	if (block_bytes>left_bytes) { 
+	    block_bytes = left_bytes;
+	}
+	func(cur_uva,block_bytes,priv);
+	left_bytes-=block_bytes;
+	cur_gpa+=block_bytes;
+    }
+    
+    return 0;
+}
+
+
+
+static void copy_out(void *uva, uint64_t num_bytes, void *curoff)
+{
+    memcpy(*((void**)(curoff)), uva, num_bytes);
+    *(void**)curoff += num_bytes;
+}
+
+static void copy_in(void *uva, uint64_t num_bytes, void *curoff)
+{
+    memcpy(uva, *((void**)(curoff)), num_bytes);
+    *(void**)curoff += num_bytes;
+}
+
+static void do_hash(void *uva, uint64_t num_bytes, void *priv)
+{
+    uint64_t i;
+    uint64_t *curhash = (uint64_t *)priv;
+
+    for (i=0;i<num_bytes;i++) { 
+	*curhash += ((uint8_t*)uva)[i];
+    }
+}
+
+int v3_guest_mem_read(struct v3_guest_mem_map *map, void *gpa, uint64_t num_bytes, char *data)
+{
+    void *cpy_ptr=data;
+
+    return v3_guest_mem_apply(copy_out,map,gpa,num_bytes,&cpy_ptr);
+}
+
+int v3_guest_mem_write(struct v3_guest_mem_map *map, void *gpa, uint64_t num_bytes, char *data)
+{
+    void *cpy_ptr=data;
+
+    return v3_guest_mem_apply(copy_in,map,gpa,num_bytes,&cpy_ptr);
+}
+
+int v3_guest_mem_hash(struct v3_guest_mem_map *map, void *gpa, uint64_t num_bytes, uint64_t *hash)
+{
+    *hash = 0;
+
+    return v3_guest_mem_apply(do_hash,map,gpa,num_bytes,hash);
+}
+

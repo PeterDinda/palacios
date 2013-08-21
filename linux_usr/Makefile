@@ -30,7 +30,8 @@ BASE_EXECS = 	v3_mem \
 		v3_debug \
 		v3_send \
 		v3_receive \
-		v3_pci
+		v3_pci \
+		v3_guest_mem_access
 
 
 #
@@ -40,7 +41,6 @@ EXAMPLE_EXECS = v3_user_host_dev_example \
 		v3_os_debug \
 		v3_user_keyed_stream_example \
 		v3_user_keyed_stream_file \
-		v3_guest_mem_example
 
 #
 # Currently experimental things
@@ -170,7 +170,7 @@ libv3_guest_mem.a : v3_guest_mem.c v3_guest_mem.h v3_ctrl.h
 	$(AR) ruv libv3_guest_mem.a v3_guest_mem.o
 	rm -f v3_guest_mem.o
 
-v3_guest_mem_example : v3_guest_mem_example.c libv3_guest_mem.a
+v3_guest_mem_access : v3_guest_mem_access.c libv3_guest_mem.a
 	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -o $@
 
 
