@@ -1456,12 +1456,12 @@ static int serial_load(struct v3_chkpt_ctx * ctx, void * private_data) {
     snprintf(keyname, 128,"COM%d_int_state",i);
     V3_CHKPT_LOAD(ctx, keyname, serial->int_state,failout);
 
-    if (serial_buffer_load(ctx, i, &(serial->tx_buffer), "RX")) { 
+    if (serial_buffer_load(ctx, i, &(serial->tx_buffer), "TX")) { 
       PrintError(VM_NONE, VCORE_NONE, "Failed to load serial tx buffer %d\n",i);
       goto failout;
     }
     
-    if (serial_buffer_load(ctx, i, &(serial->rx_buffer), "TX")) { 
+    if (serial_buffer_load(ctx, i, &(serial->rx_buffer), "RX")) { 
       PrintError(VM_NONE, VCORE_NONE, "Failed to load serial rx buffer %d\n",i);
       goto failout;
     }

@@ -810,8 +810,8 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
 
     fs->stype=STREAM_FILE;
 
-    fs->f = filp_open(path,O_RDWR|O_CREAT,0600);
-    
+    fs->f = filp_open(path,O_RDWR|O_CREAT|O_LARGEFILE,0600);
+
     if (IS_ERR(fs->f)) {
 	ERROR("cannot open relevent file \"%s\" for stream \"file:%s\" and key \"%s\"\n",path,fks->path,key);
 	palacios_free(fs);
