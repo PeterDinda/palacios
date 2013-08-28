@@ -538,8 +538,9 @@ static int mptable_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     }
     
     if (!check_for_cookie(target)) { 
-	PrintError(vm, VCORE_NONE, "Cookie mismatch in writing mptable, aborting (probably wrong guest BIOS).\n");
-	return -1;
+	PrintError(vm, VCORE_NONE, "Cookie mismatch in writing mptable, aborting (probably just wrong guest BIOS, so this is not a hard error).\n");
+	// we pretend we were sucesssful
+	return 0;
     }
 
     if (vm->num_cores > 32) { 
