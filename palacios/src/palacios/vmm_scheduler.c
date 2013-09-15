@@ -197,9 +197,7 @@ void host_sched_schedule(struct guest_info *core)
 	
         V3_Yield();
       
-        uint64_t yield_start_cycle = (uint64_t) core->sched_priv_data;
-        yield_start_cycle +=  (uint64_t)core->vm_info->sched_priv_data;
-        core->sched_priv_data = (void *)yield_start_cycle;
+	core->sched_priv_data = (void*)v3_get_host_time(&(core->time_state));
       
     }
 }
@@ -213,16 +211,14 @@ void host_sched_schedule(struct guest_info *core)
  * usec >=0 => the timed yield is used, which also usually implies interruptible
  */
 void host_sched_yield(struct guest_info * core, int usec) {
-    uint64_t yield_start_cycle;
+
     if (usec < 0) {
         V3_Yield();
     } else {
         V3_Sleep(usec);
     }
-    if(core){
-        yield_start_cycle = (uint64_t) core->sched_priv_data
-                            + (uint64_t)core->vm_info->sched_priv_data;
-        core->sched_priv_data = (void *)yield_start_cycle;
+    if (core){
+	core->sched_priv_data = (void*)v3_get_host_time(&(core->time_state));
     }
 }
 
