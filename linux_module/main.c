@@ -3,7 +3,7 @@
    (c) Jack Lange, 2010
  */
 
-
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/errno.h>
@@ -27,12 +27,12 @@
 #include "palacios.h"
 #include "mm.h"
 #include "vm.h"
+#include "numa.h"
 #include "allow_devmem.h"
 #include "memcheck.h"
 #include "lockcheck.h"
 
 #include "linux-exts.h"
-
 
 MODULE_LICENSE("GPL");
 
@@ -449,6 +449,7 @@ static int guests_full_proc_open(struct inode * inode, struct file * filp)
 
 
 
+
 static struct file_operations guest_full_proc_ops = {
     .owner = THIS_MODULE,
     .open = guests_full_proc_open, 
@@ -460,6 +461,78 @@ static struct file_operations guest_full_proc_ops = {
 static struct file_operations guest_short_proc_ops = {
     .owner = THIS_MODULE,
     .open = guests_short_proc_open, 
+    .read = seq_read,
+    .llseek = seq_lseek, 
+    .release = single_release,
+};
+
+// Supply basic information that the user-space tools need
+// to manipulate Palacios.   The current use case here is to 
+// convey memory information
+static int read_info(struct seq_file *s, void *v)
+{
+    uint64_t mem_block_size;
+    int i,j;
+    int max_node=-1;
+    seq_printf(s,"kernel MAX_ORDER:\t%d\n",MAX_ORDER);
+    seq_printf(s,"number of nodes:\t%d\n", numa_num_nodes());
+    seq_printf(s,"number of cpus: \t%d\n", num_online_cpus());
+    seq_printf(s,"\npalacios compiled mem_block_size:\t%d\n", V3_CONFIG_MEM_BLOCK_SIZE);
+    if (!v3_lookup_option("mem_block_size")) { 
+	mem_block_size = V3_CONFIG_MEM_BLOCK_SIZE;
+    } else {
+	if (kstrtoull(v3_lookup_option("mem_block_size"), 0, &mem_block_size)) {
+	    // huh?
+	    mem_block_size=-1;
+	}
+    }
+    seq_printf(s,"palacios run-time mem_block_size:\t%llu\n", mem_block_size);
+    
+    seq_printf(s,"\nCPU to node mappings\n");
+    for (i=0;i<num_online_cpus();i++) { 
+	seq_printf(s,"cpu %d -> node %d\n", i, numa_cpu_to_node(i));
+	if (numa_cpu_to_node(i)>max_node) { 
+	    max_node=numa_cpu_to_node(i);
+	}
+    }
+    seq_printf(s,"\nNode to node distances\n");
+    for (j=0;j<=max_node;j++) { 
+	seq_printf(s,"   \t%2d", j);
+    }
+    seq_printf(s,"\n");
+    for (i=0;i<=max_node;i++) { 
+	seq_printf(s,"%2d ",i);
+	for (j=0;j<=max_node;j++) { 
+	    seq_printf(s,"\t%2d", numa_get_distance(i,j));
+	}
+	seq_printf(s,"\n");
+    }
+    seq_printf(s,"\nCPU to CPU distances\n");
+    for (j=0;j<num_online_cpus();j++) { 
+	seq_printf(s,"   \t%2d", j);
+    }
+    seq_printf(s,"\n");
+    for (i=0;i<num_online_cpus();i++) { 
+	seq_printf(s,"%2d ",i);
+	for (j=0;j<num_online_cpus();j++) { 
+	    seq_printf(s,"\t%2d", numa_get_distance(numa_cpu_to_node(i),numa_cpu_to_node(j)));
+	}
+	seq_printf(s,"\n");
+    }
+    return 0;
+}
+
+static int info_proc_open(struct inode * inode, struct file * filp) 
+{
+    struct proc_dir_entry * proc_entry = PDE(inode);
+    return single_open(filp, read_info, proc_entry->data);
+}
+
+
+
+static struct file_operations info_proc_ops = {
+    .owner = THIS_MODULE,
+    .open = info_proc_open, 
     .read = seq_read,
     .llseek = seq_lseek, 
     .release = single_release,
@@ -550,14 +623,27 @@ static int __init v3_init(void) {
 	    ERROR("Could not create proc entry\n");
 	    goto failure7;
 	}
+
+	entry = create_proc_entry("v3-info", 0444, palacios_proc_dir);
+        if (entry) {
+	    entry->proc_fops = &info_proc_ops;
+	    INFO("/proc/v3vee/v3-info successfully created\n");
+	} else {
+	    ERROR("Could not create proc entry\n");
+	    goto failure8;
+	}
+
+
     }
 	
     return 0;
 
- failure7:
+ failure8:
     remove_proc_entry("v3-guests-details", palacios_proc_dir);
- failure6:
+ failure7:
     remove_proc_entry("v3-guests", palacios_proc_dir);
+ failure6:
+    device_destroy(v3_class, dev);
  failure5:
     unregister_chrdev_region(MKDEV(v3_major_num, 0), MAX_VMS + 1);
  failure4:
@@ -629,6 +715,7 @@ static void __exit v3_exit(void) {
 
     palacios_deinit_mm();
 
+    remove_proc_entry("v3-info", palacios_proc_dir);
     remove_proc_entry("v3-guests-details", palacios_proc_dir);
     remove_proc_entry("v3-guests", palacios_proc_dir);
     remove_proc_entry("v3vee", NULL);

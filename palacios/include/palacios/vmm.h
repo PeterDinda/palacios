@@ -457,6 +457,7 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 		    struct v3_vm_core_state  *core,
 		    struct v3_vm_mem_state   *mem);
 
+char *v3_lookup_option(char *key);
 
 int v3_deliver_irq(struct v3_vm_info * vm, struct v3_interrupt * intr);
 
