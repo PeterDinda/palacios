@@ -551,7 +551,7 @@ static int pump_transmit(struct v3_vm_info * vm, struct serial_port * com)
 
   while (can_dequeue(&(com->tx_buffer))) {
     if (com->ops) { // do we have a back-end to toss it to?
-      int rc;
+	int rc; // why is this not 64 bit?
       // let's take a peek and see if we can send it
       peek_queue(&(com->tx_buffer),&buf);
       rc = com->ops->output(&buf, 1, com->backend_data);
@@ -761,7 +761,7 @@ static int write_data_port(struct guest_info * core, uint16_t port,
 	// queue data to send and update interrupts
 	PrintDebug(core->vm_info, core, "UART: queue transmission of 0x%x ('%c')\n",*val,*val);
 	if (queue_data(core->vm_info, com_port, &(com_port->tx_buffer), *val)) { 
-	  PrintError(core->vm_info,core, "UART: no room for transmitted data - dropped\n");
+	  PrintDebug(core->vm_info,core, "UART: no room for transmitted data - dropped\n");
 	  // note that it must "succeed" since this is a device port
 	} else {
 	  updateIRQ(core->vm_info, com_port);
