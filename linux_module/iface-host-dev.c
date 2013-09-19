@@ -1323,6 +1323,11 @@ static int host_dev_init( void ) {
 }
 
 
+static int host_dev_deinit(void) { 
+    // nothing to do
+    return 0;
+}
+
 static int host_dev_guest_init(struct v3_guest * guest, void ** vm_data ) {
     struct palacios_host_dev * host_dev = palacios_alloc(sizeof(struct palacios_host_dev));
 
@@ -1358,7 +1363,7 @@ static int host_dev_guest_deinit(struct v3_guest * guest, void * vm_data) {
 static struct linux_ext host_dev_ext = {
     .name = "HOST_DEVICE_INTERFACE",
     .init = host_dev_init,
-    .deinit = NULL,
+    .deinit = host_dev_deinit,
     .guest_init = host_dev_guest_init,
     .guest_deinit = host_dev_guest_deinit
 };

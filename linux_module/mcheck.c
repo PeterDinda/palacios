@@ -50,11 +50,17 @@ static int guest_deinit(struct v3_guest * guest, void * vm_data) {
     return 0;
 }
 
+static int all_deinit(void)
+{
+    // nothing to do
+    return 0;
+}
+
 
 struct linux_ext mcheck_ext = {
     .name = "MACHINE CHECK",
     .init = NULL,
-    .deinit = NULL,
+    .deinit = all_deinit,
     .guest_init = guest_init, 
     .guest_deinit = guest_deinit
 };

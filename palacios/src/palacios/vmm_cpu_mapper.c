@@ -32,6 +32,7 @@
 static char default_strategy[] = "default";
 static struct hashtable * master_cpu_mapper_table = NULL;
 static int create_default_cpu_mapper();
+static int destroy_default_cpu_mapper();
 
 static struct vm_cpu_mapper_impl *cpu_mapper = NULL;
 
@@ -56,6 +57,13 @@ int V3_init_cpu_mapper() {
 }
 
 
+int V3_deinit_cpu_mapper() {
+
+    destroy_default_cpu_mapper();
+    v3_free_htable(master_cpu_mapper_table, 1, 1);
+    return 0;
+}
+
 int v3_register_cpu_mapper(struct vm_cpu_mapper_impl *s) {
 
     PrintDebug(VM_NONE, VCORE_NONE,"Registering cpu_mapper (%s)\n", s->name);
@@ -74,6 +82,21 @@ int v3_register_cpu_mapper(struct vm_cpu_mapper_impl *s) {
 
     return 0;
 }
+
+struct vm_cpu_mapper_impl *v3_unregister_cpu_mapper(char *name) {
+
+    PrintDebug(VM_NONE, VCORE_NONE,"Unregistering cpu_mapper (%s)\n",name);
+
+    struct vm_cpu_mapper_impl *f = (struct vm_cpu_mapper_impl *) v3_htable_remove(master_cpu_mapper_table,(addr_t)(name),0);
+
+    if (!f) { 
+	PrintError(VM_NONE,VCORE_NONE,"Could not find cpu_mapper (%s)\n",name);
+	return NULL;
+    } else {
+	return f;
+    }
+}
+
 
 struct vm_cpu_mapper_impl *v3_cpu_mapper_lookup(char *name)
 {
@@ -103,6 +126,15 @@ int V3_enable_cpu_mapper() {
 
     if (cpu_mapper->init) {
 	return cpu_mapper->init();
+    } else {
+	return 0;
+    }
+}
+
+int V3_disable_cpu_mapper()
+{
+    if (cpu_mapper->deinit) { 
+	return cpu_mapper->deinit();
     } else {
 	return 0;
     }
@@ -218,5 +250,11 @@ static struct vm_cpu_mapper_impl default_mapper_impl = {
 static int create_default_cpu_mapper()
 {
 	v3_register_cpu_mapper(&default_mapper_impl);
+	return 0;
+}
+
+static int destroy_default_cpu_mapper()
+{
+	v3_unregister_cpu_mapper(default_mapper_impl.name);
 	return 0;
 }

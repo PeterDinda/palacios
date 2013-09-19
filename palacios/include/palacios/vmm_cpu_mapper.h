@@ -30,15 +30,22 @@ struct vm_cpu_mapper_impl {
 	int (*vm_deinit)(struct v3_vm_info *vm);
 	int (*admit_core)(struct v3_vm_info * vm, int vcore_id, int target_cpu);
 	int (*admit)(struct v3_vm_info *vm);
+        // should really be departure options...
 
 };
 
 int v3_cpu_mapper_register_vm(struct v3_vm_info *vm, unsigned int cpu_mask);
 int v3_cpu_mapper_admit_vm(struct v3_vm_info *vm);
 int v3_cpu_mapper_admit_core(struct v3_vm_info * vm, int vcore_id, int target_cpu);
+
 int V3_init_cpu_mapper();
+int V3_deinit_cpu_mapper();
+
 int v3_register_cpu_mapper(struct vm_cpu_mapper_impl *vm);
+struct vm_cpu_mapper_impl *v3_unregister_cpu_mapper(char *name);
 struct vm_cpu_mapper_impl *v3_cpu_mapper_lookup(char *name);
+
 int V3_enable_cpu_mapper();
+int V3_disable_cpu_mapper();
 
 #endif /* __VMM_cpu_mapper_H__ */

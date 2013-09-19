@@ -235,7 +235,13 @@ static int __buddy_remove_mempool(struct buddy_memzone * zone,
 
     *user_metadata = pool->user_metadata;
     
-    list_del(&(block->link));
+    if (is_available(pool,block)) { 
+	list_del(&(block->link));
+    } else {
+	// we may not be on the free list if we are being
+	// forcibly removed before all allocations are freed
+    }
+	
     rb_erase(&(pool->tree_node), &(zone->mempools));
 
     palacios_free(pool->tag_bits);
@@ -253,6 +259,7 @@ int buddy_remove_pool(struct buddy_memzone * zone,
 {
     unsigned long flags = 0;
     int ret = 0;
+
 
     palacios_spinlock_lock_irqsave(&(zone->lock), flags);    
     ret = __buddy_remove_mempool(zone, base_addr, force, user_metadata);

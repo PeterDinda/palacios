@@ -481,7 +481,7 @@ static int read_info(struct seq_file *s, void *v)
     if (!v3_lookup_option("mem_block_size")) { 
 	mem_block_size = V3_CONFIG_MEM_BLOCK_SIZE;
     } else {
-	if (kstrtoull(v3_lookup_option("mem_block_size"), 0, &mem_block_size)) {
+	if (strict_strtoull(v3_lookup_option("mem_block_size"), 0, &mem_block_size)) {
 	    // huh?
 	    mem_block_size=-1;
 	}

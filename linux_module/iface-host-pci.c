@@ -233,6 +233,9 @@ static int host_pci_init( void ) {
 }
 
 static int host_pci_deinit(void) {
+  remove_global_ctrl(V3_ADD_PCI_USER_DEV);
+  remove_global_ctrl(V3_ADD_PCI_HW_DEV);
+
   palacios_spinlock_deinit(&lock);
   return 0;
 }

@@ -107,8 +107,13 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
 
     V3_Print(VM_NONE, VCORE_NONE, "V3 Print statement to fix a Kitten page fault bug\n");
 
+
     // Set global variables. 
     os_hooks = hooks;
+
+    if (num_cpus>V3_CONFIG_MAX_CPUS) { 
+	PrintError(VM_NONE,VCORE_NONE, "Requesting as many as %d cpus, but Palacios is compiled for a maximum of %d.  Only the first %d cpus will be considered\n", num_cpus, V3_CONFIG_MAX_CPUS, V3_CONFIG_MAX_CPUS);
+    }
 
     // Determine the global machine type
     v3_mach_type = V3_INVALID_CPU;
@@ -155,7 +160,7 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
 
     if ((hooks) && (hooks->call_on_cpu)) {
 
-        for (i = 0; i < num_cpus; i++) {
+        for (i = 0; i < num_cpus && i < V3_CONFIG_MAX_CPUS; i++) {
             major = i / 8;
             minor = i % 8;
 
@@ -176,19 +181,9 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
 void Shutdown_V3() {
     int i;
 
-    V3_deinit_devices();
-    V3_deinit_shdw_paging();
+    // Reverse order of Init_V3
 
-    V3_deinit_extensions();
-
-#ifdef V3_CONFIG_SYMMOD
-    V3_deinit_symmod();
-#endif
-
-#ifdef V3_CONFIG_CHECKPOINT
-    V3_deinit_checkpoint();
-#endif
-
+    // bring down CPUs
 
     if ((os_hooks) && (os_hooks->call_on_cpu)) {
 	for (i = 0; i < V3_CONFIG_MAX_CPUS; i++) {
@@ -199,7 +194,32 @@ void Shutdown_V3() {
 	}
     }
 
+#ifdef V3_CONFIG_CHECKPOINT
+    V3_deinit_checkpoint();
+#endif
+
+#ifdef V3_CONFIG_SYMMOD
+    V3_deinit_symmod();
+#endif
+
+    V3_disable_scheduler();
+
+    V3_disable_cpu_mapper();
+
+    V3_deinit_extensions();
+
+    V3_deinit_scheduling();
+    
+    V3_deinit_cpu_mapper();
+    
+    V3_deinit_shdw_paging();
+    
+    V3_deinit_devices();
+
     v3_deinit_mem();
+    
+    v3_deinit_options();
+    
 
 }
 

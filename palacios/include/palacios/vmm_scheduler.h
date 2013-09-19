@@ -35,6 +35,7 @@ struct vm_scheduler_impl {
 	int (*admit)(struct v3_vm_info *vm);
 	int (*remap)(struct v3_vm_info *vm);
 	int (*dvfs)(struct v3_vm_info *vm);
+        // should really have departure...
 };
 
 void v3_schedule(struct guest_info *core);
@@ -48,8 +49,13 @@ void v3_scheduler_remap_notify(struct v3_vm_info *vm);
 void v3_scheduler_dvfs_notify(struct v3_vm_info *vm);
 
 int V3_init_scheduling();
+int V3_deinit_scheduling();
+
 int v3_register_scheduler(struct vm_scheduler_impl *vm);
 struct vm_scheduler_impl *v3_scheduler_lookup(char *name);
+struct vm_scheduler_impl *v3_unregister_scheduler(char *name);
+
 int V3_enable_scheduler();
+int V3_disable_scheduler();
 
 #endif /* __VMM_SCHEDULER_H__ */

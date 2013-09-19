@@ -446,13 +446,18 @@ static int console_init( void ) {
     return 0;
 }
 
+static int console_deinit(void)
+{
+    // nothing to do
+    return 0;
+}
 
 
 
 static struct linux_ext console_ext = {
     .name = "CONSOLE",
     .init = console_init,
-    .deinit = NULL,
+    .deinit = console_deinit,
     .guest_init = NULL,
     .guest_deinit = NULL
 };

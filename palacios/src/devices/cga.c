@@ -1102,7 +1102,7 @@ int v3_cons_get_fb(struct vm_device * frontend_dev, uint8_t * dst, uint_t offset
 static int cga_free(struct video_internal * video_state) {
 
     if (video_state->framebuf_pa) {
-	PrintError(VM_NONE, VCORE_NONE, "Freeing framebuffer PA %p\n", (void *)(video_state->framebuf_pa));
+	PrintDebug(VM_NONE, VCORE_NONE, "Freeing framebuffer PA %p\n", (void *)(video_state->framebuf_pa));
 	V3_FreePages((void *)(video_state->framebuf_pa), (FRAMEBUF_SIZE / 4096));
     }
 

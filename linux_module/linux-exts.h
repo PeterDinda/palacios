@@ -37,6 +37,7 @@ int add_global_ctrl(unsigned int cmd,
 
 struct global_ctrl * get_global_ctrl(unsigned int cmd);
 
+int remove_global_ctrl(unsigned int cmd);
 
 
 #define register_extension(ext)					\

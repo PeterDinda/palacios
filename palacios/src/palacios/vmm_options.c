@@ -46,6 +46,38 @@ static int option_eq_fn(addr_t key1, addr_t key2) {
     return (strcmp(name1, name2) == 0);
 }
 
+// need to allocate these cleanly and separately so we can easily recover the
+// storage
+static int option_insert(char *key, char *val)
+{
+    char *k, *v;
+
+    k = V3_Malloc(strlen(key)+1);
+
+    if (!k) { 
+	return -1;
+    }
+    
+    v = V3_Malloc(strlen(val)+1);
+
+    if (!v) { 
+	V3_Free(k);
+	return -1;
+    }
+
+    strcpy(k,key);
+    strcpy(v,val);
+
+    if (!v3_htable_insert(option_table, (addr_t)k, (addr_t)v)) {
+	V3_Free(v);
+	V3_Free(k);
+	return -1;
+    }
+
+    return 0;
+}
+
+
 void v3_parse_options(char *options)
 {
     char *currKey = NULL, *currVal = NULL;
@@ -73,7 +105,7 @@ void v3_parse_options(char *options)
 		if (!currVal) {
 		    currVal = truevalue;
 		}
-		v3_htable_insert(option_table, (addr_t)currKey, (addr_t)currVal);
+		option_insert(currKey, currVal);
 		parseKey = 1;
 		currKey = NULL;
 		currVal = NULL;
@@ -99,11 +131,20 @@ void v3_parse_options(char *options)
 	if (!currVal) {
 	    currVal = truevalue;
 	} 
-	v3_htable_insert(option_table, (addr_t)currKey, (addr_t)currVal);
+	option_insert(currKey, currVal);
     }
+    
+    V3_Free(option_storage);
+
     return;
 }
 
 char *v3_lookup_option(char *key) {
     return (char *)v3_htable_search(option_table, (addr_t)(key));
+}
+
+
+void v3_deinit_options()
+{
+    v3_free_htable(option_table,1,1); // will free keys and values
 }

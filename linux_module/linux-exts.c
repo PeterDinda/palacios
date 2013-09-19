@@ -53,7 +53,7 @@ int add_global_ctrl(unsigned int cmd,
     ctrl->cmd = cmd;
     ctrl->handler = handler;
 
-    if (__insert_global_ctrl(ctrl) != NULL) {
+    if (__insert_global_ctrl(ctrl) != NULL) { 
         printk("Could not insert guest ctrl %d\n", cmd);
         palacios_free(ctrl);
         return -1;
@@ -65,9 +65,9 @@ int add_global_ctrl(unsigned int cmd,
 }
 
 
-struct global_ctrl * get_global_ctrl(unsigned int cmd) {
+static struct rb_node * find_match(unsigned int cmd) {
     struct rb_node * n = global_ctrls.rb_node;
-    struct global_ctrl * ctrl = NULL;
+    struct global_ctrl *ctrl;
 
     while (n) {
         ctrl = rb_entry(n, struct global_ctrl, tree_node);
@@ -77,11 +77,43 @@ struct global_ctrl * get_global_ctrl(unsigned int cmd) {
         } else if (cmd > ctrl->cmd) {
             n = n->rb_right;
         } else {
-            return ctrl;
+            return n;
         }
     }
 
     return NULL;
+}
+
+
+struct global_ctrl * get_global_ctrl(unsigned int cmd) {
+    struct rb_node *n = find_match(cmd);
+
+    if (n) {
+	return rb_entry(n, struct global_ctrl, tree_node);
+    } else {
+	return NULL;
+    }
+}
+      
+
+int remove_global_ctrl(unsigned int cmd)
+{
+    struct rb_node *n = find_match(cmd);
+    struct global_ctrl *c;
+
+    if (!n) { 
+	return -1;
+    }
+
+    c = rb_entry(n, struct global_ctrl, tree_node);
+
+    rb_erase(n,&global_ctrls);
+    
+    if (c) { 
+	palacios_free(c);
+    }
+    
+    return 0;
 }
 
 

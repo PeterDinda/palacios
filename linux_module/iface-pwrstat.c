@@ -303,12 +303,18 @@ static int pwrstat_init (void)
 	return 0;
 }
 
-/* if AMD comes up with something it can go here */
+
+static int pwrstat_deinit(void)
+{
+    // nothing to do
+    return 0;
+}
+
 
 static struct linux_ext pwrstat_ext = {
   .name = "POWERSTAT",
   .init = pwrstat_init,
-  .deinit = NULL,
+  .deinit = pwrstat_deinit,
   .guest_init = NULL,
   .guest_deinit = NULL
 };

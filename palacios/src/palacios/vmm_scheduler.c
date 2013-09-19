@@ -32,6 +32,7 @@
 static char default_strategy[] = "host";
 static struct hashtable * master_scheduler_table = NULL;
 static int create_host_scheduler();
+static int destroy_host_scheduler();
 
 static struct vm_scheduler_impl *scheduler = NULL;
 
@@ -55,6 +56,13 @@ int V3_init_scheduling() {
     return create_host_scheduler();
 }
 
+int V3_deinit_scheduling()
+{
+    destroy_host_scheduler();
+    v3_free_htable(master_scheduler_table,1,1);
+    return 0;
+}
+
 
 int v3_register_scheduler(struct vm_scheduler_impl *s) {
 
@@ -74,6 +82,24 @@ int v3_register_scheduler(struct vm_scheduler_impl *s) {
 
     return 0;
 }
+
+
+struct vm_scheduler_impl *v3_unregister_scheduler(char *name) {
+
+    PrintDebug(VM_NONE, VCORE_NONE,"Unregistering Scheduler (%s)\n",name);
+
+    struct vm_scheduler_impl *f = (struct vm_scheduler_impl *) v3_htable_remove(master_scheduler_table,(addr_t)(name),0);
+
+    if (!f) { 
+	PrintError(VM_NONE,VCORE_NONE,"Could not find Scheduler (%s)\n",name);
+	return NULL;
+    } else {
+	return f;
+    }
+}
+	
+
+
 
 struct vm_scheduler_impl *v3_scheduler_lookup(char *name)
 {
@@ -103,6 +129,15 @@ int V3_enable_scheduler() {
 
     if (scheduler->init) {
 	return scheduler->init();
+    } else {
+	return 0;
+    }
+}
+
+int V3_disable_scheduler()
+{
+    if (scheduler->deinit) { 
+	return scheduler->deinit();
     } else {
 	return 0;
     }
@@ -245,5 +280,11 @@ static struct vm_scheduler_impl host_sched_impl = {
 static int create_host_scheduler()
 {
 	v3_register_scheduler(&host_sched_impl);
+	return 0;
+}
+
+static int destroy_host_scheduler()
+{
+	v3_unregister_scheduler(host_sched_impl.name);
 	return 0;
 }

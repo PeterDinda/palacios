@@ -644,11 +644,17 @@ static int pmu_init( void ) {
   return 0;
 }
 
+static int pmu_deinit(void)
+{
+    // nothing
+    return 0;
+}
+
 
 static struct linux_ext pmu_ext = {
   .name = "PMU",
   .init = pmu_init,
-  .deinit = NULL,
+  .deinit = pmu_deinit,
   .guest_init = NULL,
   .guest_deinit = NULL
 };

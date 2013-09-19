@@ -27,8 +27,9 @@
 #include <palacios/vmm.h>
 
 
-void v3_parse_options(char *optstring);
+void v3_parse_options(char *optstring); // this is init
 char *v3_lookup_option(char *option);
+void v3_deinit_options();
 
 #endif // ! __V3VEE__
 
