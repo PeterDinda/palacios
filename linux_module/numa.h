@@ -6,13 +6,8 @@
 #ifndef __NUMA_H__
 #define __NUMA_H__
 
-#if 0
-int create_numa_topology_from_user(void __user * argp);
-
-void free_numa_topology();
-#endif
-
 int palacios_init_numa( void );
+int palacios_deinit_numa(void);
 
 int numa_num_nodes(void );
 int numa_cpu_to_node(int cpu_id);

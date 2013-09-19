@@ -563,6 +563,10 @@ static int __init v3_init(void) {
       palacios_allow_devmem();
     }
 
+    // numa is now a required interface and we need it
+    // up before primary initiatilization
+    palacios_init_numa();
+
     // Initialize Palacios
     palacios_vmm_init(options);
 
@@ -694,6 +698,8 @@ static void __exit v3_exit(void) {
 
 
     palacios_vmm_exit();
+
+    palacios_deinit_numa();
 
     DEBUG("Palacios Mallocs = %d, Frees = %d\n", mallocs, frees);
     DEBUG("Palacios Vmallocs = %d, Vfrees = %d\n", vmallocs, vfrees);

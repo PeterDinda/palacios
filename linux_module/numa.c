@@ -11,171 +11,6 @@
 
 
 
-#if 0
-struct mem_region {
-    u64 start_addr;
-    u64 end_addr;
-    u32 node_id;
-};
-
-
-static struct {
-    unsigned int num_nodes;
-    unsigned int num_cpus;
-    unsigned int num_mem_regions;
-
-    u32 * cpu_to_node_map;
-
-    // For now an array, but we might want to move this to an rbtree
-    struct mem_region * mem_to_node_map;
-    
-    u32 * distance_table;
-} topology}
-
-
-int create_numa_topology_from_user(void __user * argp) {
-    struct v3_numa_topo user_topo;
-
-    if (copy_from_user(&user_topo, argp, sizeof(struct v3_numa_topo))) {
-	ERROR("Could not read in NUMA topology from user\n");
-	return -1;
-    }
-	
-    argp += sizeof(struct v3_numa_topo);
-
-    topology.num_nodes = user_topo.num_nodes;
-    topology.num_cpus = user_topo.num_cpus;
-    topology.num_mem_regions = user_topo.num_mem_regions;
-
-
-    /* Read in the CPU to Node mapping */
-    {
-	topology.cpu_to_node_map = palacios_alloc(sizeof(u32) * topology.num_cpus);
-	
-	if (IS_ERR(topology.cpu_to_node_map)) {
-	    ERROR("Could  not allocate cpu to node map\n");
-	    return -1;
-	}
-	
-
-	if (copy_from_user(topology.cpu_to_node_map, argp,
-			   sizeof(u32) * topology.num_cpus)) {
-	    ERROR("Could not copy cpu to node map from user space\n");
-	    palacios_free(topology.cpu_to_node_map);
-	    return -1;
-	}
-	
-	argp += sizeof(u32) * topology.num_cpus;
-    }
-
-    /* Read in the memory to Node Mapping */
-    {
-	int i = 0;
-
-	topology.mem_to_node_map = palacios_alloc(sizeof(struct mem_region) * topology.num_mem_regions);
-
-	if (IS_ERR(topology.mem_to_node_map)) {
-	    ERROR("Could not allocate mem to node map\n");
-	    palacios_free(topology.cpu_to_node_map);
-	    return -1;
-	}
-
-	if (copy_from_user(topology.mem_to_node_map, argp,
-			   sizeof(struct mem_region) * topology.num_mem_regions)) {
-	    ERROR("Coudl not copy mem to node map from user space\n");
-	    palacios_free(topology.cpu_to_node_map);
-	    palacios_free(topology.mem_to_node_map);
-	    return -1;
-	}
-
-	/* The memory range comes in as the base_addr and the number of pages
-	   We need to fix it up to be the base addr and end addr instead 
-	   We just perform the transformation inline
-	*/
-	for (i = 0; i < topology.num_mem_regions; i++) {
-	    struct mem_region * region = &(topology.mem_to_node_map[i]);
-
-	    region->end_addr = region->base_addr + (region->end_addr * 4096);
-	}
-
-    }
-
-    
-    /* Read in the distance table */
-    {
-	topology.distance_table = palacios_alloc(sizeof(u32) * (topology.num_nodes * topology.num_nodes));
-	
-	if (IS_ERR(topology.distance_table)) {
-	    ERROR("Could not allocate distance table\n");
-	    palacios_free(topology.cpu_to_node_map);
-	    palacios_free(topology.mem_to_node_map);
-	    return -1;
-	}
-	
-
-	if (copy_from_user(topology.distance_table, argp,
-			   sizeof(u32) * (topology.num_nodes * topology.num_nodes))) {
-	    ERROR("Could not copy distance table from user space\n");
-	    palacios_free(topology.cpu_to_node_map);
-	    palacios_free(topology.mem_to_node_map);
-	    palacios_free(topology.distance_table);
-	    return -1;
-	}
-
-    }
-    
-    /* Report what we found */
-    {
-	int i = 0;
-	int j = 0;
-
-	INFO("Created NUMA topology from user space\n");
-	INFO("Number of Nodes: %d, CPUs: %d, MEM regions: %d\n", 
-	       topology.num_nodes, topology.num_cpus, topology.num_mem_regions);
-
-	INFO("CPU mapping\n");
-	for (i = 0; i < topology.num_cpus; i++) {
-	    INFO("\tCPU %d -> Node %d\n", i, topology.cpu_to_node_map[i]);
-	}
-
-	INFO("Memory mapping\n");
-
-	for (i = 0; i < topology.num_mem_regions; i++) {
-	    struct mem_region * region = &(topology.mem_to_node_map[i]);
-	    INFO("\tMEM %p - %p -> Node %d\n", 
-		   region->start_addr, 
-		   region->end_addr, 
-		   region->node_id);
-	}
-
-
-	INFO("Distance Table\n");
-	for (i = 0; i < topology.num_nodes; i++) {
-	    INFO("\t%d", i);
-	}
-	INFO("\n");
-	
-	for (i = 0; i < topology.num_nodes; i++) {
-	    INFO("%d", i);
-
-	    for (j = 0; j < topology.num_nodes; j++) {
-		INFO("\t%d", topology.distance_table[j + (i * topology.num_nodes)]);
-	    }
-
-	    INFO("\n");
-
-	}	    
-
-
-    }
-    return 0;
-
-}
-
-
-#endif
-
-
 
 int numa_num_nodes(void) {
     return num_online_nodes();
@@ -212,6 +47,13 @@ struct v3_numa_hooks numa_hooks = {
 int palacios_init_numa( void ) {
  
     V3_Init_NUMA(&numa_hooks);
+
+    INFO("palacios numa interface initialized\n");
   
+    return 0;
+}
+
+int palacios_deinit_numa(void) {
+    INFO("palacios numa interface deinitialized\n");
     return 0;
 }
