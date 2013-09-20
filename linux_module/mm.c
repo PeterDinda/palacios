@@ -89,16 +89,34 @@ unsigned long long pow2(int i)
     return x;
 }
 
+static unsigned long long get_palacios_mem_block_size(void)
+{
+    char *s = v3_lookup_option("mem_block_size");
+
+    if (!s) { 
+        return V3_CONFIG_MEM_BLOCK_SIZE;
+    } else {
+        unsigned long long temp;
+
+        if (strict_strtoull(s,0,&temp)) { 
+            return V3_CONFIG_MEM_BLOCK_SIZE; // odd...
+        } else {
+            return temp;
+        }
+    }
+}
+
 int add_palacios_memory(struct v3_mem_region *r) {
     int pool_order = 0;
     int node_id = 0;
+
 
     struct v3_mem_region *keep;
 
     INFO("Palacios Memory Add Request: type=%d, node=%d, base_addr=0x%llx, num_pages=%llu\n",r->type,r->node,r->base_addr,r->num_pages);
 
     // fixup request regardless of its type
-    if (r->num_pages*4096 < V3_CONFIG_MEM_BLOCK_SIZE) { 
+    if (r->num_pages*4096 < get_palacios_mem_block_size()) { 
 	WARNING("Allocating a memory pool smaller than the Palacios block size - may not be useful\n");
     }
 
@@ -294,6 +312,8 @@ int palacios_init_mm( void ) {
 	    seed_addrs[node_id] = page_to_pfn(pgs) << PAGE_SHIFT;
 	}
 
+    // Initialization is done using the compile-time memory block size since
+    // at this point, we do not yet know what the run-time size is
 	zone = buddy_init(get_order(V3_CONFIG_MEM_BLOCK_SIZE) + PAGE_SHIFT, PAGE_SHIFT, node_id);
 
 	if (zone == NULL) {
