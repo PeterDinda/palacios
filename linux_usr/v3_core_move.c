@@ -30,7 +30,7 @@ int main(int argc, char* argv[]) {
     cmd.vcore_id = atoi(argv[2]);
     cmd.pcore_id = atoi(argv[3]);
 
-    printf("Migrate vcore %d to physical CPU %d\n", cmd.vcore_id, cmd.pcore_id);
+    printf("Migrateing vcore %d to physical CPU %d\n", cmd.vcore_id, cmd.pcore_id);
 
     vm_fd = open(vm_dev, O_RDONLY);
 

@@ -354,6 +354,8 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 
     v3_deinit_events(vm);
 
+    v3_fw_cfg_deinit(vm);
+
 
     return 0;
 }

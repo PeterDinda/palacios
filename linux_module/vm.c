@@ -442,6 +442,7 @@ int free_palacios_vm(struct v3_guest * guest) {
 
     free_guest_ctrls(guest);
 
+    deinit_vm_extensions(guest);
 
     palacios_vfree(guest->img);
     palacios_free(guest);

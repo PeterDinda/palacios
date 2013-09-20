@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 	return -1;
     }
 
-    printf("Stopping VM\n");
+    printf("Continuing VM\n");
     
     vm_fd = open(filename, O_RDONLY);
 
