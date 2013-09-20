@@ -151,7 +151,10 @@ struct e820_table {
 
 */
 
-static int fw_cfg_add_bytes(struct v3_fw_cfg_state * cfg_state, uint16_t key, uint8_t * data, uint32_t len)
+//
+// Internal version assumes data is allocated
+//
+static int fw_cfg_add_bytes_internal(struct v3_fw_cfg_state * cfg_state, uint16_t key, uint8_t * data, uint32_t len)
 {
     int arch = !!(key & FW_CFG_ARCH_LOCAL);
     // JRL: Well this is demented... Its basically generating a 1 or 0 from a mask operation
@@ -168,13 +171,36 @@ static int fw_cfg_add_bytes(struct v3_fw_cfg_state * cfg_state, uint16_t key, ui
     return 1;
 }
 
+//
+// General purpose version will allocate a temp
+//
+//
+static int fw_cfg_add_bytes(struct v3_fw_cfg_state * cfg_state, uint16_t key, uint8_t * data, uint32_t len)
+{
+    // must make a copy of the data so that the deinit function will work correctly...
+
+    uint16_t * copy = NULL;
+
+    copy = V3_Malloc(len);
+    if (!copy) { 
+	PrintError(VM_NONE,VCORE_NONE,"Failed to allocate temp\n");
+	return 0;
+    }
+    memcpy(copy,data,len);
+    return fw_cfg_add_bytes_internal(cfg_state, key, (uint8_t *)copy, sizeof(uint16_t));
+}
+
 static int fw_cfg_add_i16(struct v3_fw_cfg_state * cfg_state, uint16_t key, uint16_t value)
 {
     uint16_t * copy = NULL;
 
     copy = V3_Malloc(sizeof(uint16_t));
+    if (!copy) { 
+	PrintError(VM_NONE,VCORE_NONE,"Failed to allocate temp\n");
+	return 0;
+    }
     *copy = value;
-    return fw_cfg_add_bytes(cfg_state, key, (uint8_t *)copy, sizeof(uint16_t));
+    return fw_cfg_add_bytes_internal(cfg_state, key, (uint8_t *)copy, sizeof(uint16_t));
 }
 
 static int fw_cfg_add_i32(struct v3_fw_cfg_state * cfg_state, uint16_t key, uint32_t value)
@@ -182,8 +208,12 @@ static int fw_cfg_add_i32(struct v3_fw_cfg_state * cfg_state, uint16_t key, uint
     uint32_t * copy = NULL;
 
     copy = V3_Malloc(sizeof(uint32_t));
+    if (!copy) { 
+	PrintError(VM_NONE,VCORE_NONE,"Failed to allocate temp\n");
+	return 0;
+    }
     *copy = value;
-    return fw_cfg_add_bytes(cfg_state, key, (uint8_t *)copy, sizeof(uint32_t));
+    return fw_cfg_add_bytes_internal(cfg_state, key, (uint8_t *)copy, sizeof(uint32_t));
 }
 
 static int fw_cfg_add_i64(struct v3_fw_cfg_state * cfg_state, uint16_t key, uint64_t value)
@@ -191,8 +221,12 @@ static int fw_cfg_add_i64(struct v3_fw_cfg_state * cfg_state, uint16_t key, uint
     uint64_t * copy = NULL;
 
     copy = V3_Malloc(sizeof(uint64_t));
+    if (!copy) { 
+	PrintError(VM_NONE,VCORE_NONE,"Failed to allocate temp\n");
+	return 0;
+    }
     *copy = value;
-    return fw_cfg_add_bytes(cfg_state, key, (uint8_t *)copy, sizeof(uint64_t));
+    return fw_cfg_add_bytes_internal(cfg_state, key, (uint8_t *)copy, sizeof(uint64_t));
 }
 
 static int fw_cfg_ctl_read(struct guest_info * core, uint16_t port, void * src, uint_t length, void * priv_data) {
@@ -317,6 +351,9 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
     struct v3_fw_cfg_state * cfg_state = &(vm->fw_cfg_state);
     int ret = 0;
 
+    
+    // Be paranoid about starting this as all "unallocated"
+    memset(cfg_state,0,sizeof(struct v3_fw_cfg_state));
 
 #ifndef V3_CONFIG_SEABIOS
     V3_Print(vm,VCORE_NONE,"Warning: Configuring SEABIOS firmware, but SEABIOS is not being used in this build of Palacios.  Configuration will be dormant.\n");
@@ -485,8 +522,8 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 
 
 	    // Register the NUMA cfg array with the FW_CFG interface
-	    fw_cfg_add_bytes(cfg_state, FW_CFG_NUMA, (uint8_t *)numa_fw_cfg,
-			     (1 + vm->num_cores + num_nodes) * sizeof(uint64_t));
+	    fw_cfg_add_bytes_internal(cfg_state, FW_CFG_NUMA, (uint8_t *)numa_fw_cfg,
+				      (1 + vm->num_cores + num_nodes) * sizeof(uint64_t));
 
 	}
     }

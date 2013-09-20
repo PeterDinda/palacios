@@ -10,7 +10,7 @@ typedef enum {
 #ifdef V3_CONFIG_DEBUG_MEM_ALLOC
 
 // Maxmimum number of simultaneous allocations to handle
-#define NUM_ALLOCS        8192
+#define NUM_ALLOCS        16384
 
 //
 // The following macros are used
