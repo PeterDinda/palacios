@@ -1,15 +1,15 @@
-/* 
+/*
  * This file is part of the Palacios Virtual Machine Monitor developed
- * by the V3VEE Project with funding from the United States National 
- * Science Foundation and the Department of Energy.  
+ * by the V3VEE Project with funding from the United States National
+ * Science Foundation and the Department of Energy.
  *
  * The V3VEE Project is a joint project between Northwestern University
- * and the University of New Mexico.  You can find out more at 
+ * and the University of New Mexico.  You can find out more at
  * http://www.v3vee.org
  *
- * Copyright (c) 2013, Oscar Mondragon <omondrag@cs.unm.edu> 
+ * Copyright (c) 2013, Oscar Mondragon <omondrag@cs.unm.edu>
  * Copyright (c) 2013, Patrick G. Bridges <bridges@cs.unm.edu>
- * Copyright (c) 2013, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2013, The V3VEE Project <http://www.v3vee.org>
  * All rights reserved.
  *
  * Author: Oscar Mondragon <omondrag@cs.unm.edu>
@@ -49,7 +49,7 @@ static int scheduler_eq_fn(addr_t key1, addr_t key2) {
 }
 
 int V3_init_scheduling() {
-   
+
      PrintDebug(VM_NONE, VCORE_NONE,"Initializing scheduler");
 
     master_scheduler_table = v3_create_htable(0, scheduler_hash_fn, scheduler_eq_fn);
@@ -72,7 +72,7 @@ int v3_register_scheduler(struct vm_scheduler_impl *s) {
         PrintError(VM_NONE, VCORE_NONE, "Multiple instances of scheduler (%s)\n", s->name);
         return -1;
     }
-  
+
     if (v3_htable_insert(master_scheduler_table,
                          (addr_t)(s->name),
                          (addr_t)(s)) == 0) {
@@ -91,13 +91,13 @@ struct vm_scheduler_impl *v3_unregister_scheduler(char *name) {
     struct vm_scheduler_impl *f = (struct vm_scheduler_impl *) v3_htable_remove(master_scheduler_table,(addr_t)(name),0);
 
     if (!f) { 
-	PrintError(VM_NONE,VCORE_NONE,"Could not find Scheduler (%s)\n",name);
-	return NULL;
+       PrintError(VM_NONE,VCORE_NONE,"Could not find Scheduler (%s)\n",name);
+       return NULL;
     } else {
-	return f;
+       return f;
     }
 }
-	
+
 
 
 
@@ -114,7 +114,7 @@ int V3_enable_scheduler() {
 
     if (sched_name) {
 	scheduler = v3_scheduler_lookup(sched_name);
-    } 
+    }
 
     if (!scheduler) {
         scheduler = v3_scheduler_lookup(default_strategy);
@@ -137,91 +137,98 @@ int V3_enable_scheduler() {
 int V3_disable_scheduler()
 {
     if (scheduler->deinit) { 
-	return scheduler->deinit();
+       return scheduler->deinit();
     } else {
-	return 0;
+       return 0;
     }
 }
 
 int v3_scheduler_register_vm(struct v3_vm_info *vm) {
     if (scheduler->vm_init) {
-    	return scheduler->vm_init(vm);
+	return scheduler->vm_init(vm);
     } else {
 	return 0;
     }
 }
 int v3_scheduler_register_core(struct guest_info *core) {
     if (scheduler->core_init) {
-    	return scheduler->core_init(core);
+	return scheduler->core_init(core);
     } else {
 	return 0;
     }
 }
 int v3_scheduler_admit_vm(struct v3_vm_info *vm) {
     if (scheduler->admit) {
-    	return scheduler->admit(vm);
+	return scheduler->admit(vm);
     } else {
 	return 0;
     }
 }
 int v3_scheduler_notify_remap(struct v3_vm_info *vm) {
     if (scheduler->remap) {
-    	return scheduler->remap(vm);
+	return scheduler->remap(vm);
     } else {
 	return 0;
     }
 }
 int v3_scheduler_notify_dvfs(struct v3_vm_info *vm) {
     if (scheduler->dvfs) {
-    	return scheduler->dvfs(vm);
+	return scheduler->dvfs(vm);
     } else {
 	return 0;
     }
 }
 void v3_schedule(struct guest_info *core) {
     if (scheduler->schedule) {
-    	scheduler->schedule(core);
+	scheduler->schedule(core);
     }
     return;
 }
 void v3_yield(struct guest_info *core, int usec) {
     if (scheduler->yield) {
-    	scheduler->yield(core, usec);
-    } 
+	scheduler->yield(core, usec);
+    }
     return;
 }
 
 int host_sched_vm_init(struct v3_vm_info *vm)
 {
 
-    PrintDebug(vm, VCORE_NONE,"Sched. host_sched_init\n"); 
+    PrintDebug(vm, VCORE_NONE,"Sched. host_sched_init\n");
 
     char * schedule_hz_str = v3_cfg_val(vm->cfg_data->cfg, "schedule_hz");
-    uint32_t sched_hz = 100; 	
+    uint32_t sched_hz = 100;
 
 
     if (schedule_hz_str) {
 	sched_hz = atoi(schedule_hz_str);
     }
 
-    PrintDebug(vm, VCORE_NONE,"CPU_KHZ = %d, schedule_freq=%p\n", V3_CPU_KHZ(), 
+    PrintDebug(vm, VCORE_NONE,"CPU_KHZ = %d, schedule_freq=%p\n", V3_CPU_KHZ(),
 	       (void *)(addr_t)sched_hz);
 
     uint64_t yield_cycle_period = (V3_CPU_KHZ() * 1000) / sched_hz;
-    vm->sched_priv_data = (void *)yield_cycle_period; 
+    vm->sched_priv_data = (void *)yield_cycle_period;
 
     return 0;
 }
 
 int host_sched_core_init(struct guest_info *core)
 {
-    PrintDebug(core->vm_info, core,"Sched. host_sched_core_init\n"); 
+    PrintDebug(core->vm_info, core,"Sched. host_sched_core_init\n");
 
-    uint64_t t = v3_get_host_time(&core->time_state); 
+    uint64_t t = v3_get_host_time(&core->time_state);
     core->sched_priv_data = (void *)t;
 
     return 0;
 }
+
+int host_sched_core_stop(struct guest_info *core){
+
+    v3_yield(NULL,-1);
+    return 0;
+}
+
 
 void host_sched_schedule(struct guest_info *core)
 {
@@ -229,37 +236,74 @@ void host_sched_schedule(struct guest_info *core)
     cur_cycle = v3_get_host_time(&core->time_state);
 
     if (cur_cycle > ( (uint64_t)core->sched_priv_data + (uint64_t)core->vm_info->sched_priv_data)) {
-	
+
         V3_Yield();
-      
+
+#if 0
+        uint64_t yield_start_cycle = (uint64_t) core->sched_priv_data;
+        yield_start_cycle +=  (uint64_t)core->vm_info->sched_priv_data;
+        core->sched_priv_data = (void *)yield_start_cycle;
+#else
 	core->sched_priv_data = (void*)v3_get_host_time(&(core->time_state));
-      
+#endif
+
     }
 }
 
-/* 
- * unconditional cpu yield 
- * if the yielding thread is a guest context, the guest quantum is reset on resumption 
+/*
+ * unconditional cpu yield
+ * if the yielding thread is a guest context, the guest quantum is reset on resumption
  * Non guest context threads should call this function with a NULL argument
  *
  * usec <0  => the non-timed yield is used
  * usec >=0 => the timed yield is used, which also usually implies interruptible
  */
 void host_sched_yield(struct guest_info * core, int usec) {
-
     if (usec < 0) {
         V3_Yield();
     } else {
         V3_Sleep(usec);
     }
     if (core){
+#if 0
+    uint64_t yield_start_cycle;
+         yield_start_cycle = (uint64_t) core->sched_priv_data
+                             + (uint64_t)core->vm_info->sched_priv_data;
+         core->sched_priv_data = (void *)yield_start_cycle;
+#else
 	core->sched_priv_data = (void*)v3_get_host_time(&(core->time_state));
+#endif
     }
 }
 
 
 int host_sched_admit(struct v3_vm_info *vm){
     return 0;
+}
+
+int v3_scheduler_free_vm(struct v3_vm_info *vm) {
+    if (scheduler->vm_deinit) {
+	return scheduler->vm_deinit(vm);
+    } else {
+	return 0;
+    }
+}
+
+int v3_scheduler_free_core(struct guest_info *core) {
+    if (scheduler->core_deinit) {
+	return scheduler->core_deinit(core);
+    } else {
+	return 0;
+    }
+}
+
+
+int v3_scheduler_stop_core(struct guest_info *core){
+    if (scheduler->core_stop) {
+	return scheduler->core_stop(core);
+    } else {
+	return 0;
+    }
 }
 
 static struct vm_scheduler_impl host_sched_impl = {
@@ -269,6 +313,7 @@ static struct vm_scheduler_impl host_sched_impl = {
     .vm_init = host_sched_vm_init,
     .vm_deinit = NULL,
     .core_init = host_sched_core_init,
+    .core_stop = host_sched_core_stop,
     .core_deinit = NULL,
     .schedule = host_sched_schedule,
     .yield = host_sched_yield,
@@ -285,6 +330,6 @@ static int create_host_scheduler()
 
 static int destroy_host_scheduler()
 {
-	v3_unregister_scheduler(host_sched_impl.name);
-	return 0;
+       v3_unregister_scheduler(host_sched_impl.name);
+       return 0;
 }

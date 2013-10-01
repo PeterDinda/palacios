@@ -140,17 +140,17 @@ int V3_disable_cpu_mapper()
     }
 }
 
-int v3_cpu_mapper_register_vm(struct v3_vm_info *vm,unsigned int cpu_mask) {
+int v3_cpu_mapper_register_vm(struct v3_vm_info *vm) {
     if (cpu_mapper->vm_init) {
-	return cpu_mapper->vm_init(vm,cpu_mask);
+	return cpu_mapper->vm_init(vm);
     } else {
 	return 0;
     }
 }
 
-int v3_cpu_mapper_admit_vm(struct v3_vm_info *vm) {
+int v3_cpu_mapper_admit_vm(struct v3_vm_info *vm, unsigned int cpu_mask) {
     if (cpu_mapper->admit) {
-	return cpu_mapper->admit(vm);
+	return cpu_mapper->admit(vm,cpu_mask);
     } else {
 	return 0;
     }
@@ -165,12 +165,16 @@ int v3_cpu_mapper_admit_core(struct v3_vm_info * vm, int vcore_id, int target_cp
     }
 }
 
+int default_mapper_vm_init(struct v3_vm_info *vm){
+    return 0;
+}
+
+int default_mapper_admit_core(struct v3_vm_info * vm, int vcore_id, int target_cpu){
+    return 0;
+}
 
 
-int default_mapper_vm_init(struct v3_vm_info *vm, unsigned int cpu_mask)
-{
-
-    PrintDebug(vm, VCORE_NONE,"mapper. default_mapper_init\n");
+int default_mapper_admit(struct v3_vm_info *vm, unsigned int cpu_mask){
 
     uint32_t i;
     int vcore_id = 0;
@@ -222,16 +226,6 @@ int default_mapper_vm_init(struct v3_vm_info *vm, unsigned int cpu_mask)
 	return -1;
     }
 
-    return 0;
-
-}
-
-int default_mapper_admit_core(struct v3_vm_info * vm, int vcore_id, int target_cpu){
-    return 0;
-}
-
-
-int default_mapper_admit(struct v3_vm_info *vm){
     return 0;
 }
 

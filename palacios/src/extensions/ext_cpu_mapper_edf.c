@@ -23,7 +23,6 @@
 #include <palacios/vmm_extensions.h>
 #include <palacios/vmm_cpu_mapper.h>
 
-
 #ifndef V3_CONFIG_DEBUG_EXT_CPU_MAPPER_EDF
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -38,34 +37,31 @@
 
 #define MAX_TDF 20
 #define MIN_TDF 1
+#define UTILIZATION 80
 
+// Next Fit heuristic implementation
 
-// First Next Fit heuristic implementation
+int nextFit(int save, int tdf,struct v3_vm_info *vm){
 
-int firstNextFit(int save, int tdf,struct v3_vm_info *vm){
+    PrintDebug(vm, VCORE_NONE,"nextFit for tdf %d \n", tdf);
 
-    V3_Print(vm, VCORE_NONE,"firstNextFit for tdf %d \n", tdf);
-
-    int V = vm->num_cores; // Number of virtual cores
-    int L = vm->avail_cores;  // Number of Logical cores
-    int ULCores[L]; // Utilization array for logical cores
-    int uVCores[V]; // Utilization array for virtual cores
-    int mapping[V];
-    int vc=0; // virtual core id
-    int lc=0; // logical core id
-
+    int V = vm->num_cores;          // Number of virtual cores
+    int L = vm->avail_cores;        // Number of Logical cores
+    int speedRatio[L];              // mapped virtual cores to logical core ratio. Must be less or equal than UTILIZATION X TDF
+    uint64_t speedVCores[V];        // Virtual core speeds
+    int mapping[V];                 // mapping array
+    int vc=0;                       // virtual core id
+    int lc=0;                       // logical core id
+    uint_t cpu_khz = V3_CPU_KHZ();  // Physical core speed
     int i=0;
 
     for(i=0;i<L;i++){
-        ULCores[i] = 0;
-    }
-
-    for(i=0;i<V;i++){
-        uVCores[i] = 0;
+        speedRatio[i]=0;
     }
 
     for(i=0;i<V;i++){
         mapping[i] = 0;
+        speedVCores[i] = 0;
     }
 
     // Initialize Virtual cores utilization vector
@@ -74,14 +70,25 @@ int firstNextFit(int save, int tdf,struct v3_vm_info *vm){
 
     while (core){
 
-        char *period = v3_cfg_val(core, "period");
-        char *slice = v3_cfg_val(core, "slice");
-        uint64_t p = atoi(period);
-        uint64_t s = atoi(slice);
-        uVCores[vc]= 100 * s / p;
+        uint_t vcSpeed = cpu_khz;
+        char *speed = v3_cfg_val(core, "khz");
+        if(speed){
+            vcSpeed = atoi(speed);
+        }
+
+        speedVCores[vc] = vcSpeed;
         vc++;
         core = v3_cfg_next_branch(core);
-    }
+
+	/*PrintDebug(VM_NONE, VCORE_NONE,"mapper. vc %d, speed %llu, vcores %d, lcores %d, cpu_khz %u\n",
+               vc,
+	       vcSpeed,
+	       V,
+	       L,
+	       cpu_khz);*/
+
+ }
+
 
     vc = 0;
 
@@ -89,15 +96,17 @@ int firstNextFit(int save, int tdf,struct v3_vm_info *vm){
 
     while(vc < V){
 
-        if( ULCores[lc] + (uVCores[vc])/tdf  <= 100 ){
-            ULCores[lc] = ULCores[lc] + (uVCores[vc])/tdf;
+      //PrintDebug(VM_NONE, VCORE_NONE,"mapper. vc %d, ratio %llu, tdf %d\n",vc, (speedRatio[lc] + 100*speedVCores[vc]/cpu_khz), tdf);
+
+      if( (speedRatio[lc] + 100*speedVCores[vc]/cpu_khz) <= (UTILIZATION*tdf)){
             mapping[vc] = lc;
+            speedRatio[lc] += 100*speedVCores[vc]/cpu_khz;
         }
         else{
-            if ((lc+1)< L){
+	  if (((lc+1)< L) &&  (100*speedVCores[vc]/cpu_khz <= (UTILIZATION*tdf))){
                lc = lc+1;
-               ULCores[lc] = ULCores[lc] + (uVCores[vc])/tdf;
                mapping[vc] = lc;
+               speedRatio[lc] += 100*speedVCores[vc]/cpu_khz;
             }
             else{
                 return -1;  // Could not map
@@ -124,24 +133,26 @@ int firstNextFit(int save, int tdf,struct v3_vm_info *vm){
 
 
         int x = 0;
+        PrintDebug(vm, VCORE_NONE,"mapper. Number of Logical cores: %d",L);
+        PrintDebug(vm, VCORE_NONE, "mapper. Mapping Array:\n");
         for(x=0;x<V;x++){
-            PrintDebug(vm, VCORE_NONE,"%d ",mapping[x]);
+	    PrintDebug(vm, VCORE_NONE,"mapper. vcore %d: %d ",x,mapping[x]);
         }
-
-       for(x=0;x<L; x++){
-            PrintDebug(vm, VCORE_NONE,"%d ",ULCores[x]);
-        }
-        PrintDebug(vm, VCORE_NONE,"\n");
-
     }
 
     return 0;
 }
 
 
-int edf_mapper_vm_init(struct v3_vm_info *vm, unsigned int cpu_mask){
+int edf_mapper_vm_init(struct v3_vm_info *vm){
 
-    V3_Print(vm, VCORE_NONE,"mapper. Initializing edf cpu_mapper");
+    PrintDebug(vm, VCORE_NONE,"mapper. Initializing edf cpu_mapper");
+    return 0;
+}
+
+
+int edf_mapper_admit(struct v3_vm_info *vm, unsigned int cpu_mask){
+    PrintDebug(vm, VCORE_NONE,"mapper. Edf cpu_mapper admit\n");
 
     int min_tdf = MIN_TDF;
     int max_tdf = MAX_TDF;
@@ -154,7 +165,7 @@ int edf_mapper_vm_init(struct v3_vm_info *vm, unsigned int cpu_mask){
 
     while( (max_tdf-min_tdf) > 0 ){
 
-        mappable = firstNextFit(-1,tdf,vm);
+        mappable = nextFit(-1,tdf,vm);
 
         if(mappable != -1){
             max_tdf = tdf/2;
@@ -166,22 +177,21 @@ int edf_mapper_vm_init(struct v3_vm_info *vm, unsigned int cpu_mask){
         tdf = max_tdf;
     }
 
-    firstNextFit(0,tdf,vm);
+    mappable =  nextFit(-1,tdf,vm);
+    if(mappable !=-1){
+        nextFit(0,tdf,vm);
+    }
+    else{
+        tdf = 2*tdf;
+        nextFit(0,tdf,vm);
+    }
 
-
-    return 0;
-}
-
-
-int edf_mapper_admit(struct v3_vm_info *vm){
-    // TODO
-    PrintDebug(vm, VCORE_NONE,"mapper. Edf cpu_mapper admit");
-    return 0;
+    PrintDebug(vm, VCORE_NONE,"mapper. Calculated TDF denom %d\n",tdf);
+   return 0;
 }
 
 int edf_mapper_admit_core(struct v3_vm_info * vm, int vcore_id, int target_cpu){
-    // TODO
-    PrintDebug(vm, VCORE_NONE,"mapper. Edf cpu_mapper admit core");
+    PrintDebug(vm, VCORE_NONE,"mapper. Edf cpu_mapper admit core\n");
     return 0;
 }
 

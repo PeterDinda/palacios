@@ -1,15 +1,15 @@
 /*
  * This file is part of the Palacios Virtual Machine Monitor developed
- * by the V3VEE Project with funding from the United States National 
- * Science Foundation and the Department of Energy.  
+ * by the V3VEE Project with funding from the United States National
+ * Science Foundation and the Department of Energy.
  *
  * The V3VEE Project is a joint project between Northwestern University
- * and the University of New Mexico.  You can find out more at 
+ * and the University of New Mexico.  You can find out more at
  * http://www.v3vee.org
  *
  * Copyright (c) 2013, Oscar Mondragon <omondrag@cs.unm.edu>
  * Copyright (c) 2013, Patrick G. Bridges <bridges@cs.unm.edu>
- * Copyright (c) 2013, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2013, The V3VEE Project <http://www.v3vee.org>
  * All rights reserved.
  *
  * Author: Oscar Mondragon <omondrag@cs.unm.edu>
@@ -28,22 +28,26 @@ struct vm_scheduler_impl {
 	int (*deinit)();
 	int (*vm_init)(struct v3_vm_info *vm);
 	int (*vm_deinit)(struct v3_vm_info *vm);
-	int (*core_init)(struct guest_info *vm);
-	int (*core_deinit)(struct guest_info *vm);
+	int (*core_init)(struct guest_info *core);
+        int (*core_stop)(struct guest_info *core);
+	int (*core_deinit)(struct guest_info *core);
 	void (*schedule)(struct guest_info *vm);
-	void (*yield)(struct guest_info *vm, int usec);
+	void (*yield)(struct guest_info *core, int usec);
 	int (*admit)(struct v3_vm_info *vm);
 	int (*remap)(struct v3_vm_info *vm);
 	int (*dvfs)(struct v3_vm_info *vm);
-        // should really have departure...
+         // should really have departure...
 };
 
+int v3_scheduler_register_core(struct guest_info *core);
+int v3_scheduler_stop_core(struct guest_info *core);
+int v3_scheduler_free_core(struct guest_info *core);
 void v3_schedule(struct guest_info *core);
 void v3_yield(struct guest_info *core, int usec);
 
 int v3_scheduler_register_vm(struct v3_vm_info *vm);
-int v3_scheduler_register_core(struct guest_info *vm); /* ? */
 int v3_scheduler_admit_vm(struct v3_vm_info *vm);
+int v3_scheduler_free_vm(struct v3_vm_info *vm);
 
 void v3_scheduler_remap_notify(struct v3_vm_info *vm);
 void v3_scheduler_dvfs_notify(struct v3_vm_info *vm);

@@ -99,7 +99,7 @@ void v3_parse_options(char *options)
     while (c && *c) {
 	/* Skip whitespace */
         if ((*c == ' ')
-	    || (*c == '\t')) {
+	    || (*c == '\t') || (*c == ',')) {
 	    *c = 0;
 	    if (currKey) {
 		if (!currVal) {

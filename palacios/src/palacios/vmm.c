@@ -248,6 +248,11 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
     memset(vm->name, 0, 128);
     strncpy(vm->name, name, 127);
 
+    if(v3_cpu_mapper_register_vm(vm) == -1) {
+
+        PrintError(vm, VCORE_NONE,"Error registering VM with cpu_mapper\n");
+    }
+
     /*
      * Register this VM with the palacios scheduler. It will ask for admission
      * prior to launch.
@@ -348,20 +353,15 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
     vm->avail_cores = avail_cores;
  
+    if (v3_cpu_mapper_admit_vm(vm,cpu_mask) != 0){
+        PrintError(vm, VCORE_NONE,"Error admitting VM %s for mapping", vm->name);
+    }
+
     if (v3_scheduler_admit_vm(vm) != 0){
        PrintError(vm, VCORE_NONE,"Error admitting VM %s for scheduling", vm->name);
     }
 
-    if (v3_cpu_mapper_admit_vm(vm) != 0){
-        PrintError(vm, VCORE_NONE,"Error admitting VM %s for mapping", vm->name);
-    }
-
     vm->run_state = VM_RUNNING;
-
-    if(v3_cpu_mapper_register_vm(vm,cpu_mask) == -1) {
-
-        PrintError(vm, VCORE_NONE,"Error registering VM with cpu_mapper\n");
-    }
 
 
     for (vcore_id = 0; vcore_id < vm->num_cores; vcore_id++) {
@@ -493,6 +493,8 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
 
 int v3_stop_vm(struct v3_vm_info * vm) {
 
+    struct guest_info * running_core;
+
     if ((vm->run_state != VM_RUNNING) && 
 	(vm->run_state != VM_SIMULATING)) {
         PrintError(vm, VCORE_NONE,"Tried to stop VM in invalid runstate (%d)\n", vm->run_state);
@@ -514,6 +516,7 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
 	for (i = 0; i < vm->num_cores; i++) {
 	    if (vm->cores[i].core_run_state != CORE_STOPPED) {
+                running_core = &vm->cores[i];
 		still_running = 1;
 	    }
 	}
@@ -522,7 +525,7 @@ int v3_stop_vm(struct v3_vm_info * vm) {
  	    break;
 	}
 
-	v3_yield(NULL,-1);
+        v3_scheduler_stop_core(running_core);
     }
     
     V3_Print(vm, VCORE_NONE,"VM stopped. Returning\n");
@@ -766,10 +769,12 @@ int v3_free_vm(struct v3_vm_info * vm) {
 
     // free cores
     for (i = 0; i < vm->num_cores; i++) {
+        v3_scheduler_free_core(&(vm->cores[i]));
 	v3_free_core(&(vm->cores[i]));
     }
 
     // free vm
+    v3_scheduler_free_vm(vm);
     v3_free_vm_internal(vm);
 
     v3_free_config(vm);
