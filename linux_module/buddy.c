@@ -387,7 +387,7 @@ buddy_alloc(struct buddy_memzone *zone, unsigned long order, int constraints)
 /**
  * Returns a block of memory to the buddy system memory allocator.
  */
-void
+int
 buddy_free(
 	//!    Buddy system memory allocator object.
 	struct buddy_memzone *	zone,
@@ -422,9 +422,9 @@ buddy_free(
     pool = find_mempool(zone, addr);
 
     if ((pool == NULL) || (order > pool->pool_order)) {
-      WARNING("Attempted to free an invalid page address (%p) - pool=%p order=%lu\n", (void *)addr,pool,order);
-      palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
-	return;
+	WARNING("Attempted to free an invalid page address (%p) - pool=%p order=%lu\n", (void *)addr,pool,order);
+	palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
+	return -1;
     }
 
 
@@ -434,7 +434,7 @@ buddy_free(
     if (is_available(pool, block)) {
 	ERROR("Error: Freeing an available block\n");
 	palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
-	return;
+	return -1;
     }
 
     pool->num_free_blocks += (1UL << (order - zone->min_order));
@@ -465,6 +465,8 @@ buddy_free(
     list_add(&(block->link), &(zone->avail[order]));
 
     palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
+
+    return 0;
 }
 
 

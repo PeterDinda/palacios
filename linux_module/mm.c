@@ -76,7 +76,19 @@ void free_palacios_pgs(uintptr_t pg_addr, u64 num_pages) {
     int node_id = numa_addr_to_node(pg_addr);
 
     //DEBUG("Freeing Memory page %p\n", (void *)pg_addr);
-    buddy_free(memzones[node_id], pg_addr, get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT);
+    if (buddy_free(memzones[node_id], pg_addr, get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT)) {
+      // it is possible that the allocation was actually on a different zone,
+      // so, just to be sure, we'll try to dellocate on each
+      for (node_id=0;node_id<numa_num_nodes();node_id++) { 
+        if (!buddy_free(memzones[node_id], pg_addr, get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT)) {
+	  // successfully freed on different zone, which is also OK
+	  break;
+        }
+      }
+      if (node_id==numa_num_nodes()) { 
+	ERROR("Unable to free pages -addr=%p, numpages=%llu on any node\n",(void*)pg_addr,num_pages);
+      }
+    }
     
     return;
 }
@@ -148,7 +160,7 @@ int add_palacios_memory(struct v3_mem_region *r) {
 	    ERROR("Unable to satisfy allocation request\n");
 	    palacios_free(keep);
 	    return -1;
-	}
+	} 
 	r->base_addr = page_to_pfn(pgs) << PAGE_SHIFT;
     }
 	
@@ -288,10 +300,12 @@ int palacios_init_mm( void ) {
 
 	{
 	    struct page * pgs;
-
+	    int actual_node;
+	      
 	    // attempt to first allocate below 4 GB for compatibility with
 	    // 32 bit shadow paging
 	    pgs = alloc_pages_node(node_id, GFP_DMA32, MAX_ORDER - 1);
+
 
 	    if (!pgs) {
 		INFO("Could not allocate initial memory block for node %d below 4GB\n", node_id);
@@ -306,7 +320,18 @@ int palacios_init_mm( void ) {
 			palacios_deinit_mm();
 			return -1;
 		    }
+		} else {
+		  actual_node=numa_addr_to_node((uintptr_t)(page_to_pfn(pgs) << PAGE_SHIFT));
+		  if (actual_node != node_id) { 
+		    WARNING("Initial 64 bit allocation attempt for node %d resulted in allocation on node %d\n",node_id,actual_node);
+		  }
 		}
+		  
+	    } else {
+	      actual_node=numa_addr_to_node((uintptr_t)(page_to_pfn(pgs) << PAGE_SHIFT));
+	      if (actual_node != node_id) { 
+		WARNING("Initial 32bit-limited allocation attempt for node %d resulted in allocation on node %d\n",node_id,actual_node);
+	      }
 	    }
 
 	    seed_addrs[node_id] = page_to_pfn(pgs) << PAGE_SHIFT;

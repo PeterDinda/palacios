@@ -103,7 +103,7 @@ buddy_alloc(struct buddy_memzone * zone,
 
 
 /* Free a physical address */
-extern void
+extern int
 buddy_free(struct buddy_memzone * zone,
 	   uintptr_t  addr,
 	   unsigned long order);
