@@ -61,7 +61,7 @@ struct vnet_host_hooks {
     void (*print)(void *vm , int core, const char * format, ...)
   	__attribute__ ((format (printf, 3, 4)));
   
-    void *(*allocate_pages)(int num_pages, unsigned int alignment);
+    void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id, int constraints);
     void (*free_pages)(void * page, int num_pages);
 
     void *(*malloc)(unsigned int size);

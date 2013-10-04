@@ -198,6 +198,11 @@ static int virtio_deinit_state(struct guest_info *core, struct virtio_net_state 
     if (ns->timer) { 
 	v3_remove_timer(core,ns->timer);
     }
+
+    v3_lock_deinit(&(ns->rx_lock));
+    v3_lock_deinit(&(ns->tx_lock));
+
+
     return 0;
 }
 
@@ -752,9 +757,6 @@ static int virtio_free(struct virtio_dev_state * virtio) {
 	list_del(&(backend->dev_link));
 	V3_Free(backend);
     }
-
-    v3_lock_deinit(&(virtio->rx_lock));
-    v3_lock_deinit(&(virtio->tx_lock));
 
     V3_Free(virtio);
 
