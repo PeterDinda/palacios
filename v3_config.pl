@@ -167,14 +167,62 @@ $cmd.= " allow_devmem=1 " if $devmem eq 'y';
 $cmd.= " options=\"mem_block_size=$memblocksize\" " if $override_memblocksize eq 'y';
 print INIT $cmd, "\n";
 
+%numa = get_numa_data();
+
+if (defined($numa{numnodes})) {
+  $numnodes=$numa{numnodes};
+} else {
+  $numnodes=1;
+}
+
+if (defined($numa{numcores})) { 
+  $numcores=$numa{numcores};
+  $numcorespalacios = get_palacios_core_feature($pdir,"V3_CONFIG_MAX_CPUS");
+  if (defined($numcorespalacios) && $numcores>$numcorespalacios) { 
+    print "WARNING: Your Palacios configuration is configured to support\n";
+    print " a maximum of $numcorespalacios cores, but this machine has $numcores cores.\n";
+    print " Your Palacios will work on this machine, but will not be able to use\n";
+    print " the additional cores.\n";
+    if ($numnodes>1) {
+       print " This is also a NUMA machine, so this will also affect the initial\n";
+       print " allocation of memory in the NUMA nodes produced by this script.\n";
+       print " We highly recommend you reconfigure Palacios with at least $numcores cores and rebuild it.\n";
+     }
+  }
+} 
+
+
+
+$chunk = $memblocksize / (1024 * 1024) ;
+$numchunks = $mem / $chunk;
+$chunkspernode  = $numchunks / $numnodes;
+
+print "The initial memory allocation will be:\n\n";
+print "  Total memory:       $mem MB\n";
+print "  Memory block size:  $chunk MB\n";
+print "  Number of blocks:   $numchunks\n";
+print "  Number of nodes:    $numnodes\n";
+print "  Blocks/node:        $chunkspernode\n";
+print "  32 bit limit?       $shadow\n";
+print "  Hot-removed?        $hotremove\n";
+
+if ($numnodes*$chunkspernode*$chunk != $mem) { 
+  print "\nWARNING: The memory is not evenly divided among nodes or blocks.\n";
+  print " This means that LESS memory is allocated than requested.\n\n";
+}
+
 $cmd = "v3_mem -a";
 $cmd.= " -k " if $hotremove eq 'n';
 $cmd.= " -l " if $shadow eq 'y';
 
-$chunk = $memblocksize / (1024 * 1024) ;
-$numchunks = $mem / $chunk;
-for ($i=0;$i<$numchunks;$i++) {
-  print INIT "$cmd $chunk\n";
+for ($i=0;$i<$numnodes;$i++) {
+  for ($j=0;$j<$chunkspernode;$j++) { 
+    if ($numnodes>1) { 
+      print INIT "$cmd -n $i $chunk\n";
+    } else {
+      print INIT "$cmd $chunk\n";
+    }
+  }
 }
 close(INIT);
 `chmod 755 v3_init`;
@@ -228,12 +276,12 @@ sub get_palacios_core_feature {
   my $feature=shift;
   my $x;
 
-  $x=`grep $feature $dir/.config`;
+  $x=`grep $feature= $dir/.config`;
 
   if ($x=~/^\s*\#/) {
     return undef;
   } else {
-    if ($x=~/\s*$feature\s*=\s*(\S*)\s*$/) {
+    if ($x=~/\s*$feature=\s*(\S*)\s*$/) {
       return $1;
     } else {
       return undef;
@@ -249,4 +297,28 @@ sub powerof2  {
   $exp = log($x) /log(2);
 
   return $exp==int($exp);
+}
+
+sub get_numa_data() {
+  my $line;
+  my $maxnode=0;
+  my $maxcpu=0;
+  my %numa;
+
+  open (N, "numactl --hardware |");
+  while ($line=<N>) { 
+    if ($line=~/^node\s+(\d+)\s+cpus:\s+(.*)$/) { 
+      my $node=$1;
+      my @cpus = split(/\s+/,$2);
+      my $cpu;
+      if ($node>$maxnode) { $maxnode=$node; }
+      foreach $cpu (@cpus) { 
+	if ($cpu>$maxcpu) { $maxcpu=$cpu; }
+      }
+      $numa{"node$node"}{cores}=\@cpus;
+    }
+  }
+  $numa{numnodes}=$maxnode+1;
+  $numa{numcores}=$maxcpu+1;
+  return %numa;
 }
