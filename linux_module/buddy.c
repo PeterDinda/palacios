@@ -422,8 +422,8 @@ buddy_free(
     pool = find_mempool(zone, addr);
 
     if ((pool == NULL) || (order > pool->pool_order)) {
-	WARNING("Attempted to free an invalid page address (%p)\n", (void *)addr);
-	palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
+      WARNING("Attempted to free an invalid page address (%p) - pool=%p order=%lu\n", (void *)addr,pool,order);
+      palacios_spinlock_unlock_irqrestore(&(zone->lock), flags);
 	return;
     }
 

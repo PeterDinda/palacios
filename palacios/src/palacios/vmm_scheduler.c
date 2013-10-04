@@ -59,7 +59,9 @@ int V3_init_scheduling() {
 int V3_deinit_scheduling()
 {
     destroy_host_scheduler();
-    v3_free_htable(master_scheduler_table,1,1);
+    // important not to remove any keys or values since we don't know
+    // if they are malloced or other
+    v3_free_htable(master_scheduler_table,0,0);
     return 0;
 }
 
@@ -331,5 +333,6 @@ static int create_host_scheduler()
 static int destroy_host_scheduler()
 {
        v3_unregister_scheduler(host_sched_impl.name);
+       // no deletion of this since it's a pointer to a global var
        return 0;
 }

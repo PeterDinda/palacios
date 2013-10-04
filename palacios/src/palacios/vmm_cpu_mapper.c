@@ -60,7 +60,10 @@ int V3_init_cpu_mapper() {
 int V3_deinit_cpu_mapper() {
 
     destroy_default_cpu_mapper();
-    v3_free_htable(master_cpu_mapper_table, 1, 1);
+    // we must leave the keys and values unfreed
+    // since we have no idea whether they are heap or otherwise
+    // the user must have done appropriate unregisters before this
+    v3_free_htable(master_cpu_mapper_table, 0, 0);
     return 0;
 }
 
@@ -250,5 +253,6 @@ static int create_default_cpu_mapper()
 static int destroy_default_cpu_mapper()
 {
 	v3_unregister_cpu_mapper(default_mapper_impl.name);
+	// note - is not deleted since it's a global... 
 	return 0;
 }

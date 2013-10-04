@@ -11,10 +11,10 @@ there may be hidden Linux assumptions.
 The tool assumes you have already built Palacios, the Linux embedding,
 and the Linux user-sapce tools.  If you haven't done this, hit CTRL-C
 now, configure and build Palacios, the user-space tools, and run
-v3_config.pl.
+v3_config_v3vee.pl.
 
 This tool also assumes that you have the environment produced by
-v3_config.pl sourced:
+v3_config_v3vee.pl sourced:
 
   source ./ENV
 
