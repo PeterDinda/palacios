@@ -154,7 +154,7 @@ if (is_palacios_core_feature_enabled($pdir,"V3_CONFIG_MPTABLE")) {
   print "We will include a classic MPTABLE constructor to describe your machine to the guest\n";
   add_device(\%config, "MPTABLE", "mptable");
 } else {
-  if ($numcores>1 &&  is_palacios_core_feature_enabled($pdir,"V3_CONFIG_BOCHSBIOS")) {
+  if ($config{numcores}>1 &&  is_palacios_core_feature_enabled($pdir,"V3_CONFIG_BOCHSBIOS")) {
     print "This is a multicore guest, and your Palacios configuration uses the classic BOCHS BIOS\n".
       "but does not have the MPTABLE constructor enabled...  This guest will almost\n".
 	"certainly fail to work.  Do you want to continue anyway? [n] :";
@@ -189,6 +189,14 @@ do_consoles_and_ports(\%config, $pdir);
 #
 print "\nWe will now consider storage controllers and devices.\n\n";
 do_storage(\%config, $pdir, $dir, $name, "pci0", "southbridge");
+
+
+#
+# NVRAM 
+#
+# Note: do_storage *must* have placed an IDE named ide0 in order for this to work
+#
+do_device(\%config, $pdir, "V3_CONFIG_NVRAM", "NVRAM", "nvram", 1, undef, "     <storage>ide0</storage>\n"); #must have
 
 
 #
@@ -411,7 +419,7 @@ sub do_consoles_and_ports {
   print "The CGA and VGA options are mutually exclusive\n";
   print "THe VGA and PARAGRAPH options are mutually exclusive\n";
   
-  if (!($cancga || $canvga || $canserial || $canvirioconsole)) { 
+  if (!($cancga || $canvga || $canserial || $canvirtioconsole)) { 
     print "Hmm... No console mechanism is enabled in your Palacios build...\n";
     print "  This is probably not what you want...\n";
 }
@@ -476,7 +484,7 @@ sub do_consoles_and_ports {
     }
   }
   
-  if (!($didcga || $didvga || $didserial || $didvirioconsole || $didparagraph)) { 
+  if (!($didcga || $didvga || $didserial || $didvirtioconsole || $didparagraph)) { 
     print "You have configured your guest without any obvious way of interacting with it....\n";
     print "  This is probably not what you want...\n";
   } 
@@ -570,7 +578,7 @@ sub do_network {
        $host=get_user("eth0");
        add_device($cr,"NIC_BRIDGE","net$num-back",undef,
                   "    <frontend tag=\"net$num\" />\n".
-                  "    <hostnic>$host</hostnic>\n");
+                  "    <hostnic name=\"$host\" />\n");
     }
 
     if ($back eq "vnet") { 
