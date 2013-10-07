@@ -370,7 +370,7 @@ public:
     }
     
     virtual void keyEvent(rdr::U32 key, bool down) {
-	vlog.info("Key event received (key=%d, down=%d.",key,down);
+	//vlog.info("Key event received (key=%d, down=%d.",key,down);
     
 	uint8_t scan_code = convert_to_scancode(key,down);
 
@@ -423,7 +423,7 @@ public:
 		exit(-1);
 	    }
 	    
-	    fprintf(stderr,"render!\n");
+	    //fprintf(stderr,"render!\n");
 
 	    server->add_changed(pb->getRect());
 	    server->tryUpdate();

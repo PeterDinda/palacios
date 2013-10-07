@@ -156,7 +156,7 @@ static long v3_vm_ioctl(struct file * filp,
 
     struct v3_guest * guest = filp->private_data;
 
-    INFO("V3 IOCTL %d\n", ioctl);
+    DEBUG("V3 IOCTL %d\n", ioctl);
 
     switch (ioctl) {
 	case V3_VM_LAUNCH: {
