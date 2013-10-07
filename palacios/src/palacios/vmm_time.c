@@ -530,7 +530,9 @@ void v3_deinit_time_core(struct guest_info * core) {
     struct v3_timer * tmr = NULL;
     struct v3_timer * tmp = NULL;
 
-    list_for_each_entry_safe(tmr, tmp, &(time_state->timers), timer_link) {
-	v3_remove_timer(core, tmr);
+    if (*(void**)&time_state->timers) {
+        list_for_each_entry_safe(tmr, tmp, &(time_state->timers), timer_link) {
+        v3_remove_timer(core, tmr);
+        }
     }
 }

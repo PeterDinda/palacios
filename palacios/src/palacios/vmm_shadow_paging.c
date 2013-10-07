@@ -170,9 +170,15 @@ int v3_init_shdw_pg_state(struct guest_info * core) {
 
 
 int v3_deinit_shdw_pg_state(struct guest_info * core) {
-    struct v3_shdw_pg_impl * impl = core->vm_info->shdw_impl.current_impl;
+    struct v3_shdw_pg_impl * impl = NULL;
 
-    if (impl->local_deinit(core) == -1) {
+    if (!core || !core->vm_info) {
+        return -1;
+    }
+
+    impl = core->vm_info->shdw_impl.current_impl;
+
+    if (impl && impl->local_deinit(core) == -1) {
 	PrintError(core->vm_info, core, "Error deinitializing shadow paging state\n");
 	return -1;
     }

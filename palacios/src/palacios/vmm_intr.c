@@ -69,11 +69,13 @@ void v3_deinit_intr_controllers(struct guest_info * core) {
     struct intr_controller * tmp;
 
     // clear out any controllers that were left around
-    list_for_each_entry_safe(ctrlr, tmp, &(intr_state->controller_list), ctrl_node) {
-	v3_remove_intr_controller(core, ctrlr);
-    }
+    if (*(void**)&intr_state->controller_list) {
+        list_for_each_entry_safe(ctrlr, tmp, &(intr_state->controller_list), ctrl_node) {
+        v3_remove_intr_controller(core, ctrlr);
+        }
 
-    v3_lock_deinit(&(intr_state->irq_lock));
+        v3_lock_deinit(&(intr_state->irq_lock));
+    }
 
 }
 
@@ -92,12 +94,14 @@ void v3_deinit_intr_routers(struct v3_vm_info * vm) {
     struct intr_router * rtr = NULL;
     struct intr_router * tmp = NULL;
 
-    // clear out any controllers that were left around
-    list_for_each_entry_safe(rtr, tmp, &(vm->intr_routers.router_list), router_node) {
-	v3_remove_intr_router(vm, rtr);
-    }  
+    // clear out any routers that were left around
+    if (*(void**)&vm->intr_routers.router_list) {
+        list_for_each_entry_safe(rtr, tmp, &(vm->intr_routers.router_list), router_node) {
+        v3_remove_intr_router(vm, rtr);
+        }  
 
-    v3_lock_deinit(&(vm->intr_routers.irq_lock));
+        v3_lock_deinit(&(vm->intr_routers.irq_lock));
+    }
 }
 
 void * v3_register_intr_controller(struct guest_info * info, struct intr_ctrl_ops * ops, void * priv_data) {
