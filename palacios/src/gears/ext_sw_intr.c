@@ -114,8 +114,8 @@ static inline struct v3_swintr_hook * get_swintr_hook (struct guest_info * core,
 
 static struct v3_extension_impl swintr_impl = {
     .name = "swintr_intercept",
-    .init = init_swintr_intercept,
-    .deinit = deinit_swintr_intercept,
+    .vm_init = init_swintr_intercept,
+    .vm_deinit = deinit_swintr_intercept,
     .core_init = init_swintr_intercept_core,
     .core_deinit = NULL,
     .on_entry = NULL,

@@ -338,8 +338,8 @@ static int deinit_syscall_hijack (struct v3_vm_info * vm, void * priv_data) {
 
 static struct v3_extension_impl syscall_impl = {
     .name = "syscall_intercept",
-    .init = init_syscall_hijack,
-    .deinit = deinit_syscall_hijack,
+    .vm_init = init_syscall_hijack,
+    .vm_deinit = deinit_syscall_hijack,
     .core_init = init_syscall_hijack_core,
     .core_deinit = NULL,
     .on_entry = NULL,  

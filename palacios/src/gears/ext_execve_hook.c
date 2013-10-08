@@ -143,8 +143,8 @@ int v3_unhook_executable (struct v3_vm_info * vm, const uchar_t * binfile) {
 
 static struct v3_extension_impl execve_impl = {
 	.name = "execve_intercept",
-	.init = init_exec_hooks,
-	.deinit = NULL,
+	.vm_init = init_exec_hooks,
+	.vm_deinit = NULL,
 	.core_init = init_exec_hooks_core,
 	.core_deinit = deinit_exec_hooks_core,
 	.on_entry = NULL,

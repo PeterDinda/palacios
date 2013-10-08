@@ -727,8 +727,8 @@ int v3_remove_code_inject (struct v3_vm_info * vm, struct v3_code_inject_info * 
 
 static struct v3_extension_impl code_inject_impl = {
 	.name = "code_inject",
-	.init = init_code_inject,
-	.deinit = deinit_code_inject,
+	.vm_init = init_code_inject,
+	.vm_deinit = deinit_code_inject,
 	.core_init = NULL,
 	.core_deinit = NULL,
 	.on_entry = NULL,

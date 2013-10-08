@@ -109,8 +109,8 @@ int v3_remove_env_inject (struct v3_vm_info * vm, struct v3_env_inject_info * in
 
 static struct v3_extension_impl env_inject_impl = {
 	.name = "env_inject",
-	.init = init_env_inject,
-	.deinit = deinit_env_inject,
+	.vm_init = init_env_inject,
+	.vm_deinit = deinit_env_inject,
 	.core_init = NULL,
 	.core_deinit = NULL,
 	.on_entry = NULL,
