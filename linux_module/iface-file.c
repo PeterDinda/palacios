@@ -252,6 +252,10 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
 static int palacios_file_close(void * file_ptr) {
     struct palacios_file * pfile = (struct palacios_file *)file_ptr;
 
+    if (!pfile) {
+        return -1;
+    }
+
     filp_close(pfile->filp, NULL);
     
     list_del(&(pfile->file_node));
