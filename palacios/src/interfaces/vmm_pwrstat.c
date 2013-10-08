@@ -29,33 +29,37 @@ struct v3_pwrstat_iface * palacios_pwrstat = 0;
 
 void v3_pwrstat_init (void) 
 {
-    V3_ASSERT(VM_NONE, VCORE_NONE, palacios_pwrstat != NULL);
-    V3_ASSERT(VM_NONE, VCORE_NONE, palacios_pwrstat->init != NULL);
-    palacios_pwrstat->init();
+    if (palacios_pwrstat && palacios_pwrstat->init) {
+        palacios_pwrstat->init();
+    }
 }
 
 
 void v3_pwrstat_deinit (void) 
 {
-    V3_ASSERT(VM_NONE, VCORE_NONE, palacios_pwrstat != NULL);
-    V3_ASSERT(VM_NONE, VCORE_NONE, palacios_pwrstat->deinit != NULL);
-    palacios_pwrstat->deinit();
+    if (palacios_pwrstat && palacios_pwrstat->deinit) {
+        palacios_pwrstat->deinit();
+    }
 }
 
 
 uint64_t v3_pwrstat_get_value (v3_pwrstat_ctr_t ctr)
 {
-    V3_ASSERT(VM_NONE, VCORE_NONE, palacios_pwrstat != NULL);
-    V3_ASSERT(VM_NONE, VCORE_NONE, palacios_pwrstat->get_value != NULL);
-    return palacios_pwrstat->get_value(ctr);
+    if (palacios_pwrstat && palacios_pwrstat->get_value) {
+        return palacios_pwrstat->get_value(ctr);
+    }
+
+    return -1;
 }
 
 
 int v3_pwrstat_ctr_valid(v3_pwrstat_ctr_t ctr)
 {
-    V3_ASSERT(VM_NONE, VCORE_NONE, palacios_pwrstat != NULL);
-    V3_ASSERT(VM_NONE, VCORE_NONE, palacios_pwrstat->ctr_valid != NULL);
-    return palacios_pwrstat->ctr_valid(ctr);
+    if (palacios_pwrstat && palacios_pwrstat->ctr_valid) {
+        return palacios_pwrstat->ctr_valid(ctr);
+    }
+
+    return -1;
 }
 
 
