@@ -665,11 +665,17 @@ static int offline_memory(unsigned long long mem_size_bytes,
 		    int j = 0;
 		    int major = (i + reg_start) / 8;
 		    int minor = (i + reg_start) % 8;
+            char * pos;
 
 		    bitmap[major] &= ~(0x1 << minor); // mark the block as not removable in bitmap
 		    
 		    mem_ready = 0; // Keep searching
 		    
+            // remove trailing newline
+            if ((pos=strchr(status_buf, '\n')) != NULL) {
+                *pos = '\0';
+            }
+
 		    EPRINTF("ERROR - block status is '%s'\n", status_buf);
 
 		    // Unwind space
