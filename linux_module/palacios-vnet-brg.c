@@ -32,7 +32,7 @@
 
 #define VNET_SERVER_PORT 9000
 
-#define VNET_ADAPTIVE_BRIDGE  0      // set this to one to have bridge go to sleep if there nothing to do...
+#define VNET_ADAPTIVE_BRIDGE  1      // set this to one to have bridge go to sleep if there nothing to do...
 #define VNET_NOPROGRESS_LIMIT 1000   // ... after this many iterations
 #define VNET_YIELD_TIME_USEC  1000   // ... and go to sleep for this long
 
@@ -479,7 +479,7 @@ static int _udp_server(void * arg) {
 	    } else {
 		// Likely not making progress, do potentially slow
 		// yield - we won't come back for until VNET_YIELD_TIME_USEC has passed
-		palacios_yield_cpu_timed(VNET_YIELD_TIME_USEC);
+		palacios_sleep_cpu(VNET_YIELD_TIME_USEC);
 	    }
 
 	    continue;
