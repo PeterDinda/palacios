@@ -20,6 +20,7 @@ BASE_EXECS = 	v3_mem \
 		v3_pause  \
 		v3_continue \
 		v3_core_move \
+                v3_mem_move \
 		v3_load \
 		v3_save \
 		v3_cons \

@@ -355,8 +355,9 @@ static int read_guests_details(struct seq_file *s, void *v)
 
 		seq_printf(s, "\nMemory Regions\n");
 		for (j=0;j<mem->num_regions;j++) { 
-		    seq_printf(s,"   region %u has HPAs 0x%p-0x%p\n",
-			       j, mem->region[j].host_paddr, mem->region[j].host_paddr+mem->region[j].size);
+		    seq_printf(s,"   region %u has HPAs 0x%p-0x%p (node %d)\n",
+			       j, mem->region[j].host_paddr, mem->region[j].host_paddr+mem->region[j].size,
+			       numa_addr_to_node((uintptr_t)(mem->region[j].host_paddr)));
 		}
 	    }
 	    seq_printf(s,

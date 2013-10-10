@@ -29,6 +29,8 @@
 #include <palacios/vmm_timeout.h>
 #include <palacios/vmm_options.h>
 #include <palacios/vmm_cpu_mapper.h>
+#include <palacios/vmm_direct_paging.h>
+#include <interfaces/vmm_numa.h>
 
 #ifdef V3_CONFIG_SVM
 #include <palacios/svm.h>
@@ -489,7 +491,121 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
     return 0;
 }
 
+/* move a memory region to memory with affinity for a specific physical core */
+int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu) {
+    int old_node;
+    int new_node;
+    struct v3_mem_region *reg;
+    void *new_hpa;
+    int num_pages;
+    void *old_hpa;
+    int i;
 
+    old_node = v3_numa_gpa_to_node(vm,(addr_t)gpa);
+
+    if (old_node<0) { 
+	PrintError(vm, VCORE_NONE, "Cannot determine current node of gpa %p\n",gpa);
+	return -1;
+    }
+
+    new_node = v3_numa_cpu_to_node(target_cpu);
+
+    if (new_node<0) { 
+	PrintError(vm, VCORE_NONE, "Cannot determine current node of cpu %d\n",target_cpu);
+	return -1;
+    }
+
+    if (new_node==old_node) { 
+	PrintDebug(vm, VCORE_NONE, "Affinity is already established - ignoring request\n");
+	return 0;
+    }
+
+    // We are now going to change the universe, so 
+    // we'll barrier everyone first
+
+    while (v3_raise_barrier(vm, NULL) == -1);
+
+    // get region
+    
+    reg = v3_get_mem_region(vm, V3_MEM_CORE_ANY, (addr_t) gpa);
+
+    if (!reg) { 
+	PrintError(vm, VCORE_NONE, "Attempt to migrate non-existent memory\n");
+	goto out_fail;
+    }
+    
+    if (!(reg->flags.base) || !(reg->flags.alloced)) { 
+	PrintError(vm, VCORE_NONE, "Attempt to migrate invalid region: base=%d alloced=%d\n", reg->flags.base, reg->flags.alloced);
+	goto out_fail;
+    }
+
+    // we now have the allocated base region corresponding to  - and not a copy
+    // we will rewrite this region after moving its contents
+    
+    // first, let's double check that we are in fact changing the numa_id...
+
+    if (reg->numa_id==new_node) { 
+	PrintDebug(vm, VCORE_NONE, "Affinity for this base region is already established - ignoring...\n");
+	goto out_success;
+    }
+
+    // region uses exclusive addressing [guest_start,guest_end)
+    num_pages = (reg->guest_end-reg->guest_start)/PAGE_SIZE;
+
+    // Now we allocate space for the new region with the same constraints as
+    // it originally had
+    new_hpa = V3_AllocPagesExtended(num_pages,
+				    PAGE_SIZE_4KB,
+				    new_node,
+				    reg->flags.limit32 ? V3_ALLOC_PAGES_CONSTRAINT_4GB : 0);
+
+    if (!new_hpa) { 
+	PrintError(vm, VCORE_NONE, "Cannot allocate memory for new base region...\n");
+	goto out_fail;
+    }
+
+    // Note, assumes virtual contiguity in the host OS... 
+    memcpy(V3_VAddr((void*)new_hpa), V3_VAddr((void*)(reg->host_addr)), num_pages*PAGE_SIZE);
+
+    old_hpa = (void*)(reg->host_addr);
+    old_node = (int)(reg->numa_id);
+
+    reg->host_addr = (addr_t)new_hpa;
+    reg->numa_id = v3_numa_hpa_to_node((addr_t)new_hpa);
+
+    // flush all page tables / kill all humans 
+
+    for (i=0;i<vm->num_cores;i++) { 
+	if (vm->cores[i].shdw_pg_mode==SHADOW_PAGING) { 
+	    v3_invalidate_shadow_pts(&(vm->cores[i]));
+	} else if (vm->cores[i].shdw_pg_mode==NESTED_PAGING) { 
+	    // nested invalidator uses inclusive addressing [start,end], not [start,end)
+	    v3_invalidate_nested_addr_range(&(vm->cores[i]),reg->guest_start,reg->guest_end-1);
+	} else {
+	    PrintError(vm,VCORE_NONE, "Cannot determine how to invalidate paging structures! Reverting to previous region.\n");
+	    // We'll restore things...
+	    reg->host_addr = (addr_t) old_hpa;
+	    reg->numa_id = old_node;
+	    V3_FreePages(new_hpa,num_pages);
+	    goto out_fail;
+	}
+    }
+    
+    // Now the old region can go away...
+    V3_FreePages(old_hpa,num_pages);
+    
+    PrintDebug(vm,VCORE_NONE,"Migration of memory complete - new region is %p to %p\n",
+	       (void*)(reg->host_addr),(void*)(reg->host_addr+num_pages*PAGE_SIZE-1));
+    
+ out_success:
+    v3_lower_barrier(vm);
+    return 0;
+    
+    
+ out_fail:
+    v3_lower_barrier(vm);
+    return -1;
+}
 
 int v3_stop_vm(struct v3_vm_info * vm) {
 

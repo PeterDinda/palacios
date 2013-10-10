@@ -449,6 +449,7 @@ int v3_send_vm(struct v3_vm_info * vm, char * store, char * url, unsigned long l
 int v3_receive_vm(struct v3_vm_info * vm, char * store, char * url, unsigned long long opts);
 
 int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu);
+int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu);
 
 int v3_free_vm(struct v3_vm_info * vm);
 

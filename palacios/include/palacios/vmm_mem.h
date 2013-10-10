@@ -52,6 +52,7 @@ typedef struct {
 	    uint8_t exec   : 1;
 	    uint8_t base   : 1;
 	    uint8_t alloced : 1;
+	    uint8_t limit32 : 1; // must be < 4GB in host
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed)) v3_mem_flags_t;

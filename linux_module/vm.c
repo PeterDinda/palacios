@@ -317,13 +317,36 @@ static long v3_vm_ioctl(struct file * filp,
 	    memset(&cmd, 0, sizeof(struct v3_core_move_cmd));
 	    
 	    if (copy_from_user(&cmd, argp, sizeof(struct v3_core_move_cmd))) {
-		WARNING("copy from user error getting migrate command...\n");
+		WARNING("copy from user error getting migrate core command...\n");
 		return -EFAULT;
 	    }
 	
 	    INFO("moving guest %s vcore %d to CPU %d\n", guest->name, cmd.vcore_id, cmd.pcore_id);
 
-	    v3_move_vm_core(guest->v3_ctx, cmd.vcore_id, cmd.pcore_id);
+	    if (v3_move_vm_core(guest->v3_ctx, cmd.vcore_id, cmd.pcore_id)) { 
+		ERROR("Could not move core\n");
+		return -EFAULT;
+	    }
+
+	    break;
+	}
+	case V3_VM_MOVE_MEM: {
+	    struct v3_mem_move_cmd cmd;
+	    void __user * argp = (void __user *)arg;
+
+	    memset(&cmd, 0, sizeof(struct v3_mem_move_cmd));
+	    
+	    if (copy_from_user(&cmd, argp, sizeof(struct v3_mem_move_cmd))) {
+		WARNING("copy from user error getting migrate memory command...\n");
+		return -EFAULT;
+	    }
+	
+	    INFO("moving guest %s memory at gpa %p to memory with affinity for CPU %d\n", guest->name, (void*)(cmd.gpa), cmd.pcore_id);
+
+	    if (v3_move_vm_mem(guest->v3_ctx, (void*)(cmd.gpa), cmd.pcore_id)) {
+		ERROR("Could not move memory\n");
+		return -EFAULT;
+	    }
 
 	    break;
 	}

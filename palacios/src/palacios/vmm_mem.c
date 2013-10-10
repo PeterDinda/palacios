@@ -27,6 +27,7 @@
 #include <palacios/vmm_shadow_paging.h>
 #include <palacios/vmm_direct_paging.h>
 
+#include <interfaces/vmm_numa.h>
 
 uint64_t v3_mem_block_size = V3_CONFIG_MEM_BLOCK_SIZE;
 
@@ -185,13 +186,18 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 
 	// Clear the memory...
 	memset(V3_VAddr((void *)region->host_addr), 0, v3_mem_block_size);
+	
+	// Note assigned numa ID could be different than our request... 
+	region->numa_id = v3_numa_hpa_to_node(region->host_addr);
 
 	region->flags.read = 1;
 	region->flags.write = 1;
 	region->flags.exec = 1;
 	region->flags.base = 1;
 	region->flags.alloced = 1;
+	region->flags.limit32 = will_use_shadow_paging(vm);
 	
+
 	region->unhandled = unhandled_err;
     }
 

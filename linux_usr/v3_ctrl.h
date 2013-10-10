@@ -43,6 +43,8 @@
 #define V3_VM_SEND    34
 #define V3_VM_RECEIVE 35
 
+#define V3_VM_MOVE_MEM 36
+
 #define V3_VM_FB_INPUT 257
 #define V3_VM_FB_QUERY 258
 
@@ -76,6 +78,11 @@ struct v3_mem_region {
 struct v3_core_move_cmd{
     unsigned short vcore_id;
     unsigned short pcore_id;
+} __attribute__((packed));
+
+struct v3_mem_move_cmd{
+    unsigned long long gpa;
+    unsigned short     pcore_id;
 } __attribute__((packed));
 
 struct v3_debug_cmd {

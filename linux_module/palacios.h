@@ -39,6 +39,8 @@
 #define V3_VM_SEND    34
 #define V3_VM_RECEIVE 35
 
+#define V3_VM_MOVE_MEM 36
+
 #define V3_VM_FB_INPUT 257
 #define V3_VM_FB_QUERY 258
 
@@ -75,6 +77,11 @@ struct v3_debug_cmd {
 struct v3_core_move_cmd {
     unsigned short vcore_id;
     unsigned short pcore_id;
+} __attribute__((packed));
+
+struct v3_mem_move_cmd{
+    unsigned long long gpa;
+    unsigned short     pcore_id;
 } __attribute__((packed));
 
 struct v3_chkpt_info {
@@ -156,7 +163,7 @@ void *palacios_start_kernel_thread(int (*fn)(void * arg), void *arg, char *threa
 void *palacios_start_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name);
 int   palacios_move_thread_to_cpu(int new_cpu_id, void *thread_ptr);
 void  palacios_yield_cpu(void);
-void  palacios_yield_cpu_timed(unsigned int us);
+void  palacios_sleep_cpu(unsigned int us);
 unsigned int palacios_get_cpu(void);
 unsigned int palacios_get_cpu_khz(void);
 void *palacios_mutex_alloc(void);         // allocates and inits a lock
