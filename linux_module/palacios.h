@@ -166,6 +166,8 @@ void  palacios_yield_cpu(void);
 void  palacios_sleep_cpu(unsigned int us);
 unsigned int palacios_get_cpu(void);
 unsigned int palacios_get_cpu_khz(void);
+void  palacios_used_fpu(void);
+void  palacios_need_fpu(void);
 void *palacios_mutex_alloc(void);         // allocates and inits a lock
 void  palacios_mutex_init(void *mutex);   // only inits a lock
 void  palacios_mutex_deinit(void *mutex); // only deinits a lock

@@ -120,6 +120,7 @@ int v3_wait_for_barrier(struct v3_vm_info * vm_info, struct guest_info * local_c
 	    break;
 	}
 
+        // return immediately and spin if there is no one to yield to 
 	v3_yield(local_core,-1);
     }
 
@@ -198,6 +199,10 @@ int v3_wait_at_barrier(struct guest_info * core) {
 	return 0;
     }
 
+#ifdef V3_CONFIG_LAZY_FP_SWITCH
+    v3_get_fp_state(core); // snapshot FP state now regardless of lazy eval
+#endif
+
     V3_Print(core->vm_info, core, "Core %d waiting at barrier\n", core->vcpu_id);
 
     /*  Barrier has been activated. 
@@ -211,8 +216,13 @@ int v3_wait_at_barrier(struct guest_info * core) {
 
     // wait for cpu bit to clear
     while (v3_bitmap_check(&(barrier->cpu_map), core->vcpu_id)) {
+        // Barrier wait will spin if there is no competing work
 	v3_yield(core,-1);
     }
+    
+#ifdef V3_LAZY_FP_SWITCH
+    core->fp_state.need_restore=1;  // restore FP on next entry
+#endif
 
     return 0;
 }

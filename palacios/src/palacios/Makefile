@@ -20,6 +20,7 @@ obj-y := \
 	vmm_io.o \
 	vmm_lock.o \
 	vmm_mem.o \
+        vmm_fp.o \
 	vmm_msr.o \
 	vmm_paging.o \
 	vmm_options.o \

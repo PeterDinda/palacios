@@ -27,6 +27,7 @@
 #include <palacios/vmm_mem_hook.h>
 #include <palacios/vmm_io.h>
 #include <palacios/vmm_shadow_paging.h>
+#include <palacios/vmm_direct_paging.h>
 #include <palacios/vmm_intr.h>
 #include <palacios/vmm_excp.h>
 #include <palacios/vmm_dev_mgr.h>
@@ -43,7 +44,7 @@
 #include <palacios/vmm_events.h>
 #include <palacios/vmm_scheduler.h>
 #include <palacios/vmm_fw_cfg.h>
-
+#include <palacios/vmm_fp.h>
 #include <palacios/vmm_perftune.h>
 
 #ifdef V3_CONFIG_TELEMETRY
@@ -86,6 +87,7 @@ struct guest_info {
 
     v3_paging_mode_t shdw_pg_mode;
     struct v3_shdw_pg_state shdw_pg_state;
+    //struct v3_nested_pg_state nested_pg_state;
     addr_t direct_map_pt;
     
 
@@ -116,6 +118,7 @@ struct guest_info {
     struct v3_segments segments;
     struct v3_msrs     msrs;
 
+    struct v3_fp_state fp_state;
 
     void * vmm_data;
 
@@ -177,6 +180,7 @@ struct v3_vm_info {
     struct v3_mem_hooks mem_hooks;
 
     struct v3_shdw_impl_state shdw_impl;
+    //struct v3_nested_impl_state nested_impl;
     void * sched_priv_data;
 
     struct v3_io_map io_map;

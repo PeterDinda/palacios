@@ -39,6 +39,7 @@
 #include <palacios/vmm_barrier.h>
 #include <palacios/vmm_debug.h>
 
+#include <palacios/vmm_perftune.h>
 
 
 #ifdef V3_CONFIG_CHECKPOINT
@@ -666,6 +667,8 @@ int v3_svm_enter(struct guest_info * info) {
     guest_state->rip = info->rip;
     guest_state->rsp = info->vm_regs.rsp;
 
+    V3_FP_ENTRY_RESTORE(info);
+
 #ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
 	update_irq_entry_state(info);
@@ -732,6 +735,8 @@ int v3_svm_enter(struct guest_info * info) {
     v3_advance_time(info, &guest_cycles);
 
     info->num_exits++;
+
+    V3_FP_EXIT_SAVE(info);
 
     // Save Guest state from VMCB
     info->rip = guest_state->rip;
@@ -823,7 +828,9 @@ int v3_start_svm_guest(struct guest_info * info) {
 		info->core_run_state = CORE_RUNNING;
 	    } else  { 
 		PrintDebug(info->vm_info, info, "SVM core %u (on %u): Waiting for core initialization\n", info->vcpu_id, info->pcpu_id);
-		
+
+		V3_NO_WORK(info);
+
 		while (info->core_run_state == CORE_STOPPED) {
 		    
 		    if (info->vm_info->run_state == VM_STOPPED) {
@@ -831,9 +838,12 @@ int v3_start_svm_guest(struct guest_info * info) {
 			return 0;
 		    }
 		    
-		    v3_yield(info,-1);
+		    V3_STILL_NO_WORK(info);
+
 		    //PrintDebug(info->vm_info, info, "SVM core %u: still waiting for INIT\n", info->vcpu_id);
 		}
+
+		V3_HAVE_WORK_AGAIN(info);
 		
 		PrintDebug(info->vm_info, info, "SVM core %u(on %u) initialized\n", info->vcpu_id, info->pcpu_id);
 		

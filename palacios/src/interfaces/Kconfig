@@ -88,4 +88,11 @@ config HOST_PWRSTAT
 	help
 		Select this if you would like to access energy/power
 		measurements within Palacios
+
+config HOST_LAZY_FPU_SWITCH
+	bool "Host provides lazy FPU context switching"
+	default n
+	help
+		Select this if your host provides lazy context switch support
+                for floating point state and you would like Palacios to use it
 endmenu

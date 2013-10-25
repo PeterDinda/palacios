@@ -75,6 +75,7 @@ config VMX
 	  Compile with support for Intel VMX
 
 
+
 config FRAME_POINTER
 	bool "Compile with Frame pointers"
 	default n
@@ -144,6 +145,49 @@ config MAX_CPUS
 endmenu
 
 source "palacios/src/interfaces/Kconfig"
+
+menu "Virtual core specialization"
+
+config CUSTOM_CPUID
+	bool "Use custom CPU information (vendor, etc)"
+	default y
+	help 
+          If set, the CPU information will be for a special V3VEE vendor.
+	  This should result in identical guest kernel setup, regardless
+          of the underlying hardware, but it also means that the guest kernel
+          has no chance of employing CPU-specific bug fixes.
+
+config STRICT_MSR_SEMANTICS
+	bool "Use strict RDMSR/WRMSR semantics"
+	default y
+	help
+	  Use strict MSR semantics - when an unhandled MSR is read or written,
+	  a GPF is generated.  This is typically usd with CUSTOM_CPU_TYPE on.
+
+config FP_SWITCH
+	bool "Floating point context switching"
+        default y
+        help
+          If set, floating point is handled for context switches 
+          (VM1->VM2->VM1 and/or VM->HOST->VM).   This can be disabled
+          for environments where a single VM is the only user of FP.
+          Note that even if disabled, FP save/restore code is included
+          for support of checkpoint/restore.
+
+config LAZY_FP_SWITCH
+	bool "Use host-based lazy floating point context switching"
+        depends on FP_SWITCH && HOST_LAZY_FPU_SWITCH
+	default y
+	help
+	  When true,  the host's lazy floating point save/restore 
+          mechanism is notified on each exit and entry.  If false,
+          the floating point state is explicitly saved on each exit
+          and restored on each entry---this save/restore is entirely
+          done in Palacios.
+          
+          
+endmenu
+
 source "palacios/src/extensions/Kconfig"
 
 config TELEMETRY

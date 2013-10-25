@@ -412,15 +412,15 @@ struct mem_migration_state {
     struct v3_bitmap  modified_pages; 
 };
 
-static int paging_callback(struct guest_info *core, 
-			   struct v3_shdw_pg_event *event,
-			   void      *priv_data)
+static int shadow_paging_callback(struct guest_info *core, 
+				  struct v3_shdw_pg_event *event,
+				  void      *priv_data)
 {
     struct mem_migration_state *m = (struct mem_migration_state *)priv_data;
     
     if (event->event_type==SHADOW_PAGEFAULT &&
 	event->event_order==SHADOW_PREIMPL &&
-	event->error_code.write) { 
+	event->error_code.write) { // Note, assumes VTLB behavior where we will see the write even if preceded by a read
 	addr_t gpa;
 	if (!v3_gva_to_gpa(core,event->gva,&gpa)) {
 	    // write to this page
@@ -434,7 +434,30 @@ static int paging_callback(struct guest_info *core,
     
     return 0;
 }
-	
+
+
+/*
+static int nested_paging_callback(struct guest_info *core, 
+				  struct v3_nested_pg_event *event,
+				  void      *priv_data)
+{
+    struct mem_migration_state *m = (struct mem_migration_state *)priv_data;
+    
+    if (event->event_type==NESTED_PAGEFAULT &&
+	event->event_order==NESTED_PREIMPL &&
+	event->error_code.write) { // Assumes we will see a write after reads
+	if (event->gpa<core->vm_info->mem_size) { 
+	  v3_bitmap_set(&(m->modified_pages),(event->gpa)>>12);
+	} else {
+	  // no worries, this isn't physical memory
+	}
+    } else {
+      // we don't care about other events
+    }
+    
+    return 0;
+}
+*/	
 
 
 static struct mem_migration_state *start_page_tracking(struct v3_vm_info *vm)
@@ -456,10 +479,27 @@ static struct mem_migration_state *start_page_tracking(struct v3_vm_info *vm)
 	V3_Free(m);
     }
 
-    v3_register_shadow_paging_event_callback(vm,paging_callback,m);
+    // We assume that the migrator has already verified that all cores are
+    // using the identical model (shadow or nested)
+    // This must not change over the execution of the migration
 
-    for (i=0;i<vm->num_cores;i++) {
+    if (vm->cores[0].shdw_pg_mode==SHADOW_PAGING) { 
+      v3_register_shadow_paging_event_callback(vm,shadow_paging_callback,m);
+
+      for (i=0;i<vm->num_cores;i++) {
 	v3_invalidate_shadow_pts(&(vm->cores[i]));
+      }
+    } else if (vm->cores[0].shdw_pg_mode==NESTED_PAGING) { 
+      //v3_register_nested_paging_event_callback(vm,nested_paging_callback,m);
+      
+      for (i=0;i<vm->num_cores;i++) {
+	//v3_invalidate_nested_addr_range(&(vm->cores[i]),0,vm->mem_size-1);
+      }
+    } else {
+      PrintError(vm, VCORE_NONE, "Unsupported paging mode\n");
+      v3_bitmap_deinit(&(m->modified_pages));
+      V3_Free(m);
+      return 0;
     }
     
     // and now we should get callbacks as writes happen
@@ -469,11 +509,15 @@ static struct mem_migration_state *start_page_tracking(struct v3_vm_info *vm)
 
 static void stop_page_tracking(struct mem_migration_state *m)
 {
-    v3_unregister_shadow_paging_event_callback(m->vm,paging_callback,m);
+  if (m->vm->cores[0].shdw_pg_mode==SHADOW_PAGING) { 
+    v3_unregister_shadow_paging_event_callback(m->vm,shadow_paging_callback,m);
+  } else {
+    //v3_unregister_nested_paging_event_callback(m->vm,nested_paging_callback,m);
+  }
     
-    v3_bitmap_deinit(&(m->modified_pages));
-    
-    V3_Free(m);
+  v3_bitmap_deinit(&(m->modified_pages));
+  
+  V3_Free(m);
 }
 
 	    
@@ -731,6 +775,10 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
 	PrintError(info->vm_info, info, "Could not open context to load core\n");
 	goto loadfailout;
     }
+    
+    // Run state is needed to determine when AP cores need
+    // to be immediately run after resume
+    V3_CHKPT_LOAD(ctx,"run_state",info->core_run_state,loadfailout);
 
     V3_CHKPT_LOAD(ctx, "RIP", info->rip, loadfailout);
     
@@ -797,6 +845,11 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
     V3_CHKPT_LOAD(ctx, "GUEST_CR3", info->shdw_pg_state.guest_cr3, loadfailout);
     V3_CHKPT_LOAD(ctx, "GUEST_CR0", info->shdw_pg_state.guest_cr0, loadfailout);
     V3_CHKPT_LOAD(ctx, "GUEST_EFER", info->shdw_pg_state.guest_efer, loadfailout);
+
+    // floating point
+    if (v3_load_fp_state(ctx,info)) {
+      goto loadfailout;
+    }
 
     v3_chkpt_close_ctx(ctx); ctx=0;
 
@@ -912,6 +965,7 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
 	goto savefailout;
     }
 
+    V3_CHKPT_SAVE(ctx,"run_state",info->core_run_state,savefailout);
 
     V3_CHKPT_SAVE(ctx, "RIP", info->rip, savefailout);
     
@@ -978,6 +1032,11 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
     V3_CHKPT_SAVE(ctx, "GUEST_CR3", info->shdw_pg_state.guest_cr3, savefailout);
     V3_CHKPT_SAVE(ctx, "GUEST_CR0", info->shdw_pg_state.guest_cr0, savefailout);
     V3_CHKPT_SAVE(ctx, "GUEST_EFER", info->shdw_pg_state.guest_efer, savefailout);
+
+    // floating point
+    if (v3_save_fp_state(ctx,info)) {
+      goto savefailout;
+    }
 
     v3_chkpt_close_ctx(ctx); ctx=0;
 
@@ -1200,11 +1259,15 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_
     struct mem_migration_state *mm_state;
     int i;
 
-    // Currently will work only for shadow paging
-    for (i=0;i<vm->num_cores;i++) { 
-      if (vm->cores[i].shdw_pg_mode!=SHADOW_PAGING && !(opts & V3_CHKPT_OPT_SKIP_MEM)) { 
-	PrintError(vm, VCORE_NONE, "Cannot currently handle nested paging\n");
-	return -1;
+    // Cores must all be in the same mode
+    // or we must be skipping mmeory
+    if (!(opts & V3_CHKPT_OPT_SKIP_MEM)) { 
+      v3_paging_mode_t mode = vm->cores[0].shdw_pg_mode;
+      for (i=1;i<vm->num_cores;i++) { 
+	if (vm->cores[i].shdw_pg_mode != mode) { 
+	  PrintError(vm, VCORE_NONE, "Cores having different paging modes (nested and shadow) are not supported\n");
+	  return -1;
+	}
       }
     }
     

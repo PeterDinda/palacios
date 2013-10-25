@@ -24,6 +24,7 @@
 
 #include <palacios/vmm_types.h>
 
+#include <palacios/vmm_time.h>
 
 struct v3_yield_strategy {
     enum {
@@ -58,6 +59,24 @@ void     v3_strategy_driven_yield(struct guest_info *core, uint64_t time_since_l
 
 uint64_t v3_cycle_diff_in_usec(struct guest_info *core, uint64_t earlier_cycles, uint64_t later_cycles);
 
+// The following three macros are intended to make it easy to
+// use strategy-driven yield.  Call the first one when you are out of work
+// then call the second when each time that you want to yield because you are
+// out of work, and then call the third one when you have work to do again
+//
+// This assumes the thread is locked to a core and may behave strangely if 
+// this is not the case.   
+
+#define  V3_NO_WORK(core) {				   \
+  uint64_t _v3_strat_local_first=0, _v3_strat_local_cur=0; \
+  _v3_strat_local_first=v3_get_host_time(core ? &(core->time_state) : 0); 
+  
+  
+#define  V3_STILL_NO_WORK(core)            \
+  _v3_strat_local_cur=v3_get_host_time(core ? &(core->time_state) : 0);              \
+  v3_strategy_driven_yield(core,v3_cycle_diff_in_usec(core,_v3_strat_local_first,_v3_strat_local_cur)); 
+
+#define  V3_HAVE_WORK_AGAIN(core) }
 
 #endif
 

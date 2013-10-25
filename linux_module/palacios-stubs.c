@@ -16,14 +16,23 @@
 #include <linux/smp.h>
 #include <linux/vmalloc.h>
 
+#include <asm/i387.h>
+
 #include <palacios/vmm.h>
 #include <palacios/vmm_host_events.h>
+
+#ifdef V3_CONFIG_HOST_LAZY_FPU_SWITCH
+#include <interfaces/vmm_lazy_fpu.h>
+#endif
+
 #include "palacios.h"
 
 #include "mm.h"
 
 #include "memcheck.h"
 #include "lockcheck.h"
+
+
 
 // The following can be used to track heap bugs
 // zero memory after allocation
@@ -169,14 +178,14 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id
     void * pg_addr = NULL;
 
     if (num_pages<=0) { 
-      ERROR("ALERT ALERT Attempt to allocate zero or fewer pages\n");
+	ERROR("ALERT ALERT Attempt to allocate zero or fewer pages (%d pages, alignment %d, node %d, constraints 0x%x)\n",num_pages, alignment, node_id, constraints);
       return NULL;
     }
 
     pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment, node_id, constraints);
 
     if (!pg_addr) { 
-	ERROR("ALERT ALERT  Page allocation has FAILED Warning\n");
+	ERROR("ALERT ALERT  Page allocation has FAILED Warning (%d pages, alignment %d, node %d, constraints 0x%x)\n",num_pages, alignment, node_id, constraints);
 	return NULL;
     }
 
@@ -195,6 +204,10 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id
  */
 
 void palacios_free_pages(void * page_paddr, int num_pages) {
+    if (!page_paddr) { 
+	ERROR("Ignoring free pages: 0x%p (0x%lx)for %d pages\n", page_paddr, (uintptr_t)page_paddr, num_pages);
+	dump_stack();
+    }
     pg_frees += num_pages;
     free_palacios_pgs((uintptr_t)page_paddr, num_pages);
     MEMCHECK_FREE_PAGES(page_paddr,num_pages*4096);
@@ -294,6 +307,10 @@ palacios_free(
 	void *			addr
 )
 {
+    if (!addr) {
+	ERROR("Ignoring free : 0x%p\n", addr);
+	dump_stack();
+    }
     frees++;
     kfree(addr-ALLOC_PAD);
     MEMCHECK_KFREE(addr-ALLOC_PAD);
@@ -359,17 +376,25 @@ static int lnx_thread_target(void * arg) {
       allow_signal(SIGKILL);
     */
 
+#ifdef V3_CONFIG_HOST_LAZY_FPU_SWITCH
+    // We are a kernel thread that needs FPU save/restore state
+    // vcores definitely need this, all the other threads get it too, 
+    // but they just won't use it
+    fpu_alloc(&(current->thread.fpu));
+#endif
 
     ret = thread_info->fn(thread_info->arg);
-
 
     INFO("Palacios Thread (%s) EXITING\n", thread_info->name);
 
     palacios_free(thread_info);
     // handle cleanup 
 
+    // We rely on do_exit to free the fpu data
+    // since we could get switched at any point until the thread is done... 
+
     do_exit(ret);
-    
+
     return 0; // should not get here.
 }
 
@@ -764,6 +789,33 @@ palacios_mutex_unlock_irqrestore(void *mutex, void *flags)
     LOCKCHECK_UNLOCK_IRQRESTORE_POST(mutex,(unsigned long)flags);
 }
 
+void palacios_used_fpu(void)
+{
+   struct thread_info *cur = current_thread_info();
+
+   // We assume we are not preemptible here...
+   cur->status |= TS_USEDFPU;
+   clts(); 
+   // After this, FP Save should be handled by Linux if it
+   // switches to a different task and that task uses FPU
+}
+
+inline int ists(void)
+{
+   return read_cr0() & X86_CR0_TS;
+
+}
+void palacios_need_fpu(void)
+{
+    // We assume we are not preemptible here... 
+    if (ists()) { 
+      // we have been switched back to from somewhere else...
+      // Do a restore now - this will also do a clts()
+      math_state_restore();
+    }
+}
+
+
 /**
  * Structure used by the Palacios hypervisor to interface with the host kernel.
  */
@@ -796,6 +848,15 @@ static struct v3_os_hooks palacios_os_hooks = {
 };
 
 
+#ifdef V3_CONFIG_HOST_LAZY_FPU_SWITCH
+// Note that this host interface is defined here since it's
+// intertwined with thread creation... 
+static struct v3_lazy_fpu_iface palacios_fpu_hooks = {
+        .used_fpu               = palacios_used_fpu,
+        .need_fpu               = palacios_need_fpu
+};
+
+#endif
 
 
 int palacios_vmm_init( char *options )
@@ -841,6 +902,10 @@ int palacios_vmm_init( char *options )
     INFO("palacios_init starting - calling init_v3\n");
 
     Init_V3(&palacios_os_hooks, cpu_mask, num_cpus, options);
+
+#ifdef V3_CONFIG_HOST_LAZY_FPU_SWITCH
+    V3_Init_Lazy_FPU(&palacios_fpu_hooks);
+#endif
 
     return 0;
 

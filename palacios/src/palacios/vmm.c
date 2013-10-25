@@ -55,6 +55,8 @@ int v3_dbg_enable = 0;
 static void init_cpu(void * arg) {
     uint32_t cpu_id = (uint32_t)(addr_t)arg;
 
+    v3_init_fp();
+
 #ifdef V3_CONFIG_SVM
     if (v3_is_svm_capable()) {
         PrintDebug(VM_NONE, VCORE_NONE, "Machine is SVM Capable\n");
@@ -100,6 +102,9 @@ static void deinit_cpu(void * arg) {
 	    PrintError(VM_NONE, VCORE_NONE, "CPU has no virtualization Extensions\n");
 	    break;
     }
+
+    v3_deinit_fp();
+
 }
 
 void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *options) {
@@ -689,6 +694,7 @@ static int sim_callback(struct guest_info * core, void * private_data) {
     V3_Print(core->vm_info, core, "Simulation callback activated (guest_rip=%p)\n", (void *)core->rip);
 
     while (v3_bitmap_check(timeout_map, core->vcpu_id) == 1) {
+        // We spin here if there is noone to yield to
 	v3_yield(NULL,-1);
     }
 
@@ -759,7 +765,8 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
 	if (all_blocked == 1) {
 	    break;
 	}
-
+	
+	// Intentionally spin if there is no one to yield to
 	v3_yield(NULL,-1);
     }
 

@@ -76,6 +76,10 @@ typedef char sint8_t;
 
 typedef ulong_t addr_t;
 typedef ullong_t v3_reg_t;
+
+typedef uint8_t v3_xmm_reg_t[16];
+typedef uint8_t v3_fp_mmx_reg_t[10];
+
 #endif /* ! __V3VEE__ */
 
 #endif

@@ -1028,7 +1028,8 @@ int v3_vmx_enter(struct guest_info * info) {
 	
 	check_vmcs_write(VMCS_PREEMPT_TIMER, preempt_window);
     }
-   
+
+    V3_FP_ENTRY_RESTORE(info);
 
     {	
 	uint64_t entry_tsc = 0;
@@ -1080,6 +1081,8 @@ int v3_vmx_enter(struct guest_info * info) {
 
 
     info->num_exits++;
+
+    V3_FP_EXIT_SAVE(info);
 
     /* If we have the preemption time, then use it to get more accurate guest time */
     if (vmx_info->pin_ctrls.active_preempt_timer) {
@@ -1187,6 +1190,8 @@ int v3_start_vmx_guest(struct guest_info * info) {
 	    } else {
 		
 		PrintDebug(info->vm_info, info, "VMX core %u: Waiting for core initialization\n", info->vcpu_id);
+
+                V3_NO_WORK(info);
 		
 		while (info->core_run_state == CORE_STOPPED) {
 		    
@@ -1194,11 +1199,13 @@ int v3_start_vmx_guest(struct guest_info * info) {
 			// The VM was stopped before this core was initialized. 
 			return 0;
 		    }
-		    
-		    v3_yield(info,-1);
+
+		    V3_STILL_NO_WORK(info);
 		    //PrintDebug(info->vm_info, info, "VMX core %u: still waiting for INIT\n",info->vcpu_id);
 		}
-		
+
+		V3_HAVE_WORK_AGAIN(info);
+
 		PrintDebug(info->vm_info, info, "VMX core %u initialized\n", info->vcpu_id);
 		
 		// We'll be paranoid about race conditions here
