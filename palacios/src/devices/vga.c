@@ -1190,8 +1190,8 @@ static int vga_write(struct guest_info * core,
     struct vm_device *dev = (struct vm_device *)priv_data;
     struct vga_internal *vga = (struct vga_internal *) dev->private_data;
 
-    PrintDebug(core->vm_info, core, "vga: memory write: guest_addr=0x%p len=%u write_mode=%d\n",(void*)guest_addr, length,
-	       vga->vga_graphics_controller.vga_graphics_mode.write_mode);
+    PrintDebug(core->vm_info, core, "vga: memory write: guest_addr=0x%p len=%u write_mode=%d first_byte=0x%x\n",
+	       (void*)guest_addr, length, vga->vga_graphics_controller.vga_graphics_mode.write_mode, *(uint8_t*)src);
 
     if (vga->passthrough) { 
 	PrintDebug(core->vm_info, core, "vga: passthrough write to 0x%p\n", V3_VAddr((void*)guest_addr));
@@ -1215,6 +1215,9 @@ static int vga_write(struct guest_info * core,
 
     /* Write mode determine by Graphics Mode Register (Index 05h).writemode */
 
+
+    // probably could just reduce this to the datapath itself instead
+    // of following the programmer's perspective... 
 
     switch (vga->vga_graphics_controller.vga_graphics_mode.write_mode) {
 	case 0: {
@@ -1389,7 +1392,7 @@ static int vga_write(struct guest_info * core,
 		uint8_t bm = vga->vga_graphics_controller.vga_bit_mask;
 		uint8_t mm = find_map_write(vga,guest_addr+i);
 
-		for (mapnum=0;mapnum<4;mapnum++,  bm>>=1, mm>>=1) { 
+		for (mapnum=0;mapnum<4;mapnum++,  mm>>=1) { 
 		    vga_map map = vga->map[mapnum];
 		    uint8_t data = ((uint8_t *)src)[i];
 		    uint8_t latchval = vga->latch[mapnum];
@@ -1458,15 +1461,19 @@ static int vga_write(struct guest_info * core,
 		    data = (data>>ror) | (data<<(8-ror));
 		}
 
+		// Note here that the bitmask is the register AND the data
+		// the data written by the system is used for no other purpose
 		uint8_t bm = vga->vga_graphics_controller.vga_bit_mask & data;
+
 		uint8_t sr = vga->vga_graphics_controller.vga_set_reset.val & 0xf;
+
 		uint8_t mm = find_map_write(vga,guest_addr+i);
 
-		for (mapnum=0;mapnum<4;mapnum++, sr>>=1, bm>>=1, mm>>=1) { 
+		for (mapnum=0;mapnum<4;mapnum++, sr>>=1, mm>>=1) { 
 		    vga_map map = vga->map[mapnum];
 		    uint8_t latchval = vga->latch[mapnum];
 			
-		    // expand SR bit
+		    // expand SR bit - that's the data we're going to use
 		    data = (sr&0x1) * -1;
 
 		    // mux between latch and alu output
@@ -1601,13 +1608,16 @@ static int vga_read(struct guest_info * core,
 
 	      mapnum = find_map_read(vga,guest_addr+i);
 
+	      // the data returned
 	      ((uint8_t*)dst)[i] = *(vga->map[mapnum]+offset);
 	      
-	      vga->latch[mapnum] = *(vga->map[mapnum]+offset);
-
+	      // need to load all latches even though we are 
+	      // returning data from only the selected map
+	      for (mapnum=0;mapnum<4;mapnum++) { 
+		vga->latch[mapnum] = *(vga->map[mapnum]+offset);
+	      }
 
 	    }
-
 	
 	}
 	    break;
@@ -1621,48 +1631,34 @@ static int vga_read(struct guest_info * core,
 
 	    */
 	    int i;
-
-	    uint8_t cc=vga->vga_graphics_controller.vga_color_compare.val & 0xf ;
-	    uint8_t dc=vga->vga_graphics_controller.vga_color_dont_care.val & 0xf;
-
-	    uint8_t  mapnum;
 	    uint64_t offset;
-	    uint8_t  byte;
-	    uint8_t  bits;
-	    
+ 	    
 	    offset = find_offset_read(vga,guest_addr);
 
 #if DEBUG_DEEP_MEM
-	    PrintDebug(core->vm_info, core, "vga: mode 1 read, offset=0x%llx, cc=0x%x, dc-0x%x\n",offset,cc,dc);
+	    PrintDebug(core->vm_info, core, "vga: mode 1 read, offset=0x%llx\n",offset);
 #endif
 		
-	    
-	    for (i=0;i<length;i++,offset++) { 
-		vga_map map;
-		byte=0;
-		for (mapnum=0;mapnum<4;mapnum++) { 
-		    map = vga->map[mapnum];
-		    if ( (dc>>mapnum)&0x1 ) { // don't care
-			bits=0;
-		    } else {
-			// lower 4 bits
-			bits = (map[offset]&0xf) == cc;
-			bits <<= 1;
-			// upper 4 bits
-			bits |= (((map[offset]>>4))&0xf) == cc;
-		    }
-		    // not clear whether it is 0..k or k..0
-		    byte<<=2;
-		    byte|=bits;
+	    for (i=0;i<length;i++,offset+=find_increment_read(vga,guest_addr+i)) { 
+	      uint8_t mapnum;
+	      uint8_t mapcalc=0xff;
+	      
+	      uint8_t cc=vga->vga_graphics_controller.vga_color_compare.val & 0xf ;
+	      uint8_t dc=vga->vga_graphics_controller.vga_color_dont_care.val & 0xf;
+	      
+	      for (mapnum=0;mapnum<4;mapnum++, cc>>=1, dc>>=1) { 
+		if (dc&0x1) {  // dc is active low; 1=we do care
+		  mapcalc &= (cc * -1) & *(vga->map[mapnum]+offset);
 		}
-	    }
-
-	    // load the latches with the last item read
-	    for (mapnum=0;mapnum<4;mapnum++) { 
-		vga->latch[mapnum] = vga->map[mapnum][offset+length-1];
+		// do latch load
+		vga->latch[mapnum] = *(vga->map[mapnum]+offset);
+	      }
+	      // write back the comparison result (for 8 pixels)
+	      ((uint8_t *)dst)[i]=mapcalc;
 	    }
 
 	}
+
 	    break;
 	    // there is no default
     }
