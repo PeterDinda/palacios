@@ -150,7 +150,7 @@ menu "Virtual core specialization"
 
 config CUSTOM_CPUID
 	bool "Use custom CPU information (vendor, etc)"
-	default y
+	default n
 	help 
           If set, the CPU information will be for a special V3VEE vendor.
 	  This should result in identical guest kernel setup, regardless
@@ -159,14 +159,14 @@ config CUSTOM_CPUID
 
 config STRICT_MSR_SEMANTICS
 	bool "Use strict RDMSR/WRMSR semantics"
-	default y
+	default n
 	help
 	  Use strict MSR semantics - when an unhandled MSR is read or written,
 	  a GPF is generated.  This is typically usd with CUSTOM_CPU_TYPE on.
 
 config FP_SWITCH
 	bool "Floating point context switching"
-        default y
+        default n
         help
           If set, floating point is handled for context switches 
           (VM1->VM2->VM1 and/or VM->HOST->VM).   This can be disabled
