@@ -36,7 +36,7 @@ struct v3_mem_region * v3_get_base_region(struct v3_vm_info * vm, addr_t gpa) {
     struct v3_mem_map * map = &(vm->mem_map);
     uint32_t block_index = gpa / v3_mem_block_size;
 
-    if (gpa > (map->num_base_regions * v3_mem_block_size) ||
+    if ((gpa >= (map->num_base_regions * v3_mem_block_size)) ||
         (block_index >= map->num_base_regions)) {
         PrintError(vm, VCORE_NONE, "Guest Address Exceeds Base Memory Size (ga=0x%p), (limit=0x%p)\n", 
                    (void *)gpa, (void *)vm->mem_size);
@@ -491,7 +491,8 @@ static struct v3_mem_region * get_overlapping_region(struct v3_vm_info * vm, uin
     struct v3_mem_region * start_region = v3_get_mem_region(vm, core_id, start_gpa);
 
     if (start_region == NULL) {
-	PrintError(vm, VCORE_NONE, "Invalid memory region\n");
+        PrintError(vm, VCORE_NONE, "No overlapping region for core=%d, start_gpa=%p\n", core_id, (void*)start_gpa);
+        v3_print_mem_map(vm);
 	return NULL;
     }
 
