@@ -338,7 +338,7 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 	int i = 0;
 	pde32_4MB_t * pde = NULL;
 
-	PrintError(core->vm_info, core, "Setting up internal VMXASSIST page tables\n");
+	V3_Print(core->vm_info, core, "Setting up internal VMXASSIST page tables\n");
 
 	if (v3_gpa_to_hva(core, VMXASSIST_1to1_PT, (addr_t *)(&pde)) == -1) {
 	    PrintError(core->vm_info, core, "Could not find VMXASSIST 1to1 PT destination\n");

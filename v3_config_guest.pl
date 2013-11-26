@@ -9,7 +9,7 @@ These guests *should* work for any host embedding (e.g., Kitten) but
 there may be hidden Linux assumptions.
 
 The tool assumes you have already built Palacios, the Linux embedding,
-and the Linux user-sapce tools.  If you haven't done this, hit CTRL-C
+and the Linux user-space tools.  If you haven't done this, hit CTRL-C
 now, configure and build Palacios, the user-space tools, and run
 v3_config_v3vee.pl.
 
@@ -234,7 +234,14 @@ print $target "</vm>\n";
 
 close(PAL);
 
-print "\n\nYour guest is now ready in the directory $dir\n";
+print "\n\nYour guest is now ready in the directory $dir\n\n";
+print "To run it, do:\n\n";
+print "  cd $dir\n";
+print "  v3_create -b $name.pal $name\n";
+print "  v3_launch /dev/v3-vmN (N given by v3_create\n\n";
+print "Other useful tools:\n\n";
+print "  v3_console (CGA console)\n";
+print "  v3_stream (connect to stream, for example, serial port)\n\n";
 
 exit;
 
@@ -678,7 +685,6 @@ sub do_storage_backend {
     print "  * FILEDISK - the data is kept in a host file (common) : ".($canfiledisk ? "available" : "UNAVAILABLE")."\n";
     print "  * NETDISK - the data is accessed via the network (uncommon) : ".($cannetdisk ? "available" : "UNAVAILABLE")."\n";
     print "  * TMPDISK - the data is kept in memory and discarded (common) : ".($cantmpdisk ? "available" : "UNAVAILABLE")."\n";
-    print "  * RAMDISK - the data is kept in memory (common) : ".($canramdisk ? "available" : "UNAVAILABLE")."\n";
     while (1) {
       print "Which option do you want for this device? {".join(", ",@disks)."} [] : ";
       $type = get_user("");
