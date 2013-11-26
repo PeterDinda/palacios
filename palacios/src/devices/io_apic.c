@@ -403,6 +403,8 @@ static int ioapic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
+    memset(ioapic,0,sizeof(struct io_apic_state));
+
     ioapic->apic_dev_data = apic_dev;
 
     struct vm_device * dev = v3_add_device(vm, dev_id, &dev_ops, ioapic);

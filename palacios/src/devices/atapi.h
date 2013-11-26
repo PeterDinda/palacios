@@ -623,6 +623,8 @@ static int atapi_handle_packet(struct guest_info * core, struct ide_internal * i
 
 
        case 0x1b: // start/stop drive
+         atapi_cmd_nop(ide,channel);
+         break;
 
        case 0xbe: // read cd
 
