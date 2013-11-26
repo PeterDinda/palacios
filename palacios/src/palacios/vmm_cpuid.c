@@ -34,11 +34,92 @@ struct masked_cpuid {
 };
 
 
+void init_custom(struct v3_vm_info *vm)
+{
+  /*
+    CPUID 0
+      EAX = maxid supported  (1)
+      EBX = first 4 bytes of string
+      EDX = second 4 bytes of string
+      ECX = third 4 bytes of string
+
+    GenuineIntel
+    AuthenticAMD
+    VirtualV3VEE
+    EBX EDX ECX
+  */
+  uint32_t ebx, ecx, edx;
+
+  memcpy(&ebx,"Virt",4);
+  memcpy(&edx,"ualV",4);
+  memcpy(&ecx,"3VEE",4);
+
+
+  // In the Intel Space, we are a VirtualV3VEE 
+  // and our maximum cpuid is 0x1
+  v3_cpuid_add_fields(vm,0x0,             // ID 0 (Vendor)
+		      0xffffffff, 1,      // Max CPUID is one
+		      0xffffffff, ebx,
+		      0xffffffff, ecx,
+		      0xffffffff, edx);
+
+  // In the AMD Space, we are a Virtual V3VEE
+  // and our maximum cpuid is 0x80000001
+  // other than the maximum cpuid, this is identical to Intel 0x0
+  //
+  v3_cpuid_add_fields(vm,0x80000000,          // ID 8...0 (Vendor - AMD variant)
+		      0xffffffff, 0x80000001, // Max CPUID is one
+		      0xffffffff, ebx,
+		      0xffffffff, ecx,
+		      0xffffffff, edx);
+
+  /* CPUID 1, EAX - Family, Model, Stepping 
+     We are Family 16, Model 1, Stepping 1 (family 16 puts us in x86-64)
+     31:28 = reserved
+     27:20 = extended family (extfam)
+     19:16 = extended model (extmod)
+     15:12 = reserved
+     11:8  = base family (basfam)
+     7:4   = base model  (basmod)
+     3:0   = stepping
+
+     family = extfam+basefam, model=extmod:basmod
+     but we need to "top out" basefam first (0xf)
+
+     So we want: 0x00100f11
+
+     EBX is probably bogus here, since we need the apic ids
+     of the vcores, not the pcores
+  */
+
+  // in Intel Space, we are family 16, model 1, stepping 1
+  // and our other features are passthrough
+  v3_cpuid_add_fields(vm,0x1,
+		      0xffffffff, 0x00100f11,
+		      0x0, 0,
+		      0x0, 0,
+		      0x0, 0);
+
+  // In the AMD space, we are family 16, model 1, stepping 1
+  // with other features passthrough
+  // These other fields are *different* from Intel's 0x1, however
+  // in particular, long mode is here, even if it's an Intel...
+  v3_cpuid_add_fields(vm,0x80000001, // AMD variant
+		      0xffffffff, 0x00100f11,
+		      0x0, 0,
+		      0x0, 0,
+		      0x0, 0);
+      
+} 
+
 void v3_init_cpuid_map(struct v3_vm_info * vm) {
     vm->cpuid_map.map.rb_node = NULL;
 
     // Setup default cpuid entries
 
+#ifdef V3_CONFIG_CUSTOM_CPUID
+    init_custom(vm);
+#endif
 
     // Disable XSAVE (cpuid 0x01, ECX bit 26)
     v3_cpuid_add_fields(vm, 0x01, 0, 0, 0, 0, (1 << 26), 0, 0, 0);
