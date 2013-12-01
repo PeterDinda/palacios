@@ -1,0 +1,41 @@
+This directory contains guest side code to use the in-progress
+PARAGRAPH paravirtualized graphics card within a Linux guest, either
+directly from a command-line testing tool or via X11.  
+
+It also contains information about how to build a minimal instance of 
+X11 and then run it within a minimal guest.   This is desirable for
+testing.
+
+README              - this file
+
+write_paragraph     - manipulate PARAGRAPH from guest without X11
+
+x11.patch           - modify X11 dummy driver and config files to
+                      output to PARAGRAPH
+
+x11_modified_files/ - X11 files that have been added/altered for 
+                      configuring X with PARAGRAPH (basically all
+                      the files touched by x11.patch)
+
+build_x11_minimal/  - how to actually build X11 without poking a
+                      stick in your eye
+
+run_x11_minimal/    - how to run your X11 in a tiny guest 
+                      (microcore-based)
+
+
+The level of functionality here is sufficient to bring up
+a basic X11 session and launch xclocks and xterms.
+
+Note that some documentation refers to "x11/".  This is the 
+built X11 image, which should be burned into a virtual disk:
+
+1. Use dd to create a disk file
+2. Use mkfs to build a filessytem on it
+3. Use loopback mount to attach disk and
+   copy your x11 setup and needed shared libraries to it.
+4. Unmount
+5. Use disk file in your Palacios guest (via FILEDISK).
+
+For NU folks, this image is also sitting in /v-test/paragraph. 
+

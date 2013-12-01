@@ -1,0 +1,22 @@
+Notes:
+    - The compiled X11 directory contains a copy of all the libraries that my-microcore-con guest needs to run X. 
+      These libraries are in x11/build/bin/ and x11/build/lib/
+      If you're running a more "advanced" guest, you may not need the libraries and you should edit the setup script accordingly (remove the commands that copy libraries).
+    
+    - To test X11 on the microcore guest:
+         mount x11 as a FILEDISK device into the guest (x11.dat contains all the x11 source files and the setup script, see my-microcore-con.xml) 
+         
+         In the host: 
+            run the vncserver and client.
+        
+         In the guest: 
+            type the following commands:
+            1. mkdir new-x11/
+            2. sudo mount /dev/hdb/ new-x11/
+            3. source ./setup.sh
+            4. cd x11/build/bin/
+            5. sudo ./startx -- -config xorg.conf & 
+        xclock and 3 xterms should be visible in the vncclient window.
+        
+
+    

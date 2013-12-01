@@ -1,0 +1,60 @@
+To build the X11 universe on this machine (Parkinson-11):
+
+cd /opt/x11/src
+./doit.sh
+
+the file "mymods.txt" are the modules you want built 
+and the file "myautoresume.txt" is how far you've gotten up to this point
+
+I have set this up so that it compiles, and it currently is all
+compiled.
+
+
+To build the universe on some other machine:
+
+- you will find a copy of everything in /441/pdinda/x11,
+  which should be identical to that in /opt/x11 - this includes
+  my changes to make it work
+
+- if you compile from /441 on a parkinson machine, make
+  sure the files you create are actually owner root.  
+  /etc/idmapd must contain:
+
+Nobody-User = root
+Nobody-Group = nobody
+
+- you need to install the following tools:
+
+yum install llvm llvm-devel
+yum install libudev libudev-devel
+yum install mtdev mtdev-devel
+
+- use the general instructions in http://wiki.x.org/wiki/ModularDevelopersGuide
+
+- make sure that you skip xf86-video-newport xf86-video-sis and other 
+  drivers that depend on xaa 
+
+- remove include of mibstore.h for anything that includes it
+
+mkdir -p /opt/x11/src
+cd /opt/x11/src
+git clone git://anongit.freedesktop.org/git/xorg/util/modular util/modular
+
+cd /opt/x11/src
+./util/modular/build.sh --clone --autoresume myautoresume.txt /opt/x11/build
+
+This will 
+  - clone package repositories as needed
+  - resume execution on a build failure if you rerrun it
+  - put its output in /opt/x11/build
+
+Also of note:
+
+./util/modular/build.sh -L /opt/x11/build > mymods.txt
+
+This will give you a list of the available modules to build.  You
+can then edit this file (mymods.txt) and build just those modules i
+you want using:
+
+./util/modular/build.sh --clone --autoresume myautoresume.txt --modfile mymods.txt /opt/x11/build
+
