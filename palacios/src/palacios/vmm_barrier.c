@@ -198,9 +198,12 @@ int v3_wait_at_barrier(struct guest_info * core) {
     if (barrier->active == 0) {
 	return 0;
     }
-
-#ifdef V3_CONFIG_LAZY_FP_SWITCH
+#ifndef V3_CONFIG_FP_SWITCH
+    v3_get_fp_state(core); // snapshot FP state now
+#else
+#   ifdef V3_CONFIG_LAZY_FP_SWITCH
     v3_get_fp_state(core); // snapshot FP state now regardless of lazy eval
+#   endif
 #endif
 
     V3_Print(core->vm_info, core, "Core %d waiting at barrier\n", core->vcpu_id);
@@ -219,9 +222,13 @@ int v3_wait_at_barrier(struct guest_info * core) {
         // Barrier wait will spin if there is no competing work
 	v3_yield(core,-1);
     }
-    
-#ifdef V3_LAZY_FP_SWITCH
+
+#ifndef V3_CONFIG_FP_SWITCH    
     core->fp_state.need_restore=1;  // restore FP on next entry
+#else
+#   ifdef V3_CONFIG_LAZY_FP_SWITCH
+    core->fp_state.need_restore=1;  // restore FP on next entry
+#   endif
 #endif
 
     return 0;

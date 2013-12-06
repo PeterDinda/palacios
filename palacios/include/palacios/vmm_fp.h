@@ -163,8 +163,16 @@ int v3_deinit_fp(void);
 
 #ifndef V3_CONFIG_FP_SWITCH
 
-#define V3_FP_EXIT_SAVE(core) 
-#define V3_FP_ENTRY_RESTORE(core)
+/* Ideally these would use the TS trick to do lazy calls to used_fpu() */
+#define V3_FP_EXIT_SAVE(core)
+
+#define V3_FP_ENTRY_RESTORE(core)	 				    \
+  do {							                    \
+    if ((core)->fp_state.need_restore) {				    \
+      v3_put_fp_state(core);                                \
+      (core)->fp_state.need_restore=0;		   			    \
+    }                                                       \
+  } while (0)
 
 #else
 
