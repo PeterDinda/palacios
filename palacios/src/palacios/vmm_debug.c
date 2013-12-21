@@ -90,6 +90,20 @@ static int core_handler(struct guest_info * core, uint32_t cmd) {
 	    v3_lower_barrier(core->vm_info);
 	    break;
 
+	case PRINT_ALL:
+	    v3_raise_barrier(core->vm_info, NULL);
+
+#ifdef V3_CONFIG_TELEMETRY
+	    v3_print_core_telemetry(core);
+#endif
+	    v3_print_guest_state(core);
+	    v3_print_arch_state(core);
+        v3_print_stack(core);
+        v3_print_backtrace(core);
+
+	    v3_lower_barrier(core->vm_info);
+	    break;
+
     }
 
     return 0;
@@ -98,7 +112,7 @@ static int core_handler(struct guest_info * core, uint32_t cmd) {
 
 static int evt_handler(struct v3_vm_info * vm, struct v3_debug_event * evt, void * priv_data) {
 
-    V3_Print(vm, VCORE_NONE,"Debug Event Handler for core %d\n", evt->core_id);
+    V3_Print(vm, VCORE_NONE,"Debug Event Handler for core %d cmd=%x\n", evt->core_id, evt->cmd);
 
     if (evt->core_id == -1) {
 	int i = 0;
