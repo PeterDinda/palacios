@@ -1828,6 +1828,28 @@ static int input_stat1_read(struct guest_info *core,
 
     *((uint8_t*)dest) = vga->vga_misc.vga_input_stat1.val;
 
+    // Pretend that horizontal and vertical blanking
+    // is occurring
+    if (!vga->vga_misc.vga_input_stat1.disp_en) {
+
+        // if not blanking, start horizontal blanking
+        vga->vga_misc.vga_input_stat1.disp_en = 1;
+        vga->vga_misc.vga_input_stat1.vert_retrace = 0;
+
+    } else {
+
+        if (!vga->vga_misc.vga_input_stat1.vert_retrace) {
+            // if not vertical blanking, then now vertical blanking
+            vga->vga_misc.vga_input_stat1.disp_en = 1;
+            vga->vga_misc.vga_input_stat1.vert_retrace = 1;
+        } else { 
+            // if vertical blanking, now not blanking
+            vga->vga_misc.vga_input_stat1.disp_en = 0;
+            vga->vga_misc.vga_input_stat1.vert_retrace = 0;
+        }
+
+    }
+
     // Stunningly, reading stat1 is also a way to reset
     // the state of attribute controller address/data flipflop
     // That is some mighty fine crack the designers were smoking.
@@ -2100,9 +2122,14 @@ static int crt_controller_data_write(struct guest_info *core,
     PASSTHROUGH_IO_OUT(vga,port,src,len);
 
     if (index>=VGA_CRT_CONTROLLER_NUM) { 
-	PrintError(core->vm_info, core, "vga; crt controller write is for illegal index %d, ignoring\n",index);
+        PrintError(core->vm_info, core, "vga; crt controller write is for illegal index %d, ignoring\n",index);
     } else {
-	vga->vga_crt_controller.vga_crt_controller_regs[index] = data;
+        vga->vga_crt_controller.vga_crt_controller_regs[index] = data;
+        if (index == 17) {
+            if (vga->vga_crt_controller.vga_vertical_retrace_end.enable_vertical_interrupt) {
+                PrintError(core->vm_info, core, "vga: vertical_retrace_interrupt_enabled is unsupported -- no interrupts will occur!\n");
+            }
+        }
     }
 
     render(vga);
