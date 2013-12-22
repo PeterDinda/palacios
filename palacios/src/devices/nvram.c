@@ -104,6 +104,8 @@ typedef enum {NVRAM_READY, NVRAM_REG_POSTED} nvram_state_t;
 #define NVRAM_REG_HIGHMEM_HIGH            0x5d
 #define NVRAM_REG_SMPCPUS                 0x5f
 
+#define DEFAULT_BOOTSEQ                   "cd,hd"
+
 struct nvram_internal {
     nvram_state_t dev_state;
     uint8_t       thereg;
@@ -634,7 +636,7 @@ static uint16_t compute_checksum(struct nvram_internal * nvram) {
     return checksum;
 }
 
-static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvram) {
+static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvram, char *bootseq) {
     uint16_t checksum = 0;
 
     memset(nvram->mem_state, 0, NVRAM_REG_MAX);
@@ -643,33 +645,41 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
     v3_lock_init(&(nvram->nvram_lock));
 
     //
-    // 2 1.44 MB floppy drives
+    // There are no floppy drives
     //
-#if 1
-    set_memory(nvram, NVRAM_REG_FLOPPY_TYPE, 0x44);
-#else
     set_memory(nvram, NVRAM_REG_FLOPPY_TYPE, 0x00);
-#endif
 
     //
-    // For old boot sequence style, do floppy first
+    // For old boot sequence style, do non-floppy devices first
     //
-    set_memory(nvram, NVRAM_REG_BOOTSEQ_OLD, 0x10);
+    set_memory(nvram, NVRAM_REG_BOOTSEQ_OLD, 0x00);
 
-#if 0
-    // For new boot sequence style, do floppy, cd, then hd
-    set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x31);
-    set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x20);
-#endif
+    if (!strcasecmp(bootseq,"cd")) { 
+	// CD only
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x03);
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x00);
+    } else if (!strcasecmp(bootseq,"cd,hd")) { 
+	// CD, then HD
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x23);
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x00);
+    } else if (!strcasecmp(bootseq,"hd")) {
+	// HD only
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x02);
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x00);
+    } else if (!strcasecmp(bootseq,"hd,cd")) { 
+	// HD, then CD
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x32);
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x00);
+    } else {
+	PrintError(vm,VCORE_NONE,"nvram: unknown boot sequence '%s', setting 'cd,hd'\n",bootseq);
+	// CD, then HD
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x23);
+	set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x00);
+    }
 
-    // For new boot sequence style, do cd, hd, floppy
-    set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_FIRST, 0x23);
-    set_memory(nvram, NVRAM_REG_BOOTSEQ_NEW_SECOND, 0x10);
-  
-  
-    // Set equipment byte to note 2 floppies, vga display, keyboard,math,floppy
-    set_memory(nvram, NVRAM_REG_EQUIPMENT_BYTE, 0x4f);
-    // set_memory(nvram, NVRAM_REG_EQUIPMENT_BYTE, 0xf);
+ 
+    // Set equipment byte to note no floppies, vga display, keyboard, math
+    set_memory(nvram, NVRAM_REG_EQUIPMENT_BYTE, 0x2e);
   
 
     // Set the shutdown status gently
@@ -824,18 +834,42 @@ static struct v3_device_ops dev_ops = {
 };
 
 
+/*
 
+  <device class="NVRAM" id="nvram">
+     <storage>STORAGE</storage>
+     <bootseq>BOOTSEQ</bootseq>
+  </device>
 
+  STORAGE = the id of the storage controller that will be used to populate
+            the legacy storage device info (e.g., cd, hd the bios knows about)
+
+  BOOTSEQ = the boot sequence desired - note lack of spaces:
+            
+            cd         - first cd only
+            hd         - first hd only
+            cd,hd      - first cd, then first hd
+            hd,cd      - first hd, then first cd
+     
+            The default is cd,hd
+*/
 
 static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct nvram_internal * nvram_state = NULL;
     struct vm_device * ide = v3_find_dev(vm, v3_cfg_val(cfg, "storage"));
     char * dev_id = v3_cfg_val(cfg, "ID");
+    char * bootseq = v3_cfg_val(cfg,"bootseq");
+
     int ret = 0;
 
     if (!ide) {
 	PrintError(vm, VCORE_NONE, "nvram: Could not find IDE device\n");
 	return -1;
+    }
+
+    if (!bootseq) { 
+	bootseq=DEFAULT_BOOTSEQ;
+	PrintDebug(vm, VCORE_NONE, "nvram: using default boot sequence %s\n",bootseq);
     }
 
     PrintDebug(vm, VCORE_NONE, "nvram: init_device\n");
@@ -859,7 +893,7 @@ static int nvram_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    init_nvram_state(vm, nvram_state);
+    init_nvram_state(vm, nvram_state, bootseq);
 
     // hook ports
     ret |= v3_dev_hook_io(dev, NVRAM_REG_PORT, NULL, &nvram_write_reg_port);
