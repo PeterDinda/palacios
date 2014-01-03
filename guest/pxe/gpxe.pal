@@ -1,0 +1,162 @@
+<vm class="PC">
+
+ <files>
+   <file id="ide0_0_0" filename="gpxe-1.0.1-gpxe.iso" />
+ </files>
+
+ <memory>256</memory>
+
+ <paging mode="nested">
+  <large_pages>false</large_pages>
+  <strategy>VTLB</strategy>
+ </paging>
+
+ <!-- there are no passthrough memory regions, but you can add them using
+     the <memmap> syntax described in the manual -->
+
+
+ <cores count="1">
+  <core />
+ </cores>
+
+ <schedule_hz>100</schedule_hz>
+
+ <perftune>
+  <group name="yield">
+   <strategy>friendly</strategy>
+   <threshold>1000</threshold>
+   <time>1000</time>
+  </group>
+ </perftune>
+
+ <telemetry>enable</telemetry>
+
+ <extensions>
+  <extension name="VMWARE_IFACE"></extension>
+ </extensions>
+
+ <devices>
+   <device class="BOCHS_DEBUG" id="bios_debug" />
+   <device class="OS_DEBUG" id="os_debug" />
+   <device class="8259A" id="PIC" />
+   <device class="LAPIC" id="apic" />
+   <device class="IOAPIC" id="ioapic" >
+    <apic>apic</apic>
+   </device>
+   <device class="PCI" id="pci0" />
+   <device class="i440FX" id="northbridge" >
+    <bus>pci0</bus>
+   </device>
+   <device class="PIIX3" id="southbridge" >
+    <bus>pci0</bus>
+   </device>
+   <device class="MPTABLE" id="mptable" />
+   <device class="8254_PIT" id="PIT" />
+   <device class="KEYBOARD" id="keyboard" />
+   <device class="CGA_VIDEO" id="cga" passthrough="disable" />
+   <device class="CURSES_CONSOLE" id="console" >
+    <frontend tag="cga" />
+    <tty>user</tty>
+   </device>
+   <device class="SERIAL" id="serial" />
+   <device class="CHAR_STREAM" id="stream1" name="com1" >
+    <frontend tag="serial" com_port="1" />
+   </device>
+   <device class="CHAR_STREAM" id="stream2" name="com2" >
+    <frontend tag="serial" com_port="2" />
+   </device>
+   <device class="CHAR_STREAM" id="stream3" name="com3" >
+    <frontend tag="serial" com_port="3" />
+   </device>
+   <device class="CHAR_STREAM" id="stream4" name="com4" >
+    <frontend tag="serial" com_port="4" />
+   </device>
+   <device class="IDE" id="ide0" >
+    <bus>pci0</bus>
+    <controller>southbridge</controller>
+   </device>
+   <device class="RAMDISK" id="ide0_0_0" >
+    <file>ide0_0_0</file>
+    <frontend tag="ide0">
+     <model>V3VEE CDROM</model>
+     <type>CDROM</type>
+     <bus_num>0</bus_num>
+     <drive_num>0</drive_num>
+    </frontend>
+   </device>
+   <device class="LNX_VIRTIO_NIC" id="virtio-nic0">
+    <bus>pci0</bus>
+    <mac>01:02:03:04:05:06</mac>
+   </device>
+   <device class="NIC_BRIDGE" id="nic_bridge0>
+    <frontend tag="virtio-nic0" />
+    <hostnic name="eth0" />
+   </device>
+   <device class="NVRAM" id="nvram" >
+     <storage>ide0</storage>
+   </device>
+   <device class="GENERIC" id="generic" >
+    <ports> 
+      <!-- DMA 1 registers -->
+      <start>0x00</start>
+      <end>0x07</end>
+      <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+      <!-- DMA 2 registers -->
+      <start>0xc0</start>
+      <end>0xc7</end>
+      <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+     <!-- DMA 1 page registers -->
+     <start>0x81</start>
+     <end>0x87</end>
+     <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+     <!-- DMA 2 page registers -->
+     <start>0x88</start>
+     <end>0x8f</end>
+     <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+      <!-- DMA 1 Misc Registers -->
+      <start>0x08</start>
+      <end>0x0f</end>
+      <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+     <!-- DMA 2 Misc Registers -->
+     <start>0xd0</start>
+     <end>0xde</end>
+     <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+     <!-- ISA PNP -->
+     <start>0x274</start>
+     <end>0x277</end>
+     <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+     <!-- ISA PNP -->
+     <start>0x279</start>
+     <end>0x279</end>
+     <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+     <!-- ISA PNP -->
+     <start>0xa79</start>
+     <end>0xa79</end>
+     <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+    <ports>
+     <!-- Parallel Port -->
+     <start>0x378</start>
+     <end>0x37f</end>
+     <mode>PRINT_AND_IGNORE</mode>
+    </ports>
+   </device>
+ </devices>
+
+</vm>

@@ -1,0 +1,57 @@
+PXE is a standard for network booting of a machine that leverages 
+DHCP, TFTP, and a specialized bootloader.  
+
+It is possible to PXE boot a guest in Palacios in one of two ways.   First,
+the BIOS and/or virtual NIC firmware you use may directly support it.
+The second option is to boot a tiny image that contains a PXE boot
+engine, which is what is described here.    
+
+This technique was developed by Chen Kin, Bharath Pattabiraman,
+and Patrick Foley during EECS 441 at Northwestern. 
+
+The Etherboot/gPXE project (http://etherboot.org/wiki/index.php) has 
+created a PXE boot engine that can be compiled into a variety of
+forms (firmware, isos, etc).   You can use rom-o-matic to create a custom
+iso image:  http://rom-o-matic.net/gpxe/gpxe-1.0.1/contrib/rom-o-matic/
+
+In this directory, the file gpxe-1.0.1-gpxe.iso is one such custom
+iso image, one that includes all available NIC drivers.   The file
+gpxe.pal is an example of how to use such an image (the same as 
+any other bootable CD image).    
+
+In addition to booting from gpxe, your guest configuration must include
+a NIC that gpxe can drive, and that NIC needs to attached to a network
+on which the PXE server can be found.   One approach is to use 
+a passthrough device.  The following maps an NE2000 NIC available on 
+the host into the VM:
+
+                <device id="PCI_PASSTHROUGH" name="ne2k">
+			<bus>pci0</bus>
+			<vendor_id>0x10EC</vendor_id>
+			<device_id>0x8029</device_id>
+			<irq>50</irq>
+		</device>
+
+Another possibility is to map a virtual NIC and bridge to a physical
+NIC:
+
+<device class="RTL8319" id="rtl8139">
+  <mac>MACADDR</mac>
+  <bus>PCI_BUS_ID</bus>
+</device>
+
+<device class="NIC_BRIDGE" id="nic_bridge">
+   <frontend tag="rtl8139" />
+   <hostnic name="eth0" />
+</device>
+
+A third possibility is to map a virtual NIC and bridge it to VNET. 
+See the technical report for more information on this.  
+
+Note that more recent versions of gpxe (1.0.1+) include support for
+the paravirtualized virtio-nic.   This is probably the kind of NIC you
+want to use.
+
+Configuring a PXE server is outside the scope of this document, but
+a related document available from our web site describes how to do so
+to support PXE-based Kitten/Palacios development. 
