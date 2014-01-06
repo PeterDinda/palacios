@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
     exit(-1);
   }
 
-  memcpy(stream, argv[argstart+1], strlen(argv[argstart+1]));
+  memcpy(stream, argv[argstart+1], strlen(argv[argstart+1])+1);
   
   vm_fd = open(vm_dev, O_RDONLY);
   
