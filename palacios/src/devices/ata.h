@@ -17,6 +17,9 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
+#ifndef _DEVICES_ATA_H_
+#define _DEVICES_ATA_H_
+
 #define MAX_MULT_SECTORS  255
 
 
@@ -127,6 +130,7 @@ static int ata_read(struct ide_internal * ide, struct ide_channel * channel, uin
 }
 
 
+
 static int ata_write(struct ide_internal * ide, struct ide_channel * channel, uint8_t * src, uint_t sect_cnt) {
     struct ide_drive * drive = get_selected_drive(channel);
 
@@ -182,6 +186,34 @@ static int ata_get_lba(struct ide_internal * ide, struct ide_channel * channel, 
 
 
 // 28 bit LBA
+static int ata_write_sectors(struct ide_internal * ide,  struct ide_channel * channel) {
+    struct ide_drive * drive = get_selected_drive(channel);
+    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
+
+    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
+        ide_abort_command(ide, channel);
+        return 0;
+    }
+
+    drive->transfer_length = sect_cnt * HD_SECTOR_SIZE;
+    drive->transfer_index = 0;
+    channel->status.busy = 0;
+    channel->status.ready = 0;
+    channel->status.write_fault = 0;
+    channel->status.data_req = 1;
+    channel->status.error = 0;
+
+    drive->irq_flags.io_dir = 1;
+    drive->irq_flags.c_d = 0;
+    drive->irq_flags.rel = 0;
+
+    PrintDebug(VM_NONE, VCORE_NONE, "IDE: Returning from write sectors\n");
+
+    return 0;
+}
+
+
+// 28 bit LBA
 static int ata_read_sectors(struct ide_internal * ide,  struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
     // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
@@ -230,3 +262,5 @@ static int ata_read_sectors_ext(struct ide_internal * ide, struct ide_channel * 
 
     return -1;
 }
+
+#endif

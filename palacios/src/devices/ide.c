@@ -808,7 +808,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
     
     switch (channel->cmd_reg) {
 
-	case 0xa1: // ATAPI Identify Device Packet
+	case ATAPI_PIDENTIFY: // ATAPI Identify Device Packet
 	    if (drive->drive_type != BLOCK_CDROM) {
 		drive_reset(drive);
 
@@ -824,7 +824,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 		ide_raise_irq(ide, channel);
 	    }
 	    break;
-	case 0xec: // Identify Device
+	case ATAPI_IDENTIFY: // Identify Device
 	    if (drive->drive_type != BLOCK_DISK) {
 		drive_reset(drive);
 
@@ -840,7 +840,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    }
 	    break;
 
-	case 0xa0: // ATAPI Command Packet
+	case ATAPI_PACKETCMD: // ATAPI Command Packet
 	    if (drive->drive_type != BLOCK_CDROM) {
 		ide_abort_command(ide, channel);
 	    }
@@ -852,14 +852,14 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    channel->status.data_req = 1;
 	    channel->status.error = 0;
 
-	    // reset the data buffer...
+	    // reset the datxgoto-la buffer...
 	    drive->transfer_length = ATAPI_PACKET_SIZE;
 	    drive->transfer_index = 0;
 
 	    break;
 
-	case 0x20: // Read Sectors with Retry
-	case 0x21: // Read Sectors without Retry
+	case ATAPI_READ: // Read Sectors with Retry
+	case ATAPI_READ_ONCE: // Read Sectors without Retry
 	    drive->hd_state.cur_sector_num = 1;
 
 	    if (ata_read_sectors(ide, channel) == -1) {
@@ -868,7 +868,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    }
 	    break;
 
-	case 0x24: // Read Sectors Extended
+	case ATAPI_READ_EXT: // Read Sectors Extended
 	    drive->hd_state.cur_sector_num = 1;
 
 	    if (ata_read_sectors_ext(ide, channel) == -1) {
@@ -877,8 +877,20 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    }
 	    break;
 
-	case 0xc8: // Read DMA with retry
-	case 0xc9: { // Read DMA
+	case ATAPI_WRITE: {// Write Sector
+ 	    drive->hd_state.cur_sector_num = 1;
+
+	    if (ata_write_sectors(ide, channel) == -1) {
+		PrintError(core->vm_info, core, "Error writing sectors\n");
+		return -1;
+	    }
+	    break;
+	}
+
+	    
+
+	case ATAPI_READDMA: // Read DMA with retry
+	case ATAPI_READDMA_ONCE: { // Read DMA
 	    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
 	    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
@@ -901,7 +913,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    break;
 	}
 
-	case 0xca: { // Write DMA
+	case ATAPI_WRITEDMA: { // Write DMA
 	    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
 	    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
@@ -923,22 +935,22 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    }
 	    break;
 	}
-	case 0xe0: // Standby Now 1
-	case 0xe1: // Set Idle Immediate
-	case 0xe2: // Standby
-	case 0xe3: // Set Idle 1
-	case 0xe6: // Sleep Now 1
-	case 0x94: // Standby Now 2
-	case 0x95: // Idle Immediate (CFA)
-	case 0x96: // Standby 2
-	case 0x97: // Set idle 2
-	case 0x99: // Sleep Now 2
+	case ATAPI_STANDBYNOW1: // Standby Now 1
+	case ATAPI_IDLEIMMEDIATE: // Set Idle Immediate
+	case ATAPI_STANDBY: // Standby
+	case ATAPI_SETIDLE1: // Set Idle 1
+	case ATAPI_SLEEPNOW1: // Sleep Now 1
+	case ATAPI_STANDBYNOW2: // Standby Now 2
+	case ATAPI_IDLEIMMEDIATE2: // Idle Immediate (CFA)
+	case ATAPI_STANDBY2: // Standby 2
+	case ATAPI_SETIDLE2: // Set idle 2
+	case ATAPI_SLEEPNOW2: // Sleep Now 2
 	    channel->status.val = 0;
 	    channel->status.ready = 1;
 	    ide_raise_irq(ide, channel);
 	    break;
 
-	case 0xef: // Set Features
+	case ATAPI_SETFEATURES: // Set Features
 	    // Prior to this the features register has been written to. 
 	    // This command tells the drive to check if the new value is supported (the value is drive specific)
 	    // Common is that bit0=DMA enable
@@ -955,14 +967,14 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    ide_raise_irq(ide, channel);
 	    break;
 
-	case 0x91:  // Initialize Drive Parameters
-	case 0x10:  // recalibrate?
+	case ATAPI_SPECIFY:  // Initialize Drive Parameters
+	case ATAPI_RECAL:  // recalibrate?
 	    channel->status.error = 0;
 	    channel->status.ready = 1;
 	    channel->status.seek_complete = 1;
 	    ide_raise_irq(ide, channel);
 	    break;
-	case 0xc6: { // Set multiple mode (IDE Block mode) 
+	case ATAPI_SETMULT: { // Set multiple mode (IDE Block mode) 
 	    // This makes the drive transfer multiple sectors before generating an interrupt
 	    uint32_t tmp_sect_num = drive->sector_num; // GCC SUCKS
 
@@ -985,7 +997,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    break;
 	}
 
-	case 0x08: // Reset Device
+	case ATAPI_DEVICE_RESET: // Reset Device
 	    drive_reset(drive);
     	    channel->error_reg.val = 0x01;
     	    channel->status.busy = 0;
@@ -995,7 +1007,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
     	    channel->status.error = 0;
     	    break;
 
-	case 0xe5: // Check power mode
+	case ATAPI_CHECKPOWERMODE1: // Check power mode
     	    drive->sector_count = 0xff; /* 0x00=standby, 0x80=idle, 0xff=active or idle */
     	    channel->status.busy = 0;
     	    channel->status.ready = 1;
@@ -1004,7 +1016,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
     	    channel->status.error = 0;
     	    break;
 
-	case 0xc4:  // read multiple sectors
+	case ATAPI_MULTREAD:  // read multiple sectors
 	    drive->hd_state.cur_sector_num = drive->hd_state.mult_sector_num;
 	default:
 	    PrintError(core->vm_info, core, "Unimplemented IDE command (%x)\n", channel->cmd_reg);
@@ -1020,29 +1032,44 @@ static int write_data_port(struct guest_info * core, ushort_t port, void * src, 
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
 
-    //    PrintDebug(core->vm_info, core, "IDE: Writing Data Port %x (val=%x, len=%d)\n", 
-    //	       port, *(uint32_t *)src, length);
-    
+    PrintDebug(core->vm_info, core, "IDE: Writing Data Port %x (val=%x, len=%d)\n", 
+            port, *(uint32_t *)src, length);
+
     memcpy(drive->data_buf + drive->transfer_index, src, length);    
     drive->transfer_index += length;
 
     // Transfer is complete, dispatch the command
     if (drive->transfer_index >= drive->transfer_length) {
-	switch (channel->cmd_reg) {
-	    case 0x30: // Write Sectors
-		PrintError(core->vm_info, core, "Writing Data not yet implemented\n");
-		return -1;
-		
-	    case 0xa0: // ATAPI packet command
-		if (atapi_handle_packet(core, ide, channel) == -1) {
-		    PrintError(core->vm_info, core, "Error handling ATAPI packet\n");
-		    return -1;
-		}
-		break;
-	    default:
-		PrintError(core->vm_info, core, "Unhandld IDE Command %x\n", channel->cmd_reg);
-		return -1;
-	}
+        switch (channel->cmd_reg) {
+
+            case ATAPI_WRITE: // Write Sectors
+
+                channel->status.busy = 1;
+                channel->status.data_req = 0;
+                    
+                if (ata_write(ide, channel, drive->data_buf, drive->transfer_length/HD_SECTOR_SIZE) == -1) {
+                    PrintError(core->vm_info, core, "Error writing to disk\n");
+                    return -1;
+                }
+
+                PrintDebug(core->vm_info, core, "IDE: Write sectors complete\n");
+
+                channel->status.error = 0;
+                channel->status.busy = 0;
+
+                ide_raise_irq(ide, channel);
+                break;
+
+            case ATAPI_PACKETCMD: // ATAPI packet command
+                if (atapi_handle_packet(core, ide, channel) == -1) {
+                    PrintError(core->vm_info, core, "Error handling ATAPI packet\n");
+                    return -1;
+                }
+                break;
+            default:
+                PrintError(core->vm_info, core, "Unhandld IDE Command %x\n", channel->cmd_reg);
+                return -1;
+        }
     }
 
     return length;
