@@ -2127,6 +2127,10 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
+    memset(apic_dev,0,
+	   sizeof(struct apic_dev_state) + 
+	   sizeof(struct apic_state) * vm->num_cores);
+
     apic_dev->num_apics = vm->num_cores;
     v3_lock_init(&(apic_dev->state_lock));
 
