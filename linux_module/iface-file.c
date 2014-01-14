@@ -161,7 +161,7 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
     {
 	dentry = kern_path_create(AT_FDCWD, pathname, &tmp_path, 1);
 	
-	if (IS_ERR(dentry)) {
+	if (!dentry || IS_ERR(dentry)) {
 	    return 0;
 	}
 	
@@ -170,7 +170,7 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
 #endif    
 
 
-    if (!IS_ERR(dentry)) {
+    if (!(!dentry || IS_ERR(dentry))) {
 	ret = vfs_mkdir(path_ptr->dentry->d_inode, dentry, perms);
     }
 
@@ -220,7 +220,7 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
 
     pfile->filp = filp_open(path, pfile->mode, 0);
     
-    if (IS_ERR(pfile->filp)) {
+    if (!pfile->filp || IS_ERR(pfile->filp)) {
 	ERROR("Cannot open file: %s\n", path);
 	palacios_free(pfile);
 	return NULL;

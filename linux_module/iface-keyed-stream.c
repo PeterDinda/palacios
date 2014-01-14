@@ -726,7 +726,7 @@ static v3_keyed_stream_t open_stream_file(char *url,
 
 	    de = lookup_create(&nd,1);
 
-	    if (IS_ERR(de)) { 
+	    if (!de || IS_ERR(de)) { 
 		ERROR("cannot allocate dentry\n");
 		goto fail_out;
 	    }
@@ -800,7 +800,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
     strcat(path,"/");
     strcat(path,key);
     
-    fs = (struct file_stream *) palacios_alloc(sizeof(struct file_stream *));
+    fs = (struct file_stream *) palacios_alloc(sizeof(struct file_stream));
     
     if (!fs) { 
 	ERROR("cannot allocate file keyed stream for key %s\n",key);
@@ -812,7 +812,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
 
     fs->f = filp_open(path,O_RDWR|O_CREAT|O_LARGEFILE,0600);
 
-    if (IS_ERR(fs->f)) {
+    if (!fs->f || IS_ERR(fs->f)) {
 	ERROR("cannot open relevent file \"%s\" for stream \"file:%s\" and key \"%s\"\n",path,fks->path,key);
 	palacios_free(fs);
 	palacios_free(path);

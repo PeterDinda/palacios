@@ -59,7 +59,7 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
     }
 
     env = palacios_alloc(sizeof(struct env_data));
-    if (IS_ERR(env)) {
+    if (!env) {
         ERROR("Palacios Error: could not allocate space for environment data\n");
         return -EFAULT;
     }
@@ -73,7 +73,7 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
 
     //DEBUG("Palacios: Allocating space for %u env var string ptrs...\n", env->num_strings);
     env->strings = palacios_alloc(env->num_strings*sizeof(char*));
-    if (IS_ERR(env->strings)) {
+    if (!(env->strings)) {
         ERROR("Palacios Error: could not allocate space for env var strings\n");
         return -EFAULT;
     }
@@ -87,7 +87,7 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
 
     for (i = 0; i < env->num_strings; i++) {
         char * tmp  = palacios_alloc(MAX_STRING_LEN);
-        if (IS_ERR(tmp)) {
+        if (!(tmp)) {
             ERROR("Palacios Error: could not allocate space for env var string #%d\n", i);
             return -EFAULT;
         }

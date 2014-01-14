@@ -90,7 +90,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    struct v3_guest_img user_image;
 	    struct v3_guest * guest = palacios_alloc(sizeof(struct v3_guest));
 
-	    if (IS_ERR(guest)) {
+	    if (!(guest)) {
 		ERROR("Palacios: Error allocating Kernel guest_image\n");
 		return -EFAULT;
 	    }
@@ -118,7 +118,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    DEBUG("Palacios: Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
 	    guest->img = palacios_valloc(guest->img_size);
 
-	    if (IS_ERR(guest->img)) {
+	    if (!guest->img) {
 		ERROR("Palacios Error: Could not allocate space for guest image\n");
 		goto out_err1;
 	    }
@@ -576,7 +576,7 @@ static int __init v3_init(void) {
 
 
     v3_class = class_create(THIS_MODULE, "vms");
-    if (IS_ERR(v3_class)) {
+    if (!v3_class || IS_ERR(v3_class)) {
 	ERROR("Failed to register V3 VM device class\n");
 	ret =  PTR_ERR(v3_class);
 	goto failure3;

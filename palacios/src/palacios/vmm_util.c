@@ -24,8 +24,11 @@
 void v3_dump_mem(uint8_t * start, int n) {
     int i, j;
     char buf[128];
-      
 
+    if (!start) {
+	return;
+    }      
+    
     for (i = 0; i < n; i += 16) {
       snprintf(buf, 128, "%p ", (void *)(start + i));
       for (j = i; (j < (i + 16)) && (j < n); j++) {

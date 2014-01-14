@@ -55,7 +55,7 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
     struct top_half_data * top;
 
     top = palacios_alloc(sizeof(struct top_half_data));
-    if (IS_ERR(top)) {
+    if (!top) {
         ERROR("Palacios Error: could not allocate space for top half data\n");
         return -EFAULT;
     }
@@ -81,7 +81,7 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
 
     DEBUG("Palacios: Allocating %lu B of kernel memory for ELF binary data...\n", top->elf_size);
     top->elf_data = palacios_alloc(top->elf_size);
-    if (IS_ERR(top->elf_data)) {
+    if (!(top->elf_data)) {
         ERROR("Palacios Error: could not allocate space for binary image\n");
 	palacios_free(top);
         return -EFAULT;

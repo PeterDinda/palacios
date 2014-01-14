@@ -715,6 +715,11 @@ static int load_header(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     
     ctx = v3_chkpt_open_ctx(chkpt, "header");
 
+    if (!ctx) { 
+	PrintError(vm, VCORE_NONE, "Cannot open context to load header\n");
+        return -1;
+    }
+
     switch (v3_mach_type) {
 	case V3_SVM_CPU:
 	case V3_SVM_REV3_CPU: {

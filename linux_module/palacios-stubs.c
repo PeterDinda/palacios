@@ -34,10 +34,10 @@
 
 
 
-// The following can be used to track heap bugs
-// zero memory after allocation
-#define ALLOC_ZERO_MEM 0
-// pad allocations by this many bytes on both ends of block
+// The following can be used to track memory bugs
+// zero memory after allocation (now applies to valloc and page alloc as well)
+#define ALLOC_ZERO_MEM 1
+// pad allocations by this many bytes on both ends of block (heap only)
 #define ALLOC_PAD      0
 
 
@@ -191,6 +191,10 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id
 
     pg_allocs += num_pages;
 
+#if ALLOC_ZERO_MEM
+    memset(__va(pg_addr),0,num_pages*4096);
+#endif
+
     MEMCHECK_ALLOC_PAGES(pg_addr,num_pages*4096);
 
     return pg_addr;
@@ -233,7 +237,7 @@ palacios_alloc_extended(unsigned int size, unsigned int flags, int node) {
 	addr = kmalloc_node(size+2*ALLOC_PAD, flags, node);
     }
 
-    if (!addr) { 
+    if (!addr || IS_ERR(addr)) { 
        ERROR("ALERT ALERT  kmalloc has FAILED FAILED FAILED\n");
        return NULL;
     }	
@@ -261,12 +265,16 @@ palacios_valloc(unsigned int size)
 
     addr = vmalloc(size);
 
-    if (!addr) { 
+    if (!addr || IS_ERR(addr)) { 
        ERROR("ALERT ALERT  vmalloc has FAILED FAILED FAILED\n");
        return NULL;
     }	
 
     vmallocs++;
+
+#if ALLOC_ZERO_MEM
+    memset(addr,0,size);
+#endif
 
     MEMCHECK_VMALLOC(addr,size);
 
@@ -446,7 +454,7 @@ palacios_start_thread_on_cpu(int cpu_id,
 
     thread = kthread_create( lnx_thread_target, thread_info, thread_info->name );
 
-    if (IS_ERR(thread)) {
+    if (!thread || IS_ERR(thread)) {
 	WARNING("Palacios error creating thread: %s\n", thread_info->name);
 	palacios_free(thread_info);
 	return NULL;

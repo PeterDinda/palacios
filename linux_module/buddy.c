@@ -155,7 +155,7 @@ int buddy_add_pool(struct buddy_memzone * zone,
 
     mp = palacios_alloc_extended(sizeof(struct buddy_mempool), GFP_KERNEL, zone->node_id);
 
-    if (IS_ERR(mp)) {
+    if (!mp) {
 	ERROR("Could not allocate mempool\n");
 	return -1;
     }
@@ -173,6 +173,13 @@ int buddy_add_pool(struct buddy_memzone * zone,
     mp->tag_bits   = palacios_alloc_extended(
 				  BITS_TO_LONGS(mp->num_blocks) * sizeof(long), GFP_KERNEL, zone->node_id
 				  );
+
+    if (!(mp->tag_bits)) { 
+	ERROR("Could not allocate tag_bits\n");
+	palacios_free(mp);
+	return -1;
+    }
+	
 
     /* Initially mark all minimum-sized blocks as allocated */
     bitmap_zero(mp->tag_bits, mp->num_blocks);
