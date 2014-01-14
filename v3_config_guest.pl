@@ -191,12 +191,6 @@ print "\nWe will now consider storage controllers and devices.\n\n";
 do_storage(\%config, $pdir, $dir, $name, "pci0", "southbridge");
 
 
-#
-# NVRAM 
-#
-# Note: do_storage *must* have placed an IDE named ide0 in order for this to work
-#
-do_device(\%config, $pdir, "V3_CONFIG_NVRAM", "NVRAM", "nvram", 1, undef, "     <storage>ide0</storage>\n"); #must have
 
 
 #
@@ -206,6 +200,33 @@ do_device(\%config, $pdir, "V3_CONFIG_NVRAM", "NVRAM", "nvram", 1, undef, "     
 print "\nWe will now consider network interfaces.\n\n";
 do_network(\%config, $pdir, $dir, $name, "pci0", "southbridge");
 
+
+#
+# Sanity-check - is there something bootable?
+#
+#
+if (!($config{havecd} && !($config{havehd}))) {
+  print "The guest's storage configuration does not have either a CD or an HD.  \n";
+  print "This means the guest BIOS will have nothing local to boot.  \n";
+  if (!($config{havenic})) { 
+    print "The guest also does does not have a NIC, which means the BIOS cannot\n";
+    print "do a network boot.\n";
+  } else {
+    print "The guest does have a NIC, so a network boot is possible, if the\n";
+    print "BIOS supports it.\n";
+  }
+  print "If this is not your intent, you probably want to CTRL-C and try again.\n";
+}
+
+print "The BIOS boot sequence will be set to CD,HD.   If you need to change this\n";
+print "later, edit the <bootseq> block within the NVRAM device.\n";
+
+#
+# NVRAM 
+#
+# Note: do_storage *must* have placed an IDE named ide0 in order for this to work
+#
+do_device(\%config, $pdir, "V3_CONFIG_NVRAM", "NVRAM", "nvram", 1, undef, "     <storage>ide0</storage>\n     <bootseq>cd,hd</bootseq>\n"); #must have
 
 #
 #
@@ -238,7 +259,7 @@ print "\n\nYour guest is now ready in the directory $dir\n\n";
 print "To run it, do:\n\n";
 print "  cd $dir\n";
 print "  v3_create -b $name.pal $name\n";
-print "  v3_launch /dev/v3-vmN (N given by v3_create\n\n";
+print "  v3_launch /dev/v3-vmN (N given by v3_create)\n\n";
 print "Other useful tools:\n\n";
 print "  v3_console (CGA console)\n";
 print "  v3_stream (connect to stream, for example, serial port)\n\n";
@@ -429,7 +450,7 @@ sub do_consoles_and_ports {
   if (!($cancga || $canvga || $canserial || $canvirtioconsole)) { 
     print "Hmm... No console mechanism is enabled in your Palacios build...\n";
     print "  This is probably not what you want...\n";
-}
+  }
   
   $didcga=0;
   if ($cancga) { 
@@ -495,6 +516,7 @@ sub do_consoles_and_ports {
     print "You have configured your guest without any obvious way of interacting with it....\n";
     print "  This is probably not what you want...\n";
   } 
+
 } 
 
 
@@ -595,6 +617,10 @@ sub do_network {
     }
     $num++;
   }
+
+  if ($num>0) { 
+    $cr->{havenic}=1;
+  }
  }
 
 
@@ -641,7 +667,9 @@ sub do_storage {
       do_storage_backend($cr, $pdir, $dir, $name, "virtioblk$i", "data$i", "");
     }
   }
-}
+
+}      
+
 
 
 sub do_storage_backend {
@@ -717,9 +745,11 @@ sub do_storage_backend {
       if ($what eq "cd") { 
 	$attach.="     <model>V3VEE CDROM</model>\n".
                  "     <type>CDROM</type>\n".$frontendblock;
+	$cr->{havecd}=1;
       } else {
 	$attach.="     <model>V3VEE HD</model>\n".
                  "     <type>HD</type>\n".$frontendblock;
+	$cr->{havehd}=1;
       }
       $attach.="    </frontend>\n";
 
