@@ -184,7 +184,7 @@ int main(int argc, char* argv[])
   char stream[STREAM_NAME_LEN];
   int argstart;
   
-  if (argc < 2) {
+  if (argc < 3) {
     usage(argv[0]);
     exit(0);
   }
@@ -192,7 +192,7 @@ int main(int argc, char* argv[])
   if (!strcasecmp(argv[1],"-i")) { 
     interactive=1;
     argstart=2;
-    if (argc < 3) {
+    if (argc < 4) {
         usage(argv[0]);
         exit(0);
     } 
