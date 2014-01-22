@@ -784,6 +784,15 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
     // Run state is needed to determine when AP cores need
     // to be immediately run after resume
     V3_CHKPT_LOAD(ctx,"run_state",info->core_run_state,loadfailout);
+    V3_CHKPT_LOAD(ctx,"cpu_mode",info->cpu_mode,loadfailout);
+    V3_CHKPT_LOAD(ctx,"mem_mode",info->mem_mode,loadfailout);
+
+    V3_CHKPT_LOAD(ctx,"CPL",info->cpl,loadfailout);
+
+    if (info->cpl != info->segments.ss.dpl) { 
+	V3_Print(info->vm_info,info,"Strange, CPL=%d but ss.dpl=%d on core save\n",info->cpl,info->segments.ss.dpl);
+    }
+
 
     V3_CHKPT_LOAD(ctx, "RIP", info->rip, loadfailout);
     
@@ -839,7 +848,11 @@ static int load_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
     V3_CHKPT_LOAD(ctx, "GDTR", info->segments.gdtr, loadfailout);
     V3_CHKPT_LOAD(ctx, "IDTR", info->segments.idtr, loadfailout);
     V3_CHKPT_LOAD(ctx, "TR", info->segments.tr, loadfailout);
-    
+
+    if (info->cpl != info->segments.ss.dpl) { 
+	V3_Print(info->vm_info,info,"Strange, CPL=%d but ss.dpl=%d on core load\n",info->cpl,info->segments.ss.dpl);
+    }
+
     // several MSRs...
     V3_CHKPT_LOAD(ctx, "STAR", info->msrs.star, loadfailout);
     V3_CHKPT_LOAD(ctx, "LSTAR", info->msrs.lstar, loadfailout);
@@ -971,9 +984,13 @@ static int save_core(struct guest_info * info, struct v3_chkpt * chkpt, v3_chkpt
     }
 
     V3_CHKPT_SAVE(ctx,"run_state",info->core_run_state,savefailout);
+    V3_CHKPT_SAVE(ctx,"cpu_mode",info->cpu_mode,savefailout);
+    V3_CHKPT_SAVE(ctx,"mem_mode",info->mem_mode,savefailout);
+    
+    V3_CHKPT_SAVE(ctx,"CPL",info->cpl,savefailout);
 
     V3_CHKPT_SAVE(ctx, "RIP", info->rip, savefailout);
-    
+
     // GPRs
     V3_CHKPT_SAVE(ctx,"RDI",info->vm_regs.rdi, savefailout); 
     V3_CHKPT_SAVE(ctx,"RSI",info->vm_regs.rsi, savefailout); 
