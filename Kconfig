@@ -266,6 +266,12 @@ source "Kconfig.stdlibs"
 
 menu "Virtual Paging"
 
+config NESTED_PAGING
+	bool "Enable nested paging"
+        default y 
+        help
+           Enable nested paging (should always be on)
+
 config SHADOW_PAGING
 	bool "Enable shadow paging"
 	default y
@@ -288,13 +294,34 @@ config DEBUG_SHDW_PG_VTLB
 	help
 	  Enables debugging messages for VTLB implementation
 
-config SHADOW_PAGING_CACHE1
-	bool "Shadow Page Cache (1)"
-	default y
-	depends on SHADOW_PAGING
+config SHADOW_PAGING_CACHE
+	bool "Shadow Page Cache"
+	default n
+	depends on SHADOW_PAGING && EXPERIMENTAL
 	help 
-	   Enables caching implemenation for shadow paging
+	   Enables caching implementation of shadow paging
 
+config DEBUG_SHADOW_PAGING_CACHE
+	bool "Enable Shadow Page Cache Debugging"
+        default n
+        depends on SHADOW_PAGING_CACHE
+        help
+           Enables debugging messages for the VTLB + Caching implementation
+
+#config SHADOW_PAGING_KVM
+#	bool "KVM-style Shadow Pager"
+#	default n
+#	depends on SHADOW_PAGING && EXPERIMENTAL
+#	help 
+#	   Enables shadow pager derived from KVM 
+#           You probably do not want this and it will probably not compile!
+#
+#config DEBUG_SHADOW_PAGING_KVM 
+#	bool "Enable KVM-style Shadow Pager Debugging"
+#        default n
+#        depends on SHADOW_PAGING_KVM
+#        help
+#           Enables debugging messages for the KVM-style shadow pager
 
 endmenu
 

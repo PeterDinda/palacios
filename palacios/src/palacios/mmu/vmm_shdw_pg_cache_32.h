@@ -24,7 +24,7 @@ static inline int activate_shadow_pt_32(struct guest_info * core) {
     addr_t gpa = BASE_TO_PAGE_ADDR_4KB(guest_cr3->pdt_base_addr);
     struct shdw_pg_data * shdw_pg = NULL;
 
-    PrintDebug(info->vm_info, info, "Activating 32 Bit cacheable page tables\n");
+    PrintDebug(core->vm_info, core, "Activating 32 Bit cacheable page tables\n");
     shdw_pg = find_shdw_pt(core->vm_info, gpa, PAGE_PD32);
     
     PrintError(core->vm_info, core, "shdw_pg returned as %p for CR3:%p\n", shdw_pg, (void *)gpa);
