@@ -59,6 +59,13 @@ struct blk_config {
     uint16_t cylinders;
     uint8_t heads;
     uint8_t sectors;
+    /*
+    uint32_t blk_size;
+    uint8_t phys_block_exp;
+    uint8_t alignment_offset;
+    uint16_t min_io_size;
+    uint32_t opt_io_size;
+    */
 } __attribute__((packed));
 
 
@@ -466,8 +473,16 @@ static int virtio_io_read(struct guest_info * core, uint16_t port, void * dst, u
 		memcpy(dst, cfg_ptr + cfg_offset, length);
 		
 	    } else {
-		PrintError(core->vm_info, core, "Read of Unhandled Virtio Read\n");
-		return -1;
+
+		PrintError(core->vm_info,core,"Read of Unhandled Virtio Read. Returning 0\n");
+		if (length == 1) {
+		    *(uint8_t *)dst = 0;
+		} else if (length == 2) {
+		    *(uint16_t *)dst = 0;
+		} else if (length == 4) {
+		    *(uint32_t *)dst = 0;
+		}
+
 	    }
 	  
 	    break;
@@ -580,6 +595,7 @@ static int register_dev(struct virtio_dev_state * virtio, struct virtio_blk_stat
     /* Block configuration */
     blk_state->virtio_cfg.host_features = VIRTIO_SEG_MAX;
     blk_state->block_cfg.max_seg = QUEUE_SIZE - 2;
+
 
     // Virtio Block only uses one queue
     blk_state->queue.queue_size = QUEUE_SIZE;
