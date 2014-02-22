@@ -366,10 +366,10 @@ static int read_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t * dst, v
     struct apic_dev_state * apic_dev = (struct apic_dev_state *)priv_data;
     struct apic_state * apic = &(apic_dev->apics[core->vcpu_id]);
 
-    PrintDebug(core->vm_info, core, "apic %u: core %u: MSR read\n", apic->lapic_id.val, core->vcpu_id);
-
-    dst->value = apic->base_addr;
-
+    PrintDebug(core->vm_info, core, "apic %u: core %u: MSR read getting %llx\n", apic->lapic_id.val, core->vcpu_id, apic->base_addr_msr.value);
+ 
+    dst->value = apic->base_addr_msr.value;
+ 
     return 0;
 }
 
@@ -380,7 +380,7 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
     struct v3_mem_region * old_reg = v3_get_mem_region(core->vm_info, core->vcpu_id, apic->base_addr);
 
 
-    PrintDebug(core->vm_info, core, "apic %u: core %u: MSR write\n", apic->lapic_id.val, core->vcpu_id);
+    PrintDebug(core->vm_info, core, "apic %u: core %u: MSR write of %llx\n", apic->lapic_id.val, core->vcpu_id, src.value);
 
     if (old_reg == NULL) {
 	// uh oh...
@@ -393,7 +393,9 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
 
     v3_delete_mem_region(core->vm_info, old_reg);
 
-    apic->base_addr = src.value;
+    apic->base_addr_msr.value = src.value;
+
+    apic->base_addr = src.value & ~0xfffULL;
 
     if (v3_hook_full_mem(core->vm_info, core->vcpu_id, apic->base_addr, 
 			 apic->base_addr + PAGE_SIZE_4KB, 
