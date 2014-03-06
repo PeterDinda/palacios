@@ -100,6 +100,19 @@ config DEBUG_PIT
 	help 
 	  Enable debugging for the PIT	
 
+config HPET
+    bool "HPET"
+    default n
+    help
+      Includes the High-Precision Event Timer Device
+
+config DEBUG_HPET
+    bool "HPET debugging"
+    depends on HPET && DEBUG_ON
+    help
+      Enable debugging for the HPET
+
+
 config I440FX
 	bool "i440fx Northbridge"
 	depends on PCI
