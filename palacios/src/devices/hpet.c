@@ -859,7 +859,7 @@ hpet_init (struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     /* init architecturally visible state */
 	init_hpet_state(hpet);
 
-    PrintDebug(core->vm_info, core "HPET: Hooking HPET mem region at %p\n", (void*)hpet->base_addr);
+    PrintDebug(core->vm_info, core, "HPET: Hooking HPET mem region at %p\n", (void*)hpet->base_addr);
 	if (v3_hook_full_mem(vm, 
                          V3_MEM_CORE_ANY, 
                          hpet->base_addr, 
