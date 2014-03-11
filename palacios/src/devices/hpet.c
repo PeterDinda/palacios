@@ -789,7 +789,7 @@ static int
 hpet_save (struct v3_chkpt_ctx * ctx, void * private_data) 
 {
     PrintError(VM_NONE, VCORE_NONE, "Unimplemented\n");
-    return -1;
+    return 0;
 }
 
 
@@ -797,7 +797,7 @@ static int
 hpet_load (struct v3_chkpt_ctx * ctx, void * private_data) 
 {
     PrintError(VM_NONE, VCORE_NONE, "Unimplemented\n");
-    return -1;
+    return 0;
 }
 
 #endif
