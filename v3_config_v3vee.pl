@@ -15,7 +15,7 @@ at least the following:
   cd linux_usr
   make
   cd ..
-  ./v3_config.pl
+  ./v3_config_v3vee.pl
 
 
 This tool will create (or overwrite) the following for you:
