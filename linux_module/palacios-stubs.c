@@ -211,6 +211,7 @@ void palacios_free_pages(void * page_paddr, int num_pages) {
     if (!page_paddr) { 
 	ERROR("Ignoring free pages: 0x%p (0x%lx)for %d pages\n", page_paddr, (uintptr_t)page_paddr, num_pages);
 	dump_stack();
+	return;
     }
     pg_frees += num_pages;
     free_palacios_pgs((uintptr_t)page_paddr, num_pages);
@@ -283,6 +284,11 @@ palacios_valloc(unsigned int size)
 
 void palacios_vfree(void *p)
 {
+  if (!p) { 
+      ERROR("Ignoring vfree: 0x%p\n",p);
+      dump_stack();
+      return;
+  }
   vfree(p);
   vfrees++;
   MEMCHECK_VFREE(p);
@@ -318,6 +324,7 @@ palacios_free(
     if (!addr) {
 	ERROR("Ignoring free : 0x%p\n", addr);
 	dump_stack();
+	return;
     }
     frees++;
     kfree(addr-ALLOC_PAD);
