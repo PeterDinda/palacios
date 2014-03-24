@@ -856,6 +856,7 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 	    // only do this if pci device is enabled....
 	    if (!(pci_dev->config_header.status & 0x1)) {
 		PrintError(VM_NONE, VCORE_NONE, "PCI Device IO space not enabled\n");
+        break;
 	    }
 
 	    for (i = 0; i < bar->num_ports; i++) {
