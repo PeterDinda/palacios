@@ -181,6 +181,7 @@ struct hashtable_iter {
 
 
 struct hashtable_iter * v3_create_htable_iter(struct hashtable * htable);
+void v3_destroy_htable_iter(struct hashtable_iter * iter);
 
 /* - return the value of the (key,value) pair at the current position */
 //extern inline 

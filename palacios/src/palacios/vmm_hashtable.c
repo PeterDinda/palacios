@@ -733,6 +733,11 @@ int v3_htable_iter_search(struct hashtable_iter * iter,
     return 0;
 }
  
+void v3_destroy_htable_iter(struct hashtable_iter * iter) {
+    if (iter) {
+        V3_Free(iter);
+    }
+}
  
 
 
