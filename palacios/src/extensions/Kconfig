@@ -53,4 +53,20 @@ config DEBUG_EXT_CPU_MAPPER_EDF
 	default n
 	depends on DEBUG_ON && EXT_CPU_MAPPER_EDF
 
+config TM_FUNC
+        bool "Enable Intel RTM Emulation Support"
+        default n
+        help
+          Enable Palacios to emulate Intel's hardware
+          transactional memory extensions. This is the
+          Restricted Transactional Memory (RTM) featureset,
+          part of Intel's TSX extensions.
+
+config DEBUG_TM_FUNC
+    bool "Enable RTM debugging output"
+    depends on TM_FUNC
+    default n
+    help
+        Enable Transactional Memory debugging output
+
 endmenu

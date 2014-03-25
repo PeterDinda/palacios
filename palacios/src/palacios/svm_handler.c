@@ -35,6 +35,10 @@
 #include <palacios/vmm_cpuid.h>
 #include <palacios/vmm_direct_paging.h>
 
+#ifdef V3_CONFIG_TM_FUNC
+#include <extensions/trans_mem.h>
+#endif
+
 #ifndef V3_CONFIG_DEBUG_SVM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -55,8 +59,6 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	v3_telemetry_start_exit(info);
     }
 #endif
-
-
 
     //    PrintDebug(info->vm_info, info, "SVM Returned: Exit Code: %p\n", (void *)exit_code); 
 
@@ -202,6 +204,28 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    }
 	    break;
 	} 
+
+#ifdef V3_CONFIG_TM_FUNC
+    case SVM_EXIT_EXCP6:
+    case SVM_EXIT_EXCP0:
+    case SVM_EXIT_EXCP1:
+    case SVM_EXIT_EXCP3:
+    case SVM_EXIT_EXCP4:
+    case SVM_EXIT_EXCP5:
+    case SVM_EXIT_EXCP7:
+    case SVM_EXIT_EXCP10:
+    case SVM_EXIT_EXCP11:
+    case SVM_EXIT_EXCP12:
+    case SVM_EXIT_EXCP13:
+    case SVM_EXIT_EXCP16:
+    case SVM_EXIT_EXCP17:
+    case SVM_EXIT_EXCP19:
+        if (v3_tm_handle_exception(info, exit_code) == -1) {
+            return -1;
+        }
+        break;
+#endif
+
  	case SVM_EXIT_NPF: {
 	    addr_t fault_addr = exit_info2;
 	    pf_error_t * error_code = (pf_error_t *)&(exit_info1);

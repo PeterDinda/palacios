@@ -17,6 +17,9 @@
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  */
 
+#ifdef V3_CONFIG_TM_FUNC
+#include <extensions/trans_mem.h>
+#endif
 
 static inline int activate_shadow_pt_64(struct guest_info * info) {
     struct cr3_64 * shadow_cr3 = (struct cr3_64 *)&(info->ctrl_regs.cr3);
@@ -465,10 +468,16 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	return 0;
     }
 
-
     if (shadow_pte_access == PT_ACCESS_NOT_PRESENT) {
 	// Page Table Entry Not Present
 	PrintDebug(info->vm_info, info, "guest_pa =%p\n", (void *)guest_pa);
+
+#ifdef V3_CONFIG_TM_FUNC
+        addr_t page_to_use;
+        if (v3_tm_handle_pf_64(info, error_code, fault_addr, &page_to_use) == -1) {
+            return -1;
+        }
+#endif
 
 	if ((shdw_reg->flags.alloced == 1) ||
 	    (shdw_reg->flags.read == 1)) {
@@ -478,6 +487,10 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 		PrintError(info->vm_info, info, "could not translate page fault address (%p)\n", (void *)guest_pa);
 		return -1;
 	    }
+
+#ifdef V3_CONFIG_TM_FUNC
+            v3_tm_handle_usr_tlb_miss(info, error_code, page_to_use, &shadow_pa);
+#endif
 
 	    shadow_pte->page_base_addr = PAGE_BASE_ADDR(shadow_pa);
       
@@ -507,6 +520,9 @@ static int handle_pte_shadow_pagefault_64(struct guest_info * info, addr_t fault
 		shadow_pte->writable = 0;
 	    }
 
+#ifdef V3_CONFIG_TM_FUNC
+        v3_tm_handle_read_fault(info, error_code, shadow_pte);
+#endif
 	} else {
 	    // Pass to unhandled call back
 	    if (shdw_reg->unhandled(info, fault_addr, guest_pa, shdw_reg, error_code) == -1) {

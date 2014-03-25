@@ -53,11 +53,15 @@
 
 #include <palacios/vmm_sprintf.h>
 
+#ifdef V3_CONFIG_TM_FUNC
+#include <extensions/trans_mem.h>
+#endif
 
 #ifndef V3_CONFIG_DEBUG_SVM
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
+
 
 
 uint32_t v3_last_exit;
@@ -155,6 +159,10 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
       
       ctrl_area->exceptions.nmi = 1;
     */
+
+#ifdef V3_CONFIG_TM_FUNC
+    v3_tm_set_excp_intercepts(ctrl_area);
+#endif
     
 
     ctrl_area->instrs.NMI = 1;
@@ -675,6 +683,10 @@ int v3_svm_enter(struct guest_info * info) {
     }
 #else 
     update_irq_entry_state(info);
+#endif
+
+#ifdef V3_CONFIG_TM_FUNC
+    v3_tm_check_intr_state(info, guest_ctrl, guest_state);
 #endif
 
 

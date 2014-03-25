@@ -31,6 +31,12 @@
 #include <extensions/trans_mem.h>
 #endif
 
+#ifdef V3_CONFIG_DEBUG_TM_FUNC
+#define PrintTMDebug(...) V3_Print(__VA_ARGS__)
+#else
+#define PrintTMDebug(...)
+#endif
+
 #ifndef V3_CONFIG_DEBUG_DECODER
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -152,35 +158,15 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
     qx86_insn qx86_inst;
     uint8_t inst_buf[QX86_INSN_SIZE_MAX];
 
-    /* 441-tm: add 'escape' trap for Haswell instructions, dont want to stumble
-     * on them!
-     */
+    memset(instr, 0, sizeof(struct x86_instr));
+    memset(&qx86_inst, 0, sizeof(qx86_inst));
+
 #ifdef V3_CONFIG_TM_FUNC
-    {
-        struct v3_trans_mem * tm = (struct v3_trans_mem *)v3_get_ext_core_state(info, "trans_mem");
-        if (tm->TM_MODE == TM_ON) {
-          int byte1 = *(uint8_t *)(instr_ptr);
-          int byte2 = *(uint8_t *)(instr_ptr + 1);
-          int byte3 = *(uint8_t *)(instr_ptr + 2);
-          if (byte1 == 0xc7 && byte2 == 0xf8) {  /* third byte is an immediate */
-            //V3_Print("Decoding  %x %x %d\n", byte1, byte2, byte3);
-            instr->instr_length = 6;
-            return 0;
-          } else if (byte1 == 0xc6 && byte2 == 0xf8) { /* third byte is an immediate */
-            //V3_Print("Decoding XABORT %x %x %d\n", byte1, byte2, byte3);
-            instr->instr_length = 3;
-            return 0;
-          } else if (byte1 == 0x0f && byte2 == 0x01 && byte3 == 0xd5) {
-            //V3_Print("Decoding XEND %x %x %x\n", byte1, byte2, byte3);
-            instr->instr_length = 3;
-            return 0;
-          }
-        }
+    if (v3_tm_decode_rtm_instrs(info, instr_ptr, instr) == -1) {
+        return -1;
     }
 #endif
 
-    memset(instr, 0, sizeof(struct x86_instr));
-    memset(&qx86_inst, 0, sizeof(qx86_inst));
 
     v3_get_prefixes((uchar_t *)instr_ptr, &(instr->prefixes));
 
@@ -237,7 +223,7 @@ int v3_decode(struct guest_info * info, addr_t instr_ptr, struct x86_instr * ins
 
     // 441 - dump memory for quix86 debugging
     if ((instr->op_type = get_opcode(&qx86_inst,info)) == V3_INVALID_OP) {
-        PrintError(info->vm_info, info, "++==++ QX86 DECODE ++==++\n");
+        PrintError(info->vm_info, info, "++==++ QX86 DECODE ++==++, guest RIP: %llx\n", info->rip);
         v3_dump_mem((void *)instr_ptr, 15);
         PrintError(info->vm_info, info, "Could not get opcode. (mnemonic=%s)\n",
                 qx86_minfo(qx86_inst.mnemonic)->name);
