@@ -1508,6 +1508,34 @@ tm_record_access (struct  v3_trans_mem * tm,
 }
 
 
+static void
+tm_prepare_cpuid (struct v3_vm_info * vm)
+{
+
+    V3_Print(vm, VCORE_NONE, "TM INIT | enabling RTM cap in CPUID\n");
+
+    /* increase max CPUID function to 7 (extended feature flags enumeration) */
+    v3_cpuid_add_fields(vm,0x0,    
+            0xf, 0x7,      
+            0, 0,
+            0, 0,
+            0, 0);
+
+
+    /* do the same for AMD */
+    v3_cpuid_add_fields(vm,0x80000000, 
+            0xffffffff, 0x80000007,   
+            0, 0,
+            0, 0,
+            0, 0);
+
+
+    /* enable RTM (CPUID.07H.EBX.RTM = 1) */
+    v3_cpuid_add_fields(vm, 0x07, 0, 0, (1<<11), 0, 0, 0, 0, 0);
+    v3_cpuid_add_fields(vm, 0x80000007, 0, 0, (1<<11), 0, 0, 0, 0, 0);
+}
+
+
 static int 
 init_trans_mem (struct v3_vm_info * vm, 
                 v3_cfg_tree_t * cfg, 
@@ -1552,6 +1580,8 @@ init_trans_mem (struct v3_vm_info * vm,
 
     *priv_data = tms;
     tm_global_state = tms;
+
+    tm_prepare_cpuid(vm);
 
     return 0;
 
@@ -2282,4 +2312,5 @@ v3_tm_decode_rtm_instrs (struct guest_info * info,
 
     return 0;
 }
+
 

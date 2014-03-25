@@ -19,6 +19,38 @@
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
  *
+ 
+RTM Implementation Wishlist (roughly in order of priority)
+Kyle Hale, Maciek Swiech 2014
+
+From Intel Architecture Instruction Set Extensions Programming Reference, Section 8.3, p.8-6
+link: http://software.intel.com/sites/default/files/m/9/2/3/41604
+
+- on XABORT / abort RAX needs to be set with the reason
+- architectural registers need to be saved / restored 
+- exceptions that misuse of TSX instructions can raise
+- abort on interrupts, asynchronous events
+- abort on CPUID, PAUSE
+- abort on non-writeback memory ops, including ifetches to uncacheable mem
+- RTM-debugger support
+- RTM nesting
+- parameterized cache model, for generating hardware configuration-based aborts
+
+- to be able to model specific implementations, add options (runtime or compiletime) to abort on:
+    * x86/mmx state changes, (also fxstor, fxsave),
+    * cli, sti, popfd, popfq, clts
+    * mov to segment regs, pop segment regs, lds, les, lfs, lgs, lss, swapgs, wrfsbase, wrgsbase, lgdt, sgdt, lidt, sidt, lldt, sldt, ltr, 
+      str, far call, far jmp, far ret, far iret, mov to DRx, mov to cr0-4, cr8 lmsw
+    * sysenter, syscall, sysexit, sysret
+    * clflush, invd, wbinvd, invlpg, invpcid
+    * memory instructions with temporal hints (e.g. movntdqa)
+    * xsave, xsaveopt, xrstor
+    * interrupts: INTn, INTO
+    * IO: in, ins, rep ins, out, outs, rep outs, and variants
+    * VMX instructions
+    * smx: getsec
+    * ud2, rsm, rdmsr, wrmsr, hlt, monitor, mwait, xsetbv, vzeroupper, maskmovq, v/maskmovdqu
+    
  *
  *
  * We claim that we can have a single, shared "cache"-like box
