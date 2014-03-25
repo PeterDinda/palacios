@@ -241,7 +241,7 @@ v3_store_next_instr (struct guest_info * core, struct v3_trans_mem * tm)
         /* this will attempt to abort all the remote cores */
         if (tm_handle_decode_fail(core) == -1) {
             TM_ERR(core,Error,"Could not handle failed decode\n");
-            return -1;
+            return ERR_STORE_FAIL;
         }
 
         /* we need to trigger a local abort */
@@ -378,7 +378,7 @@ tm_handle_fault_ifetch (struct guest_info * core,
         return ERR_TRANS_FAULT_FAIL;
     } else if (sto == ERR_STORE_MUST_ABORT) {
         TM_DBG(core,EXIT,"aborting for some reason\n");
-        v3_handle_trans_abort(core);
+        v3_handle_trans_abort(core, TM_ABORT_UNSPECIFIED, 0);
         return TRANS_FAULT_OK;
     }
 
@@ -512,7 +512,7 @@ tm_handle_fault_extern_ifetch (struct guest_info * core,
 
     } else if (sto == ERR_STORE_MUST_ABORT) {
         TM_ERR(core,IFETCH,"decode failed, going out of single stepping\n");
-        v3_handle_trans_abort(core);
+        v3_handle_trans_abort(core, TM_ABORT_UNSPECIFIED, 0);
         return TRANS_FAULT_OK;
     }
 
@@ -663,7 +663,7 @@ tm_handle_hcall_dec_abort (struct guest_info * core,
     TM_DBG(core,EXIT,"we are in ABORT, call the abort handler\n");
     tm->TM_ABORT = 0;
 
-    v3_handle_trans_abort(core);
+    v3_handle_trans_abort(core, TM_ABORT_UNSPECIFIED, 0);
 
     TM_DBG(core,EXIT,"RIP after abort: %p\n", ((void*)(core->rip)));
 
@@ -708,7 +708,7 @@ tm_check_list_conflict (struct guest_info * core,
         } else if (conflict == CHECK_IS_CONFLICT) {
 
             TM_DBG(core,EXIT,"we have a conflict, aborting\n");
-            v3_handle_trans_abort(core);
+            v3_handle_trans_abort(core, TM_ABORT_CONFLICT, 0);
             return CHECK_MUST_ABORT;
 
         }
@@ -837,8 +837,40 @@ v3_tm_inc_tnum (struct v3_trans_mem * tm)
 }
 
 
+static void
+tm_set_abort_status (struct guest_info * core, 
+                     tm_abrt_cause_t cause, 
+                     uint8_t xabort_reason)
+{
+    core->vm_regs.rax = 0;
+
+    switch (cause) {
+        case TM_ABORT_XABORT:
+            // we put the xabort immediate in eax 31:24
+            // cause is zero
+            core->vm_regs.rax |= (xabort_reason << 24);
+            break;
+        case TM_ABORT_CONFLICT:
+            // if this was a conflict from another core, it may work
+            // if we try again
+            core->vm_regs.rax |= (1 << ABORT_CONFLICT) | (1 << ABORT_RETRY);
+            break;
+        case TM_ABORT_INTERNAL:
+        case TM_ABORT_BKPT:
+            core->vm_regs.rax |= (1 << cause);
+            break;
+        default:
+            TM_ERR(core, ABORT, "invalid abort cause\n");
+            break;
+    }
+}
+
+
+// xabort_reason is only used for XABORT instruction
 int 
-v3_handle_trans_abort (struct guest_info * core) 
+v3_handle_trans_abort (struct guest_info * core, 
+                       tm_abrt_cause_t cause, 
+                       uint8_t xabort_reason)
 {
     struct v3_trans_mem * tm = (struct v3_trans_mem *)v3_get_ext_core_state(core, "trans_mem");
 
@@ -870,7 +902,8 @@ v3_handle_trans_abort (struct guest_info * core)
         v3_tm_inc_tnum(tm);
     }
     
-  
+    tm_set_abort_status(core, cause, xabort_reason);
+
     // time to garbage collect
     if (tm_hash_gc(tm) == -1) {
         TM_ERR(core,GC,"could not gc!\n");
@@ -1816,8 +1849,14 @@ tm_handle_xend (struct guest_info * core,
  */
 static int
 tm_handle_xabort (struct guest_info * core,
-                  struct v3_trans_mem * tm)
+                  struct v3_trans_mem * tm,
+                  uchar_t * instr)
 {
+        uint8_t reason; 
+
+        // we must reflect the immediate back into EAX 31:24
+        reason = *(uint8_t*)(instr+2);
+
         /* TODO: this probably needs to move somewhere else */
         rdtscll(tm->exit_time);
 
@@ -1834,7 +1873,7 @@ tm_handle_xabort (struct guest_info * core,
         }
 
         // Handle the exit
-        v3_handle_trans_abort(core);
+        v3_handle_trans_abort(core, TM_ABORT_XABORT, reason);
 
         return 0;
 }
@@ -1934,7 +1973,7 @@ tm_handle_ud (struct guest_info * core)
 
         TM_DBG(core, UD, "Encountered Haswell-specific XABORT %x %x %d at %llx\n", byte1, byte2, byte3, (uint64_t)core->rip);
 
-        if (tm_handle_xabort(core, tm) == -1) {
+        if (tm_handle_xabort(core, tm, instr) == -1) {
             TM_ERR(core, UD, "Problem handling XABORT\n");
             return -1;
         }
@@ -1993,7 +2032,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to DE exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP1:
@@ -2002,7 +2041,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to DB exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP3:
@@ -2011,7 +2050,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to BP exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP4:
@@ -2020,7 +2059,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to OF exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP5:
@@ -2029,7 +2068,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to BR exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP7:
@@ -2038,7 +2077,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to NM exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP10:
@@ -2047,7 +2086,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to TS exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP11:
@@ -2056,7 +2095,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to NP exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP12:
@@ -2065,7 +2104,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to SS exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP13:
@@ -2074,7 +2113,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to GPF exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP16:
@@ -2083,7 +2122,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to MF exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP17:
@@ -2092,7 +2131,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to AC exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
         case SVM_EXIT_EXCP19:
@@ -2101,7 +2140,7 @@ v3_tm_handle_exception (struct guest_info * info,
             }
             else {
                 TM_DBG(info,EXCP,"aborting due to XF exception\n");
-                v3_handle_trans_abort(info);
+                v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             }
             break;
 
@@ -2167,7 +2206,7 @@ v3_tm_check_intr_state (struct guest_info * info,
             v3_stgi();
             TM_DBG(info,INTR,"we have a pending interrupt!\n");
 
-            v3_handle_trans_abort(info);
+            v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
             // Copy new RIP state into arch dependent structure
             guest_state->rip = info->rip;
             TM_DBG(info,INTR,"currently guest state rip is %llx\n",(uint64_t)guest_state->rip);

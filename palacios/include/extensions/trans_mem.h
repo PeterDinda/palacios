@@ -26,7 +26,6 @@ Kyle Hale, Maciek Swiech 2014
 From Intel Architecture Instruction Set Extensions Programming Reference, Section 8.3, p.8-6
 link: http://software.intel.com/sites/default/files/m/9/2/3/41604
 
-- on XABORT / abort RAX needs to be set with the reason
 - architectural registers need to be saved / restored 
 - exceptions that misuse of TSX instructions can raise
 - abort on interrupts, asynchronous events
@@ -136,6 +135,22 @@ link: http://software.intel.com/sites/default/files/m/9/2/3/41604
 #define XABORT_INSTR_LEN 0x3
 #define XTEST_INSTR_LEN  0x3
 
+/* abort status definitions (these are bit indeces) */
+#define ABORT_XABORT     0x0 // xabort instr
+#define ABORT_RETRY      0x1 // may succeed on retry (must be clear if bit 0 set)
+#define ABORT_CONFLICT   0x2 // another process accessed memory in the transaction
+#define ABORT_OFLOW      0x3 // internal buffer overflowed
+#define ABORT_BKPT       0x4 // debug breakpoint was hit
+#define ABORT_NESTED     0x5 // abort occured during nested transaction (not currently used)
+
+
+typedef enum tm_abrt_cause {
+    TM_ABORT_XABORT,
+    TM_ABORT_CONFLICT,
+    TM_ABORT_INTERNAL,
+    TM_ABORT_BKPT,
+    TM_ABORT_UNSPECIFIED,
+} tm_abrt_cause_t;
 
 struct v3_tm_access_type {
     uint8_t r : 1;
@@ -246,7 +261,9 @@ int v3_restore_dirty_instr(struct guest_info *core);
 int v3_restore_abort_instr(struct guest_info *core);
 
 // handles abort cleanup, called from INT/EXCP or XABORT
-int v3_handle_trans_abort(struct guest_info *core);
+int v3_handle_trans_abort(struct guest_info *core,
+                         tm_abrt_cause_t cause,
+                         uint8_t xabort_reason);
 
 // record a memory access in hashes
 int tm_record_access (struct v3_trans_mem * tm, 
