@@ -1894,7 +1894,7 @@ tm_handle_xbegin (struct guest_info * core,
 
     if (tm->TM_MODE == TM_ON) {
         /* TODO: this is actually an indication of nesting, we'll fix this later */
-        TM_ERR(core,UD,"We got here while already in a transactional region!");
+        TM_ERR(core,UD,"We don't support nested transactions yet!\n");
         v3_raise_exception(core, UD_EXCEPTION);
         return -1;
     }
@@ -1947,12 +1947,20 @@ static int
 tm_handle_xtest (struct guest_info * core,
                  struct v3_trans_mem * tm)
 {
+    struct rflags * rf = (struct rflags*)&(core->ctrl_regs.rflags);
+
     // if we are in tm mode, set zf to 0, otherwise 1
     if (tm->TM_MODE == TM_ON) {
-        core->ctrl_regs.rflags &= ~(1ULL << 6);
+        rf->zf = 0;
     } else {
-        core->ctrl_regs.rflags |= (1ULL << 6);
+        rf->zf = 1;
     }
+
+    rf->cf = 0;
+    rf->of = 0;
+    rf->sf = 0;
+    rf->pf = 0;
+    rf->af = 0;
 
     core->rip += XTEST_INSTR_LEN;
 

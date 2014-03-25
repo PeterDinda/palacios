@@ -27,7 +27,6 @@ From Intel Architecture Instruction Set Extensions Programming Reference, Sectio
 link: http://software.intel.com/sites/default/files/m/9/2/3/41604
 
 - architectural registers need to be saved / restored 
-- exceptions that misuse of TSX instructions can raise
 - abort on interrupts, asynchronous events
 - abort on CPUID, PAUSE
 - abort on non-writeback memory ops, including ifetches to uncacheable mem
