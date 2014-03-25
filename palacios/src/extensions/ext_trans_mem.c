@@ -118,7 +118,7 @@ tm_handle_decode_fail (struct guest_info * core)
         
         remote_tm = v3_get_ext_core_state(&(core->vm_info->cores[core_num]), "trans_mem");
         if (!remote_tm) {
-            PrintError(core->vm_info, core,"++ TM DECODE ++ couldnt get remote_tm\n");
+            TM_ERR(core,DECODE,"couldnt get remote_tm\n");
             return -1;
         }
 
@@ -127,7 +127,7 @@ tm_handle_decode_fail (struct guest_info * core)
             continue;
         }
 
-        PrintDebug(core->vm_info, core,"++ TM DECODE ++ setting abort for core %d due to decoding error\n", core_num);
+        TM_DBG(core,DECODE,"setting abort for core %d due to decoding error\n", core_num);
         remote_tm->TM_ABORT = 1;
     }
 
@@ -154,7 +154,7 @@ tm_handle_ctrl_flow (struct guest_info * core,
     switch (struct_instr->op_type) {
 
         case V3_OP_JLE:
-            PrintDebug(core->vm_info, core, "!!++ JLE\n");
+            TM_DBG(core,DECODE, "!!++ JLE\n");
             to_jmp = (flags->zf || flags->sf != flags->of);
             offset = struct_instr->dst_operand.operand;
 
@@ -163,7 +163,7 @@ tm_handle_ctrl_flow (struct guest_info * core,
             tm->to_branch = to_jmp;
             break;
         case V3_OP_JAE:
-            PrintDebug(core->vm_info, core,"!!++ JAE\n");
+            TM_DBG(core,DECODE,"!!++ JAE\n");
             to_jmp = (flags->cf == 0);
             offset = struct_instr->dst_operand.operand;
 
@@ -172,7 +172,7 @@ tm_handle_ctrl_flow (struct guest_info * core,
             tm->to_branch = to_jmp;
             break;
         case V3_OP_JMP:
-            PrintDebug(core->vm_info, core,"!!++ JMP\n");
+            TM_DBG(core,DECODE,"!!++ JMP\n");
             to_jmp = 1;
             offset = struct_instr->dst_operand.operand;
 
@@ -181,7 +181,7 @@ tm_handle_ctrl_flow (struct guest_info * core,
             tm->to_branch = to_jmp;
             break;
         case V3_OP_JNZ:
-            PrintDebug(core->vm_info, core,"!!++ JNZ\n");
+            TM_DBG(core,DECODE,"!!++ JNZ\n");
             to_jmp = (flags->zf == 0);
             offset = struct_instr->dst_operand.operand;
 
@@ -190,7 +190,7 @@ tm_handle_ctrl_flow (struct guest_info * core,
             tm->to_branch = to_jmp;
             break;
         case V3_OP_JL:
-            PrintDebug(core->vm_info, core,"!!++ JL\n");
+            TM_DBG(core,DECODE,"!!++ JL\n");
             to_jmp = (flags->sf != flags->of);
             offset = struct_instr->dst_operand.operand;
 
@@ -199,7 +199,7 @@ tm_handle_ctrl_flow (struct guest_info * core,
             tm->to_branch = to_jmp;
             break;
         case V3_OP_JNS:
-            PrintDebug(core->vm_info, core,"!!++ JNS\n");
+            TM_DBG(core,DECODE,"!!++ JNS\n");
             to_jmp = (flags->sf == 0);
             offset = struct_instr->dst_operand.operand;
 
@@ -231,16 +231,16 @@ v3_store_next_instr (struct guest_info * core, struct v3_trans_mem * tm)
     // Fetch the current instruction
     tm_read_instr(core, core->rip, cur_instr, INSTR_BUF_SZ);
 
-    PrintDebug(core->vm_info, core,"-- TM STORE -- storing next instruction, current rip: %llx\n", (uint64_t)core->rip);
+    TM_DBG(core,STORE,"storing next instruction, current rip: %llx\n", (uint64_t)core->rip);
 
     /* Attempt to decode current instruction to determine its length */
     if (v3_decode(core, (addr_t)cur_instr, &struct_instr) == ERR_DECODE_FAIL) {
         
-        PrintError(core->vm_info, core,"++ TM Error ++ Could not decode currrent instruction (at %llx)\n", (uint64_t)core->rip);
+        TM_ERR(core,Error,"Could not decode currrent instruction (at %llx)\n", (uint64_t)core->rip);
 
         /* this will attempt to abort all the remote cores */
         if (tm_handle_decode_fail(core) == -1) {
-            PrintError(core->vm_info, core, "++ TM Error ++ Could not handle failed decode\n");
+            TM_ERR(core,Error,"Could not handle failed decode\n");
             return -1;
         }
 
@@ -257,7 +257,7 @@ v3_store_next_instr (struct guest_info * core, struct v3_trans_mem * tm)
              struct_instr.prefixes.repe  ||
              struct_instr.prefixes.repz)) {
 
-        PrintError(core->vm_info, core,"Encountered REP prefix, aborting\n");
+        TM_ERR(core,DECODE,"Encountered REP prefix, aborting\n");
         return ERR_STORE_MUST_ABORT;
     }
 
@@ -288,14 +288,14 @@ v3_overwrite_next_instr (struct guest_info * core, struct v3_trans_mem * tm)
 
     /* we can't currently handle instructions that span page boundaries */
     if ((ptr + tm->cur_instr_len) % PAGE_SIZE_4KB < (ptr % PAGE_SIZE_4KB)) {
-        PrintError(core->vm_info, core,"++ TM OVERWRITE ++ emulated instr straddling page boundary\n");
+        TM_ERR(core,OVERWRITE,"emulated instr straddling page boundary\n");
         return -1;
     }
 
     ptr = core->rip + tm->cur_instr_len + (tm->to_branch ? tm->offset : 0);
 
     if ((ptr + INSTR_INJECT_LEN) % PAGE_SIZE_4KB < (ptr % PAGE_SIZE_4KB)) {
-        PrintError(core->vm_info, core,"++ TM OVERWRITE ++ injected instr straddling page boundary\n");
+        TM_ERR(core,OVERWRITE,"injected instr straddling page boundary\n");
         return -1;
     }
 
@@ -303,11 +303,11 @@ v3_overwrite_next_instr (struct guest_info * core, struct v3_trans_mem * tm)
                 get_addr_linear(core, ptr, &(core->segments.cs)),
                 &ptr) == -1) {
 
-        PrintError(core->vm_info, core,"++ TM Error ++ Calculating next rip hva failed\n");
+        TM_ERR(core,Error,"Calculating next rip hva failed\n");
         return -1;
     }
 
-    PrintDebug(core->vm_info, core,"-- TM REPLACE -- Replacing next instruction at addr %llx with vmm hyper call, len=%d\n",
+    TM_DBG(core,REPLACE,"Replacing next instruction at addr %llx with vmm hyper call, len=%d\n",
             core->rip + tm->cur_instr_len + (tm->to_branch ? tm->offset : 0), (int)tm->cur_instr_len );
 
     /* Copy VMM call into the memory address of beginning of next instruction (ptr) */
@@ -333,11 +333,11 @@ v3_restore_dirty_instr (struct guest_info * core)
     struct v3_trans_mem * tm = (struct v3_trans_mem *)v3_get_ext_core_state(core, "trans_mem");
 
     /* Restore next instruction, transition to IFETCH state */
-    PrintDebug(core->vm_info, core,"-- TM RESTORE -- Restoring next instruction.\n");
+    TM_DBG(core,RESTORE,"Restoring next instruction.\n");
 
     /* check if we've actually done an instruction overwrite */
     if (!(tm->dirty_instr_flag)) {
-        PrintDebug(core->vm_info, core,"++ TM RESTORE ++ nothing to restore here...\n");
+        TM_DBG(core,RESTORE,"nothing to restore here...\n");
         return 0;
     }
 
@@ -348,7 +348,7 @@ v3_restore_dirty_instr (struct guest_info * core)
     (core->vm_regs).rax = tm->clobbered_rax; 
 
     // Scoot rip back up
-    PrintDebug(core->vm_info, core,"--  TM RESTORE -- RIP in vmmcall: %llx\n", core->rip);
+    TM_DBG(core,RESTORE,"RIP in vmmcall: %llx\n", core->rip);
     core->rip = tm->dirty_gva;
 
     // clean up
@@ -357,7 +357,7 @@ v3_restore_dirty_instr (struct guest_info * core)
     tm->dirty_hva = 0;
     memset(tm->dirty_instr, 0, 15);
 
-    PrintDebug(core->vm_info, core,"-- TM RESTORE -- RIP after scooting it back up: %llx\n", core->rip);
+    TM_DBG(core,RESTORE,"RIP after scooting it back up: %llx\n", core->rip);
 
     return 0;
 }
@@ -369,21 +369,21 @@ tm_handle_fault_ifetch (struct guest_info * core,
 {
     int sto;
 
-    PrintDebug(core->vm_info, core,"-- TM IFETCH -- Page fault caused by IFETCH: rip is the same as faulting address, we must be at an ifetch.\n");
+    TM_DBG(core,IFETCH,"Page fault caused by IFETCH: rip is the same as faulting address, we must be at an ifetch.\n");
 
     sto = v3_store_next_instr(core, tm);
 
     if (sto == ERR_STORE_FAIL) {
-        PrintError(core->vm_info, core,"++ TM EXIT ++ Could not store next instruction in transaction\n");
+        TM_ERR(core,EXIT,"Could not store next instruction in transaction\n");
         return ERR_TRANS_FAULT_FAIL;
     } else if (sto == ERR_STORE_MUST_ABORT) {
-        PrintDebug(core->vm_info, core,"-- TM EXIT -- aborting for some reason\n");
+        TM_DBG(core,EXIT,"aborting for some reason\n");
         v3_handle_trans_abort(core);
         return TRANS_FAULT_OK;
     }
 
     if (v3_overwrite_next_instr(core, tm) == -1) {
-        PrintError(core->vm_info, core,"++ TM PF ++ problem overwriting instruction\n");
+        TM_ERR(core,PF,"problem overwriting instruction\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
@@ -401,16 +401,16 @@ tm_handle_fault_read (struct guest_info * core,
 
 {
     // This page fault was caused by a read to memory in the current instruction for a core in TM mode
-    PrintDebug(core->vm_info, core,"-- TM DATA -- Page fault caused by read.\n");
-    PrintDebug(core->vm_info, core,"-- TM PF -- Adding %p to read list and hash\n", (void*)fault_addr);
+    TM_DBG(core,DATA,"Page fault caused by read.\n");
+    TM_DBG(core,PF,"Adding %p to read list and hash\n", (void*)fault_addr);
 
     if (add_mem_op_to_list(&(tm->trans_r_list), fault_addr) == -1) {
-        PrintError(core->vm_info, core,"++ TM PF ++ problem adding to list\n");
+        TM_ERR(core,PF,"problem adding to list\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
     if (tm_record_access(tm, error.write, fault_addr) == -1) {
-        PrintError(core->vm_info, core,"++ TM PF ++ problem recording access\n");
+        TM_ERR(core,PF,"problem recording access\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
@@ -418,11 +418,11 @@ tm_handle_fault_read (struct guest_info * core,
      * staging page and map it in */
     if (list_contains_guest_addr(&(tm->trans_w_list), fault_addr)) {
 
-        PrintDebug(core->vm_info, core,"-- TM PF -- Saw a read from something in the write list\n");
+        TM_DBG(core,PF,"Saw a read from something in the write list\n");
 
         /* write the value from linked list to staging page */
         if (stage_entry(tm, &(tm->trans_w_list), fault_addr) == -1) {
-            PrintError(core->vm_info, core, "could not stage entry!\n");
+            TM_ERR(core,PF, "could not stage entry!\n");
             return ERR_TRANS_FAULT_FAIL;
         }
 
@@ -434,10 +434,10 @@ tm_handle_fault_read (struct guest_info * core,
         //Add it to the read set
         addr_t shadow_addr = 0;
 
-        PrintDebug(core->vm_info, core,"-- TM PF -- Saw a read from a fresh address\n");
+        TM_DBG(core,PF,"Saw a read from a fresh address\n");
 
         if (v3_gva_to_hva(core, (uint64_t)fault_addr, &shadow_addr) == -1) {
-            PrintError(core->vm_info, core,"Could not translate gva to hva for transaction read\n");
+            TM_ERR(core,PF,"Could not translate gva to hva for transaction read\n");
             return ERR_TRANS_FAULT_FAIL;
         }
 
@@ -457,21 +457,21 @@ tm_handle_fault_write (struct guest_info * core,
         addr_t virt_data_loc;
         addr_t shadow_addr = 0;
 
-        PrintDebug(core->vm_info, core,"-- TM DATA -- Page fault cause by write\n");
-        PrintDebug(core->vm_info, core,"-- TM PF -- Adding %p to write list and hash\n", (void*)fault_addr);
+        TM_DBG(core,DATA,"Page fault cause by write\n");
+        TM_DBG(core,PF,"Adding %p to write list and hash\n", (void*)fault_addr);
 
         if (add_mem_op_to_list(&(tm->trans_w_list), fault_addr) == -1) {
-            PrintError(core->vm_info, core,"could not add to list!\n");
+            TM_ERR(core,WRITE,"could not add to list!\n");
             return ERR_TRANS_FAULT_FAIL;
         }
 
         if (tm_record_access(tm, error.write, fault_addr) == -1) {
-            PrintError(core->vm_info, core,"could not record access!\n");
+            TM_ERR(core,WRITE,"could not record access!\n");
             return ERR_TRANS_FAULT_FAIL;
         }
 
         if (v3_gva_to_hva(core, (uint64_t)fault_addr, &shadow_addr) == -1) {
-            PrintError(core->vm_info, core,"could not translate gva to hva for transaction read\n");
+            TM_ERR(core,WRITE,"could not translate gva to hva for transaction read\n");
             return ERR_TRANS_FAULT_FAIL;
         }
 
@@ -481,11 +481,11 @@ tm_handle_fault_write (struct guest_info * core,
         data_loc = (void*)((addr_t)(tm->staging_page) + (shadow_addr % PAGE_SIZE_4KB)); 
         
         if (v3_hpa_to_hva((addr_t)(data_loc), &virt_data_loc) == -1) {
-            PrintError(core->vm_info, core,"Could not convert address on staging page to virt addr\n");
+            TM_ERR(core,WRITE,"Could not convert address on staging page to virt addr\n");
             return ERR_TRANS_FAULT_FAIL;
         }
 
-        PrintDebug(core->vm_info, core,"\tValue being copied (core %d): %p\n", core->vcpu_id, *((void**)(virt_data_loc)));
+        TM_DBG(core,WRITE,"\tValue being copied (core %d): %p\n", core->vcpu_id, *((void**)(virt_data_loc)));
         //memcpy((void*)virt_data_loc, (void*)shadow_addr, sizeof(uint64_t));
         *(uint64_t*)virt_data_loc = *(uint64_t*)shadow_addr;
 
@@ -502,29 +502,29 @@ tm_handle_fault_extern_ifetch (struct guest_info * core,
     int sto;
 
     // system is in tm state, record the access
-    PrintDebug(core->vm_info, core,"-- TM IFETCH -- Page fault caused by IFETCH: we are not in TM, recording.\n");
+    TM_DBG(core,IFETCH,"Page fault caused by IFETCH: we are not in TM, recording.\n");
 
     sto = v3_store_next_instr(core,tm);
 
     if (sto == ERR_STORE_FAIL) {
-        PrintError(core->vm_info, core,"++ TM Error ++ Could not store next instruction in transaction\n");
+        TM_ERR(core,Error,"Could not store next instruction in transaction\n");
         return ERR_TRANS_FAULT_FAIL;
 
     } else if (sto == ERR_STORE_MUST_ABORT) {
-        PrintError(core->vm_info, core,"++ TM IFETCH ++ decode failed, going out of single stepping\n");
+        TM_ERR(core,IFETCH,"decode failed, going out of single stepping\n");
         v3_handle_trans_abort(core);
         return TRANS_FAULT_OK;
     }
 
     if (v3_overwrite_next_instr(core, tm) == -1) {
-        PrintError(core->vm_info, core,"could not overwrite next instr!\n");
+        TM_ERR(core,IFETCH,"could not overwrite next instr!\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
     tm->TM_STATE = TM_EXEC;
 
     if (tm_record_access(tm, error.write, fault_addr) == -1) {
-        PrintError(core->vm_info, core,"could not record access!\n");
+        TM_ERR(core,IFETCH,"could not record access!\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
@@ -538,9 +538,9 @@ tm_handle_fault_extern_access (struct guest_info * core,
                                addr_t fault_addr,
                                pf_error_t error)
 {
-    PrintDebug(core->vm_info, core,"-- TM PF HANDLE -- recording access\n");
+    TM_DBG(core,PF_HANDLE,"recording access\n");
     if (tm_record_access(tm, error.write, fault_addr) == -1) {
-        PrintError(core->vm_info, core,"could not record access!\n");
+        TM_ERR(core,PF_HANDLE,"could not record access!\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
@@ -551,10 +551,10 @@ tm_handle_fault_extern_access (struct guest_info * core,
 static addr_t
 tm_handle_fault_tmoff (struct guest_info * core)
 {
-    PrintDebug(core->vm_info, core, "-- TM PF HANDLE -- in pf handler but noone is in tm mode anymore (core %d), i should try to eliminate hypercalls\n", core->vcpu_id);
+    TM_DBG(core,PF_HANDLE, "in pf handler but noone is in tm mode anymore (core %d), i should try to eliminate hypercalls\n", core->vcpu_id);
 
     if (v3_restore_dirty_instr(core) == -1) {
-        PrintError(core->vm_info, core,"could not restore dirty instr!\n");
+        TM_ERR(core,PF_HANDLE,"could not restore dirty instr!\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
@@ -585,16 +585,16 @@ v3_handle_trans_mem_fault (struct guest_info * core,
     struct v3_tm_state * tms = (struct v3_tm_state *)v3_get_extension_state(core->vm_info, "trans_mem");
 
     if (!tm) {
-        PrintError(core->vm_info, core, "+++ TM ERROR +++ : coudln't get core state\n");
+        TM_ERR(core,ERROR,": coudln't get core state\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
     if (!tms) {
-        PrintError(core->vm_info, core, "+++ TM ERROR +++ : couldn't get vm trans_mem state\n");
+        TM_ERR(core,ERROR,": couldn't get vm trans_mem state\n");
         return ERR_TRANS_FAULT_FAIL;
     }
 
-    PrintDebug(core->vm_info, core,"++ TM PF ++ PF handler core->mode : %d, system->mode : %d\n", tm->TM_MODE, tms->TM_MODE);
+    TM_DBG(core,PF,"PF handler core->mode : %d, system->mode : %d\n", tm->TM_MODE, tms->TM_MODE);
 
     if ((tm->TM_MODE == TM_ON) && 
         ((void *)fault_addr == (void *)(core->rip))) {
@@ -637,15 +637,15 @@ static int
 tm_handle_hcall_tmoff (struct guest_info * core, struct v3_trans_mem * tm)
 {
     if (tm->TM_MODE == TM_ON) {
-        PrintError(core->vm_info, core,"++ TM EXIT ++ we are in tm mode but system is not!\n");
+        TM_ERR(core,EXIT,"we are in tm mode but system is not!\n");
         return TRANS_HCALL_FAIL;
     }
 
     // we got to an exit when things were off!
-    PrintDebug(core->vm_info, core,"-- TM EXIT -- system is off, restore the instruction and go away\n");
+    TM_DBG(core,EXIT,"system is off, restore the instruction and go away\n");
 
     if (v3_restore_dirty_instr(core) == -1) {
-        PrintError(core->vm_info, core,"could not restore dirty instr!\n");
+        TM_ERR(core,HCALL,"could not restore dirty instr!\n");
         return TRANS_HCALL_FAIL;
     }
 
@@ -660,12 +660,12 @@ tm_handle_hcall_dec_abort (struct guest_info * core,
                            struct v3_trans_mem * tm)
 {
     // only ever get here from TM DECODE
-    PrintDebug(core->vm_info, core,"-- TM EXIT -- we are in ABORT, call the abort handler\n");
+    TM_DBG(core,EXIT,"we are in ABORT, call the abort handler\n");
     tm->TM_ABORT = 0;
 
     v3_handle_trans_abort(core);
 
-    PrintDebug(core->vm_info, core,"-- TM EXIT -- RIP after abort: %p\n", ((void*)(core->rip)));
+    TM_DBG(core,EXIT,"RIP after abort: %p\n", ((void*)(core->rip)));
 
     return TRANS_HCALL_OK;
 }
@@ -677,7 +677,7 @@ tm_handle_hcall_ifetch_start (struct guest_info * core,
 {
     tm->TM_STATE = TM_IFETCH;
 
-    PrintDebug(core->vm_info, core,"-- TM EXIT -- VMEXIT after TM_EXEC, blast away VTLB and go into TM_IFETCH\n");
+    TM_DBG(core,EXIT,"VMEXIT after TM_EXEC, blast away VTLB and go into TM_IFETCH\n");
 
     // Finally, invalidate the shadow page table 
     v3_invalidate_shadow_pts(core);
@@ -702,12 +702,12 @@ tm_check_list_conflict (struct guest_info * core,
 
         if (conflict == ERR_CHECK_FAIL) {
 
-            PrintError(core->vm_info, core,"++ TM EXIT ++ error checking for conflicts\n");
+            TM_ERR(core,EXIT,"error checking for conflicts\n");
             return TRANS_HCALL_FAIL;
 
         } else if (conflict == CHECK_IS_CONFLICT) {
 
-            PrintDebug(core->vm_info, core,"-- TM EXIT -- we have a conflict, aborting\n");
+            TM_DBG(core,EXIT,"we have a conflict, aborting\n");
             v3_handle_trans_abort(core);
             return CHECK_MUST_ABORT;
 
@@ -725,8 +725,8 @@ tm_handle_hcall_check_conflicts (struct guest_info * core,
 {
     int ret;
 
-    PrintDebug(core->vm_info, core,"-- TM EXIT -- still TM_ON\n");
-    PrintDebug(core->vm_info, core,"-- TM EXIT -- checking for conflicts\n");
+    TM_DBG(core,EXIT,"still TM_ON\n");
+    TM_DBG(core,EXIT,"checking for conflicts\n");
 
     if ((ret = tm_check_list_conflict(core, tm, &(tm->trans_w_list), OP_TYPE_WRITE)) == TRANS_HCALL_FAIL) {
         return TRANS_HCALL_FAIL;
@@ -773,15 +773,15 @@ tm_handle_hcall (struct guest_info * core,
 
     // Previous instruction has finished, copy staging page back into linked list!
     if (update_list(tm, &(tm->trans_w_list)) == -1) {
-        PrintError(core->vm_info, core,"could not update_list!\n");
+        TM_ERR(core,HCALL,"could not update_list!\n");
         return TRANS_HCALL_FAIL;
     }
 
     // Done handling previous instruction, must put back the next instruction, reset %rip and go back to IFETCH state
-    PrintDebug(core->vm_info, core,"-- TM EXIT -- saw VMEXIT, need to restore previous state and proceed\n");
+    TM_DBG(core,EXIT,"saw VMEXIT, need to restore previous state and proceed\n");
 
     if (v3_restore_dirty_instr(core) == -1) {
-        PrintError(core->vm_info, core,"could not restore dirty instr!\n");
+        TM_ERR(core,HCALL,"could not restore dirty instr!\n");
         return TRANS_HCALL_FAIL;
     }
     
@@ -802,7 +802,7 @@ tm_handle_hcall (struct guest_info * core,
         return tm_handle_hcall_check_conflicts(core, tm);
 
     } else if (tm->TM_MODE == TM_OFF) {
-        PrintDebug(core->vm_info, core,"-- TM EXIT -- we are in TM_OFF\n");
+        TM_DBG(core,EXIT,"we are in TM_OFF\n");
     }
 
     return TRANS_HCALL_OK;
@@ -825,11 +825,11 @@ v3_tm_inc_tnum (struct v3_trans_mem * tm)
 
     tm->t_num++;
     /*
-    PrintDebug(tm->ginfo->vm_info, tm->ginfo,"-- TM INC TNUM -- global state is |%d|%d|, my tnum is %d\n", (int)lt[0],
+    TM_DBG(tm->ginfo,INC TNUM,"global state is |%d|%d|, my tnum is %d\n", (int)lt[0],
                                                                         (int)lt[1], (int)tm->t_num);
                                                                         */
     if (new_ctxt != tm->t_num) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"++ TM INC TNUM ++ misaligned global and local context value\n");
+        TM_ERR(tm->ginfo,TM_INC_TNUM,"misaligned global and local context value\n");
         return -1;
     }
 
@@ -844,23 +844,23 @@ v3_handle_trans_abort (struct guest_info * core)
 
     // Free the staging page
     if (v3_free_staging_page(tm) == -1) {
-        PrintError(core->vm_info, core,"++ TM ABORT ++ problem freeing staging page\n");
+        TM_ERR(core,ABORT,"problem freeing staging page\n");
         return -1;
     }
 
     // Clear the VTLB which still has our staging page in it
     if (v3_clr_vtlb(core) == -1) {
-        PrintError(core->vm_info, core,"++ TM ABORT ++ problem clearing vtlb\n");
+        TM_ERR(core,ABORT,"problem clearing vtlb\n");
         return -1;
     }
 
     // Free the lists
     v3_clear_tm_lists(tm);
 
-    PrintDebug(core->vm_info, core,"-- TM ABORT -- handler - TM_MODE: %d | RIP: %llx | XABORT RIP: %llx\n", tm->TM_MODE, (uint64_t)core->rip, (uint64_t)tm->fail_call);
+    TM_DBG(core,ABORT -- handler,"TM_MODE: %d | RIP: %llx | XABORT RIP: %llx\n", tm->TM_MODE, (uint64_t)core->rip, (uint64_t)tm->fail_call);
 
     if (tm->TM_MODE == TM_ON) {
-        PrintDebug(core->vm_info, core,"-- TM ABORT -- Setting RIP to %llx\n", (uint64_t)tm->fail_call);
+        TM_DBG(core,ABORT,"Setting RIP to %llx\n", (uint64_t)tm->fail_call);
         core->rip = tm->fail_call;
 
         // Turn TM off
@@ -873,7 +873,7 @@ v3_handle_trans_abort (struct guest_info * core)
   
     // time to garbage collect
     if (tm_hash_gc(tm) == -1) {
-        PrintError(core->vm_info, core,"could not gc!\n");
+        TM_ERR(core,GC,"could not gc!\n");
         return -1;
     }
 
@@ -1121,7 +1121,7 @@ tm_collect_context (struct v3_trans_mem * tm,
 
             rdtscll(*end_time);
             if ((*end_time - *begin_time) > 100000000) {
-                PrintError(tm->ginfo->vm_info, tm->ginfo,"++ GC ++ time threshhold exceeded, exiting!!!\n");
+                TM_ERR(tm->ginfo,GC,"time threshhold exceeded, exiting!!!\n");
                 return -1;
             }
             
@@ -1134,7 +1134,7 @@ tm_collect_context (struct v3_trans_mem * tm,
             type = (struct v3_tm_access_type *)v3_htable_search(tm->access_type, key);
 
             if (!type) { // something has gone terribly wrong
-                PrintError(tm->ginfo->vm_info, tm->ginfo,"++ TM GC ++ could not find accesstype entry to gc, THIS! IS! WRONG!\n");
+                TM_ERR(tm->ginfo,GC,"could not find accesstype entry to gc, THIS! IS! WRONG!\n");
                 return -1;
             }
 
@@ -1176,15 +1176,15 @@ tm_collect_all_contexts (struct v3_trans_mem * tm,
 
         /* not garbage, go on to the next context in the list */
         if (!to_gc) {
-            PrintDebug(tm->ginfo->vm_info, tm->ginfo,"-- TM GC -- not garbage collecting entries for address %llx\n", (uint64_t)gva);
+            TM_DBG(tm->ginfo,GC,"not garbage collecting entries for address %llx\n", (uint64_t)gva);
             continue;
         }
 
-        PrintDebug(tm->ginfo->vm_info, tm->ginfo,"-- TM GC -- garbage collecting entries for address %llx\n", (uint64_t)gva);
+        TM_DBG(tm->ginfo,GC,"garbage collecting entries for address %llx\n", (uint64_t)gva);
 
         /* found one, delete corresponding entries in access_type */
         if (tm_collect_context(tm, ctxt_iter, curr, begin_time, end_time, gva) == -1) {
-            PrintError(tm->ginfo->vm_info, tm->ginfo, "++ TM GC ++ ERROR collecting context\n");
+            TM_ERR(tm->ginfo,GC,"ERROR collecting context\n");
             return -1;
         }
 
@@ -1217,19 +1217,19 @@ tm_hash_gc (struct v3_trans_mem * tm)
 
     tms = (struct v3_tm_state *)v3_get_extension_state(tm->ginfo->vm_info, "trans_mem");
     if (!tms) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"++ %d : TM GC ++ could not alloc tms\n", tm->ginfo->vcpu_id);
+        TM_ERR(tm->ginfo,GC,"could not alloc tms\n");
         return -1;
     }
 
-    PrintDebug(tm->ginfo->vm_info, tm->ginfo,"-- TM GC -- beginning garbage collection\n");
-    PrintDebug(tm->ginfo->vm_info, tm->ginfo,"\t %d entries in addr_ctxt (pre)\n", (int)v3_htable_count(tm->addr_ctxt));
-    PrintDebug(tm->ginfo->vm_info, tm->ginfo,"\t %d entries in access_type (pre)\n", (int)v3_htable_count(tm->access_type));
+    TM_DBG(tm->ginfo,GC,"beginning garbage collection\n");
+    TM_DBG(tm->ginfo,GC,"\t %d entries in addr_ctxt (pre)\n", (int)v3_htable_count(tm->addr_ctxt));
+    TM_DBG(tm->ginfo,GC,"\t %d entries in access_type (pre)\n", (int)v3_htable_count(tm->access_type));
 
     tmoff = (tms->cores_active == 0);
 
     lt_copy = V3_Malloc(sizeof(uint64_t)*(tm->ginfo->vm_info->num_cores));
     if (!lt_copy) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"++ TM GC ++ Could not allocate space for lt_copy\n");
+        TM_ERR(tm->ginfo,GC,"Could not allocate space for lt_copy\n");
         return -1;
     }
 
@@ -1249,7 +1249,7 @@ tm_hash_gc (struct v3_trans_mem * tm)
     /* loop over hash entries in addr_ctxt */
     ctxt_iter = v3_create_htable_iter(tm->addr_ctxt);
     if (!ctxt_iter) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"++ TM GC ++ could not create htable iterator\n");
+        TM_ERR(tm->ginfo,GC,"could not create htable iterator\n");
         rc = -1;
         goto out;
     }
@@ -1273,13 +1273,13 @@ out:
     rdtscll(end_time);
 
     if (rc == -1) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"++ TM GC ++ garbage collection failed, time spent: %d cycles\n", (int)(end_time - begin_time));
+        TM_ERR(tm->ginfo,GC,"garbage collection failed, time spent: %d cycles\n", (int)(end_time - begin_time));
     } else {
-        PrintDebug(tm->ginfo->vm_info, tm->ginfo,"++ TM GC ++ ended garbage collection succesfuly, time spent: %d cycles\n", (int)(end_time - begin_time));
+        TM_DBG(tm->ginfo,GC,"ended garbage collection succesfuly, time spent: %d cycles\n", (int)(end_time - begin_time));
     }
 
-    PrintDebug(tm->ginfo->vm_info, tm->ginfo,"\t %d entries in addr_ctxt (post)\n", (int)v3_htable_count(tm->addr_ctxt));
-    PrintDebug(tm->ginfo->vm_info, tm->ginfo,"\t %d entries in access_type (post)\n", (int)v3_htable_count(tm->access_type));
+    TM_DBG(tm->ginfo,GC,"\t %d entries in addr_ctxt (post)\n", (int)v3_htable_count(tm->addr_ctxt));
+    TM_DBG(tm->ginfo,GC,"\t %d entries in access_type (post)\n", (int)v3_htable_count(tm->access_type));
 
     return rc;
 }
@@ -1322,7 +1322,7 @@ tm_update_ctxt_list (struct v3_trans_mem * tm,
         struct hash_chain * new_l = V3_Malloc(sizeof(struct hash_chain));
 
         if (!new_l) {
-            PrintError(tm->ginfo->vm_info, tm->ginfo,"++ %d : TM HASH ++ Could not allocate new list\n", tm->ginfo->vcpu_id);
+            TM_ERR(tm->ginfo,HASH,"Could not allocate new list\n");
             return -1;
         }
 
@@ -1353,7 +1353,7 @@ tm_update_ctxt_list (struct v3_trans_mem * tm,
             type = V3_Malloc(sizeof(struct v3_tm_access_type));
 
             if (!type) {
-                PrintError(tm->ginfo->vm_info, tm->ginfo,"could not allocate type access struct\n");
+                TM_ERR(tm->ginfo,HASH,"could not allocate type access struct\n");
                 return -1;
             }
         }
@@ -1366,7 +1366,7 @@ tm_update_ctxt_list (struct v3_trans_mem * tm,
 
         if (new_e) {
             if (HTABLE_INSERT(tm->access_type, key, type) == 0) {
-                PrintError(tm->ginfo->vm_info, tm->ginfo,"TM: problem inserting new mem access in htable\n");
+                TM_ERR(tm->ginfo,HASH,"problem inserting new mem access in htable\n");
                 return -1;
             }
             (tm->access_type_entries)++;
@@ -1391,7 +1391,7 @@ tm_create_ctxt_key (struct v3_trans_mem * tm,
     hash_list = (struct list_head *)V3_Malloc(sizeof(struct list_head));
 
     if (!hash_list) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"++ TM HASH ++ Problem allocating hash_list\n");
+        TM_ERR(tm->ginfo,HASH,"Problem allocating hash_list\n");
         return -1;
     }
 
@@ -1400,7 +1400,7 @@ tm_create_ctxt_key (struct v3_trans_mem * tm,
     new_l = V3_Malloc(sizeof(struct hash_chain));
 
     if (!new_l) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"++ TM HASH ++ Problem allocating hash_chain\n");
+        TM_ERR(tm->ginfo,HASH,"Problem allocating hash_chain\n");
         goto out_err;
     }
 
@@ -1412,7 +1412,7 @@ tm_create_ctxt_key (struct v3_trans_mem * tm,
     list_add_tail(&(new_l->lt_node), hash_list);
 
     if (!(HTABLE_INSERT(tm->addr_ctxt, gva, hash_list))) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"++ TM HASH CHAIN ++ problem inserting new chain into hash\n");
+        TM_ERR(tm->ginfo,HASH CHAIN,"problem inserting new chain into hash\n");
         goto out_err1;
     }
 
@@ -1431,7 +1431,7 @@ tm_create_ctxt_key (struct v3_trans_mem * tm,
         type = V3_Malloc(sizeof(struct v3_tm_access_type));
 
         if (!type) {
-            PrintError(tm->ginfo->vm_info, tm->ginfo,"could not allocate access type struct\n");
+            TM_ERR(tm->ginfo,HASH,"could not allocate access type struct\n");
             goto out_err1;
         }
 
@@ -1444,7 +1444,7 @@ tm_create_ctxt_key (struct v3_trans_mem * tm,
         key = v3_hash_buffer((uchar_t*)&tup, sizeof(struct v3_ctxt_tuple));
 
         if (HTABLE_INSERT(tm->access_type, key, type) == 0) {
-            PrintError(tm->ginfo->vm_info, tm->ginfo,"TM: problem inserting new mem access in htable\n");
+            TM_ERR(tm->ginfo,HASH,"TM: problem inserting new mem access in htable\n");
             goto out_err1;
         }
         (tm->access_type_entries)++;
@@ -1479,13 +1479,13 @@ tm_record_access (struct  v3_trans_mem * tm,
 
     num_cores = tm->ginfo->vm_info->num_cores;
 
-    PrintDebug(tm->ginfo->vm_info, tm->ginfo,"-- TM REC -- recording addr %llx, addr-ctxt.cnt = %d, access-type.cnt = %d\n", (uint64_t)gva,
+    TM_DBG(tm->ginfo,REC,"recording addr %llx, addr-ctxt.cnt = %d, access-type.cnt = %d\n", (uint64_t)gva,
                                         (int)v3_htable_count(tm->addr_ctxt), (int)v3_htable_count(tm->access_type));
-    PrintDebug(tm->ginfo->vm_info, tm->ginfo,"\tWe think that addr-ctxt.cnt = %d, access-type.cnt = %d\n",(int)tm->addr_ctxt_entries,(int)tm->access_type_entries);
+    //PrintDebug(tm->ginfo->vm_info, tm->ginfo,"\tWe think that addr-ctxt.cnt = %d, access-type.cnt = %d\n",(int)tm->addr_ctxt_entries,(int)tm->access_type_entries);
 
     lt_copy = V3_Malloc(sizeof(uint64_t)*num_cores);
     if (!lt_copy) {
-        PrintError(tm->ginfo->vm_info, tm->ginfo,"Allocating array failed\n");
+        TM_ERR(tm->ginfo,REC,"Allocating array failed\n");
         return -1;
     }
 
@@ -1571,10 +1571,10 @@ init_trans_mem_core (struct guest_info * core,
 {
     struct v3_trans_mem * tm = V3_Malloc(sizeof(struct v3_trans_mem));
  
-    PrintDebug(core->vm_info, core, "Trans Mem. Core Init\n");
+    TM_DBG(core,INIT, "Trans Mem. Core Init\n");
 
     if (!tm) {
-        PrintError(core->vm_info, core, "Problem allocating TM state\n");
+        TM_ERR(core,INIT, "Problem allocating TM state\n");
         return -1;
     }
 
@@ -1585,13 +1585,13 @@ init_trans_mem_core (struct guest_info * core,
 
     tm->addr_ctxt  = v3_create_htable(0, tm_hash_fn, tm_eq_fn);
     if (!(tm->addr_ctxt)) {
-        PrintError(core->vm_info, core,"++ TM INIT ++ problem creating addr_ctxt\n");
+        TM_ERR(core,INIT,"problem creating addr_ctxt\n");
         goto out_err;
     }
 
     tm->access_type = v3_create_htable(0, tm_hash_buf_fn, tm_eq_buf_fn);
     if (!(tm->access_type)) {
-        PrintError(core->vm_info, core,"++ TM INIT ++ problem creating access_type\n");
+        TM_ERR(core,INIT,"problem creating access_type\n");
         goto out_err1;
     }
     
@@ -1657,12 +1657,12 @@ deinit_trans_mem_core (struct guest_info * core,
     v3_clear_tm_lists(tm);
 
     if (tm->staging_page) {
-        PrintError(core->vm_info, core,"++ TM DEINIT CORE ++ WARNING: staging page not freed!\n");
+        TM_ERR(core,DEINIT CORE,"WARNING: staging page not freed!\n");
     }
 
     ctxt_iter = v3_create_htable_iter(tm->addr_ctxt);
     if (!ctxt_iter) {
-        PrintError(core->vm_info, core, "++ TM DEINIT CORE ++ could not create htable iterator\n");
+        TM_DBG(core,DEINIT_CORE,"could not create htable iterator\n");
         return -1;
     }
 
@@ -1946,7 +1946,7 @@ v3_tm_handle_exception (struct guest_info * info,
     struct v3_trans_mem * tm = (struct v3_trans_mem *)v3_get_ext_core_state(info, "trans_mem");
 
     if (!tm) {
-        PrintError(info->vm_info, info, "++ TM ERR ++ TM extension state not found\n");
+        TM_ERR(info,ERR,"TM extension state not found\n");
         return -1;
     } 
 
@@ -1962,7 +1962,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, DE_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to DE exception\n");
+                TM_DBG(info,EXCP,"aborting due to DE exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -1971,7 +1971,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, DB_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to DB exception\n");
+                TM_DBG(info,EXCP,"aborting due to DB exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -1980,7 +1980,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, BP_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to BP exception\n");
+                TM_DBG(info,EXCP,"aborting due to BP exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -1989,7 +1989,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, OF_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to OF exception\n");
+                TM_DBG(info,EXCP,"aborting due to OF exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -1998,7 +1998,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, BR_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to BR exception\n");
+                TM_DBG(info,EXCP,"aborting due to BR exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -2007,7 +2007,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, NM_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to NM exception\n");
+                TM_DBG(info,EXCP,"aborting due to NM exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -2016,7 +2016,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, TS_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to TS exception\n");
+                TM_DBG(info,EXCP,"aborting due to TS exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -2025,7 +2025,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, NP_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to NP exception\n");
+                TM_DBG(info,EXCP,"aborting due to NP exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -2034,7 +2034,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, SS_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to SS exception\n");
+                TM_DBG(info,EXCP,"aborting due to SS exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -2043,7 +2043,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, GPF_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to GPF exception\n");
+                TM_DBG(info,EXCP,"aborting due to GPF exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -2052,7 +2052,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, MF_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to MF exception\n");
+                TM_DBG(info,EXCP,"aborting due to MF exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -2061,7 +2061,7 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, AC_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to AC exception\n");
+                TM_DBG(info,EXCP,"aborting due to AC exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
@@ -2070,12 +2070,12 @@ v3_tm_handle_exception (struct guest_info * info,
                 v3_raise_exception(info, XF_EXCEPTION);
             }
             else {
-                PrintDebug(info->vm_info, info,"-- TM EXCP -- aborting due to XF exception\n");
+                TM_DBG(info,EXCP,"aborting due to XF exception\n");
                 v3_handle_trans_abort(info);
             }
             break;
 
-            PrintDebug(info->vm_info, info,"-- TM EXCP -- exception # %d\n", (int)exit_code - 0x40);
+            TM_DBG(info,EXCP,"exception # %d\n", (int)exit_code - 0x40);
     }
 
     return 0;
@@ -2118,7 +2118,7 @@ v3_tm_check_intr_state (struct guest_info * info,
     struct v3_trans_mem * tm = (struct v3_trans_mem *)v3_get_ext_core_state(info, "trans_mem");
 
     if (!tm) {
-        PrintError(info->vm_info, info,"++ : SVM ++ TM extension state not found\n");
+        TM_ERR(info,INTR,"TM extension state not found\n");
         v3_stgi();
         return;
     }
@@ -2131,16 +2131,16 @@ v3_tm_check_intr_state (struct guest_info * info,
             guest_ctrl->EVENTINJ.valid) {
 
             rdtscll(tm->exit_time);
-            PrintDebug(info->vm_info, info,"+=+ TM INTR DEBUG +=+ %lld exits happened, time delta is %lld",(info->num_exits - tm->entry_exits),(tm->entry_time - tm->exit_time));
+            TM_DBG(info,INTR,"%lld exits happened, time delta is %lld",(info->num_exits - tm->entry_exits),(tm->entry_time - tm->exit_time));
 
             // We do indeed have pending interrupts
             v3_stgi();
-            PrintDebug(info->vm_info, info,"-- ITR -- we have a pending interrupt!\n");
+            TM_DBG(info,INTR,"we have a pending interrupt!\n");
 
             v3_handle_trans_abort(info);
             // Copy new RIP state into arch dependent structure
             guest_state->rip = info->rip;
-            PrintDebug(info->vm_info, info,"currently guest state rip is %llx\n",(uint64_t)guest_state->rip);
+            TM_DBG(info,INTR,"currently guest state rip is %llx\n",(uint64_t)guest_state->rip);
             v3_clgi();
         }
 
@@ -2159,24 +2159,24 @@ v3_tm_handle_pf_64 (struct guest_info * info,
     struct v3_tm_state * tms = (struct v3_tm_state *)v3_get_extension_state(info->vm_info, "trans_mem");
 
     if (!tm) {
-        PrintError(info->vm_info, info, "+++ TM +++ ERROR: couldn't get tm core state\n");
+        TM_ERR(info,HANDLE_PF, "couldn't get tm core state\n");
         return -1;
     }
 
     if (!tms) {
-        PrintError(info->vm_info, info, "+++ TM +++ ERROR: couldn't get tm global state\n");
+        TM_ERR(info,HANDLE_PF, "couldn't get tm global state\n");
         return -1;
     }
 
     if ((tms->TM_MODE == TM_ON) && 
             (error_code.user == 1)) {
 
-        PrintDebug(info->vm_info, info,"++ TM #PF ++ Core reporting in, got a #PF (tms->mode is %d)\n", tms->TM_MODE);
+        TM_DBG(info,PF,"Core reporting in, got a #PF (tms->mode is %d)\n", tms->TM_MODE);
 
         *page_to_use = v3_handle_trans_mem_fault(info, fault_addr,  error_code);
 
         if (*page_to_use == ERR_TRANS_FAULT_FAIL){
-            PrintError(info->vm_info, info, "could not handle transaction page fault\n");
+            TM_ERR(info,HANDLE_PF, "could not handle transaction page fault\n");
             return -1;
         }
 
@@ -2186,11 +2186,11 @@ v3_tm_handle_pf_64 (struct guest_info * info,
             tm->staging_page = V3_AllocPages(1);
 
             if (!(tm->staging_page)) {
-                PrintError(info->vm_info, info,"++ TM MMU ++ Problem allocating staging page\n");
+                TM_ERR(info,MMU,"Problem allocating staging page\n");
                 return -1;
             }
 
-            PrintDebug(info->vm_info, info,"-- TM MMU -- Created staging page at %p\n", (void *)tm->staging_page);
+            TM_DBG(info,MMU,"Created staging page at %p\n", (void *)tm->staging_page);
         }
     }
 
@@ -2211,7 +2211,7 @@ v3_tm_handle_usr_tlb_miss (struct guest_info * info,
             (error_code.user == 1)) {
 
         if (page_to_use > TRANS_FAULT_OK) {
-            PrintDebug(info->vm_info, info, "-- TM MMU -- Using alternate page at: %llx\n", (uint64_t)page_to_use);
+            TM_DBG(info,MMU, "Using alternate page at: %llx\n", (uint64_t)page_to_use);
             *shadow_pa = page_to_use;
         }
 
@@ -2234,7 +2234,7 @@ v3_tm_handle_read_fault (struct guest_info * info,
         (error_code.write == 0) && 
         (error_code.user == 1)) {
 
-        PrintDebug(info->vm_info, info, "-- TM MMU -- Flagging the page read only\n");
+        TM_DBG(info,MMU, "Flagging the page read only\n");
         shadow_pte->writable = 0;
     }
 }
