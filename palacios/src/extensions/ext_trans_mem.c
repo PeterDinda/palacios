@@ -1790,13 +1790,13 @@ tm_handle_xend (struct guest_info * core,
 {
     rdtscll(tm->exit_time);
 
-    // Error checking! make sure that we have gotten here in a legitimate manner
+    /* XEND should raise a GPF when RTM mode is not on */
     if (tm->TM_MODE != TM_ON) {
         TM_ERR(core, UD, "Encountered XEND while not in a transactional region\n");
         v3_free_staging_page(tm);
         v3_clr_vtlb(core);
         v3_clear_tm_lists(tm);
-        v3_raise_exception(core, UD_EXCEPTION);
+        v3_raise_exception(core, GPF_EXCEPTION);
         return 0;
     }
 
@@ -1889,12 +1889,32 @@ tm_handle_xbegin (struct guest_info * core,
                   uchar_t * instr)
 {
     sint32_t rel_addr = 0;
+    uint8_t out_of_bounds = 0;
+    uint8_t in_compat_no_long = 0;
 
     if (tm->TM_MODE == TM_ON) {
+        /* TODO: this is actually an indication of nesting, we'll fix this later */
         TM_ERR(core,UD,"We got here while already in a transactional region!");
         v3_raise_exception(core, UD_EXCEPTION);
+        return -1;
     }
 
+    // Save the fail_call address (first 2 bytes = opcode, last 4 = fail call addr)
+    rel_addr = *(sint32_t*)(instr+2);
+
+    /* raise a GPF if we're trying to set a fail call outside of code segment */
+    in_compat_no_long = (core->cpu_mode == LONG_32_COMPAT) || ((struct efer_64*)&(core->ctrl_regs.efer))->lma == 0;
+    out_of_bounds     = (core->rip + rel_addr > core->segments.cs.base + core->segments.cs.limit || 
+                         core->rip + rel_addr < core->segments.cs.base);
+
+    if (in_compat_no_long && out_of_bounds) {
+        v3_raise_exception(core, GPF_EXCEPTION);
+        return 0;
+    }
+
+    /* TODO: also raise GPF if we're in long mode and failcall isn't canonical */
+
+    /* TODO: put this elsewhere */
     rdtscll(tm->entry_time);
     tm->entry_exits = core->num_exits;
 
@@ -1903,8 +1923,7 @@ tm_handle_xbegin (struct guest_info * core,
 
     TM_DBG(core,UD,"Set the system in TM Mode, save fallback address");
 
-    // Save the fail_call address (first 2 bytes = opcode, last 4 = fail call addr)
-    rel_addr = *(sint32_t*)(instr+2);
+
     tm->fail_call = core->rip + XBEGIN_INSTR_LEN + rel_addr;
 
     TM_DBG(core,UD,"we set fail_call to %llx, rip is %llx, rel_addr is %x", (uint64_t)tm->fail_call,(uint64_t)core->rip,rel_addr);
