@@ -1776,14 +1776,10 @@ tm_handle_xend (struct guest_info * core,
     /* XEND should raise a GPF when RTM mode is not on */
     if (tm->TM_MODE != TM_ON) {
         TM_ERR(core, UD, "Encountered XEND while not in a transactional region\n");
-        v3_free_staging_page(tm);
-        v3_clr_vtlb(core);
-        v3_clear_tm_lists(tm);
-        if (v3_raise_exception(core, GPF_EXCEPTION) == -1) {
-            TM_ERR(core, UD, "couldn't raise GPF\n");
-            return -1;
-        }
+
+        v3_raise_exception(core, GPF_EXCEPTION);
         return 0;
+
     }
 
     /* Our transaction finished! */
