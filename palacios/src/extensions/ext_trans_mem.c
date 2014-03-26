@@ -859,6 +859,9 @@ tm_set_abort_status (struct guest_info * core,
         case TM_ABORT_BKPT:
             core->vm_regs.rax |= (1 << cause);
             break;
+        case TM_ABORT_UNSPECIFIED:
+            // just return 0 in EAX
+            break;
         default:
             TM_ERR(core, ABORT, "invalid abort cause\n");
             break;
@@ -2215,28 +2218,26 @@ v3_tm_check_intr_state (struct guest_info * info,
 
     if (!tm) {
         TM_ERR(info,INTR,"TM extension state not found\n");
-        v3_stgi();
         return;
     }
 
-    /* TODO: work this in */
-    if (0 && (tm->TM_MODE == TM_ON) && 
-             (tm->TM_ABORT != 1)) {
+    if ((tm->TM_MODE == TM_ON) && 
+        (tm->TM_ABORT != 1)) {
 
         if (guest_ctrl->guest_ctrl.V_IRQ ||
             guest_ctrl->EVENTINJ.valid) {
 
-            rdtscll(tm->exit_time);
-            TM_DBG(info,INTR,"%lld exits happened, time delta is %lld",(info->num_exits - tm->entry_exits),(tm->entry_time - tm->exit_time));
-
             // We do indeed have pending interrupts
             v3_stgi();
-            TM_DBG(info,INTR,"we have a pending interrupt!\n");
+
+            TM_DBG(info,INTR,"we have a pending interrupt\n");
 
             v3_handle_trans_abort(info, TM_ABORT_UNSPECIFIED, 0);
+
             // Copy new RIP state into arch dependent structure
             guest_state->rip = info->rip;
-            TM_DBG(info,INTR,"currently guest state rip is %llx\n",(uint64_t)guest_state->rip);
+
+            //TM_DBG(info,INTR,"currently guest state rip is %llx\n",(uint64_t)guest_state->rip);
             v3_clgi();
         }
 
