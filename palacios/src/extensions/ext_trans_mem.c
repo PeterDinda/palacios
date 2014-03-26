@@ -44,11 +44,6 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-/* TODO LIST: 
- * - save/restore register state on XBEGIN/XABORT
- * - put status codes in RAX
- * - Implement proper exceptions for failed XBEGINS etc.
- */
 
 /* this includes a mov to rax */
 static const char * vmmcall_bytes = "\x48\xc7\xc0\x37\x13\x00\x00\x0f\x01\xd9"; 
@@ -1144,28 +1139,20 @@ static int
 tm_collect_context (struct v3_trans_mem * tm, 
                     struct hashtable_iter * ctxt_iter, 
                     struct hash_chain * curr, 
-                    uint64_t * begin_time,
-                    uint64_t * end_time,
                     addr_t gva)
 {
         uint64_t i;
 
         for (i = 0; i < tm->ginfo->vm_info->num_cores; i++) {
-            void * buf[3];
+            struct v3_ctxt_tuple tup;
             struct v3_tm_access_type * type;
             addr_t key;
 
-            rdtscll(*end_time);
-            if ((*end_time - *begin_time) > 100000000) {
-                TM_ERR(tm->ginfo,GC,"time threshhold exceeded, exiting!!!\n");
-                return -1;
-            }
-            
-            buf[0] = (void *)gva;
-            buf[1] = (void *)i;
-            buf[2] = (void *)curr->curr_lt[i];
+            tup.gva     = (void *)gva;
+            tup.core_id = (void *)i;
+            tup.core_lt = (void *)curr->curr_lt[i];
 
-            key = v3_hash_buffer((uchar_t*)buf, sizeof(void*)*3);
+            key = v3_hash_buffer((uchar_t*)&tup, sizeof(struct v3_ctxt_tuple));
 
             type = (struct v3_tm_access_type *)v3_htable_search(tm->access_type, key);
 
@@ -1189,9 +1176,7 @@ static int
 tm_collect_all_contexts (struct v3_trans_mem * tm,
                          struct hashtable_iter * ctxt_iter,
                          uint64_t tmoff,
-                         uint64_t * lt_copy,
-                         uint64_t * begin_time,
-                         uint64_t * end_time)
+                         uint64_t * lt_copy)
 {
     struct hash_chain * tmp;
     struct hash_chain * curr;
@@ -1219,7 +1204,7 @@ tm_collect_all_contexts (struct v3_trans_mem * tm,
         TM_DBG(tm->ginfo,GC,"garbage collecting entries for address %llx\n", (uint64_t)gva);
 
         /* found one, delete corresponding entries in access_type */
-        if (tm_collect_context(tm, ctxt_iter, curr, begin_time, end_time, gva) == -1) {
+        if (tm_collect_context(tm, ctxt_iter, curr, gva) == -1) {
             TM_ERR(tm->ginfo,GC,"ERROR collecting context\n");
             return -1;
         }
@@ -1246,7 +1231,7 @@ tm_hash_gc (struct v3_trans_mem * tm)
 {
     addr_t irqstate, irqstate2;
     int rc = 0;
-    uint64_t begin_time, end_time, tmoff;
+    uint64_t tmoff;
     uint64_t * lt_copy;
     struct v3_tm_state * tms = NULL;
     struct hashtable_iter * ctxt_iter = NULL;
@@ -1271,8 +1256,6 @@ tm_hash_gc (struct v3_trans_mem * tm)
 
     memset(lt_copy, 0, sizeof(uint64_t)*(tm->ginfo->vm_info->num_cores));
 
-    rdtscll(begin_time);
-
     /* lt_copy holds the last transaction number for each core */
     irqstate = v3_lock_irqsave(tm_global_state->lock);
     memcpy(lt_copy, tm_global_state->last_trans, sizeof(uint64_t)*(tm->ginfo->vm_info->num_cores));
@@ -1293,7 +1276,7 @@ tm_hash_gc (struct v3_trans_mem * tm)
     /* we check each address stored in the hash */
     while (ctxt_iter->entry) {
         /* NOTE: this call advances the hash iterator */
-        if (tm_collect_all_contexts(tm, ctxt_iter, tmoff, lt_copy, &begin_time, &end_time) == -1) {
+        if (tm_collect_all_contexts(tm, ctxt_iter, tmoff, lt_copy) == -1) {
             rc = -1;
             goto out1;
         }
@@ -1306,12 +1289,10 @@ out:
     v3_unlock_irqrestore(tm->access_type_lock, irqstate);
     v3_unlock_irqrestore(tm->addr_ctxt_lock, irqstate2);
 
-    rdtscll(end_time);
-
     if (rc == -1) {
-        TM_ERR(tm->ginfo,GC,"garbage collection failed, time spent: %d cycles\n", (int)(end_time - begin_time));
+        TM_ERR(tm->ginfo,GC,"garbage collection failed\n");
     } else {
-        TM_DBG(tm->ginfo,GC,"ended garbage collection succesfuly, time spent: %d cycles\n", (int)(end_time - begin_time));
+        TM_DBG(tm->ginfo,GC,"ended garbage collection succesfuly\n");
     }
 
     TM_DBG(tm->ginfo,GC,"\t %d entries in addr_ctxt (post)\n", (int)v3_htable_count(tm->addr_ctxt));
@@ -1791,7 +1772,6 @@ static int
 tm_handle_xend (struct guest_info * core,
                 struct v3_trans_mem * tm)
 {
-    rdtscll(tm->exit_time);
 
     /* XEND should raise a GPF when RTM mode is not on */
     if (tm->TM_MODE != TM_ON) {
@@ -1799,7 +1779,10 @@ tm_handle_xend (struct guest_info * core,
         v3_free_staging_page(tm);
         v3_clr_vtlb(core);
         v3_clear_tm_lists(tm);
-        v3_raise_exception(core, GPF_EXCEPTION);
+        if (v3_raise_exception(core, GPF_EXCEPTION) == -1) {
+            TM_ERR(core, UD, "couldn't raise GPF\n");
+            return -1;
+        }
         return 0;
     }
 
@@ -1860,9 +1843,6 @@ tm_handle_xabort (struct guest_info * core,
         // we must reflect the immediate back into EAX 31:24
         reason = *(uint8_t*)(instr+2);
 
-        /* TODO: this probably needs to move somewhere else */
-        rdtscll(tm->exit_time);
-
         // Error checking! make sure that we have gotten here in a legitimate manner
         if (tm->TM_MODE != TM_ON) {
             TM_DBG(core, UD, "We got here while not in a transactional core!\n");
@@ -1917,9 +1897,6 @@ tm_handle_xbegin (struct guest_info * core,
 
     /* TODO: also raise GPF if we're in long mode and failcall isn't canonical */
 
-    /* TODO: put this elsewhere */
-    rdtscll(tm->entry_time);
-    tm->entry_exits = core->num_exits;
 
     /* set the tm_mode for this core */
     v3_set_tm(tm);
