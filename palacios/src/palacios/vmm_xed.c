@@ -1097,6 +1097,13 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg,
 	    *reg_len = 4;
 	    return CTRL_REGISTER;
 	case XED_REG_CR8:
+	    // TODO FIX: Peter says this should actually look like:
+	    //   ((info->ctrl_regs.apic_tpr >> 4) & 0xf)
+	    // but this isn't straightforward since it doesn't
+	    // make an lvalue (need to create temporary).
+	    // Committing simple fix below to fix build. We are
+	    // never going to use xed going forward anyway, so
+	    // this doesn't matter.
 	    *v3_reg = (addr_t)&(info->ctrl_regs.apic_tpr);
 	    *reg_len = 4;
 	    return CTRL_REGISTER;
