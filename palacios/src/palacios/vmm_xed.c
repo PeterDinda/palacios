@@ -1097,7 +1097,7 @@ static int xed_reg_to_v3_reg(struct guest_info * info, xed_reg_enum_t xed_reg,
 	    *reg_len = 4;
 	    return CTRL_REGISTER;
 	case XED_REG_CR8:
-	    *v3_reg = (addr_t)&(info->ctrl_regs.cr8);
+	    *v3_reg = (addr_t)&(info->ctrl_regs.apic_tpr);
 	    *reg_len = 4;
 	    return CTRL_REGISTER;
 
