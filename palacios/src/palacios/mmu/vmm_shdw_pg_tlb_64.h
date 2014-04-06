@@ -390,7 +390,21 @@ static int handle_pde_shadow_pagefault_64(struct guest_info * info, addr_t fault
 	guest_pde->accessed = 1;
     
 	shadow_pde->pt_base_addr = PAGE_BASE_ADDR(shdw_page->page_pa);
-    } else {
+    } else { // when PT_ACCESS_OK is true
+	if ((info->use_large_pages == 1) && (guest_pde->large_page == 1) ) {
+	    addr_t guest_pa = BASE_TO_PAGE_ADDR_4MB(((pde32_4MB_t *)guest_pde)->page_base_addr);
+	    uint32_t page_size = v3_get_max_page_size(info, guest_pa, LONG);   
+	    if (page_size == PAGE_SIZE_2MB)   {
+		if (shadow_pde_access == PT_ACCESS_OK) {
+		    // Inconsistent state...
+		    // Guest Re-Entry will flush tables and everything should now workd
+		    PrintDebug(info->vm_info, info, "Inconsistent state PDE... Guest re-entry should flush tlb\n");
+                    //PrintDebug(info->vm_info, info, "Bug here: shadow_pde_access is %d page_size is %d\n",
+		    //	   (uint_t)shadow_pde_access,(uint_t)page_size);
+		    return 0;
+		}
+	    } 
+	}
 	shadow_pt = (pte64_t *)V3_VAddr((void *)BASE_TO_PAGE_ADDR(shadow_pde->pt_base_addr));
     }
 
@@ -583,13 +597,16 @@ static int handle_2MB_shadow_pagefault_pde_64(struct guest_info * info,
 	return 0;
     }
 
+    /* Note that this handler is currently invoked only when PT_ACCESS_OK is PT_NOT_PRESENT. */
     if (shadow_pde_access == PT_ACCESS_OK) {
 	// Inconsistent state...
 	// Guest Re-Entry will flush tables and everything should now workd
 	PrintDebug(info->vm_info, info, "Inconsistent state... Guest re-entry should flush tlb\n");
+        PrintError(info->vm_info, info, "Hmm... did not expect call to this handler with PT_ACCESS_OK to happen...\n");
 	//PrintHostPageTree(info, fault_addr, info->ctrl_regs.cr3);
 	return 0;
     }
+
 
   
     if (shadow_pde_access == PT_ACCESS_NOT_PRESENT) {
