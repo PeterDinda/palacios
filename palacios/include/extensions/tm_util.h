@@ -7,8 +7,8 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2012, NWU EECS 441 Transactional Memory Team  
+ * Copyright (c) 2012, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
  * Author:  Maciek Swiech <dotpyfe@u.northwestern.edu>
@@ -32,11 +32,15 @@
         PrintError(_core->vm_info, _core, "TM %10s | " msg , #label, ##__VA_ARGS__); \
     } while (0);
 
+#ifdef V3_CONFIG_DEBUG_TM_FUNC
 #define TM_DBG(core, label, msg, ...) \
     do {                              \
         typeof (core) _core = (core);  \
         PrintDebug(_core->vm_info, _core, "TM %10s | " msg , #label, ##__VA_ARGS__); \
     } while (0);
+#else
+#define TM_DBG(cor, label, msg, ...) 
+#endif
 
 struct mem_op {
     addr_t   guest_addr;

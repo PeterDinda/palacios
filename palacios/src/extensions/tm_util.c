@@ -7,8 +7,8 @@
  * and the University of New Mexico.  You can find out more at 
  * http://www.v3vee.org
  *
- * Copyright (c) 2008, Jack Lange <jarusl@cs.northwestern.edu> 
- * Copyright (c) 2008, The V3VEE Project <http://www.v3vee.org> 
+ * Copyright (c) 2012, NWU EECS 441 Transactional Memory Team  
+ * Copyright (c) 2012, The V3VEE Project <http://www.v3vee.org> 
  * All rights reserved.
  *
  * Author:  Maciek Swiech <dotpyfe@u.northwestern.edu>
