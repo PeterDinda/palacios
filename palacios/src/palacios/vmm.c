@@ -107,6 +107,17 @@ static void deinit_cpu(void * arg) {
 
 }
 
+
+static int in_long_mode()
+{
+  uint32_t high, low;
+
+  v3_get_msr(0xc0000080,&high,&low); // EFER
+  
+  return ((low & 0x500)== 0x500);  // LMA and LME set
+}
+  
+
 void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *options) {
     int i = 0;
     int minor = 0;
@@ -114,6 +125,16 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
 
     V3_Print(VM_NONE, VCORE_NONE, "V3 Print statement to fix a Kitten page fault bug\n");
 
+
+
+#ifndef __V3_64BIT__
+#error Palacios does not support compilation for a 32 bit host OS!!!!
+#else
+    if (!in_long_mode()) { 
+      PrintError(VM_NONE,VCORE_NONE,"Palacios supports execution only in long mode (64 bit).\n");
+      return;
+    }
+#endif
 
     // Set global variables. 
     os_hooks = hooks;
@@ -310,34 +331,17 @@ static int start_core(void * p)
 
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
-    uint32_t i,j;
+    uint32_t i;
     uint8_t * core_mask = (uint8_t *)&cpu_mask; // This is to make future expansion easier
     uint32_t avail_cores = 0;
     int vcore_id = 0;
-    extern uint64_t v3_mem_block_size;
-
 
     if (vm->run_state != VM_STOPPED) {
         PrintError(vm, VCORE_NONE, "VM has already been launched (state=%d)\n", (int)vm->run_state);
         return -1;
     }
 
-    
-    // Do not run if any core is using shadow paging and we are out of 4 GB bounds
-    for (i=0;i<vm->num_cores;i++) { 
-	if (vm->cores[i].shdw_pg_mode == SHADOW_PAGING) {
-	    for (j=0;j<vm->mem_map.num_base_regions;j++) {
-		if ((vm->mem_map.base_regions[i].host_addr + v3_mem_block_size)  >= 0x100000000ULL) {
-		    PrintError(vm, VCORE_NONE, "Base memory region %d exceeds 4 GB boundary with shadow paging enabled on core %d.\n",j, i);
-		    PrintError(vm, VCORE_NONE, "Any use of non-64 bit mode in the guest is likely to fail in this configuration.\n");
-		    PrintError(vm, VCORE_NONE, "If you would like to proceed anyway, remove this check and recompile Palacios.\n");
-		    PrintError(vm, VCORE_NONE, "Alternatively, change this VM to use nested paging.\n");
-		    return -1;
-		}
-	    }
-	}
-    }
-    
+
     /// CHECK IF WE ARE MULTICORE ENABLED....
 
     V3_Print(vm, VCORE_NONE, "V3 --  Starting VM (%u cores)\n", vm->num_cores);
@@ -557,12 +561,10 @@ int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu) {
     // region uses exclusive addressing [guest_start,guest_end)
     num_pages = (reg->guest_end-reg->guest_start)/PAGE_SIZE;
 
-    // Now we allocate space for the new region with the same constraints as
-    // it originally had
     new_hpa = V3_AllocPagesExtended(num_pages,
 				    PAGE_SIZE_4KB,
 				    new_node,
-				    reg->flags.limit32 ? V3_ALLOC_PAGES_CONSTRAINT_4GB : 0);
+				    0);  // no constraints given new shadow pager impl
 
     if (!new_hpa) { 
 	PrintError(vm, VCORE_NONE, "Cannot allocate memory for new base region...\n");
