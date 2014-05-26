@@ -452,7 +452,7 @@ static int paragraph_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
   if (state->mode==MEM || state->mode==GCONS_MEM) { 
     state->mem_size=MAXX*MAXY*MAXBPP;
     PrintDebug(vm, VCORE_NONE, "paragraph: allocating %llu bytes for local framebuffer\n", state->mem_size);
-    state->mem_paddr = V3_AllocShadowSafePages(vm,ceil_pages(state->mem_size));
+    state->mem_paddr = V3_AllocPages(ceil_pages(state->mem_size));
     if (!state->mem_paddr) { 
       PrintError(state->vm, VCORE_NONE, "paragraph: Cannot allocate memory for framebuffer\n");
       paragraph_free_internal(state);

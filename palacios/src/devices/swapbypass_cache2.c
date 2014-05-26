@@ -578,7 +578,7 @@ static int connect_fn(struct v3_vm_info * vm,
 
 	swap->active = 0;
 
-	swap->cache_base_addr = (addr_t)V3_AllocShadowSafePages(vm,swap->cache_size / 4096);
+	swap->cache_base_addr = (addr_t)V3_AllocPages(swap->cache_size / 4096);
 
 	if (!swap->cache_base_addr) { 
 	    PrintError(vm, VCORE_NONE, "Cannot allocate cache space\n");

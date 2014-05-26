@@ -65,24 +65,6 @@ int      v3_get_vcore(struct guest_info *);
     })
 
 
-// Use 32 bit constraints if the vm uses 32bit shadow paging at any point
-// Should be used for shadow page tables and any physical memory
-// mapped into the vm
-#define V3_AllocShadowSafePages(vm,num_pages)				\
-    ({							        	\
-	extern struct v3_os_hooks * os_hooks;		        	\
-	void * ptr = 0;					        	\
-	int c; int shadow=0;                                            \
-        for (c=0;c<(vm)->num_cores && !shadow;c++) {                    \
-            shadow|=vm->cores[c].shdw_pg_mode==SHADOW_PAGING;           \
-        }                                                               \
-	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
-	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB,-1,\
-                    shadow ? V3_ALLOC_PAGES_CONSTRAINT_4GB : 0);        \
-	}						        	\
-	ptr;						        	\
-    })
-
 #define V3_AllocAlignedPages(num_pages, align)		        	\
     ({							        	\
 	extern struct v3_os_hooks * os_hooks;		        	\

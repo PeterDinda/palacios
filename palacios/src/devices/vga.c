@@ -2870,7 +2870,7 @@ static int vga_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     for (i=0;i<MAP_NUM;i++) { 
 	void *temp;
 
-	temp = (void*)V3_AllocShadowSafePages(vm,MAP_SIZE/4096);
+	temp = (void*)V3_AllocPages(MAP_SIZE/4096);
 	if (!temp) { 
 	    PrintError(vm, VCORE_NONE, "vga: cannot allocate maps\n");
 	    free_vga(vga);

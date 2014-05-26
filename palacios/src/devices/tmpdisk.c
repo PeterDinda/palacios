@@ -120,7 +120,7 @@ static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     blk->capacity = capacity;
     
-    blk->blk_base_addr = (addr_t)V3_AllocShadowSafePages(vm,blk->capacity / 4096);
+    blk->blk_base_addr = (addr_t)V3_AllocPages(blk->capacity / 4096);
 
     if (!blk->blk_base_addr) { 
 	PrintError(vm, VCORE_NONE, "Cannot allocate block space\n");

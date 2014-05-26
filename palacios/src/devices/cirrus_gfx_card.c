@@ -442,7 +442,7 @@ static int cirrus_gfx_card_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg){
     PrintDebug(info->vm_info, info, "video: init_device\n");
     PrintDebug(info->vm_info, info, "Num Pages=%d\n", SIZE_OF_REGION / 4096);
 
-    video_state->video_memory_pa = (addr_t)V3_AllocShadowSafePages(vm, SIZE_OF_REGION / 4096);
+    video_state->video_memory_pa = (addr_t)V3_AllocPages(SIZE_OF_REGION / 4096);
     if (!video_state->video_memory_pa) { 
 	PrintError(info->vm_info, info, "Cannot allocate video memory\n");
 	V3_Free(video_state);
