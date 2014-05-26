@@ -290,11 +290,13 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	PrintDebug(core->vm_info, core, "Created\n");
 	
 	core->ctrl_regs.cr0 |= 0x80000000;
-	core->ctrl_regs.cr3 = core->direct_map_pt;
+
+        v3_activate_passthrough_pt(core);
 
 	ctrl_area->cr_reads.cr0 = 1;
 	ctrl_area->cr_writes.cr0 = 1;
-	//ctrl_area->cr_reads.cr4 = 1;
+	//intercept cr4 read so shadow pager can use PAE independently of guest
+	ctrl_area->cr_reads.cr4 = 1;
 	ctrl_area->cr_writes.cr4 = 1;
 	ctrl_area->cr_reads.cr3 = 1;
 	ctrl_area->cr_writes.cr3 = 1;
