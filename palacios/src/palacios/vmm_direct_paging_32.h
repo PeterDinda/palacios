@@ -26,6 +26,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vm_guest.h>
+#include <palacios/vmm_ctrl_regs.h>
 
 
 static inline int handle_passthrough_pagefault_32(struct guest_info * info, 

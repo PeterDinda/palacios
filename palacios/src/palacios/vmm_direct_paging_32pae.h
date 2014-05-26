@@ -39,6 +39,7 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
     int pdpe_index = PDPE32PAE_INDEX(fault_addr);
     int pde_index = PDE32PAE_INDEX(fault_addr);
     int pte_index = PTE32PAE_INDEX(fault_addr);
+    
 
     struct v3_mem_region * region =  v3_get_mem_region(info->vm_info, info->vcpu_id, fault_addr);
   
@@ -48,29 +49,32 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
 	return -1;
     }
 
+    PrintDebug(info->vm_info, info, "Direct Paging 32PAE page fault handler=%p\n", (void *)fault_addr);
+
     // Lookup the correct PDPE address based on the PAGING MODE
     if (info->shdw_pg_mode == SHADOW_PAGING) {
 	pdpe = CR3_TO_PDPE32PAE_VA(info->ctrl_regs.cr3);
     } else {
 	pdpe = CR3_TO_PDPE32PAE_VA(info->direct_map_pt);
     }
-
+ 
+    PrintDebug(info->vm_info, info, "Top level pdpe error pdp address=%p\n", (void *)pdpe);
     // Fix up the PDPE entry
     if (pdpe[pdpe_index].present == 0) {
 	pde = (pde32pae_t *)create_generic_pt_page(info);
-   
+        PrintDebug(info->vm_info, info, "Creating a new pd page=%p\n", (void *)pde);
 	pdpe[pdpe_index].present = 1;
 	// Set default PDPE Flags...
 	pdpe[pdpe_index].pd_base_addr = PAGE_BASE_ADDR((addr_t)V3_PAddr(pde));    
     } else {
 	pde = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pdpe[pdpe_index].pd_base_addr));
     }
-
+    PrintDebug(info->vm_info, info, "Handling pde error pd base address =%p\n", (void *)pde);
 
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
 	pte = (pte32pae_t *)create_generic_pt_page(info);
-
+        PrintDebug(info->vm_info, info, "Creating a new pt page=%p\n", (void *)pte);
 	pde[pde_index].present = 1;
 	pde[pde_index].writable = 1;
 	pde[pde_index].user_page = 1;
@@ -80,7 +84,7 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
 	pte = V3_VAddr((void*)BASE_TO_PAGE_ADDR(pde[pde_index].pt_base_addr));
     }
 
-
+    PrintDebug(info->vm_info, info, "Handling pte error pt base address=%p\n", (void *)pte);
     // Fix up the PTE entry
     if (pte[pte_index].present == 0) {
 	pte[pte_index].user_page = 1;
@@ -102,12 +106,16 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
 	    }
 
 	    pte[pte_index].page_base_addr = PAGE_BASE_ADDR(host_addr);
+            PrintDebug(info->vm_info, info, "PTE mapped to =%p\n", (void *)host_addr);
+            PrintDebug(info->vm_info, info, "PTE is =%llx\n", *(uint64_t *)&(pte[pte_index]));
 	} else {
 	    return region->unhandled(info, fault_addr, fault_addr, region, error_code);
 	}
     } else {
 	return region->unhandled(info, fault_addr, fault_addr, region, error_code);
     }
+   
+    PrintDebug(info->vm_info, info, "Handler ends with fault address=%p\n", (void *)fault_addr);
 
     return 0;
 }

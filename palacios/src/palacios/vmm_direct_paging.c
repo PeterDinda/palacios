@@ -23,6 +23,7 @@
 #include <palacios/vmm.h>
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vm_guest.h>
+#include <palacios/vmm_ctrl_regs.h>
 
 
 #ifndef V3_CONFIG_DEBUG_NESTED_PAGING
@@ -35,9 +36,9 @@ static addr_t create_generic_pt_page(struct guest_info *core) {
     void * page = 0;
     void *temp;
 
-    temp = V3_AllocPagesExtended(1, PAGE_SIZE_4KB, -1, 
-				 core->shdw_pg_mode==SHADOW_PAGING ? V3_ALLOC_PAGES_CONSTRAINT_4GB : 0);
-    if (!temp) { 
+    temp = V3_AllocPagesExtended(1, PAGE_SIZE_4KB, -1, 0); // no constraints
+
+    if (!temp) {  
 	PrintError(VM_NONE, VCORE_NONE,"Cannot allocate page\n");
 	return 0;
     }
@@ -66,8 +67,8 @@ int v3_free_passthrough_pts(struct guest_info * core) {
     switch(mode) {
 	case REAL:
 	case PROTECTED:
-	    delete_page_tables_32((pde32_t *)V3_VAddr((void *)(core->direct_map_pt)));
-	    break;
+	  // Intentional fallthrough here
+	  // There are *only* PAE tables
 	case PROTECTED_PAE:
 	case LONG:
 	case LONG_32_COMPAT:
@@ -100,9 +101,13 @@ int v3_activate_passthrough_pt(struct guest_info * info) {
     // For now... But we need to change this....
     // As soon as shadow paging becomes active the passthrough tables are hosed
     // So this will cause chaos if it is called at that time
-
-    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
-    //PrintError(info->vm_info, info, "Activate Passthrough Page tables not implemented\n");
+    struct cr3_32_PAE * shadow_cr3 = (struct cr3_32_PAE *) &(info->ctrl_regs.cr3);
+    struct cr4_32 * shadow_cr4 = (struct cr4_32 *) &(info->ctrl_regs.cr4);
+    addr_t shadow_pt_addr = *(addr_t*)&(info->direct_map_pt);
+    // Passthrough PTs will only be PAE page tables.
+    shadow_cr3->pdpt_base_addr = shadow_pt_addr >> 5;
+    shadow_cr4->pae = 1;
+    PrintDebug(info->vm_info, info, "Activated Passthrough Page tables\n");
     return 0;
 }
 
@@ -113,8 +118,8 @@ int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr,
     switch(mode) {
 	case REAL:
 	case PROTECTED:
-	    return handle_passthrough_pagefault_32(info, fault_addr, error_code);
-
+	  // Note intentional fallthrough here
+	  // There are only PAE page tables now
 	case PROTECTED_PAE:
 	case LONG:
 	case LONG_32_COMPAT:
@@ -161,8 +166,8 @@ int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
     switch(mode) {
 	case REAL:
 	case PROTECTED:
-	    return invalidate_addr_32(info, inv_addr);
-
+	  // Intentional fallthrough - there
+	  // are only PAE page tables now
 	case PROTECTED_PAE:
 	case LONG:
 	case LONG_32_COMPAT:
@@ -184,8 +189,8 @@ int v3_invalidate_passthrough_addr_range(struct guest_info * info,
     switch(mode) {
 	case REAL:
 	case PROTECTED:
-	    return invalidate_addr_32_range(info, inv_addr_start, inv_addr_end);
-
+	  // Intentional fallthrough
+	  // There are only PAE PTs now
 	case PROTECTED_PAE:
 	case LONG:
 	case LONG_32_COMPAT:
