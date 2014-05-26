@@ -248,10 +248,10 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
     core->vm_regs.rsp = 0x80000;
     ((struct rflags *)&(core->ctrl_regs.rflags))->rsvd1 = 1;
 
-#define GUEST_CR0 0x80010031
-#define GUEST_CR4 0x00002010
-    core->ctrl_regs.cr0 = GUEST_CR0;
-    core->ctrl_regs.cr4 = GUEST_CR4;
+#define GUEST_CR0_MASK 0x80010031
+#define GUEST_CR4_MASK 0x00002010
+    core->ctrl_regs.cr0 |= GUEST_CR0_MASK;
+    core->ctrl_regs.cr4 |= GUEST_CR4_MASK;
 
     ((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->pe = 1;
     ((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->wp = 1;

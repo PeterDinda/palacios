@@ -228,7 +228,7 @@ int v3_vmx_save_vmcs(struct guest_info * info) {
     check_vmcs_read(VMCS_CR0_READ_SHDW, &(info->shdw_pg_state.guest_cr0));
     check_vmcs_read(VMCS_GUEST_CR3, &(info->ctrl_regs.cr3));
     check_vmcs_read(VMCS_GUEST_CR4, &(info->ctrl_regs.cr4));
-    check_vmcs_read(VMCS_CR4_READ_SHDW, &(vmx_info->guest_cr4));
+    check_vmcs_read(VMCS_CR4_READ_SHDW, &(info->shdw_pg_state.guest_cr4));
     check_vmcs_read(VMCS_GUEST_DR7, &(info->dbg_regs.dr7));
 
     check_vmcs_read(VMCS_GUEST_RFLAGS, &(info->ctrl_regs.rflags));

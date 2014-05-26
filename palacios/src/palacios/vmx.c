@@ -270,16 +270,19 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
 
 	// Cause VM_EXIT whenever CR4.VMXE or CR4.PAE bits are written
-	vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE | CR4_PAE);
+	vmx_ret |= check_vmcs_write(VMCS_CR4_MASK, CR4_VMXE | CR4_PAE );
 
-        core->ctrl_regs.cr3 = core->direct_map_pt;
+	v3_activate_passthrough_pt(core);
 
         // vmx_state->pinbased_ctrls |= NMI_EXIT;
 
         /* Add CR exits */
         vmx_state->pri_proc_ctrls.cr3_ld_exit = 1;
         vmx_state->pri_proc_ctrls.cr3_str_exit = 1;
-	
+
+	// Note that we intercept cr4.pae writes
+	// and we have cr4 read-shadowed to the shadow pager's cr4
+
 	vmx_state->pri_proc_ctrls.invlpg_exit = 1;
 	
 	/* Add page fault exits */
