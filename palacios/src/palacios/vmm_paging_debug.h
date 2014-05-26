@@ -453,7 +453,7 @@ void PrintGuestPageTables(struct guest_info * info, addr_t cr3) {
 }
 
 void PrintHostPageTree(struct guest_info * info,  addr_t virtual_addr, addr_t cr3) {
-    PrintDebug(info->vm_info, info, "CR3: %p\n", (void *)cr3);
+    PrintDebug(info->vm_info, info, "CR3: %p\n, cpu mode is %x", (void *)cr3, info->cpu_mode);
     switch (info->cpu_mode) {
 	case PROTECTED:
 	    v3_drill_host_pt_32(info, cr3, virtual_addr, print_page_tree_cb, NULL);

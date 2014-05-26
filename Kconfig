@@ -285,6 +285,7 @@ config SHADOW_PAGING_VTLB
 	depends on SHADOW_PAGING
 	help 
 	   Enables Virtual TLB implemenation for shadow paging
+           Virtual TLB now uses PAE so there are no 4 GB restrictions
 
 
 config DEBUG_SHDW_PG_VTLB

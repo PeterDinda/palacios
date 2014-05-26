@@ -428,12 +428,60 @@ int v3_handle_cr3_read(struct guest_info * info) {
 }
 
 
-// We don't need to virtualize CR4, all we need is to detect the activation of PAE
+//return guest cr4 - shadow PAE is always on
 int v3_handle_cr4_read(struct guest_info * info) {
-    PrintError(info->vm_info, info, "CR4 Read not handled\n");
-    // Do nothing...
+    uchar_t instr[15];
+    int ret;
+    struct x86_instr dec_instr;
+    
+    if (info->mem_mode == PHYSICAL_MEM) { 
+	ret = v3_read_gpa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    } else { 
+	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    }
+    
+    if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
+	PrintError(info->vm_info, info, "Could not decode instruction\n");
+	return -1;
+    }
+    if (dec_instr.op_type != V3_OP_MOVCR2) {
+	PrintError(info->vm_info, info, "Invalid opcode in read CR4\n");
+	return -1;
+    }
+	
+	if (info->shdw_pg_mode == SHADOW_PAGING) {
+	    
+	    if ((v3_get_vm_cpu_mode(info) == LONG) || 
+		(v3_get_vm_cpu_mode(info) == LONG_32_COMPAT)) {
+		struct cr4_64 * dst_reg = (struct cr4_64 *)(dec_instr.dst_operand.operand);
+		struct cr4_64 * guest_cr4 = (struct cr4_64 *)&(info->ctrl_regs.cr4);
+		*dst_reg = *guest_cr4;
+	    } 
+	    else {
+		struct cr4_32 * dst_reg = (struct cr4_32 *)(dec_instr.dst_operand.operand);
+		struct cr4_32 * guest_cr4 = (struct cr4_32 *)&(info->shdw_pg_state.guest_cr4);
+		*dst_reg = *guest_cr4;
+	    }
+	    
+	} else if (info->shdw_pg_mode == NESTED_PAGING) {
+	    
+	    
+	    if ((v3_get_vm_cpu_mode(info) == LONG) || 
+		(v3_get_vm_cpu_mode(info) == LONG_32_COMPAT)) {
+		struct cr4_64 * dst_reg = (struct cr4_64 *)(dec_instr.dst_operand.operand);
+		struct cr4_64 * guest_cr4 = (struct cr4_64 *)&(info->ctrl_regs.cr4);
+		*dst_reg = *guest_cr4;
+	    } else {
+		struct cr4_32 * dst_reg = (struct cr4_32 *)(dec_instr.dst_operand.operand);
+		struct cr4_32 * guest_cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
+		*dst_reg = *guest_cr4;
+	    }
+	}
+	
+	info->rip += dec_instr.instr_length;
     return 0;
 }
+
 
 int v3_handle_cr4_write(struct guest_info * info) {
     uchar_t instr[15];
@@ -463,7 +511,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 
     if (v3_get_vm_mem_mode(info) == VIRTUAL_MEM) { 
 	struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
-	struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
+	struct cr4_32 * cr4 = (struct cr4_32 *)&(info->shdw_pg_state.guest_cr4);
 	
 	// if pse, pge, or pae have changed while PG (in any mode) is on
 	// the side effect is a TLB flush, which means we need to
@@ -483,15 +531,15 @@ int v3_handle_cr4_write(struct guest_info * info) {
 
     if ((cpu_mode == PROTECTED) || (cpu_mode == PROTECTED_PAE)) {
 	struct cr4_32 * new_cr4 = (struct cr4_32 *)(dec_instr.src_operand.operand);
-	struct cr4_32 * cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
-	
+	struct cr4_32 * shadow_cr4 = (struct cr4_32 *)&(info->ctrl_regs.cr4);
+	struct cr4_32 * guest_cr4 = (struct cr4_32 *)&(info->shdw_pg_state.guest_cr4);
 	PrintDebug(info->vm_info, info, "OperandVal = %x, length = %d\n", *(uint_t *)new_cr4, dec_instr.src_operand.size);
-	PrintDebug(info->vm_info, info, "Old CR4=%x\n", *(uint_t *)cr4);
+	PrintDebug(info->vm_info, info, "Old guest CR4=%x\n", *(uint_t *)guest_cr4);
 	
 	if ((info->shdw_pg_mode == SHADOW_PAGING)) { 
 	    if (v3_get_vm_mem_mode(info) == PHYSICAL_MEM) {
 		
-		if ((cr4->pae == 0) && (new_cr4->pae == 1)) {
+		if ((guest_cr4->pae == 0) && (new_cr4->pae == 1)) {
 		    PrintDebug(info->vm_info, info, "Creating PAE passthrough tables\n");
 		    
 		    // create 32 bit PAE direct map page table
@@ -503,7 +551,7 @@ int v3_handle_cr4_write(struct guest_info * info) {
 		    // reset cr3 to new page tables
 		    info->ctrl_regs.cr3 = *(addr_t*)&(info->direct_map_pt);
 		    
-		} else if ((cr4->pae == 1) && (new_cr4->pae == 0)) {
+		} else if ((guest_cr4->pae == 1) && (new_cr4->pae == 0)) {
 		    // Create passthrough standard 32bit pagetables
 		    PrintError(info->vm_info, info, "Switching From PAE to Protected mode not supported\n");
 		    return -1;
@@ -511,8 +559,10 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	    }
 	}
 	
-	*cr4 = *new_cr4;
-	PrintDebug(info->vm_info, info, "New CR4=%x\n", *(uint_t *)cr4);
+	*guest_cr4 = *new_cr4;
+	*shadow_cr4 = *guest_cr4;
+	shadow_cr4->pae = 1;   // always on for the shadow pager
+	PrintDebug(info->vm_info, info, "New guest CR4=%x and shadow CR4=%x\n", *(uint_t *)guest_cr4,*(uint_t*)shadow_cr4);
 	
     } else if ((cpu_mode == LONG) || (cpu_mode == LONG_32_COMPAT)) {
 	struct cr4_64 * new_cr4 = (struct cr4_64 *)(dec_instr.src_operand.operand);

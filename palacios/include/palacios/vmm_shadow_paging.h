@@ -62,6 +62,7 @@ struct v3_shdw_pg_state {
     v3_reg_t guest_cr3;
     v3_reg_t guest_cr0;
     v3_msr_t guest_efer;
+    v3_reg_t guest_cr4;
 
     void * local_impl_data;
 

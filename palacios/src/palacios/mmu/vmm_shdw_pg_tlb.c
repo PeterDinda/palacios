@@ -12,6 +12,8 @@
  * All rights reserved.
  *
  * Author: Jack Lange <jarusl@cs.northwestern.edu>
+ * Author: Chunxiao Diao <chunxiaodiao2012@u.northwestern.edu> 
+ *
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -52,24 +54,12 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core);
 #include "vmm_shdw_pg_tlb_32pae.h"
 #include "vmm_shdw_pg_tlb_64.h"
 
-
 static inline int get_constraints(struct guest_info *core) 
 {
-    switch (v3_get_vm_cpu_mode(core)) {
-	case PROTECTED:
-	case PROTECTED_PAE:
-	    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
-	    break;
-	case LONG:
-	case LONG_32_COMPAT:
-	case LONG_16_COMPAT:
-	    return 0;
-	    break;
-	default:
-	    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
-	    break;
-    }
-    return V3_ALLOC_PAGES_CONSTRAINT_4GB;
+  // the current version of VTLB does not require any constraints
+  // on where page tables are allocated since it will use
+  // 32PAE page tables on a 64 bit machine even in 32 bit mode and below
+  return 0;  
 }
 
 
@@ -211,7 +201,7 @@ static int vtlb_invalidate_shdw_pt(struct guest_info * core) {
 
 
 static int vtlb_handle_pf(struct guest_info * core, addr_t fault_addr, pf_error_t error_code) {
-
+  
 	switch (v3_get_vm_cpu_mode(core)) {
 	    case PROTECTED:
 		return handle_shadow_pagefault_32(core, fault_addr, error_code);
