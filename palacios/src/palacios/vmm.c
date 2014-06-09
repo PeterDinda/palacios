@@ -387,7 +387,14 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
         PrintDebug(vm, VCORE_NONE, "run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
 		   core->pcpu_id, start_core, core, core->exec_name);
 
-	core->core_run_state = CORE_STOPPED;  // core zero will turn itself on
+	if (core->core_run_state==CORE_INVALID) { 
+	  // launch of a fresh VM
+	  core->core_run_state = CORE_STOPPED;  
+	  // core zero will turn itself on
+	} else {
+	  // this is a resume - use whatever its current run_state is
+	}
+
 	core->core_thread = V3_CREATE_THREAD_ON_CPU(core->pcpu_id, start_core, core, core->exec_name);
 
 	if (core->core_thread == NULL) {

@@ -106,7 +106,8 @@ int v3_adjust_time(struct guest_info * info) {
     old_guest_time = v3_get_guest_time(time_state);
 
     while (target_host_time > host_time) {
-	v3_yield(info);
+	// this will immediately yield if there is noone to yield to.
+	v3_yield(info,-1);
 	host_time = v3_get_host_time(time_state);
     }
 
