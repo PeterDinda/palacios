@@ -335,7 +335,7 @@ int v3_handle_shadow_pagefault(struct guest_info * core, addr_t fault_addr, pf_e
     
     if (v3_get_vm_mem_mode(core) == PHYSICAL_MEM) {
 	// If paging is not turned on we need to handle the special cases
-	rc = v3_handle_passthrough_pagefault(core, fault_addr, error_code);
+      rc = v3_handle_passthrough_pagefault(core, fault_addr, error_code,NULL,NULL);
     } else if (v3_get_vm_mem_mode(core) == VIRTUAL_MEM) {
 	struct v3_shdw_impl_state * state = &(core->vm_info->shdw_impl);
 	struct v3_shdw_pg_impl * impl = state->current_impl;

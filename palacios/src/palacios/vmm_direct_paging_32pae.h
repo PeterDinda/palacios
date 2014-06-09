@@ -27,10 +27,12 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vm_guest.h>
 
+/* This always builds 3 level page tables - no large pages */
 
 static inline int handle_passthrough_pagefault_32pae(struct guest_info * info, 
 						     addr_t fault_addr, 
-						     pf_error_t error_code) {
+						     pf_error_t error_code,
+						     addr_t *actual_start, addr_t *actual_end) {
     pdpe32pae_t * pdpe = NULL;
     pde32pae_t * pde = NULL;
     pte32pae_t * pte = NULL;
@@ -71,6 +73,9 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
     }
     PrintDebug(info->vm_info, info, "Handling pde error pd base address =%p\n", (void *)pde);
 
+    *actual_start = BASE_TO_PAGE_ADDR_4KB(PAGE_BASE_ADDR_4KB(fault_addr));
+    *actual_end = BASE_TO_PAGE_ADDR_4KB(PAGE_BASE_ADDR_4KB(fault_addr)+1)-1;
+
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
 	pte = (pte32pae_t *)create_generic_pt_page(info);
@@ -85,6 +90,8 @@ static inline int handle_passthrough_pagefault_32pae(struct guest_info * info,
     }
 
     PrintDebug(info->vm_info, info, "Handling pte error pt base address=%p\n", (void *)pte);
+
+
     // Fix up the PTE entry
     if (pte[pte_index].present == 0) {
 	pte[pte_index].user_page = 1;
@@ -175,15 +182,23 @@ static inline int invalidate_addr_32pae_internal(struct guest_info * info, addr_
 
 
 
-static inline int invalidate_addr_32pae(struct guest_info * core, addr_t inv_addr)
+static inline int invalidate_addr_32pae(struct guest_info * core, addr_t inv_addr,
+					addr_t *actual_start, addr_t *actual_end)
 {
-  addr_t start;
   uint64_t len;
+  int rc;
   
-  return invalidate_addr_32pae_internal(core,inv_addr,&start,&len);
+  rc = invalidate_addr_32pae_internal(core,inv_addr,actual_start,&len);
+
+  *actual_end = *actual_start + len - 1;
+
+  return rc;
+    
+
 }
    
-static inline int invalidate_addr_32pae_range(struct guest_info * core, addr_t inv_addr_start, addr_t inv_addr_end)
+static inline int invalidate_addr_32pae_range(struct guest_info * core, addr_t inv_addr_start, addr_t inv_addr_end,
+					      addr_t *actual_start, addr_t *actual_end)
 {
   addr_t next;
   addr_t start;
@@ -192,11 +207,18 @@ static inline int invalidate_addr_32pae_range(struct guest_info * core, addr_t i
   
   for (next=inv_addr_start; next<=inv_addr_end; ) {
     rc = invalidate_addr_32pae_internal(core,next,&start, &len);
+    if (next==inv_addr_start) { 
+      // first iteration, capture where we start invalidating
+      *actual_start = start;
+    }
     if (rc) { 
       return rc;
     }
     next = start + len;
+    *actual_end = next;
   }
+  // last iteration, actual_end is off by one
+  (*actual_end)--;
   return 0;
 }
 

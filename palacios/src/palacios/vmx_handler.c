@@ -119,7 +119,7 @@ int v3_handle_vmx_exit(struct guest_info * info, struct vmx_exit_info * exit_inf
 	case VMX_EXIT_EPT_VIOLATION: {
 	    struct ept_exit_qual * ept_qual = (struct ept_exit_qual *)&(exit_info->exit_qual);
 
-	    if (v3_handle_ept_fault(info, exit_info->ept_fault_addr, ept_qual) == -1) {
+	    if (v3_handle_nested_pagefault(info, exit_info->ept_fault_addr, ept_qual,NULL,NULL) == -1) {
 		PrintError(info->vm_info, info, "Error handling EPT fault\n");
 		return -1;
 	    }

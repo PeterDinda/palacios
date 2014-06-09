@@ -68,6 +68,7 @@ void v3_add_telemetry_cb(struct v3_vm_info * vm,
 			 void (*telemetry_fn)(struct v3_vm_info * vm, void * private_data, char * hdr),
 			 void * private_data);
 
+
 #endif
 
 #endif

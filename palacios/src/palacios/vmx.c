@@ -329,7 +329,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 
 
 
-	if (v3_init_ept(core, &hw_info) == -1) {
+	if (v3_init_nested_paging_core(core, &hw_info) == -1) {
 	    PrintError(core->vm_info, core, "Error initializing EPT\n");
 	    return -1;
 	}
@@ -427,7 +427,7 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
 	((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->ne = 1;
 	((struct cr0_32 *)&(core->shdw_pg_state.guest_cr0))->cd = 0;
 
-	if (v3_init_ept(core, &hw_info) == -1) {
+	if (v3_init_nested_paging_core(core, &hw_info) == -1) {
 	    PrintError(core->vm_info, core, "Error initializing EPT\n");
 	    return -1;
 	}

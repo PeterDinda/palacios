@@ -250,6 +250,15 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	return -1;
     }
 
+    if (v3_init_passthrough_paging(vm) == -1) {
+        PrintError(vm, VCORE_NONE, "VM initialization error in passthrough paging\n");
+	return -1;
+    }
+
+    if (v3_init_nested_paging(vm) == -1) {
+        PrintError(vm, VCORE_NONE, "VM initialization error in nested paging\n");
+	return -1;
+    }
 
     v3_init_time_vm(vm);
 
@@ -335,6 +344,8 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_mem_hooks(vm);
     v3_delete_mem_map(vm);
     v3_deinit_shdw_impl(vm);
+    v3_deinit_passthrough_paging(vm);
+    v3_deinit_nested_paging(vm);
 
     v3_deinit_ext_manager(vm);
     v3_deinit_intr_routers(vm);
@@ -376,7 +387,11 @@ int v3_init_core(struct guest_info * core) {
 #endif
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
+        v3_init_passthrough_paging_core(core);
 	v3_init_shdw_pg_state(core);
+    } else {
+        //done later due to SVM/VMX differences 
+        //v3_init_nested_paging_core(core);
     }
 
     v3_init_time_core(core);
@@ -441,6 +456,9 @@ int v3_free_core(struct guest_info * core) {
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
 	v3_deinit_shdw_pg_state(core);
+        v3_deinit_passthrough_paging_core(core);
+   } else {
+        v3_deinit_nested_paging_core(core);
     }
 
     v3_free_passthrough_pts(core);

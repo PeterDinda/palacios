@@ -27,9 +27,12 @@
 #include <palacios/vm_guest_mem.h>
 #include <palacios/vm_guest.h>
 
+/* this always builds 4 level page tables, but large pages are allowed */
+
 // Reference: AMD Software Developer Manual Vol.2 Ch.5 "Page Translation and Protection"
 
-static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr_t fault_addr, pf_error_t error_code) {
+static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr_t fault_addr, pf_error_t error_code,
+						  addr_t *actual_start, addr_t *actual_end) {
     pml4e64_t * pml      = NULL;
     pdpe64_t * pdpe      = NULL;
     pde64_t * pde        = NULL;
@@ -101,6 +104,9 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 	pde2mb = (pde64_2MB_t *)pde; // all but these two lines are the same for PTE
 	pde2mb[pde_index].large_page = 1;
 
+	*actual_start = BASE_TO_PAGE_ADDR_2MB(PAGE_BASE_ADDR_2MB(fault_addr));
+	*actual_end = BASE_TO_PAGE_ADDR_2MB(PAGE_BASE_ADDR_2MB(fault_addr)+1)-1;
+
 	if (pde2mb[pde_index].present == 0) {
 	    pde2mb[pde_index].user_page = 1;
 
@@ -137,6 +143,9 @@ static inline int handle_passthrough_pagefault_64(struct guest_info * core, addr
 
     // Continue with the 4KiB page heirarchy
     
+    *actual_start = BASE_TO_PAGE_ADDR_4KB(PAGE_BASE_ADDR_4KB(fault_addr));
+    *actual_end = BASE_TO_PAGE_ADDR_4KB(PAGE_BASE_ADDR_4KB(fault_addr)+1)-1;
+
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
 	pte = (pte64_t *)create_generic_pt_page(core);
@@ -257,15 +266,21 @@ static inline int invalidate_addr_64_internal(struct guest_info * core, addr_t i
     return 0;
 }
 
-static inline int invalidate_addr_64(struct guest_info * core, addr_t inv_addr)
+static inline int invalidate_addr_64(struct guest_info * core, addr_t inv_addr, 
+				     addr_t *actual_start, addr_t *actual_end)
 {
-  addr_t start;
   uint64_t len;
+  int rc;
   
-  return invalidate_addr_64_internal(core,inv_addr,&start,&len);
+  rc = invalidate_addr_64_internal(core,inv_addr,actual_start,&len);
+
+  *actual_end = *actual_start + len - 1;
+
+  return rc;
 }
    
-static inline int invalidate_addr_64_range(struct guest_info * core, addr_t inv_addr_start, addr_t inv_addr_end)
+static inline int invalidate_addr_64_range(struct guest_info * core, addr_t inv_addr_start, addr_t inv_addr_end, 
+					   addr_t *actual_start, addr_t *actual_end)
 {
   addr_t next;
   addr_t start;
@@ -274,11 +289,18 @@ static inline int invalidate_addr_64_range(struct guest_info * core, addr_t inv_
   
   for (next=inv_addr_start; next<=inv_addr_end; ) {
     rc = invalidate_addr_64_internal(core,next,&start, &len);
+    if (next==inv_addr_start) { 
+      // first iteration, capture where we start invalidating
+      *actual_start = start;
+    }
     if (rc) { 
       return rc;
     }
     next = start + len;
+    *actual_end = next;
   }
+  // last iteration, actual_end is off by one
+  (*actual_end)--;
   return 0;
 }
 

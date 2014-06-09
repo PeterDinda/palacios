@@ -29,9 +29,13 @@
 #include <palacios/vmm_ctrl_regs.h>
 
 
+/* This always build 2 level page tables - no large pages are used */
+
 static inline int handle_passthrough_pagefault_32(struct guest_info * info, 
 						  addr_t fault_addr, 
-						  pf_error_t error_code) {
+						  pf_error_t error_code,
+						  addr_t *actual_start, addr_t *actual_end) {
+
     // Check to see if pde and pte exist (create them if not)
     pde32_t * pde = NULL;
     pte32_t * pte = NULL;
@@ -55,6 +59,9 @@ static inline int handle_passthrough_pagefault_32(struct guest_info * info,
 	pde = CR3_TO_PDE32_VA(info->direct_map_pt);
     }
 
+
+    *actual_start = BASE_TO_PAGE_ADDR_4KB(PAGE_BASE_ADDR_4KB(fault_addr));
+    *actual_end = BASE_TO_PAGE_ADDR_4KB(PAGE_BASE_ADDR_4KB(fault_addr)+1)-1;
 
     // Fix up the PDE entry
     if (pde[pde_index].present == 0) {
@@ -153,15 +160,21 @@ static inline int invalidate_addr_32_internal(struct guest_info * info, addr_t i
 }
 
 
-static inline int invalidate_addr_32(struct guest_info * core, addr_t inv_addr)
+static inline int invalidate_addr_32(struct guest_info * core, addr_t inv_addr,
+				     addr_t *actual_start, addr_t *actual_end)
 {
-  addr_t start;
   uint64_t len;
-  
-  return invalidate_addr_32_internal(core,inv_addr,&start,&len);
+  int rc;
+
+  rc = invalidate_addr_32_internal(core,inv_addr,actual_start,&len);
+
+  *actual_end = *actual_start + len - 1;
+
+  return rc;
 }
    
-static inline int invalidate_addr_32_range(struct guest_info * core, addr_t inv_addr_start, addr_t inv_addr_end)
+static inline int invalidate_addr_32_range(struct guest_info * core, addr_t inv_addr_start, addr_t inv_addr_end,
+					   addr_t *actual_start, addr_t *actual_end)
 {
   addr_t next;
   addr_t start;
@@ -170,11 +183,18 @@ static inline int invalidate_addr_32_range(struct guest_info * core, addr_t inv_
   
   for (next=inv_addr_start; next<=inv_addr_end; ) {
     rc = invalidate_addr_32_internal(core,next,&start, &len);
-    if (rc) { 
+     if (next==inv_addr_start) { 
+      // first iteration, capture where we start invalidating
+      *actual_start = start;
+    }
+   if (rc) { 
       return rc;
     }
     next = start + len;
+    *actual_end = next;
   }
+  // last iteration, actual_end is off by one
+  (*actual_end)--;
   return 0;
 }
 

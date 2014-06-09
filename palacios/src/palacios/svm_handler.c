@@ -231,7 +231,7 @@ int v3_handle_svm_exit(struct guest_info * info, addr_t exit_code, addr_t exit_i
 	    pf_error_t * error_code = (pf_error_t *)&(exit_info1);
 
 	    if (info->shdw_pg_mode == NESTED_PAGING) {
-		if (v3_handle_nested_pagefault(info, fault_addr, *error_code) == -1) {
+	      if (v3_handle_nested_pagefault(info, fault_addr, error_code, NULL, NULL) == -1) {
 		    return -1;
 		}
 	    } else {

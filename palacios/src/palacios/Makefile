@@ -73,7 +73,6 @@ obj-$(V3_CONFIG_VMX) +=  	vmx.o \
 				vmcs.o \
 				vmx_ctrl_regs.o \
 				vmx_assist.o \
-				vmx_ept.o \
 				vmx_exits.o
 
 

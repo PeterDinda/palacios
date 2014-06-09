@@ -86,9 +86,12 @@ struct guest_info {
     void * sched_priv_data;
 
     v3_paging_mode_t shdw_pg_mode;
+    // arch-independent state of shadow pager
     struct v3_shdw_pg_state shdw_pg_state;
-    //struct v3_nested_pg_state nested_pg_state;
+    // arch-indepedent state of the passthrough pager
     addr_t direct_map_pt;
+    // arch-independent state of the nested pager (currently none)
+    // struct v3_nested_pg_state nested_pg_state;
     
 
     union {
@@ -120,6 +123,7 @@ struct guest_info {
 
     struct v3_fp_state fp_state;
 
+    // the arch-dependent state (SVM or VMX)
     void * vmm_data;
 
     uint64_t yield_start_cycle;
@@ -179,8 +183,12 @@ struct v3_vm_info {
 
     struct v3_mem_hooks mem_hooks;
 
+    // arch-indepentent state of shadow pager
     struct v3_shdw_impl_state shdw_impl;
-    //struct v3_nested_impl_state nested_impl;
+    // arch-independent state of passthrough pager (currently none)
+    struct v3_passthrough_impl_state passthrough_impl;
+    // arch-independent state of the nested pager
+    struct v3_nested_impl_state nested_impl;
     void * sched_priv_data;
 
     struct v3_io_map io_map;

@@ -13,6 +13,7 @@
  * All rights reserved.
  *
  * Author: Steven Jaconette <stevenjaconette2007@u.northwestern.edu>
+ *         Peter Dinda <pdinda@northwestern.edu> (refactor + events)
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -26,10 +27,119 @@
 #include <palacios/vmm_ctrl_regs.h>
 
 
-#ifndef V3_CONFIG_DEBUG_NESTED_PAGING
+#if !defined(V3_CONFIG_DEBUG_NESTED_PAGING) && !defined(V3_CONFIG_DEBUG_SHADOW_PAGING)
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
 #endif
+
+
+
+/*
+
+  "Direct Paging" combines these three functionalities:
+
+   1. Passthrough paging for SVM and VMX
+
+      Passthrough paging is used for shadow paging when
+      the guest does not have paging turn on, for example 
+      when it is running in real mode or protected mode 
+      early in a typical boot process.    Passthrough page
+      tables are shadow page tables that are built assuming
+      the guest virtual to guest physical mapping is the identity.
+      Thus, what they implement are the GPA->HPA mapping. 
+
+      Passthrough page tables are built using 32PAE paging.
+      
+
+   2. Nested paging on SVM
+  
+      The SVM nested page tables have the same format as
+      regular page tables.   For this reason, we can reuse 
+      much of the passthrough implementation.   A nested page
+      table mapping is a GPA->HPA mapping, creating a very 
+      simlar model as with passthrough paging, just that it's 
+      always active, whether the guest has paging on or not.
+
+
+   3. Nested paging on VMX
+
+      The VMX nested page tables have a different format
+      than regular page tables.  For this reason, we have
+      implemented them in the vmx_npt.h file.  The code
+      here then is a wrapper, allowing us to make nested
+      paging functionality appear uniform across VMX and SVM
+      elsewhere in the codebase.
+
+*/
+
+
+
+static inline int is_vmx_nested()
+{
+    extern v3_cpu_arch_t v3_mach_type;
+
+    return (v3_mach_type==V3_VMX_EPT_CPU || v3_mach_type==V3_VMX_EPT_UG_CPU);
+}
+
+static inline int is_svm_nested()
+{
+    extern v3_cpu_arch_t v3_mach_type;
+
+    return (v3_mach_type==V3_SVM_REV3_CPU);
+}
+
+
+struct passthrough_event_callback {
+    int (*callback)(struct guest_info *core, struct v3_passthrough_pg_event *event, void *priv_data);
+    void *priv_data;
+
+    struct list_head node;
+};
+
+
+static int have_passthrough_callbacks(struct guest_info *core)
+{
+    return !list_empty(&(core->vm_info->passthrough_impl.event_callback_list));
+}
+
+static void dispatch_passthrough_event(struct guest_info *core, struct v3_passthrough_pg_event *event)
+{
+    struct passthrough_event_callback *cb,*temp;
+    
+    list_for_each_entry_safe(cb,
+			     temp,
+			     &(core->vm_info->passthrough_impl.event_callback_list),
+			     node) {
+	cb->callback(core,event,cb->priv_data);
+    }
+}
+
+struct nested_event_callback {
+    int (*callback)(struct guest_info *core, struct v3_nested_pg_event *event, void *priv_data);
+    void *priv_data;
+
+    struct list_head node;
+};
+
+
+static int have_nested_callbacks(struct guest_info *core)
+{
+    return !list_empty(&(core->vm_info->nested_impl.event_callback_list));
+}
+
+static void dispatch_nested_event(struct guest_info *core, struct v3_nested_pg_event *event)
+{
+    struct nested_event_callback *cb,*temp;
+    
+    list_for_each_entry_safe(cb,
+			     temp,
+			     &(core->vm_info->nested_impl.event_callback_list),
+			     node) {
+	cb->callback(core,event,cb->priv_data);
+    }
+}
+
+
 
 
 static addr_t create_generic_pt_page(struct guest_info *core) {
@@ -53,6 +163,8 @@ static addr_t create_generic_pt_page(struct guest_info *core) {
 #include "vmm_direct_paging_32.h"
 #include "vmm_direct_paging_32pae.h"
 #include "vmm_direct_paging_64.h"
+
+
 
 int v3_init_passthrough_pts(struct guest_info * info) {
     info->direct_map_pt = (addr_t)V3_PAddr((void *)create_generic_pt_page(info));
@@ -101,6 +213,12 @@ int v3_activate_passthrough_pt(struct guest_info * info) {
     // For now... But we need to change this....
     // As soon as shadow paging becomes active the passthrough tables are hosed
     // So this will cause chaos if it is called at that time
+
+    if (have_passthrough_callbacks(info)) { 
+	struct v3_passthrough_pg_event event={PASSTHROUGH_ACTIVATE,PASSTHROUGH_PREIMPL,0,{0,0,0,0,0,0},0,0};
+	dispatch_passthrough_event(info,&event);
+    }
+	
     struct cr3_32_PAE * shadow_cr3 = (struct cr3_32_PAE *) &(info->ctrl_regs.cr3);
     struct cr4_32 * shadow_cr4 = (struct cr4_32 *) &(info->ctrl_regs.cr4);
     addr_t shadow_pt_addr = *(addr_t*)&(info->direct_map_pt);
@@ -108,12 +226,33 @@ int v3_activate_passthrough_pt(struct guest_info * info) {
     shadow_cr3->pdpt_base_addr = shadow_pt_addr >> 5;
     shadow_cr4->pae = 1;
     PrintDebug(info->vm_info, info, "Activated Passthrough Page tables\n");
+
+    if (have_passthrough_callbacks(info)) { 
+	struct v3_passthrough_pg_event event={PASSTHROUGH_ACTIVATE,PASSTHROUGH_POSTIMPL,0,{0,0,0,0,0,0},0,0};
+	dispatch_passthrough_event(info,&event);
+    }
+
     return 0;
 }
 
 
-int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
+
+int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code,
+				    addr_t *actual_start, addr_t *actual_end) {
     v3_cpu_mode_t mode = v3_get_vm_cpu_mode(info);
+    addr_t start, end;
+    int rc;
+
+    if (have_passthrough_callbacks(info)) {				       
+	struct v3_passthrough_pg_event event={PASSTHROUGH_PAGEFAULT,PASSTHROUGH_PREIMPL,fault_addr,error_code,fault_addr,fault_addr};
+	dispatch_passthrough_event(info,&event);	
+    }
+
+    if (!actual_start) { actual_start=&start; }
+    if (!actual_end) { actual_end=&end; }
+
+
+    rc=-1;
 
     switch(mode) {
 	case REAL:
@@ -124,44 +263,41 @@ int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr,
 	case LONG:
 	case LONG_32_COMPAT:
 	    // Long mode will only use 32PAE page tables...
-	    return handle_passthrough_pagefault_32pae(info, fault_addr, error_code);
+	    rc=handle_passthrough_pagefault_32pae(info, fault_addr, error_code, actual_start, actual_end);
 
 	default:
 	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
     }
-    return -1;
-}
 
-
-
-int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, pf_error_t error_code) {
-    v3_cpu_mode_t mode = v3_get_host_cpu_mode();
-
-
-    PrintDebug(info->vm_info, info, "Nested PageFault: fault_addr=%p, error_code=%u\n", (void *)fault_addr, *(uint_t *)&error_code);
-
-    switch(mode) {
-	case REAL:
-	case PROTECTED:
-	    return handle_passthrough_pagefault_32(info, fault_addr, error_code);
-
-	case PROTECTED_PAE:
-	    return handle_passthrough_pagefault_32pae(info, fault_addr, error_code);
-
-	case LONG:
-	case LONG_32_COMPAT:
-	    return handle_passthrough_pagefault_64(info, fault_addr, error_code);	    
-	
-	default:
-	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
-	    break;
+    if (have_passthrough_callbacks(info)) {				       
+	struct v3_passthrough_pg_event event={PASSTHROUGH_PAGEFAULT,PASSTHROUGH_POSTIMPL,fault_addr,error_code,*actual_start,*actual_end};
+	dispatch_passthrough_event(info,&event);	
     }
-    return -1;
+
+    return rc;
 }
 
-int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
+
+
+int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr, 
+				   addr_t *actual_start, addr_t *actual_end) {
+
     v3_cpu_mode_t mode = v3_get_vm_cpu_mode(info);
+    addr_t start, end;
+    int rc;
+
+    if (have_passthrough_callbacks(info)) {				       
+	struct v3_passthrough_pg_event event={PASSTHROUGH_INVALIDATE_RANGE,PASSTHROUGH_PREIMPL,0,{0,0,0,0,0,0},PAGE_ADDR(inv_addr),PAGE_ADDR(inv_addr)+PAGE_SIZE-1};
+	dispatch_passthrough_event(info,&event);	
+    }
+
+    if (!actual_start) { actual_start=&start;}
+    if (!actual_end) { actual_end=&end;}
+
+
+
+    rc=-1;
 
     switch(mode) {
 	case REAL:
@@ -172,19 +308,39 @@ int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr) {
 	case LONG:
 	case LONG_32_COMPAT:
 	    // Long mode will only use 32PAE page tables...
-	    return invalidate_addr_32pae(info, inv_addr);
+	  rc=invalidate_addr_32pae(info, inv_addr, actual_start, actual_end);
 
 	default:
 	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
     }
-    return -1;
+
+    if (have_passthrough_callbacks(info)) {				       
+	struct v3_passthrough_pg_event event={PASSTHROUGH_INVALIDATE_RANGE,PASSTHROUGH_POSTIMPL,0,{0,0,0,0,0,0},*actual_start,*actual_end};
+	dispatch_passthrough_event(info,&event);	
+    }
+
+
+    return rc;
 }
 
 
 int v3_invalidate_passthrough_addr_range(struct guest_info * info, 
-					 addr_t inv_addr_start, addr_t inv_addr_end) {
+					 addr_t inv_addr_start, addr_t inv_addr_end,
+					 addr_t *actual_start, addr_t *actual_end) {
     v3_cpu_mode_t mode = v3_get_vm_cpu_mode(info);
+    addr_t start, end;
+    int rc;
+
+    if (!actual_start) { actual_start=&start;}
+    if (!actual_end) { actual_end=&end;}
+
+    if (have_passthrough_callbacks(info)) {				       
+	struct v3_passthrough_pg_event event={PASSTHROUGH_INVALIDATE_RANGE,PASSTHROUGH_PREIMPL,0,{0,0,0,0,0,0},PAGE_ADDR(inv_addr_start),PAGE_ADDR(inv_addr_end-1)+PAGE_SIZE-1};
+	dispatch_passthrough_event(info,&event);	
+    }
+    
+    rc=-1;
 
     switch(mode) {
 	case REAL:
@@ -195,68 +351,202 @@ int v3_invalidate_passthrough_addr_range(struct guest_info * info,
 	case LONG:
 	case LONG_32_COMPAT:
 	    // Long mode will only use 32PAE page tables...
-	    return invalidate_addr_32pae_range(info, inv_addr_start, inv_addr_end);
+	  rc=invalidate_addr_32pae_range(info, inv_addr_start, inv_addr_end, actual_start, actual_end);
 
 	default:
 	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
     }
-    return -1;
+
+    if (have_passthrough_callbacks(info)) {				       
+	struct v3_passthrough_pg_event event={PASSTHROUGH_INVALIDATE_RANGE,PASSTHROUGH_POSTIMPL,0,{0,0,0,0,0,0},*actual_start,*actual_end};
+	dispatch_passthrough_event(info,&event);	
+    }
+
+    return rc;
 }
 
-int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr) {
 
-#ifdef __V3_64BIT__
-    v3_cpu_mode_t mode = LONG;
-#else 
-    v3_cpu_mode_t mode = PROTECTED;
+int v3_init_passthrough_paging(struct v3_vm_info *vm)
+{
+  INIT_LIST_HEAD(&(vm->passthrough_impl.event_callback_list));
+  return 0;
+}
+
+int v3_deinit_passthrough_paging(struct v3_vm_info *vm)
+{
+  struct passthrough_event_callback *cb,*temp;
+  
+  list_for_each_entry_safe(cb,
+			   temp,
+			   &(vm->passthrough_impl.event_callback_list),
+			   node) {
+    list_del(&(cb->node));
+    V3_Free(cb);
+  }
+  
+  return 0;
+}
+
+int v3_init_passthrough_paging_core(struct guest_info *core)
+{
+  // currently nothing to init
+  return 0;
+}
+
+int v3_deinit_passthrough_paging_core(struct guest_info *core)
+{
+  // currently nothing to deinit
+  return 0;
+}
+
+
+// inline nested paging support for Intel and AMD
+#include "svm_npt.h"
+#include "vmx_npt.h"
+
+
+inline void convert_to_pf_error(void *pfinfo, pf_error_t *out)
+{
+  if (is_vmx_nested()) {
+#ifdef V3_CONFIG_VMX
+    ept_exit_qual_to_pf_error((struct ept_exit_qual *)pfinfo, out);
 #endif
-
-    switch(mode) {
-	case REAL:
-	case PROTECTED:
-	    return invalidate_addr_32(info, inv_addr);
-
-	case PROTECTED_PAE:
-	    return invalidate_addr_32pae(info, inv_addr);
-
-	case LONG:
-	case LONG_32_COMPAT:
-	    return invalidate_addr_64(info, inv_addr);	    
-	
-	default:
-	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
-	    break;
-    }
-
-    return -1;
+  } else {
+    *out = *(pf_error_t *)pfinfo;
+  }
 }
+
+int v3_handle_nested_pagefault(struct guest_info * info, addr_t fault_addr, void *pfinfo, addr_t *actual_start, addr_t *actual_end)
+{
+  int rc;
+  pf_error_t err;
+  addr_t start, end;
+
+  if (!actual_start) { actual_start=&start; }
+  if (!actual_end) { actual_end=&end; }
+
+  convert_to_pf_error(pfinfo,&err);
+
+  if (have_nested_callbacks(info)) {				       
+      struct v3_nested_pg_event event={NESTED_PAGEFAULT,NESTED_PREIMPL,fault_addr,err,fault_addr,fault_addr};
+      dispatch_nested_event(info,&event);	
+  }
+
+  
+  if (is_vmx_nested()) { 
+    rc = handle_vmx_nested_pagefault(info,fault_addr,pfinfo,actual_start,actual_end);
+  } else {
+    rc = handle_svm_nested_pagefault(info,fault_addr,pfinfo,actual_start,actual_end);
+  }
+  
+  if (have_nested_callbacks(info)) {
+    struct v3_nested_pg_event event={NESTED_PAGEFAULT,NESTED_POSTIMPL,fault_addr,err,*actual_start,*actual_end};
+    dispatch_nested_event(info,&event);
+  }
+  
+  return rc;
+}
+  
+
+
+int v3_invalidate_nested_addr(struct guest_info * info, addr_t inv_addr,
+			      addr_t *actual_start, addr_t *actual_end) 
+{
+  int rc;
+  
+  addr_t start, end;
+
+  if (!actual_start) { actual_start=&start; }
+  if (!actual_end) { actual_end=&end; }
+  
+
+  if (have_nested_callbacks(info)) { 
+    struct v3_nested_pg_event event={NESTED_INVALIDATE_RANGE,NESTED_PREIMPL,0,{0,0,0,0,0,0},PAGE_ADDR(inv_addr),PAGE_ADDR(inv_addr)+PAGE_SIZE-1};
+    dispatch_nested_event(info,&event);
+  }
+
+  if (is_vmx_nested()) {
+    rc = handle_vmx_invalidate_nested_addr(info, inv_addr, actual_start, actual_end);
+  } else {
+    rc = handle_svm_invalidate_nested_addr(info, inv_addr, actual_start, actual_end);
+  }
+  
+  if (have_nested_callbacks(info)) { 
+    struct v3_nested_pg_event event={NESTED_INVALIDATE_RANGE,NESTED_POSTIMPL,0,{0,0,0,0,0,0},*actual_start, *actual_end};
+    dispatch_nested_event(info,&event);
+  }
+  return rc;
+}
+
 
 int v3_invalidate_nested_addr_range(struct guest_info * info, 
-				    addr_t inv_addr_start, addr_t inv_addr_end) {
+				    addr_t inv_addr_start, addr_t inv_addr_end,
+				    addr_t *actual_start, addr_t *actual_end) 
+{
+  int rc;
 
-#ifdef __V3_64BIT__
-    v3_cpu_mode_t mode = LONG;
-#else 
-    v3_cpu_mode_t mode = PROTECTED;
-#endif
+  addr_t start, end;
 
-    switch(mode) {
-	case REAL:
-	case PROTECTED:
-	    return invalidate_addr_32_range(info, inv_addr_start, inv_addr_end);
+  if (!actual_start) { actual_start=&start; }
+  if (!actual_end) { actual_end=&end; }
 
-	case PROTECTED_PAE:
-  	    return invalidate_addr_32pae_range(info, inv_addr_start, inv_addr_end);
+  if (have_nested_callbacks(info)) { 
+    struct v3_nested_pg_event event={NESTED_INVALIDATE_RANGE,NESTED_PREIMPL,0,{0,0,0,0,0,0},PAGE_ADDR(inv_addr_start),PAGE_ADDR(inv_addr_end-1)+PAGE_SIZE-1};
+    dispatch_nested_event(info,&event);
+  }
+  
+  if (is_vmx_nested()) {
+    rc = handle_vmx_invalidate_nested_addr_range(info, inv_addr_start, inv_addr_end, actual_start, actual_end);
+  } else {
+    rc = handle_svm_invalidate_nested_addr_range(info, inv_addr_start, inv_addr_end, actual_start, actual_end);
+  }
+  
 
-	case LONG:
-	case LONG_32_COMPAT:
-  	    return invalidate_addr_64_range(info, inv_addr_start, inv_addr_end);	    
-	
-	default:
-	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
-	    break;
-    }
+  if (have_nested_callbacks(info)) { 
+    struct v3_nested_pg_event event={NESTED_INVALIDATE_RANGE,NESTED_PREIMPL,0,{0,0,0,0,0,0},*actual_start, *actual_end};
+    dispatch_nested_event(info,&event);
+  }
+  
+  return rc;
+  
+}
 
-    return -1;
+
+int v3_init_nested_paging(struct v3_vm_info *vm)
+{
+  INIT_LIST_HEAD(&(vm->nested_impl.event_callback_list));
+  return 0;
+}
+
+int v3_init_nested_paging_core(struct guest_info *core, void *hwinfo)
+{
+  if (is_vmx_nested()) { 
+    return init_ept(core, (struct vmx_hw_info *) hwinfo);
+  } else {
+    // no initialization for SVM
+    return 0;
+  }
+}
+    
+int v3_deinit_nested_paging(struct v3_vm_info *vm)
+{
+  struct nested_event_callback *cb,*temp;
+  
+  list_for_each_entry_safe(cb,
+			   temp,
+			   &(vm->nested_impl.event_callback_list),
+			   node) {
+    list_del(&(cb->node));
+    V3_Free(cb);
+  }
+  
+  return 0;
+}
+
+int v3_deinit_nested_paging_core(struct guest_info *core)
+{
+  // nothing to do..  probably dealloc?  FIXME PAD
+
+  return 0;
 }

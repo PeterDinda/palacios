@@ -352,13 +352,13 @@ int v3_insert_mem_region(struct v3_vm_info * vm, struct v3_mem_region * region) 
 	    v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
 	    
 	    if (mem_mode == PHYSICAL_MEM) {
-	        rc |= v3_invalidate_passthrough_addr_range(info, region->guest_start, region->guest_end-1);
+	      rc |= v3_invalidate_passthrough_addr_range(info, region->guest_start, region->guest_end-1,NULL,NULL);
 	    } else {
 		rc |= v3_invalidate_shadow_pts(info);
 	    }
 	    
 	} else if (info->shdw_pg_mode == NESTED_PAGING) {
-	    rc |= v3_invalidate_nested_addr_range(info, region->guest_start, region->guest_end-1);
+	  rc |= v3_invalidate_nested_addr_range(info, region->guest_start, region->guest_end-1,NULL,NULL);
 	}
     }
 
@@ -559,13 +559,13 @@ void v3_delete_mem_region(struct v3_vm_info * vm, struct v3_mem_region * reg) {
 	    v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(info);
 	    
 	    if (mem_mode == PHYSICAL_MEM) {
-	      rc |= v3_invalidate_passthrough_addr_range(info,reg->guest_start, reg->guest_end-1);
+	      rc |= v3_invalidate_passthrough_addr_range(info,reg->guest_start, reg->guest_end-1,NULL,NULL);
 	    } else {
 	      rc |= v3_invalidate_shadow_pts(info);
 	    }
 	    
 	} else if (info->shdw_pg_mode == NESTED_PAGING) {
-	  rc |= v3_invalidate_nested_addr_range(info,reg->guest_start, reg->guest_end-1);
+	  rc |= v3_invalidate_nested_addr_range(info,reg->guest_start, reg->guest_end-1,NULL,NULL);
 	}
     }
 

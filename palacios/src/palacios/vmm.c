@@ -587,7 +587,7 @@ int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu) {
 	    v3_invalidate_shadow_pts(&(vm->cores[i]));
 	} else if (vm->cores[i].shdw_pg_mode==NESTED_PAGING) { 
 	    // nested invalidator uses inclusive addressing [start,end], not [start,end)
-	    v3_invalidate_nested_addr_range(&(vm->cores[i]),reg->guest_start,reg->guest_end-1);
+	  v3_invalidate_nested_addr_range(&(vm->cores[i]),reg->guest_start,reg->guest_end-1,NULL,NULL);
 	} else {
 	    PrintError(vm,VCORE_NONE, "Cannot determine how to invalidate paging structures! Reverting to previous region.\n");
 	    // We'll restore things...
