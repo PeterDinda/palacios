@@ -34,6 +34,11 @@
 struct guest_info;
 struct v3_vm_info;
 
+#ifdef V3_CONFIG_SWAPPING
+#include <palacios/vmm_swapping.h>
+#endif
+
+
 
 
 #define V3_MEM_CORE_ANY ((uint16_t)-1)
@@ -53,6 +58,10 @@ typedef struct {
 	    uint8_t base   : 1;
 	    uint8_t alloced : 1;
 	    uint8_t limit32 : 1; // must be < 4GB in host
+#ifdef V3_CONFIG_SWAPPING 
+	    uint8_t swapped : 1;
+	    uint8_t pinned : 1;
+#endif 
 	} __attribute__((packed));
     } __attribute__((packed));
 } __attribute__((packed)) v3_mem_flags_t;
@@ -75,6 +84,10 @@ struct v3_mem_region {
     int core_id;     // The virtual core this region is assigned to (-1 means all cores)
     int numa_id;     // The NUMA node this region is allocated from
 
+#ifdef V3_CONFIG_SWAPPING 
+    struct v3_swap_region_state swap_state;
+#endif
+
     struct rb_node tree_node; // This for memory regions mapped to the global map
 };
 
@@ -85,7 +98,6 @@ struct v3_mem_map {
     
     uint32_t num_base_regions;
     struct v3_mem_region * base_regions;
-
 };
 
 

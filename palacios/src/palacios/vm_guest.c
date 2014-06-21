@@ -342,6 +342,11 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_time_vm(vm);
 
     v3_deinit_mem_hooks(vm);
+
+#ifdef V3_CONFIG_SWAPPING
+    v3_deinit_swapping_vm(vm);
+#endif
+
     v3_delete_mem_map(vm);
     v3_deinit_shdw_impl(vm);
     v3_deinit_passthrough_paging(vm);

@@ -324,6 +324,20 @@ config DEBUG_SHADOW_PAGING_CACHE
 #        help
 #           Enables debugging messages for the KVM-style shadow pager
 
+
+config SWAPPING
+        bool "Enable swapping"
+        default n
+        depends on (SHADOW_PAGING || NESTED_PAGING) && FILE
+        help
+           Enables swapping of regions of guest physical memory to a file 
+
+config DEBUG_SWAPPING
+        bool "Enable swapping debugging"
+	default n
+        depends on SWAPPING
+        help
+           Provides debugging output from the swapping system
 endmenu
 
 menu "Symbiotic Functions"

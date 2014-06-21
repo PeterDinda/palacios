@@ -47,6 +47,7 @@
 #include <palacios/vmm_fp.h>
 #include <palacios/vmm_perftune.h>
 
+
 #ifdef V3_CONFIG_TELEMETRY
 #include <palacios/vmm_telemetry.h>
 #endif
@@ -92,6 +93,10 @@ struct guest_info {
     addr_t direct_map_pt;
     // arch-independent state of the nested pager (currently none)
     // struct v3_nested_pg_state nested_pg_state;
+    // per-core state of the swapper (currently none)
+    //#ifdef V3_CONFIG_SWAPPING
+    //   struct v3_swap_impl_state swap_impl;
+    //#endif
     
 
     union {
@@ -189,6 +194,11 @@ struct v3_vm_info {
     struct v3_passthrough_impl_state passthrough_impl;
     // arch-independent state of the nested pager
     struct v3_nested_impl_state nested_impl;
+#ifdef V3_CONFIG_SWAPPING
+    // swapping state, if enabled
+    struct v3_swap_impl_state swap_state;
+#endif
+
     void * sched_priv_data;
 
     struct v3_io_map io_map;
@@ -229,7 +239,6 @@ struct v3_vm_info {
     uint_t enable_telemetry;
     struct v3_telemetry_state telemetry;
 #endif
-
 
     uint64_t yield_cycle_period;  
 

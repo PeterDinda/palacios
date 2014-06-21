@@ -83,6 +83,7 @@ if ($config{numcores}>1) {
   }
 }
 
+do_swapping(\%config, $pdir);
 
 print "We will give your guest the default performance tuning characteristics\n";
 $config{perftune_block} .= <<PERFTUNE
@@ -242,6 +243,7 @@ $target = PAL;
 print $target "<vm class=\"PC\">\n\n";
 print $target file_setup(\%config), "\n";
 print $target memory_setup(\%config), "\n";
+print $target swapping_setup(\%config), "\n";
 print $target paging_setup(\%config), "\n";
 print $target memmap_setup(\%config), "\n";
 print $target numa_setup(\%config), "\n";
@@ -402,6 +404,28 @@ sub get_numa_data() {
   $numa{numcores}=$maxcpu+1;
   return %numa;
 }
+
+
+sub do_swapping {
+  my ($cr, $pdir) = @_;
+
+  my $canswap = is_palacios_core_feature_enabled($pdir,"V3_CONFIG_SWAPPING");
+  my $mem = $cr->{mem};
+
+  if ($canswap) { 
+    #Config for swapping
+    $cr->{swapping} = yn_question("Do you want to use swapping?", "n", "y", "n");
+    
+    if ($cr->{swapping} eq "y") { 
+      $cr->{swap_alloc} = quant_question("How much memory do you want to allocate [MB] ?", $mem/2);
+      print "We will use the default swapping strategy.\n";
+      $cr->{swap_strat} = "default";
+      print "What file do you want to swap to? [./swap.bin] ";
+      $cr->{swap_file} = get_user("./swap.bin");
+    }
+  }
+
+} 
 
 sub do_device {
   my ($cr,$pdir,$feature, $class, $id, $hardfail, $optblob, $nestblob) =@_;
@@ -984,6 +1008,14 @@ sub extensions_setup  {
   return $s;
 }
 
+sub swapping_setup {
+  my $cr=shift;
+  if (defined($cr->{swapping}) && $cr->{swapping} eq "y") { 
+    return " <swapping enable=\"y\">\n  <allocated>".$cr->{swap_alloc}."</allocated>\n  <file>".$cr->{swap_file}."</file>\n  <strategy>".$cr->{swap_strat}."</strategy>\n </swapping>\n";
+  } else {
+    return " <!-- there is no swapping configuration, but you can add one manually -->\n";
+  }
+}
 sub telemetry_setup  {
   my $cr=shift;
   return " <telemetry>".$cr->{telemetry}."</telemetry>\n";

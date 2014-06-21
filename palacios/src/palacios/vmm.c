@@ -31,6 +31,7 @@
 #include <palacios/vmm_cpu_mapper.h>
 #include <palacios/vmm_direct_paging.h>
 #include <interfaces/vmm_numa.h>
+#include <interfaces/vmm_file.h>
 
 #ifdef V3_CONFIG_SVM
 #include <palacios/svm.h>
@@ -162,6 +163,10 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
     // Register all shadow paging handlers
     V3_init_shdw_paging();
 
+#ifdef V3_CONFIG_SWAPPING
+    v3_init_swapping();
+#endif
+
     // Initialize the cpu_mapper framework (must be before extensions)
     V3_init_cpu_mapper();
 
@@ -239,6 +244,10 @@ void Shutdown_V3() {
     V3_deinit_scheduling();
     
     V3_deinit_cpu_mapper();
+
+#ifdef V3_CONFIG_SWAPPING
+    v3_deinit_swapping();
+#endif
     
     V3_deinit_shdw_paging();
     

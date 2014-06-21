@@ -21,10 +21,15 @@
 #ifndef __VMM_FILE_H__
 #define __VMM_FILE_H__
 
-#include <palacios/vmm.h>
+
 
 
 #ifdef __V3VEE__
+
+#include <palacios/vmm_types.h>
+
+struct v3_vm_info;
+
 typedef void * v3_file_t;
 
 int v3_mkdir(char * path, uint16_t permissions, uint8_t recursive);

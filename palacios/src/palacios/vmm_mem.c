@@ -29,13 +29,21 @@
 
 #include <interfaces/vmm_numa.h>
 
+#ifdef V3_CONFIG_SWAPPING
+#include <palacios/vmm_swapping.h>
+#endif
+
 uint64_t v3_mem_block_size = V3_CONFIG_MEM_BLOCK_SIZE;
 
 
+
+
 struct v3_mem_region * v3_get_base_region(struct v3_vm_info * vm, addr_t gpa) {
+   
+    //PrintDebug(VM_NONE, VCORE_NONE, "get_base_region called"); 
     struct v3_mem_map * map = &(vm->mem_map);
     uint32_t block_index = gpa / v3_mem_block_size;
-
+    struct v3_mem_region *reg;
     if ((gpa >= (map->num_base_regions * v3_mem_block_size)) ||
         (block_index >= map->num_base_regions)) {
         PrintError(vm, VCORE_NONE, "Guest Address Exceeds Base Memory Size (ga=0x%p), (limit=0x%p)\n", 
@@ -45,9 +53,24 @@ struct v3_mem_region * v3_get_base_region(struct v3_vm_info * vm, addr_t gpa) {
         return NULL;
     }
 
+    reg = &(map->base_regions[block_index]);
 
-    return &(map->base_regions[block_index]);
+#ifdef V3_CONFIG_SWAPPING
+    if(vm->swap_state.enable_swapping) {
+	if (reg->flags.swapped) {
+	    if (v3_swap_in_region(vm,reg)) { 
+		PrintError(vm, VCORE_NONE, "Unable to swap in region GPA=%p..%p!!!\n",(void*)reg->guest_start,(void*)reg->guest_end);
+		v3_print_mem_map(vm);
+		return NULL;
+	    }
+	}
+    }
+    v3_touch_region(vm,reg);
+#endif
+
+    return reg;
 }
+
 
 
 static int mem_offset_hypercall(struct guest_info * info, uint_t hcall_id, void * private_data) {
@@ -128,7 +151,7 @@ static int will_use_shadow_paging(struct v3_vm_info *vm)
 	    } else { 
 		return 1; // ask for nested, get shadow
 	    }
-	} else if (strcasecmp(pg_mode, "shadow") != 0) { 
+        } else if (strcasecmp(pg_mode, "shadow") != 0) { 
 	    return 1;     // ask for shadow, get shadow
 	} else {
 	    return 1;     // ask for something else, get shadow
@@ -136,18 +159,30 @@ static int will_use_shadow_paging(struct v3_vm_info *vm)
     }
 }
 
+#define CEIL_DIV(x,y) (((x)/(y)) + !!((x)%(y)))
 
 int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
     addr_t block_pages = v3_mem_block_size >> 12;
     int i = 0;
+    uint64_t num_base_regions_host_mem;
+    map->num_base_regions = CEIL_DIV(vm->mem_size, v3_mem_block_size); 
 
-    map->num_base_regions = (vm->mem_size / v3_mem_block_size) + \
-        ((vm->mem_size % v3_mem_block_size) > 0);
+    num_base_regions_host_mem=map->num_base_regions;  // without swapping
 
+    PrintDebug(VM_NONE, VCORE_NONE, "v3_init_mem_map: num_base_regions:%d",map->num_base_regions);
 
     map->mem_regions.rb_node = NULL;
 
+#ifdef V3_CONFIG_SWAPPING
+    if (vm->swap_state.enable_swapping) {
+        num_base_regions_host_mem = CEIL_DIV(vm->swap_state.host_mem_size, v3_mem_block_size);
+    } 
+#endif
+
+    PrintDebug(VM_NONE, VCORE_NONE, "v3_init_mem_map: %llu base regions will be allocated of %llu base regions in guest\n",
+	       (uint64_t)num_base_regions_host_mem, (uint64_t)map->num_base_regions);
+    	
     map->base_regions = V3_Malloc(sizeof(struct v3_mem_region) * map->num_base_regions);
 
     if (map->base_regions == NULL) {
@@ -156,13 +191,15 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     }
 
     memset(map->base_regions, 0, sizeof(struct v3_mem_region) * map->num_base_regions);
-  
 
     for (i = 0; i < map->num_base_regions; i++) {
+  
+
 	struct v3_mem_region * region = &(map->base_regions[i]);
 	int node_id = -1;
 
 	// 2MB page alignment needed for 2MB hardware nested paging
+	// If swapping is enabled, the host memory will be allocated to low address regions at initialization
         region->guest_start = v3_mem_block_size * i;
         region->guest_end = region->guest_start + v3_mem_block_size;
 
@@ -171,22 +208,46 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
         //     and use whatever node the first byte of the block is assigned to
         node_id = gpa_to_node_from_cfg(vm, region->guest_start);
         
-        V3_Print(vm, VCORE_NONE, "Allocating block %d on node %d\n", i, node_id);
 
-	region->host_addr = (addr_t)V3_AllocPagesExtended(block_pages,
-							  PAGE_SIZE_4KB,
-							  node_id,
-							  0); // no constraints 
-							     
-        if ((void *)region->host_addr == NULL) { 
-            PrintError(vm, VCORE_NONE, "Could not allocate guest memory\n");
-            return -1;
-        }
+	if (i < num_base_regions_host_mem) {
+	    //The regions within num_base_regions_in_mem are allocated in host memory
+	    V3_Print(vm, VCORE_NONE, "Allocating block %d on node %d\n", i, node_id);
 
-	// Clear the memory...
-	memset(V3_VAddr((void *)region->host_addr), 0, v3_mem_block_size);
+#ifdef V3_CONFIG_SWAPPING
+	    // nothing to do - memset will have done it.
+#endif
+    
+	    region->host_addr = (addr_t)V3_AllocPagesExtended(block_pages,
+							      PAGE_SIZE_4KB,
+							      node_id,
+							      0); // no constraints 
+	    
+	    if ((void *)region->host_addr == NULL) { 
+		PrintError(vm, VCORE_NONE, "Could not allocate guest memory\n");
+		return -1;
+	    }
+	    
+	    // Clear the memory...
+	    memset(V3_VAddr((void *)region->host_addr), 0, v3_mem_block_size);
+
+	} else {
+
+#ifdef V3_CONFIG_SWAPPING
+            if(vm->swap_state.enable_swapping) {	
+		// The regions beyond num_base_regions_in_mem are allocated on disk to start
+  		region->flags.swapped = 1;
+                region->host_addr=(addr_t) 0;
+		// other flags / state correctly set up by zeroing the region earlier
+            }
+#endif
+
+	}
+
 	
 	// Note assigned numa ID could be different than our request... 
+	// Also note that when swapping is used, the numa info will
+	// reflect the numa id of address 0x0 for unallocated regions
+	//
 	region->numa_id = v3_numa_hpa_to_node(region->host_addr);
 
 	region->flags.read = 1;
@@ -196,7 +257,6 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 	region->flags.alloced = 1;
 	region->flags.limit32 = will_use_shadow_paging(vm);
 	
-
 	region->unhandled = unhandled_err;
     }
 
@@ -224,7 +284,15 @@ void v3_delete_mem_map(struct v3_vm_info * vm) {
 
     for (i = 0; i < map->num_base_regions; i++) {
 	struct v3_mem_region * region = &(map->base_regions[i]);
+#ifdef V3_CONFIG_SWAPPING
+	if (vm->swap_state.enable_swapping) { 
+	    if (!region->flags.swapped) { 
+		V3_FreePages((void *)(region->host_addr), block_pages);
+	    } // otherwise this is not allocated space
+	}
+#else
 	V3_FreePages((void *)(region->host_addr), block_pages);
+#endif
     }
 
     V3_Free(map->base_regions);

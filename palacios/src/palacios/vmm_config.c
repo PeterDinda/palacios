@@ -33,8 +33,9 @@
 #include <palacios/vmm_sprintf.h>
 
 
-
-
+#ifdef V3_CONFIG_SWAPPING
+#include <palacios/vmm_swapping.h>
+#endif
 
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_perftune.h>
@@ -51,9 +52,6 @@
 #define COOKIE_LEN 8
 #define COOKIE_V0 "v3vee\0\0\0"
 #define COOKIE_V1 "v3vee\0\0\1"
-
-
-
 
 // This is used to access the configuration file index table
 struct file_hdr_v0 {
@@ -294,13 +292,14 @@ static inline uint32_t get_alignment(char * align_str) {
 }
 
 
+
 static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     char * memory_str = v3_cfg_val(vm_cfg, "memory");
     char * schedule_hz_str = v3_cfg_val(vm_cfg, "schedule_hz");
     char * vm_class = v3_cfg_val(vm_cfg, "class");
     char * align_str = v3_cfg_val(v3_cfg_subtree(vm_cfg, "memory"), "alignment");
     uint32_t sched_hz = 100; 	// set the schedule frequency to 100 HZ
-
+   
 
     if (!memory_str) {
 	PrintError(VM_NONE, VCORE_NONE, "Memory is a required configuration parameter\n");
@@ -317,8 +316,19 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     // Amount of ram the Guest will have, always in MB
     vm->mem_size = (addr_t)atoi(memory_str) * 1024 * 1024;
     vm->mem_align = get_alignment(align_str);
-
-
+    
+#ifdef V3_CONFIG_SWAPPING
+    if (v3_init_swapping_vm(vm,vm_cfg)) {
+	PrintError(vm,VCORE_NONE,"Unable to initialize swapping correctly\n");
+	return -1;
+    }
+    if (vm->swap_state.enable_swapping) { 
+	PrintDebug(vm,VCORE_NONE,"Swapping enabled\n");
+    } else {
+	PrintDebug(vm,VCORE_NONE,"Swapping disabled\n");
+    }
+#endif
+        
     PrintDebug(VM_NONE, VCORE_NONE, "Alignment for %lu bytes of memory computed as 0x%x\n", vm->mem_size, vm->mem_align);
 
     if (strcasecmp(vm_class, "PC") == 0) {

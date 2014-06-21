@@ -48,6 +48,8 @@ obj-y := \
 	vmm_fw_cfg.o 
 
 
+obj-$(V3_CONFIG_SWAPPING) += vmm_swapping.o
+
 obj-$(V3_CONFIG_XED) +=	vmm_xed.o
 obj-$(V3_CONFIG_V3_DECODER) += vmm_v3dec.o
 obj-$(V3_CONFIG_QUIX86) += vmm_quix86.o
