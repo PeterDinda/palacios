@@ -402,6 +402,8 @@ struct v3_vm_core_state {
 struct v3_vm_mem_region {
     void               *host_paddr;
     unsigned long long  size;
+    int                 swapped;
+    int                 pinned;
 };
 
 struct v3_vm_mem_state {

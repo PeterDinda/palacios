@@ -862,6 +862,14 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
     for (i=0;i<vm->mem_map.num_base_regions;i++) {
 	mem->region[i].host_paddr =  (void*)(vm->mem_map.base_regions[i].host_addr);
 	mem->region[i].size = v3_mem_block_size;
+#ifdef V3_CONFIG_SWAPPING
+	mem->region[i].swapped = vm->mem_map.base_regions[i].flags.swapped;
+	mem->region[i].pinned = vm->mem_map.base_regions[i].flags.pinned;
+#else
+	mem->region[i].swapped = 0;
+	mem->region[i].pinned = 0;
+#endif
+
     }
 
     mem->num_regions=numregions;
