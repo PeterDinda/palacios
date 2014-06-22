@@ -225,15 +225,19 @@ static int vtlb_handle_invlpg(struct guest_info * core, addr_t vaddr) {
     switch (v3_get_vm_cpu_mode(core)) {
 	case PROTECTED:
 	    return handle_shadow_invlpg_32(core, vaddr);
+	    break;
 	case PROTECTED_PAE:
 	    return handle_shadow_invlpg_32pae(core, vaddr);
+	    break;
 	case LONG:
 	case LONG_32_COMPAT:
 	case LONG_16_COMPAT:
 	    return handle_shadow_invlpg_64(core, vaddr);
+	    break;
 	default:
 	    PrintError(core->vm_info, core, "Invalid CPU mode: %s\n", v3_cpu_mode_to_str(v3_get_vm_cpu_mode(core)));
 	    return -1;
+	    break;
     }
 }
 

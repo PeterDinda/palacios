@@ -264,7 +264,7 @@ int v3_handle_passthrough_pagefault(struct guest_info * info, addr_t fault_addr,
 	case LONG_32_COMPAT:
 	    // Long mode will only use 32PAE page tables...
 	    rc=handle_passthrough_pagefault_32pae(info, fault_addr, error_code, actual_start, actual_end);
-
+	    break;
 	default:
 	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
@@ -308,8 +308,8 @@ int v3_invalidate_passthrough_addr(struct guest_info * info, addr_t inv_addr,
 	case LONG:
 	case LONG_32_COMPAT:
 	    // Long mode will only use 32PAE page tables...
-	  rc=invalidate_addr_32pae(info, inv_addr, actual_start, actual_end);
-
+	    rc=invalidate_addr_32pae(info, inv_addr, actual_start, actual_end);
+	    break;
 	default:
 	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
@@ -352,7 +352,7 @@ int v3_invalidate_passthrough_addr_range(struct guest_info * info,
 	case LONG_32_COMPAT:
 	    // Long mode will only use 32PAE page tables...
 	  rc=invalidate_addr_32pae_range(info, inv_addr_start, inv_addr_end, actual_start, actual_end);
-
+	  break;
 	default:
 	    PrintError(info->vm_info, info, "Unknown CPU Mode\n");
 	    break;
