@@ -400,6 +400,9 @@ static int guest_stream_deinit(struct v3_guest * guest, void * vm_data) {
     struct stream_state * stream = NULL;
     struct stream_state * tmp = NULL;
 
+
+    remove_guest_ctrl(guest, V3_VM_STREAM_CONNECT);
+
     list_for_each_entry_safe(stream, tmp, &(global_streams), stream_node) {
         free_ringbuf(stream->out_ring);
         list_del(&(stream->stream_node));
@@ -407,6 +410,7 @@ static int guest_stream_deinit(struct v3_guest * guest, void * vm_data) {
     }
     
     palacios_free(state);
+
     
     return 0;
 }

@@ -134,6 +134,8 @@ static int guest_init_host_hypercall (struct v3_guest * guest, void ** vm_data) 
 
 
 static int guest_deinit_host_hypercall (struct v3_guest * guest, void * vm_data) {
+    remove_guest_ctrl(guest, V3_VM_HYPERCALL_ADD);
+    remove_guest_ctrl(guest, V3_VM_HYPERCALL_REMOVE);
     return 0;
 }
 

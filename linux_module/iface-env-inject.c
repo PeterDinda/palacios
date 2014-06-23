@@ -132,6 +132,7 @@ static int guest_init_env_inject (struct v3_guest * guest, void ** vm_data) {
 
 static int guest_deinit_env_inject (struct v3_guest * guest, void * vm_data) {
     free_inject_data();
+    remove_guest_ctrl(guest, V3_VM_ENV_INJECT);
     return 0;
 }
 

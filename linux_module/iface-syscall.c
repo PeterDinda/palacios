@@ -79,6 +79,7 @@ static int guest_init_syscall_ctrl (struct v3_guest * guest, void ** vm_data) {
 
 
 static int guest_deinit_syscall_ctrl (struct v3_guest * guest, void * vm_data) {
+    remove_guest_ctrl(guest, V3_VM_SYSCALL_CTRL);
     return 0;
 }
 

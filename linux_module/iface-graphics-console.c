@@ -475,9 +475,13 @@ static int graphics_console_guest_deinit(struct v3_guest * guest, void * vm_data
 
     list_del(&(graphics_cons->gcons_node));
 
+    remove_guest_ctrl(guest, V3_VM_FB_INPUT);
+    remove_guest_ctrl(guest, V3_VM_FB_QUERY);
+
     if (graphics_cons->data) { 
 	palacios_vfree(graphics_cons->data);
     }
+
 
     palacios_free(graphics_cons);
 

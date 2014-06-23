@@ -47,6 +47,7 @@ static int guest_init(struct v3_guest * guest, void ** vm_data) {
 
 static int guest_deinit(struct v3_guest * guest, void * vm_data) {
     
+    remove_guest_ctrl(guest, V3_VM_INJECT_SCRUBBER_MCE);
     return 0;
 }
 

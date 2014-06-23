@@ -195,6 +195,7 @@ guest_init_guard_mods (struct v3_guest * guest, void ** vm_data)
 static int 
 guest_deinit_guard_mods (struct v3_guest * guest, void * vm_data) 
 {
+    remove_guest_ctrl(guest, V3_VM_REGISTER_MOD);
     return 0;
 }
 

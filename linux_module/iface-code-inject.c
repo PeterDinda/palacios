@@ -135,6 +135,7 @@ static int guest_init_code_inject (struct v3_guest * guest, void ** vm_data) {
 
 static int guest_deinit_code_inject (struct v3_guest * guest, void * vm_data) {
     free_inject_data();
+    remove_guest_ctrl(guest, V3_VM_TOPHALF_INJECT);
     return 0;
 }
 

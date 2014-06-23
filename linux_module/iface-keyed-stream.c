@@ -3177,6 +3177,7 @@ static int guest_init_keyed_streams(struct v3_guest * guest, void ** vm_data )
 
 static int guest_deinit_keyed_streams(struct v3_guest * guest, void * vm_data)
 {
+    remove_guest_ctrl(guest, V3_VM_KSTREAM_USER_CONNECT);
 
     return 0;
 }
