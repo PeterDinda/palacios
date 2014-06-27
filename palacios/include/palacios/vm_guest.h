@@ -65,6 +65,10 @@
 struct v3_sym_core_state;
 #endif
 
+#ifdef V3_CONFIG_MEM_TRACK
+#include <palacios/vmm_mem_track.h>
+#endif
+
 
 
 #include <palacios/vmm_config.h>
@@ -147,6 +151,9 @@ struct guest_info {
     struct v3_core_pwrstat_telemetry pwrstat_telem;
 #endif
 
+#ifdef V3_CONFIG_MEM_TRACK
+    struct v3_core_mem_track memtrack_state;
+#endif
     /* struct v3_core_dev_mgr core_dev_mgr; */
 
     void * decoder_state;
@@ -238,6 +245,10 @@ struct v3_vm_info {
 #ifdef V3_CONFIG_TELEMETRY
     uint_t enable_telemetry;
     struct v3_telemetry_state telemetry;
+#endif
+
+#ifdef V3_CONFIG_MEM_TRACK
+    struct v3_vm_mem_track memtrack_state;
 #endif
 
     uint64_t yield_cycle_period;  

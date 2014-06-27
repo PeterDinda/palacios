@@ -401,6 +401,55 @@ int v3_deinit_passthrough_paging_core(struct guest_info *core)
 }
 
 
+int v3_register_passthrough_paging_event_callback(struct v3_vm_info *vm,
+						  int (*callback)(struct guest_info *core, 
+								  struct v3_passthrough_pg_event *,
+								  void      *priv_data),
+						  void *priv_data)
+{
+    struct passthrough_event_callback *ec = V3_Malloc(sizeof(struct passthrough_event_callback));
+    
+    if (!ec) { 
+	PrintError(vm, VCORE_NONE, "Unable to allocate for a nested paging event callback\n");
+	return -1;
+    }
+    
+    ec->callback = callback;
+    ec->priv_data = priv_data;
+    
+    list_add(&(ec->node),&(vm->passthrough_impl.event_callback_list));
+
+    return 0;
+
+}
+
+
+
+int v3_unregister_passthrough_paging_event_callback(struct v3_vm_info *vm,
+						    int (*callback)(struct guest_info *core, 
+								    struct v3_passthrough_pg_event *,
+								    void      *priv_data),
+						    void *priv_data)
+{
+    struct passthrough_event_callback *cb,*temp;
+    
+    list_for_each_entry_safe(cb,
+			     temp,
+			     &(vm->passthrough_impl.event_callback_list),
+			     node) {
+	if ((callback == cb->callback) && (priv_data == cb->priv_data)) { 
+	    list_del(&(cb->node));
+	    V3_Free(cb);
+	    return 0;
+	}
+    }
+    
+    PrintError(vm, VCORE_NONE, "No callback found!\n");
+    
+    return -1;
+}
+
+
 // inline nested paging support for Intel and AMD
 #include "svm_npt.h"
 #include "vmx_npt.h"
@@ -549,4 +598,53 @@ int v3_deinit_nested_paging_core(struct guest_info *core)
   // nothing to do..  probably dealloc?  FIXME PAD
 
   return 0;
+}
+
+
+int v3_register_nested_paging_event_callback(struct v3_vm_info *vm,
+                                            int (*callback)(struct guest_info *core, 
+                                                            struct v3_nested_pg_event *,
+                                                            void      *priv_data),
+                                            void *priv_data)
+{
+    struct nested_event_callback *ec = V3_Malloc(sizeof(struct nested_event_callback));
+
+    if (!ec) { 
+	PrintError(vm, VCORE_NONE, "Unable to allocate for a nested paging event callback\n");
+	return -1;
+    }
+    
+    ec->callback = callback;
+    ec->priv_data = priv_data;
+
+    list_add(&(ec->node),&(vm->nested_impl.event_callback_list));
+
+    return 0;
+
+}
+
+
+
+int v3_unregister_nested_paging_event_callback(struct v3_vm_info *vm,
+                                              int (*callback)(struct guest_info *core, 
+                                                              struct v3_nested_pg_event *,
+                                                              void      *priv_data),
+                                              void *priv_data)
+{
+    struct nested_event_callback *cb,*temp;
+
+    list_for_each_entry_safe(cb,
+			     temp,
+			     &(vm->nested_impl.event_callback_list),
+			     node) {
+	if ((callback == cb->callback) && (priv_data == cb->priv_data)) { 
+	    list_del(&(cb->node));
+	    V3_Free(cb);
+	    return 0;
+	}
+    }
+    
+    PrintError(vm, VCORE_NONE, "No callback found!\n");
+    
+    return -1;
 }

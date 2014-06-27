@@ -53,6 +53,10 @@
 
 #include <palacios/vmm_sprintf.h>
 
+#ifdef V3_CONFIG_MEM_TRACK
+#include <palacios/vmm_mem_track.h>
+#endif 
+
 #ifdef V3_CONFIG_TM_FUNC
 #include <extensions/trans_mem.h>
 #endif
@@ -633,11 +637,16 @@ int v3_svm_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_schedule(info);
 
+#ifdef V3_CONFIG_MEM_TRACK
+    v3_mem_track_entry(info);
+#endif 
+
     // Update timer devices after being in the VM before doing 
     // IRQ updates, so that any interrupts they raise get seen 
     // immediately.
     v3_advance_time(info, NULL);
     v3_update_timers(info);
+
 
     // disable global interrupts for vm state transition
     v3_clgi();
@@ -799,6 +808,7 @@ int v3_svm_enter(struct guest_info * info) {
 
     // reenable global interrupts after vm exit
     v3_stgi();
+
  
     // Conditionally yield the CPU if the timeslice has expired
     v3_schedule(info);
@@ -807,6 +817,7 @@ int v3_svm_enter(struct guest_info * info) {
     // if we're slaved to host time
     v3_advance_time(info, NULL);
     v3_update_timers(info);
+
 
     {
 	int ret = v3_handle_svm_exit(info, exit_code, exit_info1, exit_info2);
@@ -822,6 +833,10 @@ int v3_svm_enter(struct guest_info * info) {
 	/* Check to see if any timeouts have expired */
 	v3_handle_timeouts(info, guest_cycles);
     }
+
+#ifdef V3_CONFIG_MEM_TRACK
+    v3_mem_track_exit(info);
+#endif 
 
 
     return 0;

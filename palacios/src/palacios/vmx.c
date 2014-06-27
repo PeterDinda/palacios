@@ -44,6 +44,10 @@
 #include <palacios/vmx_assist.h>
 #include <palacios/vmx_hw_info.h>
 
+#ifdef V3_CONFIG_MEM_TRACK
+#include <palacios/vmm_mem_track.h>
+#endif 
+
 #ifndef V3_CONFIG_DEBUG_VMX
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -978,6 +982,10 @@ int v3_vmx_enter(struct guest_info * info) {
     // Conditionally yield the CPU if the timeslice has expired
     v3_schedule(info);
 
+#ifdef V3_CONFIG_MEM_TRACK
+    v3_mem_track_entry(info);
+#endif 
+
     // Update timer devices late after being in the VM so that as much 
     // of the time in the VM is accounted for as possible. Also do it before
     // updating IRQ entry state so that any interrupts the timers raise get 
@@ -1177,6 +1185,10 @@ int v3_vmx_enter(struct guest_info * info) {
 	/* Check to see if any timeouts have expired */
 	v3_handle_timeouts(info, guest_cycles);
     }
+
+#ifdef V3_CONFIG_MEM_TRACK
+    v3_mem_track_exit(info);
+#endif 
 
     return 0;
 }

@@ -91,7 +91,7 @@ int v3_register_passthrough_paging_event_callback(struct v3_vm_info *vm,
 
 int v3_unregister_passthrough_paging_event_callback(struct v3_vm_info *vm,
 						    int (*callback)(struct guest_info *core, 
-								    struct v3_passthrough_pg_event,
+								    struct v3_passthrough_pg_event *,
 								    void      *priv_data),
 						    void *priv_data);
 
@@ -155,7 +155,7 @@ int v3_register_nested_paging_event_callback(struct v3_vm_info *vm,
 
 int v3_unregister_nested_paging_event_callback(struct v3_vm_info *vm,
                                               int (*callback)(struct guest_info *core, 
-                                                              struct v3_nested_pg_event,
+                                                              struct v3_nested_pg_event *,
                                                               void      *priv_data),
                                               void *priv_data);
 

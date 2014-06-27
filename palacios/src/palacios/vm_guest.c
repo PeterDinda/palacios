@@ -33,6 +33,9 @@
 #include <palacios/vmm_barrier.h>
 #include <palacios/vmm_debug.h>
 
+#ifdef V3_CONFIG_MEM_TRACK
+#include <palacios/vmm_mem_track.h>
+#endif
 
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
     struct cr0_32 * cr0;
@@ -260,6 +263,10 @@ int v3_init_vm(struct v3_vm_info * vm) {
 	return -1;
     }
 
+#ifdef V3_CONFIG_MEM_TRACK
+    v3_mem_track_init(vm);
+#endif
+
     v3_init_time_vm(vm);
 
     v3_init_vm_debugging(vm);
@@ -370,6 +377,10 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 #endif
 
     v3_deinit_events(vm);
+
+#ifdef V3_CONFIG_MEM_TRACK
+    v3_mem_track_deinit(vm);
+#endif
 
     v3_fw_cfg_deinit(vm);
 

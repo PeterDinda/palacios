@@ -338,6 +338,21 @@ config DEBUG_SWAPPING
         depends on SWAPPING
         help
            Provides debugging output from the swapping system
+
+config MEM_TRACK
+	 bool "Enable memory access tracking"
+	default n
+	depends on SHADOW_PAGING || NESTED_PAGING
+	help
+	   Allows tracking of memory accesses on a page granularity
+
+config DEBUG_MEM_TRACK
+	 bool "Enable memory access tracking debugging" 
+	default n
+	depends on MEM_TRACK
+	help
+	   Provides debugging output for memory access tracking
+
 endmenu
 
 menu "Symbiotic Functions"
