@@ -4,6 +4,13 @@
 #include <stdint.h>
 #include "v3_ctrl.h"
 
+
+#include "memtrack.h"
+
+/**************************/
+/* Access to guest memory */
+/**************************/
+
 struct v3_guest_mem_block {
   void     *gpa;      // guest physical address this region starts at
   void     *cumgpa;   // cumulative GPA in the VM including this block
@@ -82,6 +89,26 @@ int v3_guest_mem_write(struct v3_guest_mem_map *map, void *gpa, uint64_t num_byt
 
 // hash the guest's data
 int v3_guest_mem_hash(struct v3_guest_mem_map *map, void *gpa, uint64_t num_bytes, uint64_t *hash);
+
+
+/********************************/
+/* Guest memory access tracking */
+/********************************/
+
+#include "../linux_module/memtrack.h"
+
+int v3_guest_mem_track_start(char *vmdev, 
+			     v3_mem_track_access_t access, 
+			     v3_mem_track_reset_t reset, 
+			     uint64_t period);
+
+int v3_guest_mem_track_stop(char *vmdev);
+
+v3_mem_track_snapshot *v3_guest_mem_track_snapshot(char *vmdev);
+
+void v3_guest_mem_track_free_snapshot(v3_mem_track_snapshot *snap);
+
+
 
 #endif
 

@@ -32,7 +32,8 @@ BASE_EXECS = 	v3_mem \
 		v3_send \
 		v3_receive \
 		v3_pci \
-		v3_guest_mem_access
+		v3_guest_mem_access \
+		v3_guest_mem_track
 
 
 #
@@ -78,7 +79,7 @@ ifeq ($(STATIC),1)
   CFLAGS += -static 
 endif
 
-CFLAGS += -I../linux_module
+CFLAGS += -I../linux_module -I../palacios/include/
 
 CC = gcc -g
 AR = ar
@@ -164,15 +165,20 @@ v3_user_keyed_stream_file : v3_user_keyed_stream_file.c libv3_user_keyed_stream.
 	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_keyed_stream -o $@
 
 
-# guest memory access by mmap and example
+# guest memory access by mmap 
+# guest memory reference tracking via mem_track interface
+# examples
 #
 libv3_guest_mem.a : v3_guest_mem.c v3_guest_mem.h v3_ctrl.h
 	$(CC) $(CFLAGS) -c v3_guest_mem.c 
 	$(AR) ruv libv3_guest_mem.a v3_guest_mem.o
 	rm -f v3_guest_mem.o
 
-v3_guest_mem_access : v3_guest_mem_access.c libv3_guest_mem.a
-	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -o $@
+v3_guest_mem_access : v3_guest_mem_access.c libv3_guest_mem.a libv3_ctrl.a
+	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -lv3_ctrl -o $@
+
+v3_guest_mem_track : v3_guest_mem_track.c libv3_guest_mem.a libv3_ctrl.a
+	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -lv3_ctrl -o $@
 
 
 #

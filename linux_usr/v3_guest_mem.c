@@ -243,3 +243,128 @@ int v3_guest_mem_hash(struct v3_guest_mem_map *map, void *gpa, uint64_t num_byte
     return v3_guest_mem_apply(do_hash,map,gpa,num_bytes,hash);
 }
 
+
+
+int v3_guest_mem_track_start(char *vmdev, 
+			     v3_mem_track_access_t access, 
+			     v3_mem_track_reset_t reset, 
+			     uint64_t period)
+{
+    struct v3_mem_track_cmd cmd;
+
+    cmd.request=V3_MEM_TRACK_START;
+    cmd.config.access_type=access;
+    cmd.config.reset_type=reset;
+    cmd.config.period=period;
+
+    return v3_vm_ioctl(vmdev,V3_VM_MEM_TRACK_CMD,&cmd);
+
+}
+
+int v3_guest_mem_track_stop(char *vmdev)
+{
+    struct v3_mem_track_cmd cmd;
+
+    cmd.request=V3_MEM_TRACK_STOP;
+
+    return v3_vm_ioctl(vmdev,V3_VM_MEM_TRACK_CMD,&cmd);
+
+}
+
+
+#define CEIL_DIV(x,y) (((x)/(y)) + !!((x)%(y)))
+
+static uint8_t *alloc_bitmap(uint64_t num_pages) 
+{
+    uint8_t *b;
+    
+    if (!(b =  malloc(CEIL_DIV(num_pages,8)))) {
+	return NULL;
+    }
+    
+    memset(b,0,CEIL_DIV(num_pages,8));
+    
+    return b;
+}
+
+
+static void free_bitmap(uint8_t *b)
+{
+    if (b) { 
+	free(b);
+    }
+
+}
+
+
+void v3_guest_mem_track_free_snapshot(v3_mem_track_snapshot *s)
+{
+    int i;
+
+    if (s) {
+	for (i=0;i<s->num_cores;i++) {
+	    free_bitmap(s->core[i].access_bitmap);
+	}
+	free(s);
+    }
+}
+
+
+static v3_mem_track_snapshot *alloc_snapshot(uint64_t num_cores, uint64_t num_pages) 
+{
+    int i;
+    v3_mem_track_snapshot *s;
+
+    s = malloc(sizeof(v3_mem_track_snapshot) + sizeof(struct v3_core_mem_track) * num_cores);
+    
+    if (!s) { 
+	return NULL;
+    }
+
+    memset(s,0,sizeof(v3_mem_track_snapshot) + sizeof(struct v3_core_mem_track) * num_cores);
+    
+    s->num_cores=num_cores;
+
+    for (i=0;i<num_cores;i++) {
+	if (!(s->core[i].access_bitmap = alloc_bitmap(num_pages))) { 
+	    v3_guest_mem_track_free_snapshot(s);
+	    return NULL;
+	}
+	s->core[i].num_pages=num_pages;
+    }
+
+    return s;
+}
+
+
+v3_mem_track_snapshot *v3_guest_mem_track_snapshot(char *vmdev)
+{
+    struct v3_mem_track_sizes size;
+    v3_mem_track_snapshot *s;
+    int rc;
+
+    rc = v3_vm_ioctl(vmdev,V3_VM_MEM_TRACK_SIZE,&size);
+
+    if (rc) { 
+	return 0;
+    }
+
+    //printf("returned size num_cores=%u, num_pages=%llu",size.num_cores,size.num_pages);
+
+    // allocate a snapshot;
+    if (!(s=alloc_snapshot(size.num_cores,size.num_pages))) { 
+	return 0;
+    }
+
+    
+
+    if (v3_vm_ioctl(vmdev,V3_VM_MEM_TRACK_SNAP,s)) { 
+	v3_guest_mem_track_free_snapshot(s);
+	return 0;
+    }
+
+    return s;
+}
+    
+
+

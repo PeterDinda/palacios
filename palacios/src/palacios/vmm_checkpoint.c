@@ -490,7 +490,7 @@ static struct mem_migration_state *start_page_tracking(struct v3_vm_info *vm)
 	v3_invalidate_shadow_pts(&(vm->cores[i]));
       }
     } else if (vm->cores[0].shdw_pg_mode==NESTED_PAGING) { 
-      //v3_register_nested_paging_event_callback(vm,nested_paging_callback,m);
+	//v3_register_nested_paging_event_callback(vm,nested_paging_callback,m);
       
       for (i=0;i<vm->num_cores;i++) {
 	//v3_invalidate_nested_addr_range(&(vm->cores[i]),0,vm->mem_size-1);
