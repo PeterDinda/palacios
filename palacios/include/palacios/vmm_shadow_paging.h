@@ -52,6 +52,7 @@ struct v3_shdw_impl_state {
     struct v3_shdw_pg_impl * current_impl;
     void * impl_data;
 
+    v3_rw_lock_t     event_callback_lock;
     struct list_head event_callback_list;
 
 };

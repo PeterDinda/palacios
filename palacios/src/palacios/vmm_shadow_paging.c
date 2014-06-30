@@ -74,19 +74,26 @@ static int shdw_pg_eq_fn(addr_t key1, addr_t key2) {
 
 static int have_callbacks(struct guest_info *core)
 {
+    // lock acquistion unnecessary
+    // caller will acquire the lock before *iterating* through the list
+    // so any race will be resolved then
     return !list_empty(&(core->vm_info->shdw_impl.event_callback_list));
 }
 
 static void dispatch_event(struct guest_info *core, struct v3_shdw_pg_event *event)
 {
     struct event_callback *cb,*temp;
-    
+
+    v3_read_lock(&(core->vm_info->shdw_impl.event_callback_lock));
+
     list_for_each_entry_safe(cb,
 			     temp,
 			     &(core->vm_info->shdw_impl.event_callback_list),
 			     node) {
 	cb->callback(core,event,cb->priv_data);
     }
+
+    v3_read_unlock(&(core->vm_info->shdw_impl.event_callback_lock));
 }
 
 
@@ -234,6 +241,7 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
     }
 
     INIT_LIST_HEAD(&(impl_state->event_callback_list));
+    v3_rw_lock_init(&(impl_state->event_callback_lock));
    
     impl_state->current_impl = impl;
 
@@ -250,6 +258,7 @@ int v3_init_shdw_impl(struct v3_vm_info * vm) {
 int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
     struct v3_shdw_pg_impl * impl = vm->shdw_impl.current_impl;
     struct event_callback *cb,*temp;
+    addr_t flags;
 
     if (impl == NULL) {
 	// Shadow paging not implemented
@@ -261,6 +270,8 @@ int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
 	return -1;
     }
 
+    flags=v3_write_lock_irqsave(&(vm->shdw_impl.event_callback_lock));
+
     list_for_each_entry_safe(cb,
 			     temp,
 			     &(vm->shdw_impl.event_callback_list),
@@ -268,6 +279,10 @@ int v3_deinit_shdw_impl(struct v3_vm_info * vm) {
 	list_del(&(cb->node));
 	V3_Free(cb);
     }
+
+    v3_write_unlock_irqrestore(&(vm->shdw_impl.event_callback_lock),flags);
+
+    v3_rw_lock_deinit(&(vm->shdw_impl.event_callback_lock));
 
     return 0;
 }
@@ -478,6 +493,7 @@ int v3_register_shadow_paging_event_callback(struct v3_vm_info *vm,
 					     void *priv_data)
 {
     struct event_callback *ec = V3_Malloc(sizeof(struct event_callback));
+    addr_t flags;
 
     if (!ec) { 
 	PrintError(vm, VCORE_NONE, "Unable to allocate for a shadow paging event callback\n");
@@ -487,7 +503,9 @@ int v3_register_shadow_paging_event_callback(struct v3_vm_info *vm,
     ec->callback = callback;
     ec->priv_data = priv_data;
 
+    flags=v3_write_lock_irqsave(&(vm->shdw_impl.event_callback_lock));
     list_add(&(ec->node),&(vm->shdw_impl.event_callback_list));
+    v3_write_unlock_irqrestore(&(vm->shdw_impl.event_callback_lock),flags);
 
     return 0;
 
@@ -500,6 +518,9 @@ int v3_unregister_shadow_paging_event_callback(struct v3_vm_info *vm,
 					       void *priv_data)
 {
     struct event_callback *cb,*temp;
+    addr_t flags;
+
+    flags=v3_write_lock_irqsave(&(vm->shdw_impl.event_callback_lock));
 
     list_for_each_entry_safe(cb,
 			     temp,
@@ -507,11 +528,14 @@ int v3_unregister_shadow_paging_event_callback(struct v3_vm_info *vm,
 			     node) {
 	if ((callback == cb->callback) && (priv_data == cb->priv_data)) { 
 	    list_del(&(cb->node));
+	    v3_write_unlock_irqrestore(&(vm->shdw_impl.event_callback_lock),flags);
 	    V3_Free(cb);
 	    return 0;
 	}
     }
     
+    v3_write_unlock_irqrestore(&(vm->shdw_impl.event_callback_lock),flags);
+
     PrintError(vm, VCORE_NONE, "No callback found!\n");
     
     return -1;

@@ -37,6 +37,7 @@ struct v3_passthrough_impl_state {
     // currently there is only a single implementation
     // that internally includes SVM and VMX support
     // The externally visible state is just the callbacks
+    v3_rw_lock_t     event_callback_lock;
     struct list_head event_callback_list;
 };
 
@@ -106,6 +107,7 @@ struct v3_nested_impl_state {
     // currently there is only a single implementation
     // that internally includes SVM and VMX support
     // The externally visible state is just the callbacks
+    v3_rw_lock_t     event_callback_lock;
     struct list_head event_callback_list;
 };
 

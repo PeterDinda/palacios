@@ -99,19 +99,27 @@ struct passthrough_event_callback {
 
 static int have_passthrough_callbacks(struct guest_info *core)
 {
+    // lock acquistion unnecessary
+    // caller will acquire the lock before *iterating* through the list
+    // so any race will be resolved then
     return !list_empty(&(core->vm_info->passthrough_impl.event_callback_list));
 }
 
 static void dispatch_passthrough_event(struct guest_info *core, struct v3_passthrough_pg_event *event)
 {
     struct passthrough_event_callback *cb,*temp;
-    
+ 
+    v3_read_lock(&(core->vm_info->passthrough_impl.event_callback_lock));
+   
     list_for_each_entry_safe(cb,
 			     temp,
 			     &(core->vm_info->passthrough_impl.event_callback_list),
 			     node) {
 	cb->callback(core,event,cb->priv_data);
     }
+
+    v3_read_unlock(&(core->vm_info->passthrough_impl.event_callback_lock));
+
 }
 
 struct nested_event_callback {
@@ -124,6 +132,9 @@ struct nested_event_callback {
 
 static int have_nested_callbacks(struct guest_info *core)
 {
+    // lock acquistion unnecessary
+    // caller will acquire the lock before *iterating* through the list
+    // so any race will be resolved then
     return !list_empty(&(core->vm_info->nested_impl.event_callback_list));
 }
 
@@ -131,12 +142,16 @@ static void dispatch_nested_event(struct guest_info *core, struct v3_nested_pg_e
 {
     struct nested_event_callback *cb,*temp;
     
+    v3_read_lock(&(core->vm_info->nested_impl.event_callback_lock));
+
     list_for_each_entry_safe(cb,
 			     temp,
 			     &(core->vm_info->nested_impl.event_callback_list),
 			     node) {
 	cb->callback(core,event,cb->priv_data);
     }
+
+    v3_read_unlock(&(core->vm_info->nested_impl.event_callback_lock));
 }
 
 
@@ -370,12 +385,16 @@ int v3_invalidate_passthrough_addr_range(struct guest_info * info,
 int v3_init_passthrough_paging(struct v3_vm_info *vm)
 {
   INIT_LIST_HEAD(&(vm->passthrough_impl.event_callback_list));
+  v3_rw_lock_init(&(vm->passthrough_impl.event_callback_lock));
   return 0;
 }
 
 int v3_deinit_passthrough_paging(struct v3_vm_info *vm)
 {
   struct passthrough_event_callback *cb,*temp;
+  addr_t flags;
+  
+  flags=v3_write_lock_irqsave(&(vm->passthrough_impl.event_callback_lock));
   
   list_for_each_entry_safe(cb,
 			   temp,
@@ -384,6 +403,10 @@ int v3_deinit_passthrough_paging(struct v3_vm_info *vm)
     list_del(&(cb->node));
     V3_Free(cb);
   }
+
+  v3_write_unlock_irqrestore(&(vm->passthrough_impl.event_callback_lock),flags);
+
+  v3_rw_lock_deinit(&(vm->passthrough_impl.event_callback_lock));
   
   return 0;
 }
@@ -408,6 +431,7 @@ int v3_register_passthrough_paging_event_callback(struct v3_vm_info *vm,
 						  void *priv_data)
 {
     struct passthrough_event_callback *ec = V3_Malloc(sizeof(struct passthrough_event_callback));
+    addr_t flags;
     
     if (!ec) { 
 	PrintError(vm, VCORE_NONE, "Unable to allocate for a nested paging event callback\n");
@@ -417,7 +441,9 @@ int v3_register_passthrough_paging_event_callback(struct v3_vm_info *vm,
     ec->callback = callback;
     ec->priv_data = priv_data;
     
+    flags=v3_write_lock_irqsave(&(vm->passthrough_impl.event_callback_lock));
     list_add(&(ec->node),&(vm->passthrough_impl.event_callback_list));
+    v3_write_unlock_irqrestore(&(vm->passthrough_impl.event_callback_lock),flags);
 
     return 0;
 
@@ -432,7 +458,10 @@ int v3_unregister_passthrough_paging_event_callback(struct v3_vm_info *vm,
 						    void *priv_data)
 {
     struct passthrough_event_callback *cb,*temp;
-    
+    addr_t flags;
+
+    flags=v3_write_lock_irqsave(&(vm->passthrough_impl.event_callback_lock));
+
     list_for_each_entry_safe(cb,
 			     temp,
 			     &(vm->passthrough_impl.event_callback_list),
@@ -440,10 +469,13 @@ int v3_unregister_passthrough_paging_event_callback(struct v3_vm_info *vm,
 	if ((callback == cb->callback) && (priv_data == cb->priv_data)) { 
 	    list_del(&(cb->node));
 	    V3_Free(cb);
+	    v3_write_unlock_irqrestore(&(vm->passthrough_impl.event_callback_lock),flags);
 	    return 0;
 	}
     }
     
+    v3_write_unlock_irqrestore(&(vm->passthrough_impl.event_callback_lock),flags);
+
     PrintError(vm, VCORE_NONE, "No callback found!\n");
     
     return -1;
@@ -565,6 +597,7 @@ int v3_invalidate_nested_addr_range(struct guest_info * info,
 int v3_init_nested_paging(struct v3_vm_info *vm)
 {
   INIT_LIST_HEAD(&(vm->nested_impl.event_callback_list));
+  v3_rw_lock_init(&(vm->nested_impl.event_callback_lock));
   return 0;
 }
 
@@ -581,7 +614,10 @@ int v3_init_nested_paging_core(struct guest_info *core, void *hwinfo)
 int v3_deinit_nested_paging(struct v3_vm_info *vm)
 {
   struct nested_event_callback *cb,*temp;
+  addr_t flags;
   
+  flags=v3_write_lock_irqsave(&(vm->nested_impl.event_callback_lock));
+    
   list_for_each_entry_safe(cb,
 			   temp,
 			   &(vm->nested_impl.event_callback_list),
@@ -590,6 +626,10 @@ int v3_deinit_nested_paging(struct v3_vm_info *vm)
     V3_Free(cb);
   }
   
+  v3_write_unlock_irqrestore(&(vm->nested_impl.event_callback_lock),flags);
+  
+  v3_rw_lock_deinit(&(vm->nested_impl.event_callback_lock));
+
   return 0;
 }
 
@@ -608,6 +648,7 @@ int v3_register_nested_paging_event_callback(struct v3_vm_info *vm,
                                             void *priv_data)
 {
     struct nested_event_callback *ec = V3_Malloc(sizeof(struct nested_event_callback));
+    addr_t flags;
 
     if (!ec) { 
 	PrintError(vm, VCORE_NONE, "Unable to allocate for a nested paging event callback\n");
@@ -617,7 +658,9 @@ int v3_register_nested_paging_event_callback(struct v3_vm_info *vm,
     ec->callback = callback;
     ec->priv_data = priv_data;
 
+    flags=v3_write_lock_irqsave(&(vm->nested_impl.event_callback_lock));
     list_add(&(ec->node),&(vm->nested_impl.event_callback_list));
+    v3_write_unlock_irqrestore(&(vm->nested_impl.event_callback_lock),flags);
 
     return 0;
 
@@ -632,6 +675,9 @@ int v3_unregister_nested_paging_event_callback(struct v3_vm_info *vm,
                                               void *priv_data)
 {
     struct nested_event_callback *cb,*temp;
+    addr_t flags;
+
+    flags=v3_write_lock_irqsave(&(vm->nested_impl.event_callback_lock));
 
     list_for_each_entry_safe(cb,
 			     temp,
@@ -640,10 +686,13 @@ int v3_unregister_nested_paging_event_callback(struct v3_vm_info *vm,
 	if ((callback == cb->callback) && (priv_data == cb->priv_data)) { 
 	    list_del(&(cb->node));
 	    V3_Free(cb);
+	    v3_write_unlock_irqrestore(&(vm->nested_impl.event_callback_lock),flags);
 	    return 0;
 	}
     }
     
+    v3_write_unlock_irqrestore(&(vm->nested_impl.event_callback_lock),flags);
+
     PrintError(vm, VCORE_NONE, "No callback found!\n");
     
     return -1;
