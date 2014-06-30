@@ -89,15 +89,15 @@ static int memtrack_snap(struct v3_guest *guest,
     header_size = (uint64_t)&(temp.core[0]) - (uint64_t)&temp;
     core_header_size = (uint64_t)&(ctemp.access_bitmap) - (uint64_t)&ctemp;
 
-    INFO("offset_to_num_cores=%llu header_size=%llu core_header_size=%llu\n",
-	 offset_to_num_cores, header_size, core_header_size);
+    //    INFO("offset_to_num_cores=%llu header_size=%llu core_header_size=%llu\n",
+    //	 offset_to_num_cores, header_size, core_header_size);
     
     if (copy_from_user(&num_cores,((void __user *)arg) + offset_to_num_cores,sizeof(num_cores))) { 
 	ERROR("palacios: cannot copy number of cores from user\n");
 	goto fail;
     }
     
-    INFO("num_cores=%u",num_cores);
+    //INFO("num_cores=%u",num_cores);
 
     if (!(user_snap=palacios_alloc(sizeof(v3_mem_track_snapshot) + num_cores * sizeof(struct v3_core_mem_track)))) {
 	ERROR("palacios: cannot allocate memory for copying user snapshot\n");
@@ -116,8 +116,8 @@ static int memtrack_snap(struct v3_guest *guest,
 	goto fail;
     }
 
-    INFO("snapshot: numcores=%u, core[0].num_pages=%llu, request_numcores=%u\n", 
-	 sys_snap->num_cores, sys_snap->core[0].num_pages, num_cores);
+    //INFO("snapshot: numcores=%u, core[0].num_pages=%llu, request_numcores=%u\n", 
+    // sys_snap->num_cores, sys_snap->core[0].num_pages, num_cores);
 
     // Copy the meta data
     if (copy_to_user((void __user *)arg, sys_snap, header_size)) {

@@ -341,12 +341,14 @@ v3_mem_track_snapshot *v3_mem_track_take_snapshot(struct v3_vm_info *vm)
 	s->core[i].num_pages=vm->cores[i].memtrack_state.num_pages;
 	memcpy(s->core[i].access_bitmap,vm->cores[i].memtrack_state.access_bitmap,CEIL_DIV(vm->cores[i].memtrack_state.num_pages,8));
 	PrintDebug(vm,VCORE_NONE,"memtrack: copied %llu bytes\n",CEIL_DIV(vm->cores[i].memtrack_state.num_pages,8));
+#ifdef V3_CONFIG_DEBUG_MEM_TRACK
 	uint64_t j, sum;
 	sum=0;
 	for (j=0;j<CEIL_DIV(vm->cores[i].memtrack_state.num_pages,8);j++) {
-	    sum+=!!vm->cores[i].memtrack_state.access_bitmap[i];
+	    sum+=!!vm->cores[i].memtrack_state.access_bitmap[j];
 	}
 	PrintDebug(vm,VCORE_NONE,"memtrack: have %llu nonzero bytes\n",sum);
+#endif
     }
     
     return s;
