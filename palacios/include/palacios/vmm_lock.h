@@ -23,18 +23,48 @@
 #ifdef __V3VEE__
 #include <palacios/vmm_types.h>
 
+// Exclusive locks
+
 typedef addr_t v3_lock_t;
 
 int v3_lock_init(v3_lock_t * lock);
 void v3_lock_deinit(v3_lock_t * lock);
 
 
+// Interreupts unaffected
 void v3_lock(v3_lock_t lock);
 void v3_unlock(v3_lock_t lock);
 
-
+// Interrupts disabled
 addr_t v3_lock_irqsave(v3_lock_t lock);
 void v3_unlock_irqrestore(v3_lock_t lock, addr_t irq_state);
+
+
+// Reader-writer locks
+
+typedef struct v3_rw_lock {
+    v3_lock_t lock;
+    sint64_t  reader_count;
+} v3_rw_lock_t;
+
+int v3_rw_lock_init(v3_rw_lock_t *lock);
+void v3_rw_lock_deinit(v3_rw_lock_t *lock);
+
+// A read lock is not exclusive and does not
+// affect interrupts
+void v3_read_lock(v3_rw_lock_t *lock);
+void v3_read_unlock(v3_rw_lock_t *lock);
+
+// A write lock is exclusive and may affect
+// interrupts
+
+// leaves interrupt state alone
+void v3_write_lock(v3_rw_lock_t *lock);
+void v3_read_unlock(v3_rw_lock_t *lock);
+
+// turn interrupts off
+addr_t v3_write_lock_irqsave(v3_rw_lock_t *lock);
+void v3_write_unlock_irqrestore(v3_rw_lock_t *lock, addr_t irq_state);
 
 
 #endif

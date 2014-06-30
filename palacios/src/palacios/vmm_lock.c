@@ -57,3 +57,79 @@ addr_t v3_lock_irqsave(v3_lock_t lock) {
 void v3_unlock_irqrestore(v3_lock_t lock, addr_t irq_state) {
     os_hooks->mutex_unlock_irqrestore((void *)lock,(void*)irq_state);
 }
+
+
+int v3_rw_lock_init(v3_rw_lock_t *lock)
+{
+    lock->reader_count=0;
+    return v3_lock_init(&(lock->lock));
+}
+
+void v3_rw_lock_deinit(v3_rw_lock_t *lock)
+{
+    v3_lock_deinit(&(lock->lock));
+    lock->reader_count=0;
+}
+
+void v3_read_lock(v3_rw_lock_t *lock)
+{
+    addr_t flags;
+
+    flags=v3_lock_irqsave(lock->lock);
+    lock->reader_count++;
+    v3_unlock_irqrestore(lock->lock,flags);
+    // readers can come in after us, writers cannot
+}
+void v3_read_unlock(v3_rw_lock_t *lock)
+{
+    addr_t flags;
+
+    flags=v3_lock_irqsave(lock->lock);
+    lock->reader_count--;
+    v3_unlock_irqrestore(lock->lock,flags);
+    // readers can come in after us, and also writers if reader_count==0
+}
+
+void v3_write_lock(v3_rw_lock_t *lock)
+{
+    // a less hideous implementation is possible, of course...
+    while (1) { 
+	v3_lock(lock->lock);
+	if (!(lock->reader_count)) { 
+	    break;
+	}
+	v3_unlock(lock->lock);
+	V3_Yield();
+    }
+    // holding lock now - reader or writer cannot come in after us
+}
+
+addr_t v3_write_lock_irqsave(v3_rw_lock_t *lock)
+{
+    addr_t flags;
+
+    while (1) { 
+	flags=v3_lock_irqsave(lock->lock);
+	if (!(lock->reader_count)) { 
+	    break;
+	}
+	v3_unlock_irqrestore(lock->lock,flags);
+	V3_Yield();
+    }
+    // holding lock now with interrupts off - reader or writer canot come in after us
+    return flags;
+}
+
+void v3_write_unlock(v3_rw_lock_t *lock) 
+{
+    // I am already holding this lock
+    v3_unlock(lock->lock);
+    // readers/writers can now come in
+}
+
+void v3_write_unlock_irqrestore(v3_rw_lock_t *lock, addr_t irq_state)
+{
+    // I am already holding this lock with interrupts off
+    v3_unlock_irqrestore(lock->lock,irq_state);
+    // readers/writers can now come in
+}
