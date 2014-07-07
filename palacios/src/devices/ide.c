@@ -292,10 +292,12 @@ static inline int is_lba_enabled(struct ide_channel * channel) {
 static void ide_raise_irq(struct ide_internal * ide, struct ide_channel * channel) {
     if (channel->ctrl_reg.irq_disable == 0) {
 
-	//PrintError(info->vm_info, info, "Raising IDE Interrupt %d\n", channel->irq);
+	PrintDebug(ide->vm,VCORE_NONE, "Raising IDE Interrupt %d\n", channel->irq);
 
         channel->dma_status.int_gen = 1;
         v3_raise_irq(ide->vm, channel->irq);
+    } else {
+	PrintDebug(ide->vm,VCORE_NONE, "IDE Interrupt %d cannot be raised as irq is disabled on channel\n",channel->irq);
     }
 }
 
@@ -1469,6 +1471,9 @@ static void init_channel(struct ide_channel * channel) {
     int i = 0;
 
     channel->error_reg.val = 0x01;
+
+    //** channel->features = 0x0;
+
     channel->drive_head.val = 0x00;
     channel->status.val = 0x00;
     channel->cmd_reg = 0x00;
@@ -1498,18 +1503,16 @@ static int pci_config_update(struct pci_device * pci_dev, uint32_t reg_num, void
 }
 
 static int init_ide_state(struct ide_internal * ide) {
-    int i;
 
     /* 
      * Check if the PIIX 3 actually represents both IDE channels in a single PCI entry 
      */
 
-    for (i = 0; i < 1; i++) {
-	init_channel(&(ide->channels[i]));
+    init_channel(&(ide->channels[0]));
+    ide->channels[0].irq = PRI_DEFAULT_IRQ ;
 
-	// JRL: this is a terrible hack...
-	ide->channels[i].irq = PRI_DEFAULT_IRQ + i;
-    }
+    init_channel(&(ide->channels[1]));
+    ide->channels[1].irq = SEC_DEFAULT_IRQ ;
 
 
     return 0;
