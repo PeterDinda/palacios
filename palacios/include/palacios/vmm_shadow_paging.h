@@ -28,7 +28,7 @@
 #include <palacios/vmm_hashtable.h>
 #include <palacios/vmm_list.h>
 #include <palacios/vmm_msr.h>
-
+#include <palacios/vmm_lock.h>
 #include <palacios/vmm_config.h>
 
 

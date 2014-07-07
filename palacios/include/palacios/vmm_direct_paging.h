@@ -26,6 +26,7 @@
 #include <palacios/vmm_mem.h>
 #include <palacios/vmm_paging.h>
 #include <palacios/vmm_list.h>
+#include <palacios/vmm_lock.h>
  
 
 /**********************************
