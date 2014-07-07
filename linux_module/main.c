@@ -684,8 +684,13 @@ static void __exit v3_exit(void) {
 
     /* Stop and free any running VMs */ 
     for (i = 0; i < MAX_VMS; i++) {
-	if (guest_map[i] != NULL) {
-                guest = (struct v3_guest *)guest_map[i];
+	        if (guest_map[i] != NULL) {
+	            guest = (struct v3_guest *)(guest_map[i]);
+
+		if (!guest->v3_ctx) { 
+		    ERROR("Orphan VM detected and skipped: index=%d name=%s\n", i, guest->name);
+		    continue;
+		}
 
                 if (v3_stop_vm(guest->v3_ctx) < 0) 
                         ERROR("Couldn't stop VM %d\n", i);

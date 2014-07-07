@@ -573,6 +573,7 @@ pdpe32pae_t * create_passthrough_pts_32PAE(struct guest_info * guest_info);
 pml4e64_t * create_passthrough_pts_64(struct guest_info * info);
 
 
+// note that these take host virtual addresses  
 void delete_page_tables_32(pde32_t * pde);
 void delete_page_tables_32pae(pdpe32pae_t * pdpe);
 void delete_page_tables_64(pml4e64_t *  pml4);

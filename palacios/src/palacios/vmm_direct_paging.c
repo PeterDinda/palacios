@@ -200,7 +200,9 @@ int v3_free_passthrough_pts(struct guest_info * core) {
 	case LONG:
 	case LONG_32_COMPAT:
 	    // Long mode will only use 32PAE page tables...
-	    delete_page_tables_32pae((pdpe32pae_t *)V3_VAddr((void *)(core->direct_map_pt)));
+	    if (core->direct_map_pt) { 
+		delete_page_tables_32pae((pdpe32pae_t *)V3_VAddr((void *)(core->direct_map_pt))); 
+	    }
 	    break;
 	default:
 	    PrintError(core->vm_info, core, "Unknown CPU Mode\n");

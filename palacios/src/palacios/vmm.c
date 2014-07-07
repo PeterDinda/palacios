@@ -345,6 +345,11 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     uint32_t avail_cores = 0;
     int vcore_id = 0;
 
+    if (!vm) { 
+        PrintError(VM_NONE, VCORE_NONE, "Asked to start nonexistent VM\n");
+	return -1;
+    }
+
     if (vm->run_state != VM_STOPPED) {
         PrintError(vm, VCORE_NONE, "VM has already been launched (state=%d)\n", (int)vm->run_state);
         return -1;
@@ -449,6 +454,11 @@ int v3_reset_vm_core(struct guest_info * core, addr_t rip) {
 int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
     struct guest_info * core = NULL;
 
+    if (!vm) { 
+        PrintError(VM_NONE, VCORE_NONE, "Asked to move core of nonexistent VM\n");
+	return -1;
+    }
+
     if ((vcore_id < 0) || (vcore_id >= vm->num_cores)) {
         PrintError(vm, VCORE_NONE, "Attempted to migrate invalid virtual core (%d)\n", vcore_id);
 	return -1;
@@ -525,6 +535,11 @@ int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu) {
     int num_pages;
     void *old_hpa;
     int i;
+
+    if (!vm) { 
+        PrintError(VM_NONE, VCORE_NONE, "Asked to move memory of nonexistent VM\n");
+	return -1;
+    }
 
     old_node = v3_numa_gpa_to_node(vm,(addr_t)gpa);
 
@@ -634,6 +649,11 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
     struct guest_info * running_core;
 
+    if (!vm) { 
+        PrintError(VM_NONE, VCORE_NONE, "Asked to stop nonexistent VM\n");
+	return -1;
+    }
+
     if ((vm->run_state != VM_RUNNING) && 
 	(vm->run_state != VM_SIMULATING)) {
         PrintError(vm, VCORE_NONE,"Tried to stop VM in invalid runstate (%d)\n", vm->run_state);
@@ -675,6 +695,11 @@ int v3_stop_vm(struct v3_vm_info * vm) {
 
 int v3_pause_vm(struct v3_vm_info * vm) {
 
+    if (!vm) { 
+        PrintError(VM_NONE, VCORE_NONE, "Asked to pause nonexistent VM\n");
+	return -1;
+    }
+
     if (vm->run_state != VM_RUNNING) {
 	PrintError(vm, VCORE_NONE,"Tried to pause a VM that was not running\n");
 	return -1;
@@ -689,6 +714,11 @@ int v3_pause_vm(struct v3_vm_info * vm) {
 
 
 int v3_continue_vm(struct v3_vm_info * vm) {
+
+    if (!vm) { 
+        PrintError(VM_NONE, VCORE_NONE, "Asked to continue nonexistent VM\n");
+	return -1;
+    }
 
     if (vm->run_state != VM_PAUSED) {
 	PrintError(vm, VCORE_NONE,"Tried to continue a VM that was not paused\n");
@@ -728,6 +758,11 @@ int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs) {
     int all_blocked = 0;
     uint64_t cycles = 0;
     uint64_t cpu_khz = V3_CPU_KHZ();
+
+    if (!vm) { 
+        PrintError(VM_NONE, VCORE_NONE, "Asked to simulate nonexistent VM\n");
+	return -1;
+    }
 
     if (vm->run_state != VM_PAUSED) {
 	PrintError(vm, VCORE_NONE,"VM must be paused before simulation begins\n");
@@ -811,9 +846,17 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 		    struct v3_vm_mem_state   *mem)
 {
     uint32_t i;
-    uint32_t numcores = core->num_vcores > vm->num_cores ? vm->num_cores : core->num_vcores;
-    uint32_t numregions = mem->num_regions > vm->mem_map.num_base_regions ? vm->mem_map.num_base_regions : mem->num_regions;
+    uint32_t numcores;
+    uint32_t numregions; 
     extern uint64_t v3_mem_block_size;
+
+    if (!vm || !base || !core || !mem)  { 
+        PrintError(VM_NONE, VCORE_NONE, "Invalid rquest to v3_get_state_vm\n");
+	return -1;
+    }
+
+    numcores = core->num_vcores > vm->num_cores ? vm->num_cores : core->num_vcores;
+    numregions = mem->num_regions > vm->mem_map.num_base_regions ? vm->mem_map.num_base_regions : mem->num_regions;
 
     switch (vm->run_state) { 
 	case VM_INVALID: base->state = V3_VM_INVALID; break;
@@ -882,22 +925,38 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 #include <palacios/vmm_checkpoint.h>
 
 int v3_save_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts) {
-  return v3_chkpt_save_vm(vm, store, url, opts);
+    if (!vm || !store || !url) {
+	PrintError(VM_NONE,VCORE_NONE, "Incorrect arguemnts for v3_save_vm\n");
+	return -1;
+    }
+    return v3_chkpt_save_vm(vm, store, url, opts);
 }
 
 
 int v3_load_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts) {
-  return v3_chkpt_load_vm(vm, store, url, opts);
+    if (!vm || !store || !url) {
+	PrintError(VM_NONE,VCORE_NONE, "Incorrect arguemnts for v3_load_vm\n");
+	return -1;
+    }
+    return v3_chkpt_load_vm(vm, store, url, opts);
 }
 
 #ifdef V3_CONFIG_LIVE_MIGRATION
 int v3_send_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts) {
-  return v3_chkpt_send_vm(vm, store, url, opts);
+    if (!vm || !store || !url) {
+	PrintError(VM_NONE,VCORE_NONE, "Incorrect arguemnts for v3_send_vm\n");
+	return -1;
+    }
+    return v3_chkpt_send_vm(vm, store, url, opts);
 }
 
 
 int v3_receive_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_options_t opts) {
-  return v3_chkpt_receive_vm(vm, store, url, opts);
+    if (!vm || !store || !url) {
+	PrintError(VM_NONE,VCORE_NONE, "Incorrect arguemnts for v3_receive_vm\n");
+	return -1;
+    }
+    return v3_chkpt_receive_vm(vm, store, url, opts);
 }
 #endif
 
@@ -907,6 +966,11 @@ int v3_receive_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_opt
 int v3_free_vm(struct v3_vm_info * vm) {
     int i = 0;
     // deinitialize guest (free memory, etc...)
+
+    if (!vm) { 
+        PrintError(VM_NONE, VCORE_NONE, "Asked to free nonexistent VM\n");
+	return -1;
+    }
 
     if ((vm->run_state != VM_STOPPED) &&
 	(vm->run_state != VM_ERROR)) {
