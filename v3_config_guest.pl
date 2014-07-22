@@ -60,7 +60,7 @@ if ($otherbios) {
 }
 
 
-$name = "guest";
+$name = "myguest";
 print "What is the name of your guest? [$name] : ";
 $name = get_user($name);
 
