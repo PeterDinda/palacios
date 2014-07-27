@@ -28,26 +28,23 @@
   The purpose of this interface is to make it possible to implement
   virtual devices in the host OS.   It is intended to be used by 
   passthrough device implementations, such as the generic device 
-  and the PCI passthrough device.  
+  and the PCI front-end device.  
 
   One use of this interface, and the generic and PCI passthrough devices
-  might be to build an interface with simulated devices in SST 
+  might be to build an interface with simulated devices in QEMU, SST, etc
   under a Linux host.  That scenario would look like this:
 
 Guest config:
 
   generic device:
-    <device class="generic" id="mydev" impl="host_sst">
+    <device class="generic" id="mydev" forward="host_device" hostdev="url" >
        ports, memory regions, interrupts set with PASSTHROUGH option 
     </device>
 
-  PCI passthrough devive:
-    <device class="pci_passthrough" id="mydev", impl="host_sst">
+  PCI front devive:
+    <device class="pci_front" id="mydev", hostdev="url">
        vendor and device ids, etc
     </device>
-
-impl="physical" or lack of an impl key would indicate that direct hardware
-access is expected, which is how these devices currently operate. 
 
 
 Host (Linux) side:
@@ -70,7 +67,8 @@ Host (Linux) side:
 typedef void * v3_host_dev_t;
 /* A guest device is opaque to the host */
 typedef void * v3_guest_dev_t;
-
+/* Optional support for special interrupt handling ; raise=1 => raise otherwise lower */
+typedef void (*v3_guest_dev_intr_t)(v3_host_dev_t hdev, v3_guest_dev_t gdev, uint8_t irq, int raise);
 
 /* There is a notion of a bus class to which the device is attached */
 typedef enum { V3_BUS_CLASS_DIRECT, V3_BUS_CLASS_PCI } v3_bus_class_t;
@@ -82,6 +80,7 @@ struct v3_vm_info;
 v3_host_dev_t v3_host_dev_open(char *impl, 
 			       v3_bus_class_t bus,
 			       v3_guest_dev_t gdev,
+			       v3_guest_dev_intr_t intr,
 			       struct v3_vm_info *vm); 
 
 int v3_host_dev_close(v3_host_dev_t hdev);
@@ -131,6 +130,7 @@ struct v3_host_dev_hooks {
     v3_host_dev_t (*open)(char *impl, 
 			  v3_bus_class_t bus,
 			  v3_guest_dev_t gdev,
+			  v3_guest_dev_intr_t intr,
 			  void *host_priv_data);
 
     int (*close)(v3_host_dev_t hdev);
@@ -198,10 +198,14 @@ struct v3_host_dev_hooks {
 };
 
 /* This function is how the host will raise an irq to palacios
-   for the device.   The IRQ argument will be ignored for devices
-   whose irqs are managed by palacios */
+   for the device.   */
 int v3_host_dev_raise_irq(v3_host_dev_t hostdev,
 			  v3_guest_dev_t guest_dev,
+			  v3_guest_dev_intr_t intr,
+			  uint8_t irq);
+int v3_host_dev_lower_irq(v3_host_dev_t hostdev,
+			  v3_guest_dev_t guest_dev,
+			  v3_guest_dev_intr_t intr,
 			  uint8_t irq);
 
 /* These functions allow the host to read and write the guest

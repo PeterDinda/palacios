@@ -25,7 +25,8 @@ int do_work(struct palacios_host_dev_host_request_response *req,
     //
     // uint64_t v3_user_host_dev_read_guest_mem(int devfd, void *gpa, void *dest, uint64_t len);
     // uint64_t v3_user_host_dev_write_guest_mem(int devfd, void *gpa, void *src, uint64_t len);
-    // int      v3_user_host_dev_inject_guest_irq(int devfd, uint8_t irq);
+    // int      v3_user_host_dev_raise_irq(int devfd, uint8_t irq);
+    // int      v3_user_host_dev_lower_irq(int devfd, uint8_t irq);
     //
     // determine datasize - # bytes to include in response
     //

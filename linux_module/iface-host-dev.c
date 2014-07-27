@@ -149,6 +149,7 @@ struct palacios_host_device_user {
     char     url[MAX_URL]; // what is the url describing the device
 
     v3_guest_dev_t guestdev; // what is the palacios-side device
+    v3_guest_dev_intr_t guestintr; // what is the palacios-side device interrupt info
 
     wait_queue_head_t  user_wait_queue; // user space processes waiting on us (should be only one)
     wait_queue_head_t  host_wait_queue; // host threads (should only be one) waiting on user space
@@ -434,11 +435,18 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 		}
 		    break;
 
-		case PALACIOS_HOST_DEV_USER_REQUEST_IRQ_GUEST: {
+		case PALACIOS_HOST_DEV_USER_REQUEST_IRQ_RAISE_GUEST: {
 
-		    DEEP_DEBUG_PRINT("palacios: hostdev: irq guest\n");
+		    DEEP_DEBUG_PRINT("palacios: hostdev: irq raise guest\n");
 
-		    return  v3_host_dev_raise_irq(dev, dev->guestdev, op.irq);
+		    return  v3_host_dev_raise_irq(dev, dev->guestdev, dev->guestintr, op.irq);
+		}
+		    break;
+		case PALACIOS_HOST_DEV_USER_REQUEST_IRQ_LOWER_GUEST: {
+
+		    DEEP_DEBUG_PRINT("palacios: hostdev: irq lower guest\n");
+
+		    return  v3_host_dev_lower_irq(dev, dev->guestdev, dev->guestintr, op.irq);
 		}
 		    break;
 
@@ -728,6 +736,7 @@ static int palacios_host_dev_rendezvous(struct palacios_host_device_user *dev)
 static v3_host_dev_t palacios_host_dev_open_deferred(char *url,
 						     v3_bus_class_t bus,
 						     v3_guest_dev_t gdev,
+						     v3_guest_dev_intr_t gintr,
 						     void *host_priv_data)
 {
     struct v3_guest *guest= (struct v3_guest*)host_priv_data;
@@ -785,6 +794,8 @@ static v3_host_dev_t palacios_host_dev_open_deferred(char *url,
     strncpy(dev->url,url,MAX_URL);
     
     dev->guestdev = gdev;
+    
+    dev->guestintr = gintr;
     
     dev->guest = guest;
 

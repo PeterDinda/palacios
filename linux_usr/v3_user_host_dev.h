@@ -14,7 +14,11 @@ int v3_user_host_dev_push_response(int devfd, struct palacios_host_dev_host_requ
 
 uint64_t v3_user_host_dev_read_guest_mem(int devfd, void *gpa, void *dest, uint64_t len);
 uint64_t v3_user_host_dev_write_guest_mem(int devfd, void *gpa, void *src, uint64_t len);
-int      v3_user_host_dev_inject_guest_irq(int devfd, uint8_t irq);
+
+// Note that "IRQ" here is context-dependent.  For a legacy device, it is the IRQ
+// For a PCI device, it is the PCI int #, etc.
+int      v3_user_host_dev_raise_guest_irq(int devfd, uint8_t irq);
+int      v3_user_host_dev_lower_guest_irq(int devfd, uint8_t irq);
 
 #endif
 

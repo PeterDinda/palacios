@@ -30,12 +30,13 @@ struct v3_host_dev_hooks * host_dev_hooks = 0;
 v3_host_dev_t v3_host_dev_open(char *impl,
 			       v3_bus_class_t bus,
 			       v3_guest_dev_t gdev,
+			       v3_guest_dev_intr_t intr,
 			       struct v3_vm_info *vm)
 {					       
     V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks != NULL);
     V3_ASSERT(VM_NONE, VCORE_NONE, host_dev_hooks->open != NULL);
 
-    return host_dev_hooks->open(impl,bus,gdev,vm->host_priv_data);
+    return host_dev_hooks->open(impl,bus,gdev,intr,vm->host_priv_data);
 }
 
 int v3_host_dev_close(v3_host_dev_t hdev) 
@@ -125,14 +126,37 @@ int v3_host_dev_ack_irq(v3_host_dev_t hdev, uint8_t irq)
 
 int v3_host_dev_raise_irq(v3_host_dev_t hostdev,
 			  v3_guest_dev_t guest_dev,
+			  v3_guest_dev_intr_t intr,
 			  uint8_t irq)
 {
-    // Make this smarter later...
+    if (intr) { 
+	intr(hostdev,guest_dev,irq,1);
+	return 0;
+    } else {
+	struct vm_device *dev = (struct vm_device *) guest_dev;
+	
+	if (dev && dev->vm) { 
+	    return v3_raise_irq(dev->vm,irq);
+	} else {
+	    return -1;
+	}
+    }
+}
 
+int v3_host_dev_lower_irq(v3_host_dev_t hostdev,
+			  v3_guest_dev_t guest_dev,
+			  v3_guest_dev_intr_t intr,
+			  uint8_t irq)
+{
     struct vm_device *dev = (struct vm_device *) guest_dev;
     
     if (dev && dev->vm) { 
-	return v3_raise_irq(dev->vm,irq);
+	if (intr) { 
+	    intr(hostdev,guest_dev,irq,0);
+	    return 0;
+	} else {
+	    return v3_lower_irq(dev->vm,irq);
+	}
     } else {
 	return -1;
     }

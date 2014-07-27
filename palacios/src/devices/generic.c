@@ -623,6 +623,19 @@ static int osdebug_hcall(struct guest_info *core, uint_t hcall_id, void * priv_d
 
 #endif
 
+#ifdef V3_CONFIG_HOST_DEVICE
+static void generic_intr_update_callback(v3_host_dev_t hdev, v3_guest_dev_t gdev, uint8_t irq, int raise)
+{
+    if (gdev) { 
+	struct vm_device *dev = (struct vm_device *) gdev;
+	if (raise) { 
+	    v3_raise_irq(dev->vm,irq);
+	} else {
+	    v3_lower_irq(dev->vm,irq);
+	}
+    }
+}
+#endif
 
 /*
    The device can be used to forward to the underlying physical device 
@@ -640,7 +653,7 @@ static int osdebug_hcall(struct guest_info *core, uint_t hcall_id, void * priv_d
 
 
    <device class="generic" id="my_id" 
-         empty | forward="physical_device" or forward="host_device" host_device="url">
+         empty | forward="physical_device" or forward="host_device" hostdev="url">
 
   (empty implies physical_dev)
 
@@ -717,7 +730,7 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    v3_remove_device(dev);
 	    return -1;
 	} else {
-	    state->host_dev = v3_host_dev_open(host_dev,V3_BUS_CLASS_DIRECT,dev,vm);
+	    state->host_dev = v3_host_dev_open(host_dev,V3_BUS_CLASS_DIRECT,dev,generic_intr_update_callback,vm);
 	    if (!(state->host_dev)) { 
 		PrintError(vm, VCORE_NONE, "generic (%s): unable to open host device \"%s\"\n", state->name,host_dev);
 		v3_remove_device(dev);

@@ -269,6 +269,9 @@ static int pci_front_write_port(struct guest_info * core,
 // We assume that someone has called pull_config to get a local
 // copy of the config data from the host device by this point
 //
+// It might be smarter to do the pull config here since 
+// in init we may not yet have the host device running... 
+//
 static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pci_front_internal * state = (struct pci_front_internal *)(dev->private_data);
@@ -733,6 +736,27 @@ static int pci_front_free(struct pci_front_internal *state)
     return 0;
 }
 
+#ifdef V3_CONFIG_HOST_DEVICE
+static void pci_front_intr_update_callback(v3_host_dev_t hdev, v3_guest_dev_t gdev, uint8_t irq, int raise)
+{
+    if (gdev) { 
+
+	struct vm_device *dev = (struct vm_device *) gdev;
+	struct pci_front_internal *state = (struct pci_front_internal *) dev->private_data;
+
+	// We expect the host device will raise and lower irqs as needed, so we
+	// don't need an "acked" irq.  Also, we expect the host is using INTX, not
+	// MSI.  It's doubtful that MSI will work.  
+	// expect: state->pci_dev->irq_type==IRQ_INTX
+	if (raise) { 
+	    v3_pci_raise_irq(state->pci_bus, state->pci_dev, irq);
+	} else {
+	    v3_pci_lower_irq(state->pci_bus, state->pci_dev, irq);
+	}
+    }
+}
+#endif
+
 
 static struct v3_device_ops dev_ops = {
 //
@@ -792,7 +816,7 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	return -1;
     }
     
-    if (!(state->host_dev=v3_host_dev_open(url,V3_BUS_CLASS_PCI,dev,vm))) { 
+    if (!(state->host_dev=v3_host_dev_open(url,V3_BUS_CLASS_PCI,dev,pci_front_intr_update_callback,vm))) { 
 	PrintError(info->vm_info, info, "pci_front (%s): unable to attach to host device %s\n",state->name, url);
 	v3_remove_device(dev);
 	return -1;

@@ -119,11 +119,24 @@ uint64_t v3_user_host_dev_write_guest_mem(int devfd, void *gpa, void *src, uint6
     return do_user(devfd,&op);
 }
 
-int      v3_user_host_dev_inject_irq(int devfd, uint8_t irq)
+int      v3_user_host_dev_raise_irq(int devfd, uint8_t irq)
 {
     struct palacios_host_dev_user_op op;
 
-    op.type= PALACIOS_HOST_DEV_USER_REQUEST_IRQ_GUEST;
+    op.type= PALACIOS_HOST_DEV_USER_REQUEST_IRQ_RAISE_GUEST;
+    op.gpa=0;
+    op.data=0;
+    op.len=0;
+    op.irq=irq;
+    
+    return do_user(devfd,&op);
+}
+
+int      v3_user_host_dev_lower_irq(int devfd, uint8_t irq)
+{
+    struct palacios_host_dev_user_op op;
+
+    op.type= PALACIOS_HOST_DEV_USER_REQUEST_IRQ_LOWER_GUEST;
     op.gpa=0;
     op.data=0;
     op.len=0;

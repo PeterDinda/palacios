@@ -44,7 +44,8 @@
 struct palacios_host_dev_user_op {
 #define PALACIOS_HOST_DEV_USER_REQUEST_READ_GUEST  1
 #define PALACIOS_HOST_DEV_USER_REQUEST_WRITE_GUEST 2
-#define PALACIOS_HOST_DEV_USER_REQUEST_IRQ_GUEST   3
+#define PALACIOS_HOST_DEV_USER_REQUEST_IRQ_RAISE_GUEST   3
+#define PALACIOS_HOST_DEV_USER_REQUEST_IRQ_LOWER_GUEST   4
     uint32_t        type;   // type of operation (from the #defs above)
     void            *gpa;   // physical address in guest to read or write
     void USER      *data;   // user address of data that will be read or written
