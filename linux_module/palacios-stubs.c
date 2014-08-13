@@ -8,6 +8,7 @@
 #include <linux/uaccess.h>
 #include <asm/irq_vectors.h>
 #include <asm/io.h>
+#include <asm/thread_info.h>
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -305,7 +306,7 @@ palacios_alloc(unsigned int size) {
     // this function is used extensively throughout palacios and the linux
     // module, both in places where interrupts are off and where they are on
     // a GFP_KERNEL call, when done with interrupts off can lead to DEADLOCK
-    if (irqs_disabled()) {
+    if (irqs_disabled() || in_atomic()) {
 	return palacios_alloc_extended(size,GFP_ATOMIC,-1);
     } else {
 	return palacios_alloc_extended(size,GFP_KERNEL,-1);
@@ -357,7 +358,7 @@ palacios_paddr_to_vaddr(
 /**
  * Runs a function on the specified CPU.
  */
-static void 
+void 
 palacios_xcall(
 	int			cpu_id, 
 	void			(*fn)(void *arg),
@@ -834,7 +835,7 @@ void palacios_used_fpu(void)
    struct thread_info *cur = current_thread_info();
 
    // We assume we are not preemptible here...
-   cur->status |= TS_USEDFPU;
+   cur->status |= 1;
    clts(); 
    // After this, FP Save should be handled by Linux if it
    // switches to a different task and that task uses FPU

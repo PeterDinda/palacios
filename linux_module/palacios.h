@@ -18,6 +18,9 @@
 #define V3_ADD_PCI_HW_DEV 55
 #define V3_ADD_PCI_USER_DEV 56
 
+#define V3_DVFS_CTRL  60
+
+
 /* VM Specific IOCTLs */
 #define V3_VM_CONSOLE_CONNECT 20
 #define V3_VM_STREAM_CONNECT 21
@@ -163,6 +166,7 @@ void *palacios_valloc(unsigned int size); // use instead of vmalloc
 void  palacios_vfree(void *);             // use instead of vfree
 void *palacios_vaddr_to_paddr(void *vaddr);
 void *palacios_paddr_to_vaddr(void *paddr);
+void  palacios_xcall(int cpu_id, void (*fn)(void *arg), void *arg);
 void *palacios_create_and_start_kernel_thread(int (*fn)(void * arg), void *arg, char *thread_name);
 void *palacios_create_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name);
 void  palacios_start_thread(void *thread_ptr);

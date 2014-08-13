@@ -40,6 +40,7 @@ v3vee-$(V3_CONFIG_MEM_TRACK) += memtrack.o
 
 v3vee-$(V3_CONFIG_HOST_PMU) += iface-pmu.o
 v3vee-$(V3_CONFIG_HOST_PWRSTAT) += iface-pwrstat.o
+v3vee-$(V3_CONFIG_HOST_PSTATE_CTRL) += iface-pstate-ctrl.o
 
 v3vee-$(V3_CONFIG_VNET) += 	palacios-vnet.o \
 				palacios-vnet-ctrl.o   \
