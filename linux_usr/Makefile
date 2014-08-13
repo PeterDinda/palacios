@@ -33,7 +33,8 @@ BASE_EXECS = 	v3_mem \
 		v3_receive \
 		v3_pci \
 		v3_guest_mem_access \
-		v3_guest_mem_track
+		v3_guest_mem_track \
+                v3_dvfs
 
 
 #
@@ -67,7 +68,7 @@ COPIED_EXECS = v3_x0vncserver v3_x0gui
 #
 # Libraries that we need to build
 #
-LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a libv3_guest_mem.a libv3_fb.a
+LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a libv3_guest_mem.a libv3_fb.a libv3_user_dvfs.a
 
 BUILD_EXECS = $(BASE_EXECS) $(EXAMPLE_EXECS) $(EXPERIMENTAL_EXECS) 
 BUILD_LIBS = $(LIBS)
@@ -179,6 +180,17 @@ v3_guest_mem_access : v3_guest_mem_access.c libv3_guest_mem.a libv3_ctrl.a
 
 v3_guest_mem_track : v3_guest_mem_track.c libv3_guest_mem.a libv3_ctrl.a
 	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -lv3_ctrl -o $@
+
+#
+# User DVFS control includse a library and a caller
+#
+libv3_user_dvfs.a : v3_user_dvfs.c v3_user_dvfs.h v3_ctrl.h
+	$(CC) $(CFLAGS) -I../linux_module -c v3_user_dvfs.c 
+	$(AR) ruv libv3_user_dvfs.a v3_user_dvfs.o
+	rm -f v3_user_dvfs.o
+
+v3_dvfs : v3_dvfs.c libv3_user_dvfs.a libv3_ctrl.a
+	$(CC) $(CFLAGS) $< -I../linux_module -L. -lv3_user_dvfs -lv3_ctrl -o $@
 
 
 #

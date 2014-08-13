@@ -21,6 +21,8 @@
 #define V3_ADD_PCI_HW_DEV 55
 #define V3_ADD_PCI_USER_DEV 56
 
+#define V3_DVFS_CTRL  60
+
 /* VM Specific IOCTLs */
 
 /* VM Specific ioctls */
