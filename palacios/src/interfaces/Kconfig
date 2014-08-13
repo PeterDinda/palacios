@@ -89,6 +89,12 @@ config HOST_PWRSTAT
 		Select this if you would like to access energy/power
 		measurements within Palacios
 
+config HOST_PSTATE_CTRL
+    bool "Host allows us control of P-states"
+    default n
+    help
+      Select this if your host allows control of hardware P-states (DVFS)
+
 config HOST_LAZY_FPU_SWITCH
 	bool "Host provides lazy FPU context switching"
 	default n

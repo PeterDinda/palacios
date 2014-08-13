@@ -10,6 +10,7 @@ obj-$(V3_CONFIG_HOST_HYPERCALL) += vmm_host_hypercall.o
 obj-$(V3_CONFIG_HOST_PCI) += host_pci.o
 obj-$(V3_CONFIG_HOST_PMU) += vmm_pmu.o
 obj-$(V3_CONFIG_HOST_PWRSTAT) += vmm_pwrstat.o
+obj-$(V3_CONFIG_HOST_PSTATE_CTRL) += vmm_pstate_ctrl.o
 obj-$(V3_CONFIG_HOST_LAZY_FPU_SWITCH) += vmm_lazy_fpu.o
 
 obj-y += null.o
