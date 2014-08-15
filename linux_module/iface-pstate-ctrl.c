@@ -71,7 +71,8 @@ struct pstate_core_info {
     uint64_t max_freq_khz;
     uint64_t min_freq_khz;
    
-    // Intel-specific for DIRECT state
+    // Intel-specific
+    uint8_t prior_speedstep;
     uint8_t turbo_disabled;
     uint8_t no_turbo;
     
@@ -96,8 +97,28 @@ struct pstate_core_funcs {
 struct pstate_machine_info {
     enum {INTEL, AMD, OTHER } arch;
     int supports_pstates;
+
+
+    // For AMD
+    int have_pstate;
+    int have_coreboost;
+    int have_feedback;  
+
+    // For Intel
+    int have_speedstep;
+    int have_opportunistic; // this means "Turbo Boost" or "IDA"
+    int have_policy_hint;
+    int have_hwp;       // hardware-controlled performance states
+    int have_hdc;       // hardware duty cycling
+    int have_mwait_ext; // mwait power extensions
+    int have_mwait_int; // mwait wakes on interrupt
+
+    // for both
+    int have_pstate_hw_coord;  // mperf/aperf
+
     // used for DIRECT control
     struct pstate_core_funcs *funcs;
+
 };
 
 static struct pstate_machine_info machine_state;
@@ -150,8 +171,24 @@ struct p_state_ctl_reg_amd {
 static uint8_t supports_pstates_amd (void)
 {
     uint32_t eax, ebx, ecx, edx;
+
     cpuid(0x80000007, &eax, &ebx, &ecx, &edx);
-    return !!(edx & (1 << 7));
+    machine_state.have_pstate = !!(edx & (1 << 7));
+    machine_state.have_coreboost = !!(edx & (1<<9));
+    machine_state.have_feedback = !!(edx & (1<<11));
+
+    cpuid(0x6, &eax, &ebx, &ecx, &edx);
+    machine_state.have_pstate_hw_coord =  !!(ecx & 1); 
+
+    INFO("P-State: AMD: Pstates=%d Coreboost=%d Feedback=%d PstateHWCoord=%d\n",
+	 machine_state.have_pstate, 
+	 machine_state.have_coreboost, 
+	 machine_state.have_feedback,
+	 machine_state.have_pstate_hw_coord);
+    
+    return machine_state.have_pstate;
+    
+    
 }
 
 static void init_arch_amd(void)
@@ -228,6 +265,12 @@ static struct pstate_core_funcs amd_funcs =
 **********************************************************/
 
 
+/*
+  This implementation uses SpeedStep, but does check
+  to see if the other features (MPERF/APERF, Turbo/IDA, HWP)
+  are available.
+*/
+
 /* Intel System Programmer's Manual Vol. 3B, 14-2 */
 #define MSR_MPERF_IA32         0x000000e7
 #define MSR_APERF_IA32         0x000000e8
@@ -235,21 +278,81 @@ static struct pstate_core_funcs amd_funcs =
 #define MSR_NHM_TURBO_RATIO_LIMIT   0x000001ad
 #define MSR_PLATFORM_INFO_IA32 0x000000ce
 #define MSR_PERF_CTL_IA32      0x00000199
+#define MSR_PERF_STAT_IA32     0x00000198
+#define MSR_ENERY_PERF_BIAS_IA32 0x000001b0
 
 
+/* Note that the actual  meaning of the pstate
+   in the control and status registers is actually
+   implementation dependent, unlike AMD.   The "official"
+   way to figure it out the mapping from pstate to 
+   these values is via ACPI.  What is written in the register
+   is an "id" of an operation point
 
+   "Often", the 16 bit field consists of a high order byte
+   which is the frequency (the multiplier) and the low order
+   byte is the voltage. 
+*/
+// MSR_PERF_CTL_IA32  r/w
+struct perf_ctl_reg_intel {
+    union {
+        uint64_t val;
+        struct {
+	    // This is the target
+	    // Note, not the ACPI pstate, but
+	    // Intel's notion of pstate is that it's opaque
+	    // for lots of implementations it seems to be
+	    // frequency_id : voltage_id
+	    // where frequency_id is typically the multiplier
+	    uint16_t pstate                 : 16;
+	    uint16_t reserved               : 16;
+	    // set to 1 to *disengage* dynamic acceleration
+	    // Note that "IDA" and "Turbo" use the same interface
+	    uint16_t dynamic_accel_disable  : 1;
+	    uint32_t reserved2              : 31;
+        } reg;
+    } __attribute__((packed));
+} __attribute__((packed));
+
+// MSR_PERF_STAT_IA32 r
+struct perf_stat_reg_intel {
+    union {
+        uint64_t val;
+        struct {
+	    // this is the current
+	    uint16_t pstate                 : 16;
+	    uint64_t reserved               : 48;
+        } reg;
+    } __attribute__((packed));
+} __attribute__((packed));
+
+// MSR_ENERGY_PERF_BIAS_IA32 r/w
+struct enery_perf_bias_reg_intel {
+    union {
+        uint64_t val;
+        struct {
+	    // this is the current
+	    uint8_t  policy_hint            : 4;
+	    uint64_t reserved               : 60;
+        } reg;
+    } __attribute__((packed));
+} __attribute__((packed));
+
+// MSR_PLATFORM_INFO
 struct turbo_mode_info_reg_intel {
     union {
         uint64_t val;
         struct {
-            uint8_t  rsvd0;
-            uint8_t  max_noturbo_ratio;
-            uint16_t rsvd1                  : 12;
-            uint8_t  ratio_limit            : 1;
+            uint8_t  rsvd0                  : 8;
+            uint8_t  max_noturbo_ratio      : 8;
+            uint8_t  rsvd1                  : 7;
+	    uint8_t  ppin_cap               : 1;
+	    uint8_t  rsvd2                  : 4;
+            uint8_t  ratio_limit            : 1; 
             uint8_t  tdc_tdp_limit          : 1;
-            uint16_t rsvd2                  : 10;
-            uint8_t  min_ratio;
-            uint16_t rsvd3;
+            uint16_t rsvd3                  : 10;
+            uint8_t  min_ratio              : 8;
+            uint16_t rsvd4                  : 16;
         } reg;
     } __attribute__((packed));
 } __attribute__((packed));
@@ -261,8 +364,33 @@ static uint8_t supports_pstates_intel(void)
     /* NOTE: CPUID.06H:ECX.SETBH[bit 3] is set and it also implies the presence of a new architectural MSR called IA32_ENERGY_PERF_BIAS (1B0H).
      */
     uint32_t eax, ebx, ecx, edx;
+
     cpuid(0x1, &eax, &ebx, &ecx, &edx);
-    return !!(ecx & (1 << 7));
+    machine_state.have_speedstep =  !!(ecx & (1 << 7));
+
+    cpuid(0x6, &eax, &ebx, &ecx, &edx);
+    machine_state.have_pstate_hw_coord =  !!(ecx & 1); // ?
+    machine_state.have_opportunistic =  !!(eax & 1<<1);
+    machine_state.have_policy_hint = !!(ecx & 1<<3);
+    machine_state.have_hwp = !!(eax & 1<<7);
+    machine_state.have_hdc = !!(eax & 1<<13);
+
+    cpuid(0x5, &eax, &ebx, &ecx, &edx);
+    machine_state.have_mwait_ext =  !!(ecx & 1);
+    machine_state.have_mwait_int =  !!(ecx & 1<<1);
+
+
+    INFO("P-State: Intel: Speedstep=%d, PstateHWCoord=%d, Opportunistic=%d PolicyHint=%d HWP=%d HDC=%d, MwaitExt=%d MwaitInt=%d \n",
+	 machine_state.have_speedstep, 
+	 machine_state.have_pstate_hw_coord, 
+	 machine_state.have_opportunistic,
+	 machine_state.have_policy_hint,
+	 machine_state.have_hwp,
+	 machine_state.have_hdc,
+	 machine_state.have_mwait_ext,
+	 machine_state.have_mwait_int );
+
+    return machine_state.have_speedstep;
 }
 
 
@@ -272,37 +400,70 @@ static void init_arch_intel(void)
 
     rdmsrl(MSR_MISC_ENABLE_IA32, val);
 
-    val |= 1 << 16;
+    // store prior speedstep setting
+    get_cpu_var(core_state).prior_speedstep=(val >> 16) & 0x1;
+    put_cpu_var(core_state);
 
+    // enable speedstep (probably already on)
+    val |= 1 << 16;
     wrmsrl(MSR_MISC_ENABLE_IA32, val);
 
 }
 
 static void deinit_arch_intel(void)
 {
-    // ??
+    uint64_t val;
+
+    rdmsrl(MSR_MISC_ENABLE_IA32, val);
+
+    val &= ~(1ULL << 16);
+    val |= get_cpu_var(core_state).prior_speedstep << 16;
+    put_cpu_var(core_state);
+
+    wrmsrl(MSR_MISC_ENABLE_IA32, val);
+    
 }
 
 /* TODO: Intel P-states require sampling at intervals... */
 static uint8_t get_pstate_intel(void)
 {
-    uint8_t pstate;
+    uint64_t val;
+    uint16_t pstate;
 
-    // This should read the HW... 
-    pstate=get_cpu_var(core_state).cur_pstate;
-    put_cpu_var(core_state);
-    return pstate;
+    rdmsrl(MSR_PERF_STAT_IA32,val);
+
+    pstate = val & 0xffff;
+
+    INFO("P-State: Get: 0x%llx\n", val);
+
+    // Assume top byte is the FID
+    //if (pstate & 0xff ) { 
+    //  ERROR("P-State: Intel returns confusing pstate %u\n",pstate);
+    //}
+
+    // should check if turbo is active, in which case 
+    // this value is not the whole story
+
+    return (uint8_t) (pstate>>8);
 }
     
 static void set_pstate_intel(uint8_t p)
 {
-    uint64_t val = ((uint64_t)p) << 8;
+    uint64_t val;
 
     /* ...Intel IDA (dynamic acceleration)
     if (c->no_turbo && !c->turbo_disabled) {
         val |= 1 << 32;
     }
     */
+    // leave all bits along expect for the likely
+    // fid bits
+
+    rdmsrl(MSR_PERF_CTL_IA32, val);
+    val &= ~0xff00ULL;
+    val |= ((uint64_t)p)<<8;
+
+    INFO("P-State: Set: 0x%llx\n", val);
 
     wrmsrl(MSR_PERF_CTL_IA32, val);
 
@@ -814,9 +975,9 @@ static int pstate_show(struct seq_file * file, void * v)
 		   s->mode==V3_PSTATE_DIRECT_CONTROL ? "direct" : 
 		   s->mode==V3_PSTATE_INTERNAL_CONTROL ? "internal" : "UNKNOWN");
 	if (s->have_cpufreq) { 
-	    seq_printf(file," external ");
+	    seq_printf(file,"external ");
 	}
-	if (machine_state.arch==AMD || machine_state.arch==INTEL) { 
+	if (machine_state.supports_pstates) {
 	    seq_printf(file,"direct ");
 	}
 	seq_printf(file,"internal ] ");
