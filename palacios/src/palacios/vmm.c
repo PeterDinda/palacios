@@ -265,9 +265,42 @@ v3_cpu_arch_t v3_get_cpu_type(int cpu_id) {
     return v3_cpu_types[cpu_id];
 }
 
+static int start_core(void * p)
+{
+    struct guest_info * core = (struct guest_info *)p;
+
+    if (v3_scheduler_register_core(core) == -1){
+        PrintError(core->vm_info, core,"Error initializing scheduling in core %d\n", core->vcpu_id);
+    }
+
+    PrintDebug(core->vm_info,core,"virtual core %u (on logical core %u): in start_core (RIP=%p)\n",
+	       core->vcpu_id, core->pcpu_id, (void *)(addr_t)core->rip);
+
+    switch (v3_mach_type) {
+#ifdef V3_CONFIG_SVM
+	case V3_SVM_CPU:
+	case V3_SVM_REV3_CPU:
+	    return v3_start_svm_guest(core);
+	    break;
+#endif
+#if V3_CONFIG_VMX
+	case V3_VMX_CPU:
+	case V3_VMX_EPT_CPU:
+	case V3_VMX_EPT_UG_CPU:
+	    return v3_start_vmx_guest(core);
+	    break;
+#endif
+	default:
+	    PrintError(core->vm_info, core, "Attempting to enter a guest on an invalid CPU\n");
+	    return -1;
+    }
+    // should not happen
+    return 0;
+}
 
 struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
     struct v3_vm_info * vm = v3_config_guest(cfg, priv_data);
+    int vcore_id = 0;
 
     if (vm == NULL) {
 	PrintError(VM_NONE, VCORE_NONE, "Could not configure guest\n");
@@ -299,43 +332,28 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
         PrintError(vm, VCORE_NONE,"Error registering VM with scheduler\n");
     }
 
+     for (vcore_id = 0; vcore_id < vm->num_cores; vcore_id++) {
+
+        struct guest_info * core = &(vm->cores[vcore_id]);
+
+	PrintDebug(vm, VCORE_NONE, "Creating virtual core %u on logical core %u\n",
+		   vcore_id, core->pcpu_id);
+
+	sprintf(core->exec_name, "%s-%u", vm->name, vcore_id);
+
+        PrintDebug(vm, VCORE_NONE, "run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
+		   core->pcpu_id, start_core, core, core->exec_name);
+
+	core->core_thread = V3_CREATE_THREAD_ON_CPU(core->pcpu_id, start_core, core, core->exec_name);
+
+	if (core->core_thread == NULL) {
+	    PrintError(vm, VCORE_NONE, "Thread creation failed\n");
+	    v3_stop_vm(vm);
+	    return NULL;
+	}
+
+    }
     return vm;
-}
-
-
-
-
-static int start_core(void * p)
-{
-    struct guest_info * core = (struct guest_info *)p;
-
-    if (v3_scheduler_register_core(core) == -1){
-        PrintError(core->vm_info, core,"Error initializing scheduling in core %d\n", core->vcpu_id);
-    }
-
-    PrintDebug(core->vm_info,core,"virtual core %u (on logical core %u): in start_core (RIP=%p)\n", 
-	       core->vcpu_id, core->pcpu_id, (void *)(addr_t)core->rip);
-
-    switch (v3_mach_type) {
-#ifdef V3_CONFIG_SVM
-	case V3_SVM_CPU:
-	case V3_SVM_REV3_CPU:
-	    return v3_start_svm_guest(core);
-	    break;
-#endif
-#if V3_CONFIG_VMX
-	case V3_VMX_CPU:
-	case V3_VMX_EPT_CPU:
-	case V3_VMX_EPT_UG_CPU:
-	    return v3_start_vmx_guest(core);
-	    break;
-#endif
-	default:
-	    PrintError(core->vm_info, core, "Attempting to enter a guest on an invalid CPU\n");
-	    return -1;
-    }
-    // should not happen
-    return 0;
 }
 
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
@@ -388,34 +406,23 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
 
     vm->run_state = VM_RUNNING;
 
-
     for (vcore_id = 0; vcore_id < vm->num_cores; vcore_id++) {
 
         struct guest_info * core = &(vm->cores[vcore_id]);
 
 	PrintDebug(vm, VCORE_NONE, "Starting virtual core %u on logical core %u\n", 
 		   vcore_id, core->pcpu_id);
-	
-	sprintf(core->exec_name, "%s-%u", vm->name, vcore_id);
 
-        PrintDebug(vm, VCORE_NONE, "run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
-		   core->pcpu_id, start_core, core, core->exec_name);
-
-	if (core->core_run_state==CORE_INVALID) { 
+	if (core->core_run_state==CORE_INVALID) {
 	  // launch of a fresh VM
-	  core->core_run_state = CORE_STOPPED;  
+	  core->core_run_state = CORE_STOPPED;
 	  // core zero will turn itself on
 	} else {
 	  // this is a resume - use whatever its current run_state is
 	}
 
-	core->core_thread = V3_CREATE_THREAD_ON_CPU(core->pcpu_id, start_core, core, core->exec_name);
+	V3_START_THREAD(core->core_thread);
 
-	if (core->core_thread == NULL) {
-	    PrintError(vm, VCORE_NONE, "Thread launch failed\n");
-	    v3_stop_vm(vm);
-	    return -1;
-	}
     }
 
     return 0;

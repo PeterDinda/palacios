@@ -442,7 +442,7 @@ palacios_start_kernel_thread(
  * Starts a kernel thread on the specified CPU.
  */
 void * 
-palacios_start_thread_on_cpu(int cpu_id, 
+palacios_create_thread_on_cpu(int cpu_id,
 			     int (*fn)(void * arg), 
 			     void * arg, 
 			     char * thread_name ) {
@@ -474,12 +474,16 @@ palacios_start_thread_on_cpu(int cpu_id,
 	return NULL;
     }
 
-    wake_up_process(thread);
-
     return thread;
 }
 
+void
+palacios_start_thread(void * th){
 
+	struct task_struct * thread = (struct task_struct *)th;
+	wake_up_process(thread);
+
+}
 /**
  * Rebind a kernel thread to the specified CPU
  * The thread will be running on target CPU on return
@@ -858,7 +862,8 @@ static struct v3_os_hooks palacios_os_hooks = {
 	.get_cpu		= palacios_get_cpu,
 	.interrupt_cpu		= palacios_interrupt_cpu,
 	.call_on_cpu		= palacios_xcall,
-	.start_thread_on_cpu	= palacios_start_thread_on_cpu,
+	.create_thread_on_cpu	= palacios_start_thread_on_cpu,
+	.start_thread		= palacios_start_thread,
 	.move_thread_to_cpu     = palacios_move_thread_to_cpu,
 };
 
