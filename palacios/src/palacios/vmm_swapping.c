@@ -103,7 +103,7 @@ static int read_all(v3_file_t fd, void *buf, uint64_t len, uint64_t offset)
 
 #define CEIL_DIV(x,y) (((x)/(y)) + !!((x)%(y)))
 
-int v3_init_swapping_vm(struct v3_vm_info *vm, v3_cfg_tree_t *config)
+int v3_init_swapping_vm(struct v3_vm_info *vm, struct v3_xml *config)
 {
     v3_cfg_tree_t *swap_config;
     char *enable;

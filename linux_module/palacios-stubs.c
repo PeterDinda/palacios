@@ -84,7 +84,7 @@ static int init_print_buffers(void)
 	if (!print_buffer[i]) { 
 	    ERROR("Cannot allocate print buffer for cpu %d\n",i);
 	    deinit_print_buffers();
-	    return -1;
+    return -1;
 	}
 	memset(print_buffer[i],0,V3_PRINTK_BUF_SIZE);
     }
@@ -417,7 +417,7 @@ static int lnx_thread_target(void * arg) {
  * Creates a kernel thread.
  */
 void *
-palacios_start_kernel_thread(
+palacios_create_and_start_kernel_thread(
 	int (*fn)		(void * arg),
 	void *			arg,
 	char *			thread_name) {
@@ -484,6 +484,27 @@ palacios_start_thread(void * th){
 	wake_up_process(thread);
 
 }
+
+/*
+  Convenience wrapper
+*/
+void * 
+palacios_create_and_start_thread_on_cpu(int cpu_id,
+					int (*fn)(void * arg), 
+					void * arg, 
+					char * thread_name ) {
+
+    void *t = palacios_create_thread_on_cpu(cpu_id, fn, arg, thread_name);
+
+    if (t) { 
+	palacios_start_thread(t);
+    } 
+    
+    return t;
+}
+
+
+
 /**
  * Rebind a kernel thread to the specified CPU
  * The thread will be running on target CPU on return
@@ -849,7 +870,7 @@ static struct v3_os_hooks palacios_os_hooks = {
 	.hook_interrupt		= palacios_hook_interrupt,
 	.ack_irq		= palacios_ack_interrupt,
 	.get_cpu_khz		= palacios_get_cpu_khz,
-	.start_kernel_thread    = palacios_start_kernel_thread,
+	.start_kernel_thread    = palacios_create_and_start_kernel_thread,
 	.yield_cpu		= palacios_yield_cpu,
 	.sleep_cpu		= palacios_sleep_cpu,
 	.wakeup_cpu		= palacios_wakeup_cpu,
@@ -862,7 +883,7 @@ static struct v3_os_hooks palacios_os_hooks = {
 	.get_cpu		= palacios_get_cpu,
 	.interrupt_cpu		= palacios_interrupt_cpu,
 	.call_on_cpu		= palacios_xcall,
-	.create_thread_on_cpu	= palacios_start_thread_on_cpu,
+	.create_thread_on_cpu	= palacios_create_thread_on_cpu,
 	.start_thread		= palacios_start_thread,
 	.move_thread_to_cpu     = palacios_move_thread_to_cpu,
 };

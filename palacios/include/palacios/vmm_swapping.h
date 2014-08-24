@@ -59,12 +59,12 @@ struct v3_swap_region_state {
 
 struct v3_mem_region;
 
-typedef struct v3_xml v3_cfg_tree_t;
+struct v3_xml;
 
 int v3_init_swapping();
 int v3_deinit_swapping();
 
-int v3_init_swapping_vm(struct v3_vm_info *vm, v3_cfg_tree_t *config);
+int v3_init_swapping_vm(struct v3_vm_info *vm, struct v3_xml *config);
 int v3_deinit_swapping_vm(struct v3_vm_info *vm);
 
 // not needed yet

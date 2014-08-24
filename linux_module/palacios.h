@@ -163,8 +163,10 @@ void *palacios_valloc(unsigned int size); // use instead of vmalloc
 void  palacios_vfree(void *);             // use instead of vfree
 void *palacios_vaddr_to_paddr(void *vaddr);
 void *palacios_paddr_to_vaddr(void *paddr);
-void *palacios_start_kernel_thread(int (*fn)(void * arg), void *arg, char *thread_name);
-void *palacios_start_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name);
+void *palacios_create_and_start_kernel_thread(int (*fn)(void * arg), void *arg, char *thread_name);
+void *palacios_create_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name);
+void  palacios_start_thread(void *thread_ptr);
+void *palacios_creeate_and_start_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name);
 int   palacios_move_thread_to_cpu(int new_cpu_id, void *thread_ptr);
 void  palacios_yield_cpu(void);
 void  palacios_sleep_cpu(unsigned int us);

@@ -155,7 +155,7 @@ static struct vnet_host_hooks vnet_host_hooks = {
     .timer_stop		        = host_stop_timer,
     .timer_reset	        = host_reset_timer,
 
-    .thread_start 	        = palacios_start_kernel_thread,
+    .thread_start 	        = palacios_create_and_start_kernel_thread,
     .thread_sleep  	        = host_kthread_sleep,
     .thread_wakeup	        = host_kthread_wakeup,
     .thread_stop	        = host_kthread_stop,

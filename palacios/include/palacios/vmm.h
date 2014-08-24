@@ -192,7 +192,7 @@ int      v3_get_vcore(struct guest_info *);
 
 
 
-#define V3_CREATE_THREAD(fn, arg, name)	({				\
+#define V3_CREATE_AND_START_THREAD(fn, arg, name)	({		\
 	    void * thread = NULL;					\
 	    extern struct v3_os_hooks * os_hooks;			\
 	    if ((os_hooks) && (os_hooks)->start_kernel_thread) {	\
@@ -229,6 +229,14 @@ int      v3_get_vcore(struct guest_info *);
            (os_hooks)->start_thread(thread);				\
        }								\
   })
+
+#define V3_CREATE_AND_START_THREAD_ON_CPU(cpu, fn, arg, name) ({        \
+	    void *thread = V3_CREATE_THREAD_ON_CPU(cpu,fn,arg,name);    \
+	    if (thread) {                                               \
+		V3_START_THREAD(thread);                                \
+            }                                                           \
+            thread;                                                     \
+	})
 
 #define V3_MOVE_THREAD_TO_CPU(pcpu, thread) ({				\
 	int ret = -1;							\
