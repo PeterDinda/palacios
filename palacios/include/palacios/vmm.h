@@ -433,7 +433,7 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpus, int num_cpus, char *option
 void Shutdown_V3( void );
 
 
-struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name);
+struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name, unsigned int cpu_mask);
 int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask);
 int v3_stop_vm(struct v3_vm_info * vm);
 int v3_pause_vm(struct v3_vm_info * vm);

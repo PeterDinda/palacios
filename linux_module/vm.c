@@ -408,7 +408,7 @@ int create_palacios_vm(struct v3_guest * guest)  {
         return -1;
     }
 
-    guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name);
+    guest->v3_ctx = v3_create_vm(guest->img, (void *)guest, guest->name, (0x1 << num_online_cpus()) - 1);
 
     if (guest->v3_ctx == NULL) { 
 	WARNING("palacios: failed to create vm\n");

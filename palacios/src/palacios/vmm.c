@@ -298,7 +298,7 @@ static int start_core(void * p)
     return 0;
 }
 
-struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
+struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name, unsigned int cpu_mask) {
     struct v3_vm_info * vm = v3_config_guest(cfg, priv_data);
     int vcore_id = 0;
 
@@ -332,7 +332,11 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name) {
         PrintError(vm, VCORE_NONE,"Error registering VM with scheduler\n");
     }
 
-     for (vcore_id = 0; vcore_id < vm->num_cores; vcore_id++) {
+    if (v3_cpu_mapper_admit_vm(vm,cpu_mask) != 0){
+        PrintError(vm, VCORE_NONE,"Error admitting VM %s for mapping", vm->name);
+    }
+
+    for (vcore_id = 0; vcore_id < vm->num_cores; vcore_id++) {
 
         struct guest_info * core = &(vm->cores[vcore_id]);
 
@@ -395,10 +399,6 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
     }
 
     vm->avail_cores = avail_cores;
- 
-    if (v3_cpu_mapper_admit_vm(vm,cpu_mask) != 0){
-        PrintError(vm, VCORE_NONE,"Error admitting VM %s for mapping", vm->name);
-    }
 
     if (v3_scheduler_admit_vm(vm) != 0){
        PrintError(vm, VCORE_NONE,"Error admitting VM %s for scheduling", vm->name);
