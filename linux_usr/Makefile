@@ -68,7 +68,7 @@ COPIED_EXECS = v3_x0vncserver v3_x0gui
 #
 # Libraries that we need to build
 #
-LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a libv3_guest_mem.a libv3_fb.a libv3_user_dvfs.a
+LIBS = libv3_user_host_dev.a libv3_user_keyed_stream.a libv3_ctrl.a libv3_guest_mem.a libv3_fb.a libv3_user_dvfs.a libv3_io_chan.so
 
 BUILD_EXECS = $(BASE_EXECS) $(EXAMPLE_EXECS) $(EXPERIMENTAL_EXECS) 
 BUILD_LIBS = $(LIBS)
@@ -93,6 +93,12 @@ libv3_ctrl.a : v3_ctrl.c v3_ctrl.h
 	$(AR) ruv libv3_ctrl.a v3_ctrl.o
 	rm -rf v3_ctrl.o 
 
+libv3_io_chan.so: v3_io_chan.c v3_io_chan.h v3_user_host_dev.c v3_user_host_dev.h ../linux_module/iface-host-dev.h 
+	$(CC) $(CFLAGS) -I../linux_module -fPIC -c v3_io_chan.c
+	$(CC) $(CFLAGS) -I../linux_module -fPIC -c v3_user_host_dev.c
+	$(CC) -shared -o $@ v3_io_chan.o v3_user_host_dev.o
+	cp $@ /usr/lib64/
+	cp v3_io_chan.h /usr/include/
 #
 # JSON library for use in some tools
 #
