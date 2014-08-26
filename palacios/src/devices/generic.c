@@ -749,6 +749,10 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	uint16_t start = atox(v3_cfg_val(port_cfg, "start"));
 	uint16_t end = atox(v3_cfg_val(port_cfg, "end"));
 	char * mode_str = v3_cfg_val(port_cfg, "mode");
+    if (!mode_str) {
+        PrintError(vm, VCORE_NONE, "generic (%s): error getting port mode\n", state->name);
+        return -1;
+    }
 	generic_mode_t mode = GENERIC_IGNORE;
 	if (strcasecmp(mode_str, "print_and_ignore") == 0) {
 	    mode = GENERIC_PRINT_AND_IGNORE;
