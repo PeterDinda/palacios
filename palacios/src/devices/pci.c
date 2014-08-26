@@ -770,6 +770,7 @@ static int data_port_read(struct guest_info * core, uint16_t port, void * dst, u
 
 
     pci_dev = get_device(&(pci_state->bus_list[0]), pci_state->addr_reg.dev_num, pci_state->addr_reg.fn_num);
+
     
     if (pci_dev == NULL) {
 	memset(dst, 0xff, length);
@@ -794,15 +795,21 @@ static int data_port_read(struct guest_info * core, uint16_t port, void * dst, u
 
 	    if (cfg_hook->read) {
 		cfg_hook->read(pci_dev, reg_num + i, cfg_dst, range_len, cfg_hook->private_data);
-	    }
+	    } else {
+            if (pci_dev->config_read) {
+                if (pci_dev->config_read(pci_dev, reg_num + i, cfg_dst, range_len, pci_dev->priv_data) != 0) {
+                    PrintError(core->vm_info, core, "Error in config_read from PCI device (%s)\n", pci_dev->name);
+                }
+            }
+        }
 	    
 	    bytes_left -= range_len;
 	    i += range_len;
 	} else {
 	    if (pci_dev->config_read) {
-		if (pci_dev->config_read(pci_dev, reg_num + i, cfg_dst, 1, pci_dev->priv_data) != 0) {
-		    PrintError(core->vm_info, core, "Error in config_read from PCI device (%s)\n", pci_dev->name);
-		}
+            if (pci_dev->config_read(pci_dev, reg_num + i, cfg_dst, 1, pci_dev->priv_data) != 0) {
+                PrintError(core->vm_info, core, "Error in config_read from PCI device (%s)\n", pci_dev->name);
+            }
 	    }
 
 	    bytes_left--;
@@ -951,7 +958,7 @@ static int data_port_write(struct guest_info * core, uint16_t port, void * src, 
 	    
 	    if (cfg_hook->write) {
 		cfg_hook->write(pci_dev, reg_num + i, (void *)(src + i), range_len, cfg_hook->private_data);
-	    }
+	    } 
 
 	    length -= range_len;
 	    i += range_len;
@@ -988,6 +995,10 @@ static int exp_rom_write(struct pci_device * pci_dev, uint32_t offset,
 			 void * src, uint_t length, void * private_data) {
     int bar_offset = offset & ~0x03;
 
+    if (pci_dev->config_write) {
+        pci_dev->config_write(pci_dev, offset, src, length, pci_dev->priv_data);
+    }
+
     if (pci_dev->exp_rom_update) {
 	pci_dev->exp_rom_update(pci_dev, (void *)(pci_dev->config_space + bar_offset), pci_dev->priv_data);
 	
@@ -1003,10 +1014,14 @@ static int exp_rom_write(struct pci_device * pci_dev, uint32_t offset,
 static int cmd_write(struct pci_device * pci_dev, uint32_t offset, 
 		     void * src, uint_t length, void * private_data) {
 
+    V3_Print(VM_NONE, VCORE_NONE, "KCH: command update!\n");
     int i = 0;
 
     struct pci_cmd_reg old_cmd;
     struct pci_cmd_reg new_cmd;
+    if (pci_dev->config_write) {
+        pci_dev->config_write(pci_dev, offset, src, length, pci_dev->priv_data);
+    }
     old_cmd.val = pci_dev->config_header.command;
 
     for (i = 0; i < length; i++) {
@@ -1019,22 +1034,21 @@ static int cmd_write(struct pci_device * pci_dev, uint32_t offset,
 
     new_cmd.val = pci_dev->config_header.command;
 
-
     if (pci_dev->cmd_update) {
-	if ((new_cmd.intx_disable == 1) && (old_cmd.intx_disable == 0)) {
-	    pci_dev->irq_type = IRQ_NONE;
-	    pci_dev->cmd_update(pci_dev, PCI_CMD_INTX_DISABLE, 0, pci_dev->priv_data);
-	} else if ((new_cmd.intx_disable == 0) && (old_cmd.intx_disable == 1)) {
-	    pci_dev->irq_type = IRQ_INTX;
-	    pci_dev->cmd_update(pci_dev, PCI_CMD_INTX_ENABLE, 0, pci_dev->priv_data);
-	}
+        if ((new_cmd.intx_disable == 1) && (old_cmd.intx_disable == 0)) {
+            pci_dev->irq_type = IRQ_NONE;
+            pci_dev->cmd_update(pci_dev, PCI_CMD_INTX_DISABLE, 0, pci_dev->priv_data);
+        } else if ((new_cmd.intx_disable == 0) && (old_cmd.intx_disable == 1)) {
+            pci_dev->irq_type = IRQ_INTX;
+            pci_dev->cmd_update(pci_dev, PCI_CMD_INTX_ENABLE, 0, pci_dev->priv_data);
+        }
 
 
-	if ((new_cmd.dma_enable == 1) && (old_cmd.dma_enable == 0)) {
-	    pci_dev->cmd_update(pci_dev, PCI_CMD_DMA_ENABLE, 0, pci_dev->priv_data);
-	} else if ((new_cmd.dma_enable == 0) && (old_cmd.dma_enable == 1)) {
-	    pci_dev->cmd_update(pci_dev, PCI_CMD_DMA_DISABLE, 0, pci_dev->priv_data);
-	}
+        if ((new_cmd.dma_enable == 1) && (old_cmd.dma_enable == 0)) {
+            pci_dev->cmd_update(pci_dev, PCI_CMD_DMA_ENABLE, 0, pci_dev->priv_data);
+        } else if ((new_cmd.dma_enable == 0) && (old_cmd.dma_enable == 1)) {
+            pci_dev->cmd_update(pci_dev, PCI_CMD_DMA_DISABLE, 0, pci_dev->priv_data);
+        }
     }
 
     return 0;
@@ -1574,6 +1588,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	    PrintError(VM_NONE, VCORE_NONE, "No more available PCI slots on bus %d\n", bus->bus_num);
 	    return NULL;
 	}
+    V3_Print(VM_NONE, VCORE_NONE,"assigning dev num %d to device (%s, busnum=%d,fnnum=%d)\n", dev_num, name, bus->bus_num, fn_num);
     }
     
     PrintDebug(VM_NONE, VCORE_NONE, "Checking for PCI Device\n");

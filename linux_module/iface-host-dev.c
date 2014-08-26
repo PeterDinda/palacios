@@ -126,14 +126,14 @@ struct palacios_host_dev {
 #define DEEP_DEBUG    0
 #define SHALLOW_DEBUG 0
 
-#if DEEP_DEBUG
-#define DEEP_DEBUG_PRINT(fmt, args...) DEBUG((fmt), ##args)
+#if DEEP_DEBUG == 1
+#define DEEP_DEBUG_PRINT(fmt, args...) DEBUG(fmt, ##args)
 #else
 #define DEEP_DEBUG_PRINT(fmt, args...) 
 #endif
 
-#if SHALLOW_DEBUG
-#define SHALLOW_DEBUG_PRINT(fmt, args...) INFO((fmt), ##args)
+#if SHALLOW_DEBUG == 1
+#define SHALLOW_DEBUG_PRINT(fmt, args...) INFO(fmt, ##args)
 #else
 #define SHALLOW_DEBUG_PRINT(fmt, args...) 
 #endif
@@ -873,13 +873,13 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
     DEEP_DEBUG_PRINT("palacios: hostdev: read io port 0x%x\n",port);
 	    
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	//palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     if (dev->waiting) { 
 	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
@@ -948,13 +948,13 @@ static uint64_t palacios_host_dev_read_mem(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: read mem  0x%p\n",gpa);
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	//palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     if (dev->waiting) { 
 	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
@@ -1018,15 +1018,15 @@ static uint64_t palacios_host_dev_read_conf(v3_host_dev_t hostdev,
     unsigned long f;
     uint64_t op_len;
 
-    DEEP_DEBUG_PRINT("palacios: hostdev: read conf 0x%p\n",(void*)offset);
+    DEEP_DEBUG_PRINT("palacios: hostdev: read conf 0x%p (len=%lld)\n",(void*)offset, len);
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	//palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     if (dev->waiting) { 
 	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
@@ -1093,13 +1093,13 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: write io port 0x%x \n",port);
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	//palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     if (dev->waiting) { 
 	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
@@ -1166,13 +1166,14 @@ static uint64_t palacios_host_dev_write_mem(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: write mem 0x%p\n",gpa);
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	//palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
+
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     if (dev->waiting) { 
 	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
@@ -1241,13 +1242,13 @@ static uint64_t palacios_host_dev_write_conf(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: write conf 0x%p\n",(void*)offset);
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
     
     if (palacios_host_dev_rendezvous(dev)) {
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	//palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
+    palacios_spinlock_lock_irqsave(&(dev->lock),f);
 
     if (dev->waiting) { 
 	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);

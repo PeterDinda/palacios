@@ -130,16 +130,16 @@ int v3_host_dev_raise_irq(v3_host_dev_t hostdev,
 			  uint8_t irq)
 {
     if (intr) { 
-	intr(hostdev,guest_dev,irq,1);
-	return 0;
+        intr(hostdev,guest_dev,irq,1);
+        return 0;
     } else {
-	struct vm_device *dev = (struct vm_device *) guest_dev;
-	
-	if (dev && dev->vm) { 
-	    return v3_raise_irq(dev->vm,irq);
-	} else {
-	    return -1;
-	}
+        struct vm_device *dev = (struct vm_device *) guest_dev;
+
+        if (dev && dev->vm) { 
+            return v3_raise_irq(dev->vm,irq);
+        } else {
+            return -1;
+        }
     }
 }
 

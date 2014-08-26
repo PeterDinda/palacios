@@ -23,6 +23,7 @@ obj-$(V3_CONFIG_OS_DEBUG) += os_debug.o
 obj-$(V3_CONFIG_PCI) += pci.o
 obj-$(V3_CONFIG_HOST_PCI) += host_pci.o
 obj-$(V3_CONFIG_HOST_PCI_SELPRIV) += host_pci_selpriv.o
+obj-$(V3_CONFIG_PCI_FRONT) += pci_front.o
 obj-$(V3_CONFIG_PIIX3) += piix3.o
 obj-$(V3_CONFIG_SWAPBYPASS_DISK_CACHE) += swapbypass_cache.o
 obj-$(V3_CONFIG_SWAPBYPASS_DISK_CACHE2) += swapbypass_cache2.o

@@ -99,6 +99,7 @@ struct pt_bar {
     uint64_t addr; 
 
     uint32_t val;
+    uint8_t mapped; 
 };
 
 
@@ -170,18 +171,18 @@ static int pci_front_read_mem(struct guest_info * core,
     struct vm_device *dev = (struct vm_device *) priv;
     struct pci_front_internal *state = (struct pci_front_internal *) dev->private_data;
 
-    PrintDebug(info->vm_info, info, "pci_front (%s): reading 0x%x bytes from gpa 0x%p from host dev 0x%p ...",
+    PrintDebug(core->vm_info, core, "pci_front (%s): reading 0x%x bytes from gpa 0x%p from host dev 0x%p ...",
 	       state->name, len, (void*)gpa, state->host_dev);
 
     rc = v3_host_dev_read_mem(state->host_dev, gpa, dst, len);
 
-    PrintDebug(info->vm_info, info, " done ... read %d bytes: 0x", rc);
+    PrintDebug(core->vm_info, core, " done ... read %d bytes: 0x", rc);
 
     for (i = 0; i < rc; i++) { 
-	PrintDebug(info->vm_info, info, "%x", ((uint8_t *)dst)[i]);
+	PrintDebug(core->vm_info, core, "%x", ((uint8_t *)dst)[i]);
     }
 
-    PrintDebug(info->vm_info, info, "\n");
+    PrintDebug(core->vm_info, core, "\n");
 
     return rc;
 }
@@ -197,16 +198,16 @@ static int pci_front_write_mem(struct guest_info * core,
     struct vm_device *dev = (struct vm_device *) priv;
     struct pci_front_internal *state = (struct pci_front_internal *) dev->private_data;
 
-    PrintDebug(info->vm_info, info, "pci_front (%s): writing 0x%x bytes to gpa 0x%p to host dev 0x%p bytes=0x",
+    PrintDebug(core->vm_info, core, "pci_front (%s): writing 0x%x bytes to gpa 0x%p to host dev 0x%p bytes=0x",
 	       state->name, len, (void*)gpa, state->host_dev);
 
     for (i = 0; i < len; i++) { 
-	PrintDebug(info->vm_info, info, "%x", ((uint8_t *)src)[i]);
+	PrintDebug(core->vm_info, core, "%x", ((uint8_t *)src)[i]);
     }
 
     rc = v3_host_dev_write_mem(state->host_dev, gpa, src, len);
 
-    PrintDebug(info->vm_info, info, " %d bytes written\n",rc);
+    PrintDebug(core->vm_info, core, " %d bytes written\n",rc);
     
     return rc;
 }
@@ -221,18 +222,18 @@ static int pci_front_read_port(struct guest_info * core,
     int i;
     struct pci_front_internal *state = (struct pci_front_internal *) priv_data;
     
-    PrintDebug(info->vm_info, info, "pci_front (%s): reading 0x%x bytes from port 0x%x from host dev 0x%p ...",
+    PrintDebug(core->vm_info, core, "pci_front (%s): reading 0x%x bytes from port 0x%x from host dev 0x%p ...",
 	       state->name, len, port, state->host_dev);
 
     int rc = v3_host_dev_read_io(state->host_dev, port, dst, len);
     
-    PrintDebug(info->vm_info, info, " done ... read %d bytes: 0x", rc);
+    PrintDebug(core->vm_info, core, " done ... read %d bytes: 0x", rc);
 
     for (i = 0; i < rc; i++) { 
-	PrintDebug(info->vm_info, info, "%x", ((uint8_t *)dst)[i]);
+	PrintDebug(core->vm_info, core, "%x", ((uint8_t *)dst)[i]);
     }
 
-    PrintDebug(info->vm_info, info, "\n");
+    PrintDebug(core->vm_info, core, "\n");
 
     return rc;
     
@@ -246,17 +247,18 @@ static int pci_front_write_port(struct guest_info * core,
 {
     int i;
     struct pci_front_internal *state = (struct pci_front_internal *) priv_data;
+
     
-    PrintDebug(info->vm_info, info, "pci_front (%s): writing 0x%x bytes to port 0x%x to host dev 0x%p bytes=0x",
+    PrintDebug(core->vm_info, core, "pci_front (%s): writing 0x%x bytes to port 0x%x to host dev 0x%p bytes=0x",
 	       state->name, len, port, state->host_dev);
 
     for (i = 0; i < len; i++) { 
-	PrintDebug(info->vm_info, info, "%x", ((uint8_t *)src)[i]);
+	PrintDebug(core->vm_info, core, "%x", ((uint8_t *)src)[i]);
     }
 
     int rc = v3_host_dev_write_io(state->host_dev, port, src, len);
 
-    PrintDebug(info->vm_info, info, " %d bytes written\n",rc);
+    PrintDebug(core->vm_info, core, " %d bytes written\n",rc);
     
     return rc;
 }
@@ -272,10 +274,19 @@ static int pci_front_write_port(struct guest_info * core,
 // It might be smarter to do the pull config here since 
 // in init we may not yet have the host device running... 
 //
+// KCH: we need to make sure that we don't hook I/O BARs and Mem BARs that
+// haven't been configured by anyone yet (e.g. QEMU)
 static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
     struct vm_device * dev = (struct vm_device *)private_data;
     struct pci_front_internal * state = (struct pci_front_internal *)(dev->private_data);
 
+    /*
+    if (pull_config(state,state->config_space)) { 
+        PrintError(dev->vm, VCORE_NONE, "pci_front (%s): cannot initially configure device\n",state->name);
+        v3_remove_device(dev);
+        return -1;
+    }
+    */
 
     const uint32_t bar_base_reg = 4;   // offset in 32bit words to skip to the first bar
 
@@ -288,151 +299,189 @@ static int pci_bar_init(int bar_num, uint32_t * dst, void * private_data) {
 
     pci_addr.reg = bar_base_reg + bar_num;
 
-    PrintDebug(info->vm_info, info, "pci_front (%s): pci_bar_init: PCI Address = 0x%x\n", state->name, pci_addr.value);
+    PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): pci_bar_init: PCI Address = 0x%x\n", state->name, pci_addr.value);
 
     // This assumees that pull_config() has been previously called and 
     // we have a local copy of the host device's configuration space
-    bar_val = *((uint32_t*)(&(state->config_space[(bar_base_reg+bar_num)*4])));
+    //bar_val = *((uint32_t*)(&(state->config_space[(bar_base_reg+bar_num)*4])));
+    v3_host_dev_read_config(state->host_dev, bar_num*4 + 16, &bar_val, 4);
 
     // Now let's set our copy of the relevant bar accordingly
     pbar->val = bar_val; 
-    
+
     // Now we will configure the hooks relevant to this bar
 
     // We preset this type when we encounter a MEM64 Low BAR
     // This is a 64 bit memory region that we turn into a memory hook
     if (pbar->type == PT_BAR_MEM64_HI) {
-	struct pt_bar * lo_pbar = &(state->bars[bar_num - 1]);
+        struct pt_bar * lo_pbar = &(state->bars[bar_num - 1]);
 
-	max_val = PCI_MEM64_MASK_HI;
+        max_val = PCI_MEM64_MASK_HI;
 
-	pbar->size += lo_pbar->size;
+        v3_host_dev_write_config(state->host_dev, bar_num*4 + 16, &max_val, 4);
+        v3_host_dev_read_config(state->host_dev, bar_num*4 + 16, &max_val, 4);
+        v3_host_dev_write_config(state->host_dev, bar_num*4 + 16, &bar_val, 4);
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): pci_bar_init: Adding 64 bit PCI mem region: start=0x%p, end=0x%p as a full hook\n",
-		   state->name, 
-		   (void *)(addr_t)pbar->addr, 
-		   (void *)(addr_t)(pbar->addr + pbar->size));
+        pbar->size += lo_pbar->size;
 
-	if (v3_hook_full_mem(dev->vm,
-			     V3_MEM_CORE_ANY,
-			     pbar->addr,
-			     pbar->addr+pbar->size-1,
-			     pci_front_read_mem,
-			     pci_front_write_mem,
-			     dev)<0) { 
-	    
-	    PrintError(info->vm_info, info, "pci_front (%s): pci_bar_init: failed to hook 64 bit region (0x%p, 0x%p)\n",
-		       state->name, 
-		       (void *)(addr_t)pbar->addr,
-		       (void *)(addr_t)(pbar->addr + pbar->size - 1));
-	    return -1;
-	}
+        /* this BAR hasn't been mapped yet */
+        if (pbar->addr) {
+            pbar->mapped = 1;
+
+            PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): pci_bar_init: Adding 64 bit PCI mem region: start=0x%p, end=0x%p as a full hook\n",
+                    state->name, 
+                    (void *)(addr_t)pbar->addr, 
+                    (void *)(addr_t)(pbar->addr + pbar->size));
+
+            if (v3_hook_full_mem(dev->vm,
+                        V3_MEM_CORE_ANY,
+                        pbar->addr,
+                        pbar->addr+pbar->size-1,
+                        pci_front_read_mem,
+                        pci_front_write_mem,
+                        dev)<0) { 
+
+                PrintError(dev->vm, VCORE_NONE, "pci_front (%s): pci_bar_init: failed to hook 64 bit region (0x%p, 0x%p)\n",
+                        state->name, 
+                        (void *)(addr_t)pbar->addr,
+                        (void *)(addr_t)(pbar->addr + pbar->size - 1));
+                return -1;
+            }
+        }
 
     } else if ((bar_val & 0x3) == 0x1) {
-	// This an I/O port region which we will turn into a range of hooks
+        // This an I/O port region which we will turn into a range of hooks
 
-	int i = 0;
+        int i = 0;
 
-	pbar->type = PT_BAR_IO;
-	pbar->addr = PCI_IO_BASE(bar_val);
+        pbar->type = PT_BAR_IO;
+        pbar->addr = PCI_IO_BASE(bar_val);
 
-	max_val = bar_val | PCI_IO_MASK;
+        max_val = bar_val | PCI_IO_MASK;
 
-	pbar->size = (uint16_t)~PCI_IO_BASE(max_val) + 1;
+        /*
+uint64_t v3_host_dev_write_config(v3_host_dev_t hdev,
+				  uint64_t offset,
+				  void *src,
+				  uint64_t len)
+                  */
+        
 
-	
-	PrintDebug(info->vm_info, info, "pci_front (%s): pci_bar_init: hooking ports 0x%x through 0x%x\n",
-		   state->name, (uint32_t)pbar->addr, (uint32_t)pbar->addr + pbar->size - 1);
+        v3_host_dev_write_config(state->host_dev, bar_num*4 + 16, &max_val, 4);
+        v3_host_dev_read_config(state->host_dev, bar_num*4 + 16, &max_val, 4);
+        v3_host_dev_write_config(state->host_dev, bar_num*4 + 16, &bar_val, 4);
 
-	for (i = 0; i < pbar->size; i++) {
-	    if (v3_dev_hook_io(dev,
-			       pbar->addr + i, 
-			       pci_front_read_port,
-			       pci_front_write_port)<0) {
-		PrintError(info->vm_info, info, "pci_front (%s): pci_bar_init: unabled to hook I/O port 0x%x\n",state->name, (unsigned)(pbar->addr+i));
-		return -1;
-	    }
-	}
+        pbar->size = (uint16_t)~PCI_IO_BASE(max_val) + 1;
+        // ~((bar_val | PCI_IO_MASK) & PCI_IO_MASK) + 1 == ~(PCI_IO_MASK) + 1 == ~(0xfffffffc) + 1 == 0x3 + 1 == 0x4
+
+        if (pbar->addr) {
+            pbar->mapped = 1;
+
+            PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): pci_bar_init: hooking ports 0x%x through 0x%x\n",
+                    state->name, (uint32_t)pbar->addr, (uint32_t)pbar->addr + pbar->size - 1);
+
+            for (i = 0; i < pbar->size; i++) {
+                if (v3_dev_hook_io(dev,
+                            pbar->addr + i, 
+                            pci_front_read_port,
+                            pci_front_write_port)<0) {
+                    PrintError(dev->vm, VCORE_NONE, "pci_front (%s): pci_bar_init: unabled to hook I/O port 0x%x\n",state->name, (unsigned)(pbar->addr+i));
+                    return -1;
+                }
+            }
+        }
 
     } else {
 
-	// might be a 32 bit memory region or an empty bar
+        // might be a 32 bit memory region or an empty bar
 
-	max_val = bar_val | PCI_MEM_MASK;
+        max_val = bar_val | PCI_MEM_MASK;
+        v3_host_dev_write_config(state->host_dev, bar_num*4 + 16, &max_val, 4);
+        v3_host_dev_read_config(state->host_dev, bar_num*4 + 16, &max_val, 4);
+        v3_host_dev_write_config(state->host_dev, bar_num*4 + 16, &bar_val, 4);
+        
 
-	if (max_val == 0) {
-	    // nothing, so just ignore it
-	    pbar->type = PT_BAR_NONE;
-	} else {
+        if (max_val == 0) {
+            // nothing, so just ignore it
+            pbar->type = PT_BAR_NONE;
+        } else {
 
-	    // memory region - hook it
+            // memory region - hook it
 
-	    if ((bar_val & 0x6) == 0x0) {
-		// 32 bit memory region
+            if ((bar_val & 0x6) == 0x0) {
+                // 32 bit memory region
 
-		pbar->type = PT_BAR_MEM32;
-		pbar->addr = PCI_MEM32_BASE(bar_val);
-		pbar->size = ~PCI_MEM32_BASE(max_val) + 1;
+                pbar->type = PT_BAR_MEM32;
+                pbar->addr = PCI_MEM32_BASE(bar_val);
+                pbar->size = ~PCI_MEM32_BASE(max_val) + 1;
 
-		PrintDebug(info->vm_info, info, "pci_front (%s): pci_init_bar: adding 32 bit PCI mem region: start=0x%p, end=0x%p\n",
-			   state->name, 
-			   (void *)(addr_t)pbar->addr, 
-			   (void *)(addr_t)(pbar->addr + pbar->size));
+                if (pbar->addr) {
+                    pbar->mapped = 1;
 
-		if (v3_hook_full_mem(dev->vm, 
-				     V3_MEM_CORE_ANY,
-				     pbar->addr,
-				     pbar->addr+pbar->size-1,
-				     pci_front_read_mem,
-				     pci_front_write_mem,
-				     dev) < 0 ) { 
-		    PrintError(info->vm_info, info, "pci_front (%s): pci_init_bar: unable to hook 32 bit memory region 0x%p to 0x%p\n",
-			       state->name, (void*)(pbar->addr), (void*)(pbar->addr+pbar->size-1));
-		    return -1;
-		}
+                    PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): pci_init_bar: adding 32 bit PCI mem region: start=0x%p, end=0x%p\n",
+                            state->name, 
+                            (void *)(addr_t)pbar->addr, 
+                            (void *)(addr_t)(pbar->addr + pbar->size));
 
-	    } else if ((bar_val & 0x6) == 0x2) {
+                    if (v3_hook_full_mem(dev->vm, 
+                                V3_MEM_CORE_ANY,
+                                pbar->addr,
+                                pbar->addr+pbar->size-1,
+                                pci_front_read_mem,
+                                pci_front_write_mem,
+                                dev) < 0 ) { 
+                        PrintError(dev->vm, VCORE_NONE, "pci_front (%s): pci_init_bar: unable to hook 32 bit memory region 0x%p to 0x%p\n",
+                                state->name, (void*)(pbar->addr), (void*)(pbar->addr+pbar->size-1));
+                        return -1;
+                    }
+                }
 
-		// 24 bit memory region
+            } else if ((bar_val & 0x6) == 0x2) {
 
-		pbar->type = PT_BAR_MEM24;
-		pbar->addr = PCI_MEM24_BASE(bar_val);
-		pbar->size = ~PCI_MEM24_BASE(max_val) + 1;
+                // 24 bit memory region
+
+                pbar->type = PT_BAR_MEM24;
+                pbar->addr = PCI_MEM24_BASE(bar_val);
+                pbar->size = ~PCI_MEM24_BASE(max_val) + 1;
+
+                if (pbar->addr) {
+                    pbar->mapped = 1;
 
 
-		if (v3_hook_full_mem(dev->vm, 
-				     V3_MEM_CORE_ANY,
-				     pbar->addr,
-				     pbar->addr+pbar->size-1,
-				     pci_front_read_mem,
-				     pci_front_write_mem,
-				     dev) < 0 ) { 
-		    PrintError(info->vm_info, info, "pci_front (%s): pci_init_bar: unable to hook 24 bit memory region 0x%p to 0x%p\n",
-			       state->name, (void*)(pbar->addr), (void*)(pbar->addr+pbar->size-1));
-		    return -1;
-		}
+                    if (v3_hook_full_mem(dev->vm, 
+                                V3_MEM_CORE_ANY,
+                                pbar->addr,
+                                pbar->addr+pbar->size-1,
+                                pci_front_read_mem,
+                                pci_front_write_mem,
+                                dev) < 0 ) { 
+                        PrintError(dev->vm, VCORE_NONE, "pci_front (%s): pci_init_bar: unable to hook 24 bit memory region 0x%p to 0x%p\n",
+                                state->name, (void*)(pbar->addr), (void*)(pbar->addr+pbar->size-1));
+                        return -1;
+                    }
+                }
 
-	    } else if ((bar_val & 0x6) == 0x4) {
-		
-		// partial update of a 64 bit region, no hook done yet
+            } else if ((bar_val & 0x6) == 0x4) {
 
-		struct pt_bar * hi_pbar = &(state->bars[bar_num + 1]);
+                // partial update of a 64 bit region, no hook done yet
 
-		pbar->type = PT_BAR_MEM64_LO;
-		hi_pbar->type = PT_BAR_MEM64_HI;
+                struct pt_bar * hi_pbar = &(state->bars[bar_num + 1]);
 
-		// Set the low bits, only for temporary storage until we calculate the high BAR
-		pbar->addr = PCI_MEM64_BASE_LO(bar_val);
-		pbar->size = ~PCI_MEM64_BASE_LO(max_val) + 1;
+                pbar->type = PT_BAR_MEM64_LO;
+                hi_pbar->type = PT_BAR_MEM64_HI;
 
-		PrintDebug(info->vm_info, info, "pci_front (%s): pci_bar_init: partial 64 bit update\n",state->name);
+                // Set the low bits, only for temporary storage until we calculate the high BAR
+                pbar->addr = PCI_MEM64_BASE_LO(bar_val);
+                pbar->size = ~PCI_MEM64_BASE_LO(max_val) + 1;
 
-	    } else {
-		PrintError(info->vm_info, info, "pci_front (%s): pci_bar_init: invalid memory bar type\n",state->name);
-		return -1;
-	    }
+                PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): pci_bar_init: partial 64 bit update\n",state->name);
 
-	}
+            } else {
+                PrintError(dev->vm, VCORE_NONE, "pci_front (%s): pci_bar_init: invalid memory bar type\n",state->name);
+                return -1;
+            }
+
+        }
     }
 
 
@@ -461,32 +510,41 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
     
     struct pt_bar * pbar = &(state->bars[bar_num]);
 
-    PrintDebug(info->vm_info, info, "pci_front (%s): bar update: bar_num=%d, src=0x%x\n", state->name, bar_num, *src);
-    PrintDebug(info->vm_info, info, "pci_front (%s): the current bar has size=%u, type=%d, addr=%p, val=0x%x\n",
+    PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): bar update: bar_num=%d, src=0x%x\n", state->name, bar_num, *src);
+    PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): the current bar has size=%u, type=%d, addr=%p, val=0x%x\n",
 	       state->name, pbar->size, pbar->type, (void *)(addr_t)pbar->addr, pbar->val);
+
+    v3_host_dev_write_config(state->host_dev, bar_num*4 + 16, src, 4);
+    v3_host_dev_read_config(state->host_dev, bar_num*4 + 16, &state->config_space[bar_num*4 + 16], 4);
+    if (*src == 0xffffffff || *src == 0) {
+        PrintDebug(dev->vm, VCORE_NONE, "Ignoring BAR write for bar#%d, val=0x%x\n", bar_num, *src);
+        return 0;
+    }
 
 
 
     if (pbar->type == PT_BAR_NONE) {
-	PrintDebug(info->vm_info, info, "pci_front (%s): bar update is to empty bar - ignored\n",state->name);
+	PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): bar update is to empty bar - ignored\n",state->name);
 	return 0;
     } else if (pbar->type == PT_BAR_IO) {
 	int i = 0;
 
 	// unhook old ports
-	PrintDebug(info->vm_info, info, "pci_front (%s): unhooking I/O ports 0x%x through 0x%x\n", 
-		   state->name, 
-		   (unsigned)(pbar->addr), (unsigned)(pbar->addr+pbar->size-1));
-	for (i = 0; i < pbar->size; i++) {
-	    if (v3_dev_unhook_io(dev, pbar->addr + i) == -1) {
-		PrintError(info->vm_info, info, "pci_front (%s): could not unhook previously hooked port.... 0x%x\n", 
-			   state->name, 
-			   (uint32_t)pbar->addr + i);
-		return -1;
-	    }
-	}
+    if (pbar->mapped) {
+        PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): unhooking I/O ports 0x%x through 0x%x\n", 
+                state->name, 
+                (unsigned)(pbar->addr), (unsigned)(pbar->addr+pbar->size-1));
+        for (i = 0; i < pbar->size; i++) {
+            if (v3_dev_unhook_io(dev, pbar->addr + i) == -1) {
+                PrintError(dev->vm, VCORE_NONE, "pci_front (%s): could not unhook previously hooked port.... 0x%x\n", 
+                        state->name, 
+                        (uint32_t)pbar->addr + i);
+                return -1;
+            }
+        }
+    }
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): setting I/O Port range size=%d\n", state->name, pbar->size);
+	PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): setting I/O Port range size=%d\n", state->name, pbar->size);
 
 	// 
 	// Not clear if this cooking is needed... why not trust
@@ -501,28 +559,32 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 
 	pbar->addr = PCI_IO_BASE(*src);	
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): cooked src=0x%x\n", state->name, *src);
+	PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): cooked src=0x%x\n", state->name, *src);
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): rehooking I/O ports 0x%x through 0x%x\n",
+	PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): rehooking I/O ports 0x%x through 0x%x\n",
 		   state->name, (unsigned)(pbar->addr), (unsigned)(pbar->addr+pbar->size-1));
 
+    if (pbar->addr) {
 	for (i = 0; i < pbar->size; i++) {
 	    if (v3_dev_hook_io(dev,
 			       pbar->addr + i, 
 			       pci_front_read_port, 
 			       pci_front_write_port)<0) { 
-		PrintError(info->vm_info, info, "pci_front (%s): unable to rehook port 0x%x\n",state->name, (unsigned)(pbar->addr+i));
+		PrintError(dev->vm, VCORE_NONE, "pci_front (%s): unable to rehook port 0x%x\n",state->name, (unsigned)(pbar->addr+i));
 		return -1;
 	    }
 	}
+    }
 
     } else if (pbar->type == PT_BAR_MEM32) {
 
-	if (v3_unhook_mem(dev->vm,V3_MEM_CORE_ANY,pbar->addr)<0) { 
-	    PrintError(info->vm_info, info, "pci_front (%s): unable to unhook 32 bit memory region starting at 0x%p\n", 
-		       state->name, (void*)(pbar->addr));
-	    return -1;
-	}
+        if (pbar->mapped) {
+            if (v3_unhook_mem(dev->vm,V3_MEM_CORE_ANY,pbar->addr)<0) { 
+                PrintError(dev->vm, VCORE_NONE, "pci_front (%s): unable to unhook 32 bit memory region starting at 0x%p\n", 
+                        state->name, (void*)(pbar->addr));
+                return -1;
+            }
+        }
 
 	// Again, not sure I need to do this cooking...
 
@@ -532,13 +594,14 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	// Set reserved bits
 	*src |= (pbar->val & ~PCI_MEM_MASK);
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): cooked src=0x%x\n", state->name, *src);
+	PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): cooked src=0x%x\n", state->name, *src);
 
 	pbar->addr = PCI_MEM32_BASE(*src);
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): rehooking 32 bit memory region 0x%p through 0x%p\n",
+	PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): rehooking 32 bit memory region 0x%p through 0x%p\n",
 		   state->name, (void*)(pbar->addr), (void*)(pbar->addr + pbar->size - 1));
 		   
+    if (pbar->addr) {
 	if (v3_hook_full_mem(dev->vm,
 			     V3_MEM_CORE_ANY,
 			     pbar->addr,
@@ -546,10 +609,11 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 			     pci_front_read_mem,
 			     pci_front_write_mem,
 			     dev)<0) { 
-	    PrintError(info->vm_info, info, "pci_front (%s): unable to rehook 32 bit memory region 0x%p through 0x%p\n",
+	    PrintError(dev->vm, VCORE_NONE, "pci_front (%s): unable to rehook 32 bit memory region 0x%p through 0x%p\n",
 		       state->name, (void*)(pbar->addr), (void*)(pbar->addr + pbar->size - 1));
 	    return -1;
 	}
+    }
 
     } else if (pbar->type == PT_BAR_MEM64_LO) {
 	// We only store the written values here, the actual reconfig comes when the high BAR is updated
@@ -563,16 +627,18 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	// Temp storage, used when hi bar is written
 	pbar->addr = PCI_MEM64_BASE_LO(*src);
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): handled partial update for 64 bit memory region\n",state->name);
+	PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): handled partial update for 64 bit memory region\n",state->name);
 
     } else if (pbar->type == PT_BAR_MEM64_HI) {
 	struct pt_bar * lo_vbar = &(state->bars[bar_num - 1]);
 
-	if (v3_unhook_mem(dev->vm,V3_MEM_CORE_ANY,pbar->addr)<0) { 
-	    PrintError(info->vm_info, info, "pci_front (%s): unable to unhook 64 bit memory region starting at 0x%p\n", 
-		       state->name, (void*)(pbar->addr));
-	    return -1;
-	}
+    if (pbar->mapped) {
+        if (v3_unhook_mem(dev->vm,V3_MEM_CORE_ANY,pbar->addr)<0) { 
+            PrintError(dev->vm, VCORE_NONE, "pci_front (%s): unable to unhook 64 bit memory region starting at 0x%p\n", 
+                    state->name, (void*)(pbar->addr));
+            return -1;
+        }
+    }
 
 	
 	// We don't set size, because we assume region is less than 4GB
@@ -584,7 +650,7 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 	pbar->addr <<= 32;
 	pbar->addr += lo_vbar->addr;
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): rehooking 64 bit memory region 0x%p through 0x%p\n",
+	PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): rehooking 64 bit memory region 0x%p through 0x%p\n",
 		   state->name, (void*)(pbar->addr), (void*)(pbar->addr + pbar->size - 1));
 		   
 	if (v3_hook_full_mem(dev->vm,
@@ -594,17 +660,60 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 			     pci_front_read_mem,
 			     pci_front_write_mem,
 			     dev)<0) { 
-	    PrintError(info->vm_info, info, "pci_front (%s): unable to rehook 64 bit memory region 0x%p through 0x%p\n",
+	    PrintError(dev->vm, VCORE_NONE, "pci_front (%s): unable to rehook 64 bit memory region 0x%p through 0x%p\n",
 		       state->name, (void*)(pbar->addr), (void*)(pbar->addr + pbar->size - 1));
 	    return -1;
 	}
 	
     } else {
-	PrintError(info->vm_info, info, "pci_front (%s): unhandled PCI bar type %d\n", state->name, pbar->type);
+	PrintError(dev->vm, VCORE_NONE, "pci_front (%s): unhandled PCI bar type %d\n", state->name, pbar->type);
 	return -1;
     }
 
     pbar->val = *src;
+    
+    return 0;
+}
+
+static int pci_front_cmd_update(struct pci_device *pci_dev, pci_cmd_t cmd, uint64_t arg, void * priv_data)
+{
+    struct vm_device * dev = (struct vm_device *)priv_data;
+    struct pci_front_internal * state = (struct pci_front_internal *)dev->private_data;
+
+    uint16_t command = (uint16_t)arg;
+
+    PrintDebug(VM_NONE, VCORE_NONE, "pci_front (%s): command update\n", state->name);
+
+    if (v3_host_dev_write_config(state->host_dev, 0x4, &command, 2) != 2) {
+        PrintError(dev->vm, VCORE_NONE, "pci_front (%s): cmd update: unable to write all bytes\n", state->name);
+        return -1;
+    }
+
+    return 0;
+}
+
+static int pci_front_config_read(struct pci_device *pci_dev, uint_t reg_num, void * dst, uint_t length, void * priv_data)
+{
+    struct vm_device * dev = (struct vm_device *)priv_data;
+    struct pci_front_internal * state = (struct pci_front_internal *)dev->private_data;
+    int i;
+
+    memcpy(dst, (void*)&(state->config_space[reg_num]), length);
+
+
+    PrintDebug(VM_NONE, VCORE_NONE, "read callback (%d bytes starting at reg num %x)\n", length, reg_num);
+    for (i = 0; i < length; i++) {
+        PrintDebug(VM_NONE, VCORE_NONE, "byte %d: %x\n", i, state->config_space[reg_num+i]);
+    }
+
+    /*
+    PrintDebug(VM_NONE, VCORE_NONE, "pci_front config space read callback (%d bytes starting at reg num %x) returning:\n", length, reg_num);
+    for (i = 0; i < length/4; i++) {
+        PrintDebug(VM_NONE, VCORE_NONE, "%x\n", *(uint32_t*)(&(state->config_space[reg_num]) + i*4));
+    }
+    */
+
+    
     
     return 0;
 }
@@ -619,23 +728,26 @@ static int pci_front_config_update(struct pci_device *pci_dev, uint_t reg_num, v
     
     pci_addr.reg = reg_num >> 2;
 
-    PrintDebug(info->vm_info, info, "pci_front (%s): configuration update: writing 0x%x bytes at offset 0x%x to host device 0x%p, bytes=0x",
+    PrintDebug(dev->vm, VCORE_NONE, "pci_front (%s): configuration update: writing 0x%x bytes at offset 0x%x to host device 0x%p, bytes=0x",
 	       state->name, length, pci_addr.value, state->host_dev);
     
     for (i = 0; i < length; i++) { 
-	PrintDebug(info->vm_info, info, "%x", ((uint8_t *)src)[i]);
+	PrintDebug(dev->vm, VCORE_NONE, "%x", ((uint8_t *)src)[i]);
     }
 
-    PrintDebug(info->vm_info, info, "\n");
+    PrintDebug(dev->vm, VCORE_NONE, "\n");
 
+    /* first, keep our local copy in sync */
+    memcpy((void*)&state->config_space[pci_addr.value], src, length);
+
+    /* propagate back to the host side */
     if (v3_host_dev_write_config(state->host_dev,
 				 pci_addr.value,
 				 src,
 				 length) != length) { 
-	PrintError(info->vm_info, info, "pci_front (%s): configuration update: unable to write all bytes\n",state->name);
+	PrintError(dev->vm, VCORE_NONE, "pci_front (%s): configuration update: unable to write all bytes\n",state->name);
 	return -1;
     }
-
 
     return 0;
 }
@@ -650,18 +762,18 @@ static int unhook_all_mem(struct pci_front_internal *state)
     for (bar_num=0;bar_num<6;bar_num++) { 
 	struct pt_bar * pbar = &(state->bars[bar_num]);
 
-	PrintDebug(info->vm_info, info, "pci_front (%s): unhooking for bar %d\n", state->name, bar_num);
+	PrintDebug(bus->vm, VCORE_NONE, "pci_front (%s): unhooking for bar %d\n", state->name, bar_num);
 
 	if (pbar->type == PT_BAR_MEM32) {
 	    if (v3_unhook_mem(bus->vm,V3_MEM_CORE_ANY,pbar->addr)<0) { 
-		PrintError(info->vm_info, info, "pci_front (%s): unable to unhook 32 bit memory region starting at 0x%p\n", 
+		PrintError(bus->vm, VCORE_NONE, "pci_front (%s): unable to unhook 32 bit memory region starting at 0x%p\n", 
 			   state->name, (void*)(pbar->addr));
 		return -1;
 	    }
 	} else  if (pbar->type == PT_BAR_MEM64_HI) {
 
 	    if (v3_unhook_mem(bus->vm,V3_MEM_CORE_ANY,pbar->addr)<0) { 
-		PrintError(info->vm_info, info, "pci_front (%s): unable to unhook 64 bit memory region starting at 0x%p\n", 
+		PrintError(bus->vm, VCORE_NONE, "pci_front (%s): unable to unhook 64 bit memory region starting at 0x%p\n", 
 			   state->name, (void*)(pbar->addr));
 		return -1;
 	    }
@@ -693,8 +805,8 @@ static int setup_virt_pci_dev(struct v3_vm_info * vm_info, struct vm_device * de
 				     bus_num, -1, 0, 
 				     state->name, bars,
 				     pci_front_config_update,
-				     NULL,      // no suport for config reads
-				     NULL,      // no support for command updates
+				     pci_front_config_read,      
+				     pci_front_cmd_update,      // no support for command updates
 				     NULL,      // no support for expansion roms              
 				     dev);
 
@@ -731,7 +843,7 @@ static int pci_front_free(struct pci_front_internal *state)
 
     V3_Free(state);
 
-    PrintDebug(info->vm_info, info, "pci_front (%s): freed\n",state->name);
+    PrintDebug(state->pci_bus->vm, VCORE_NONE, "pci_front (%s): freed\n",state->name);
 
     return 0;
 }
@@ -748,6 +860,7 @@ static void pci_front_intr_update_callback(v3_host_dev_t hdev, v3_guest_dev_t gd
 	// don't need an "acked" irq.  Also, we expect the host is using INTX, not
 	// MSI.  It's doubtful that MSI will work.  
 	// expect: state->pci_dev->irq_type==IRQ_INTX
+    PrintDebug(VM_NONE, VCORE_NONE, "Palacios raising PCI IRQ %x\n", irq);
 	if (raise) { 
 	    v3_pci_raise_irq(state->pci_bus, state->pci_dev, irq);
 	} else {
@@ -782,27 +895,27 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 
     
     if (!(dev_id = v3_cfg_val(cfg, "ID"))) { 
-	PrintError(info->vm_info, info, "pci_front: no id  given!\n");
+	PrintError(vm, VCORE_NONE, "pci_front: no id  given!\n");
 	return -1;
     }
     
     if (!(bus_id = v3_cfg_val(cfg, "bus"))) { 
-	PrintError(info->vm_info, info, "pci_front (%s): no bus given!\n",dev_id);
+	PrintError(vm, VCORE_NONE, "pci_front (%s): no bus given!\n",dev_id);
 	return -1;
     }
     
     if (!(url = v3_cfg_val(cfg, "hostdev"))) { 
-	PrintError(info->vm_info, info, "pci_front (%s): no host device url given!\n",dev_id);
+	PrintError(vm, VCORE_NONE, "pci_front (%s): no host device url given!\n",dev_id);
 	return -1;
     }
     
     if (!(bus = v3_find_dev(vm,bus_id))) { 
-	PrintError(info->vm_info, info, "pci_front (%s): cannot attach to bus %s\n",dev_id,bus_id);
+	PrintError(vm, VCORE_NONE, "pci_front (%s): cannot attach to bus %s\n",dev_id,bus_id);
 	return -1;
     }
     
     if (!(state = V3_Malloc(sizeof(struct pci_front_internal)))) { 
-	PrintError(info->vm_info, info, "pci_front (%s): cannot allocate state for device\n",dev_id);
+	PrintError(vm, VCORE_NONE, "pci_front (%s): cannot allocate state for device\n",dev_id);
 	return -1;
     }
     
@@ -812,26 +925,25 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     strncpy(state->name, dev_id, 32);
     
     if (!(dev = v3_add_device(vm, dev_id, &dev_ops, state))) { 
-	PrintError(info->vm_info, info, "pci_front (%s): unable to add device\n",state->name);
+	PrintError(vm, VCORE_NONE, "pci_front (%s): unable to add device\n",state->name);
 	return -1;
     }
     
     if (!(state->host_dev=v3_host_dev_open(url,V3_BUS_CLASS_PCI,dev,pci_front_intr_update_callback,vm))) { 
-	PrintError(info->vm_info, info, "pci_front (%s): unable to attach to host device %s\n",state->name, url);
-	v3_remove_device(dev);
-	return -1;
-    }
-    
-    // fetch config space from the host
-    if (pull_config(state,state->config_space)) { 
-	PrintError(info->vm_info, info, "pci_front (%s): cannot initially configure device\n",state->name);
+	PrintError(vm, VCORE_NONE, "pci_front (%s): unable to attach to host device %s\n",state->name, url);
 	v3_remove_device(dev);
 	return -1;
     }
 
+    if (pull_config(state,state->config_space)) { 
+        PrintError(dev->vm, VCORE_NONE, "pci_front (%s): cannot initially configure device\n",state->name);
+        v3_remove_device(dev);
+        return -1;
+    }
+
     // setup virtual device for now
     if (setup_virt_pci_dev(vm,dev)<0) { 
-	PrintError(info->vm_info, info, "pci_front (%s): cannot set up virtual pci device\n", state->name);
+	PrintError(vm, VCORE_NONE, "pci_front (%s): cannot set up virtual pci device\n", state->name);
 	v3_remove_device(dev);
 	return -1;
     }
@@ -839,7 +951,7 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     // We do not need to hook anything here since pci will call
     // us back via the bar_init functions
 
-    PrintDebug(info->vm_info, info, "pci_front (%s): inited and ready to be Potemkinized\n",state->name);
+    PrintDebug(vm, VCORE_NONE, "pci_front (%s): inited and ready to be Potemkinized\n",state->name);
 
     return 0;
 
