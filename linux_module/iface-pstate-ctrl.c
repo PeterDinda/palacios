@@ -21,7 +21,6 @@
 #include <linux/uaccess.h>
 #include <linux/seq_file.h>
 #include <linux/proc_fs.h>
-#include <linux/export.h>
 #include <linux/cpufreq.h>
 #include <linux/kernel.h>
 #include <linux/kmod.h>
@@ -29,6 +28,10 @@
 #include <asm/processor.h>
 #include <asm/msr.h>
 #include <asm/msr-index.h>
+
+// Used to determine the appropriate pstates values on Intel
+#include <linux/acpi.h>
+#include <acpi/processor.h>
 
 #include <interfaces/vmm_pstate_ctrl.h>
 
@@ -48,6 +51,12 @@
    p-state regardless of the host's functionality.  This includes
    an ioctl for commanding the implementation and a /proc file for 
    showing current status and capabilities.
+
+   What we mean by "pstate" here is the processor's internal
+   configuration.   For AMD, this is defined as being the same as
+   the ACPI-defined p-state.  For Intel, it is not.  There, it is the 
+   contents of the perf ctl MSR, which, often, is the frequency id 
+   and voltage id (the multipliers).
 
 */
 
@@ -101,10 +110,10 @@ static DEFINE_PER_CPU(struct pstate_core_info, core_state);
 struct pstate_core_funcs {
     void    (*arch_init)(void);
     void    (*arch_deinit)(void);
-    uint8_t (*get_min_pstate)(void);
-    uint8_t (*get_max_pstate)(void);
-    uint8_t (*get_pstate)(void);
-    void    (*set_pstate)(uint8_t pstate);
+    uint64_t (*get_min_pstate)(void);
+    uint64_t (*get_max_pstate)(void);
+    uint64_t (*get_pstate)(void);
+    void    (*set_pstate)(uint64_t pstate);
 };
 
 struct pstate_machine_info {
@@ -217,7 +226,7 @@ static void deinit_arch_amd(void)
 }
 
 
-static uint8_t get_pstate_amd(void) 
+static uint64_t get_pstate_amd(void) 
 {
     struct p_state_stat_reg_amd pstat;
 
@@ -230,7 +239,7 @@ static uint8_t get_pstate_amd(void)
 }
 
 
-static void set_pstate_amd(uint8_t p)
+static void set_pstate_amd(uint64_t p)
 {
     struct p_state_ctl_reg_amd pctl;
     pctl.val = 0;
@@ -246,7 +255,7 @@ static void set_pstate_amd(uint8_t p)
 /*
  * NOTE: HW may change this value at runtime
  */
-static uint8_t get_max_pstate_amd(void)
+static uint64_t get_max_pstate_amd(void)
 {
     struct p_state_limit_reg_amd plimits;
 
@@ -256,7 +265,7 @@ static uint8_t get_max_pstate_amd(void)
 }
 
 
-static uint8_t get_min_pstate_amd(void)
+static uint64_t get_min_pstate_amd(void)
 {
     struct p_state_limit_reg_amd plimits;
 
@@ -375,6 +384,21 @@ struct turbo_mode_info_reg_intel {
     } __attribute__((packed));
 } __attribute__((packed));
 
+// This replicates the critical information in Linux's struct acpi_processor_px
+// To make it easier to port to other OSes.    
+struct intel_pstate_info {
+    uint64_t freq;  // KHz
+    uint64_t ctrl;  // What to write into the _CTL MSR to get this
+};
+
+// The internal array will be used if we cannot build the table locally
+static struct intel_pstate_info *intel_pstate_to_ctrl_internal=0;
+static int intel_num_pstates_internal=0;
+
+// These will either point to the internal array or to a constructed array
+static struct intel_pstate_info *intel_pstate_to_ctrl=0;
+static int intel_num_pstates=0;
+
 
 /* CPUID.01:ECX.AES(7) */
 static uint8_t supports_pstates_intel(void)
@@ -408,6 +432,43 @@ static uint8_t supports_pstates_intel(void)
             machine_state.have_mwait_ext,
             machine_state.have_mwait_int );
 
+
+    if (machine_state.have_speedstep) {
+	uint32_t i;
+	// Build mapping table (from "pstate" (0..) to ctrl value for MSR
+	if (!(get_cpu_var(processors)) || !(get_cpu_var(processors)->performance) ) { 
+	    put_cpu_var(processors);
+	    // no acpi...  revert to internal table
+	    intel_pstate_to_ctrl=intel_pstate_to_ctrl_internal;
+	    intel_num_pstates=intel_num_pstates_internal;
+	} else {
+	    intel_num_pstates = get_cpu_var(processors)->performance->state_count;
+	    if (intel_num_pstates) { 
+		intel_pstate_to_ctrl = palacios_alloc(sizeof(struct intel_pstate_info)*intel_num_pstates);
+		if (!intel_pstate_to_ctrl) { 
+		    ERROR("P-State: Cannot allocate space for mapping...\n");
+		    intel_num_pstates=0;
+		}
+		for (i=0;i<intel_num_pstates;i++) { 
+		    intel_pstate_to_ctrl[i].freq = get_cpu_var(processors)->performance->states[i].core_frequency*1000;
+		    intel_pstate_to_ctrl[i].ctrl = get_cpu_var(processors)->performance->states[i].control;
+		}
+		    
+	    } else {
+		ERROR("P-State: Strange, machine has ACPI DVFS but no states...\n");
+	    }
+	}
+	put_cpu_var(processors);
+	INFO("P-State: Intel - State Mapping (%u states) follows\n",intel_num_pstates);
+	for (i=0;i<intel_num_pstates;i++) {
+	    INFO("P-State: Intel Mapping %u:  freq=%llu  ctrl=%llx\n",
+		 i, intel_pstate_to_ctrl[i].freq,intel_pstate_to_ctrl[i].ctrl);
+	}
+    } else {
+	INFO("P-State: Intel:  No speedstep here\n");
+    }
+	
+
     return machine_state.have_speedstep;
 }
 
@@ -418,6 +479,8 @@ static void init_arch_intel(void)
 
     rdmsrl(MSR_MISC_ENABLE_IA32, val);
 
+    //INFO("P-State: prior ENABLE=%llx\n",val);
+
     // store prior speedstep setting
     get_cpu_var(core_state).prior_speedstep=(val >> 16) & 0x1;
     put_cpu_var(core_state);
@@ -425,6 +488,8 @@ static void init_arch_intel(void)
     // enable speedstep (probably already on)
     val |= 1 << 16;
     wrmsrl(MSR_MISC_ENABLE_IA32, val);
+
+    //INFO("P-State: write ENABLE=%llx\n",val);
 
 }
 
@@ -434,40 +499,47 @@ static void deinit_arch_intel(void)
 
     rdmsrl(MSR_MISC_ENABLE_IA32, val);
 
+    //INFO("P-State: deinit: ENABLE=%llx\n",val);
+
     val &= ~(1ULL << 16);
     val |= get_cpu_var(core_state).prior_speedstep << 16;
     put_cpu_var(core_state);
 
     wrmsrl(MSR_MISC_ENABLE_IA32, val);
 
+    //INFO("P-state: deinit ENABLE=%llx\n",val);
+
 }
 
 /* TODO: Intel P-states require sampling at intervals... */
-static uint8_t get_pstate_intel(void)
+static uint64_t get_pstate_intel(void)
 {
     uint64_t val;
-    uint16_t pstate;
 
     rdmsrl(MSR_PERF_STAT_IA32,val);
 
-    pstate = val & 0xffff;
-
-    INFO("P-State: Get: 0x%llx\n", val);
-
-    // Assume top byte is the FID
-    //if (pstate & 0xff ) { 
-    //  ERROR("P-State: Intel returns confusing pstate %u\n",pstate);
-    //}
+    //INFO("P-State: Get: 0x%llx\n", val);
 
     // should check if turbo is active, in which case 
     // this value is not the whole story
 
-    return (uint8_t) (pstate>>8);
+    return val;
 }
 
-static void set_pstate_intel(uint8_t p)
+static void set_pstate_intel(uint64_t p)
 {
     uint64_t val;
+    uint64_t ctrl;
+
+    if (intel_num_pstates==0) { 
+	return ;
+    } else {
+	if (p>=intel_num_pstates) { 
+	    p=intel_num_pstates-1;
+	}
+    }
+
+    ctrl=intel_pstate_to_ctrl[p].ctrl;
 
     /* ...Intel IDA (dynamic acceleration)
        if (c->no_turbo && !c->turbo_disabled) {
@@ -478,8 +550,10 @@ static void set_pstate_intel(uint8_t p)
     // fid bits
 
     rdmsrl(MSR_PERF_CTL_IA32, val);
-    val &= ~0xff00ULL;
-    val |= ((uint64_t)p)<<8;
+    INFO("P-State: Pre-Set: 0x%llx\n", val);
+
+    val &= ~0xffffULL;
+    val |= ctrl & 0xffffULL;
 
     INFO("P-State: Set: 0x%llx\n", val);
 
@@ -490,24 +564,20 @@ static void set_pstate_intel(uint8_t p)
 }
 
 
-static uint8_t get_min_pstate_intel(void)
+static uint64_t get_min_pstate_intel(void)
 {
-    struct turbo_mode_info_reg_intel t;
-
-    rdmsrl(MSR_PLATFORM_INFO_IA32, t.val);
-
-    return t.reg.min_ratio;
+    return 0;
 }
 
 
 
-static uint8_t get_max_pstate_intel (void)
+static uint64_t get_max_pstate_intel (void)
 {
-    struct turbo_mode_info_reg_intel t;
-
-    rdmsrl(MSR_PLATFORM_INFO_IA32, t.val);
-
-    return t.reg.max_noturbo_ratio;
+    if (intel_num_pstates==0) { 
+	return 0;
+    } else {
+	return intel_num_pstates-1;
+    }
 }
 
 static struct pstate_core_funcs intel_funcs =
@@ -773,19 +843,12 @@ static int linux_setup_palacios_governor(void)
 }
 
 
-#if 0
-static int linux_deinit(void)
-{
-    return 0;
-}
-#endif
-
 
 static int linux_get_pstate(void)
 {
     struct cpufreq_policy * policy = NULL;
     struct cpufreq_frequency_table *table;
-    int cpu = get_cpu();
+    int cpu = get_cpu(); 
     unsigned int i = 0;
     unsigned int count = 0;
 
@@ -812,6 +875,8 @@ static int linux_get_pstate(void)
     }
 
     palacios_free(policy);
+
+    put_cpu();
     return count;
 }
 
@@ -950,6 +1015,7 @@ static void init_core(void)
 {
     unsigned cpu;
     struct cpufreq_policy *p;
+    unsigned int i;
 
 
     DEBUG("P-State Core Init\n");
@@ -980,11 +1046,19 @@ static void init_core(void)
         get_cpu_var(core_state).min_freq_khz=p->min;
         get_cpu_var(core_state).max_freq_khz=p->max;
         get_cpu_var(core_state).cur_freq_khz=p->cur;
-        cpufreq_cpu_put(p);
     }
+    
+    cpufreq_cpu_put(p);
 
     put_cpu_var(core_state);
 
+    for (i=0;i<get_cpu_var(processors)->performance->state_count; i++) { 
+        INFO("P-State: %u: freq=%llu ctrl=%llx",
+		i, 
+		get_cpu_var(processors)->performance->states[i].core_frequency*1000,
+		get_cpu_var(processors)->performance->states[i].control);
+   }
+   put_cpu_var(processors);
 }
 
 
@@ -993,9 +1067,7 @@ void palacios_pstate_ctrl_release(void);
 
 static void deinit_core(void)
 {
-    int cpu;
     DEBUG("P-State Core Deinit\n");
-    cpu = get_cpu();
     palacios_pstate_ctrl_release();
 }
 
@@ -1030,7 +1102,7 @@ void palacios_pstate_ctrl_get_chars(struct v3_cpu_pstate_chars *c)
 }
 
 
-uint8_t palacios_pstate_ctrl_get_pstate(void)
+uint64_t palacios_pstate_ctrl_get_pstate(void)
 {
     if (get_cpu_var(core_state).mode==V3_PSTATE_DIRECT_CONTROL) { 
         put_cpu_var(core_state);
@@ -1045,7 +1117,7 @@ uint8_t palacios_pstate_ctrl_get_pstate(void)
 }
 
 
-void palacios_pstate_ctrl_set_pstate(uint8_t p)
+void palacios_pstate_ctrl_set_pstate(uint64_t p)
 {
     if (get_cpu_var(core_state).mode==V3_PSTATE_DIRECT_CONTROL) { 
         put_cpu_var(core_state);
@@ -1087,6 +1159,8 @@ void palacios_pstate_ctrl_set_freq(uint64_t p)
 
 static int switch_to_external(void)
 {
+    DEBUG("switch from host control to external\n");
+
     if (!(get_cpu_var(core_state).have_cpufreq)) {
         put_cpu_var(core_state);
         ERROR("No cpufreq  - cannot switch to external...\n");
@@ -1094,13 +1168,19 @@ static int switch_to_external(void)
     }
     put_cpu_var(core_state);
 
-    DEBUG("Switching to external control\n");
-    return linux_restore_defaults();
+    linux_setup_palacios_governor();
+
+    get_cpu_var(core_state).mode=V3_PSTATE_EXTERNAL_CONTROL;
+    put_cpu_var(core_state);
+
+    return 0;
 }
 
 
 static int switch_to_direct(void)
 {
+    DEBUG("switch from host control to direct\n");
+
     if (get_cpu_var(core_state).have_cpufreq) { 
         put_cpu_var(core_state);
         DEBUG("switch to direct from cpufreq\n");
@@ -1124,6 +1204,8 @@ static int switch_to_direct(void)
 
 static int switch_to_internal(void)
 {
+    DEBUG("switch from host control to internal\n");
+
     if (get_cpu_var(core_state).have_cpufreq) { 
         put_cpu_var(core_state);
         DEBUG("switch to internal on machine with cpu freq\n");
@@ -1146,8 +1228,11 @@ static int switch_from_external(void)
         return -1;
     }
 
-    DEBUG("Switching from external...\n");
-    linux_restore_defaults();
+    DEBUG("Switching back to host control from external\n");
+
+    if (get_cpu_var(core_state).have_cpufreq) { 
+	linux_restore_defaults();
+    }
 
     get_cpu_var(core_state).mode = V3_PSTATE_HOST_CONTROL;
 
@@ -1159,17 +1244,18 @@ static int switch_from_external(void)
 
 static int switch_from_direct(void)
 {
+
+    DEBUG("Switching back to host control from direct\n");
+
+    // Set maximum performance, just in case there is no host control
+    machine_state.funcs->set_pstate(get_cpu_var(core_state).min_pstate);
+    machine_state.funcs->arch_deinit();
+
     if (get_cpu_var(core_state).have_cpufreq) { 
-        put_cpu_var(core_state);
-        DEBUG("Switching back to cpufreq control from direct\n");
         linux_restore_defaults();
     }
 
     get_cpu_var(core_state).mode=V3_PSTATE_HOST_CONTROL;
-
-    machine_state.funcs->set_pstate(get_cpu_var(core_state).min_pstate);
-
-    machine_state.funcs->arch_deinit();
 
     put_cpu_var(core_state);
 
@@ -1179,9 +1265,10 @@ static int switch_from_direct(void)
 
 static int switch_from_internal(void)
 {
+    DEBUG("Switching back to host control from internal\n");
+
     if (get_cpu_var(core_state).have_cpufreq) { 
-        put_cpu_var(core_state);
-        ERROR("Unimplemented: switch from internal on machine with cpu freq - will just pretend to do so\n");
+        // ERROR("Unimplemented: switch from internal on machine with cpu freq - will just pretend to do so\n");
         // The implementation would switch back to default policy and governor
         linux_restore_defaults();
     }
@@ -1293,7 +1380,7 @@ static int pstate_show(struct seq_file * file, void * v)
 
     for (cpu=0;cpu<numcpus;cpu++) { 
         struct pstate_core_info *s = &per_cpu(core_state,cpu);
-        seq_printf(file,"pcore %u: hw pstate %u mode %s of [ host ",cpu,
+        seq_printf(file,"pcore %u: hw pstate 0x%x mode %s of [ host ",cpu,
                 s->cur_hw_pstate,
                 s->mode==V3_PSTATE_HOST_CONTROL ? "host" :
                 s->mode==V3_PSTATE_EXTERNAL_CONTROL ? "external" :
@@ -1475,6 +1562,13 @@ static int pstate_ctrl_deinit(void)
     for (cpu=0;cpu<numcpus;cpu++) { 
         palacios_xcall(cpu,(void (*)(void *))deinit_core,0);
     }
+
+
+    // Free any mapping table we built for Intel
+    if (intel_pstate_to_ctrl && intel_pstate_to_ctrl != intel_pstate_to_ctrl_internal) { 
+	palacios_free(intel_pstate_to_ctrl);
+    }
+
 
     return 0;
 }

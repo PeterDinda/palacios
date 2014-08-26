@@ -34,8 +34,8 @@ void palacios_pstate_ctrl_acquire(uint32_t type);
 void palacios_pstate_ctrl_release(void);
 
 
-uint8_t palacios_pstate_ctrl_get_pstate(void);
-void    palacios_pstate_ctrl_set_pstate(uint8_t p);
+uint64_t palacios_pstate_ctrl_get_pstate(void);
+void     palacios_pstate_ctrl_set_pstate(uint64_t p);
 
 uint64_t palacios_pstate_ctrl_get_freq(void);
 void     palacios_pstate_ctrl_set_freq(uint64_t f_khz);
@@ -52,7 +52,7 @@ struct v3_dvfs_ctrl_request {
                                        // Direct for setting  pstate directly using module
     uint32_t                 pcore;    // Which core we mean
     uint64_t                 freq_khz; // for setfreq
-    uint8_t                  pstate;   // for setpstate
+    uint64_t                 pstate;   // for setpstate
 };
 
 #endif 

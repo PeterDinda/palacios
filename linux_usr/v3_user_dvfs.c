@@ -48,7 +48,7 @@ int v3_user_dvfs_release(uint32_t core)
 }
 
 
-int v3_user_dvfs_set_pstate(uint32_t core, uint8_t pstate)
+int v3_user_dvfs_set_pstate(uint32_t core, uint64_t pstate)
 {
     struct v3_dvfs_ctrl_request r;
 

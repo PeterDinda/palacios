@@ -51,7 +51,7 @@ void v3_acquire_pstate_ctrl(uint32_t type)
 }
 
 
-uint8_t v3_get_cpu_pstate(void)
+uint64_t v3_get_cpu_pstate(void)
 {
     if (pstate_ctrl_hooks && pstate_ctrl_hooks->get_pstate) { 
 	return pstate_ctrl_hooks->get_pstate();
@@ -60,7 +60,7 @@ uint8_t v3_get_cpu_pstate(void)
     }
 }
 
-void    v3_set_cpu_pstate (uint8_t p)
+void    v3_set_cpu_pstate (uint64_t p)
 {
     if (pstate_ctrl_hooks && pstate_ctrl_hooks->set_pstate) { 
 	pstate_ctrl_hooks->set_pstate(p);

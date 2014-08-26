@@ -33,9 +33,11 @@ struct v3_cpu_pstate_chars {
     uint64_t min_freq_khz;  // minimum frequency that can be configed by EXTERANL_CONTROL
     uint64_t max_freq_khz;  // maximum frequency that can be configed by EXTERANL_CONTROL
     uint64_t cur_freq_khz;  // current selected frequency only meaningful under EXTERANL CONTROL
-    uint8_t  min_pstate;    // minimum pstate that can be configed by DIRECT_CONTROL
-    uint8_t  max_pstate;    // maximum pstate that can be configed by DIRECT_CONTROL
-    uint8_t  cur_pstate;    // current selected pstate only meaningful under DIRECT_CONTROL
+    // Note that "pstate" is an opaque quantity not necessarily the 
+    // ACPI p-state model, although on some processors they are the same
+    uint64_t min_pstate;    // minimum pstate that can be configed by DIRECT_CONTROL
+    uint64_t max_pstate;    // maximum pstate that can be configed by DIRECT_CONTROL
+    uint64_t cur_pstate;    // current selected pstate only meaningful under DIRECT_CONTROL
 } ;
 
 
@@ -47,8 +49,8 @@ struct v3_host_pstate_ctrl_iface {
     void (*acquire)(uint32_t type);
     void (*release)(void);
     // pstate control applies if we have acquired DIRECT_CONTROL
-    void (*set_pstate)(uint8_t pstate);
-    uint8_t (*get_pstate)(void);
+    void (*set_pstate)(uint64_t pstate);
+    uint64_t (*get_pstate)(void);
     // freq control applies if we have acquired EXTERNAL_CONTROL
     void (*set_freq)(uint64_t freq_khz);
     uint64_t (*get_freq)(void);
@@ -66,8 +68,8 @@ void v3_get_cpu_pstate_chars(struct v3_cpu_pstate_chars *chars);
 void v3_acquire_pstate_ctrl(uint32_t type);
 
 // for DIRECT_CONTROL
-uint8_t v3_get_cpu_pstate(void);
-void    v3_set_cpu_pstate (uint8_t p);
+uint64_t v3_get_cpu_pstate(void);
+void     v3_set_cpu_pstate (uint64_t p);
 
 // for EXTERANL_CONTROL
 uint64_t v3_get_cpu_freq(void);

@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	      return -1;
 	  }
       } else if (!strcasecmp(cmd,"pstate")) { 
-	  if (v3_user_dvfs_set_pstate(core,atoi(arg))) { 
+	  if (v3_user_dvfs_set_pstate(core,atoll(arg))) { 
 	      fprintf(stderr,"Failed to set core %u to pstate %d\n",core,atoi(arg));
 	      rc=-1;
 	  } else {
