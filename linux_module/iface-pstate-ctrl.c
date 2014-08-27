@@ -85,6 +85,7 @@ struct pstate_core_info {
     uint8_t cur_hw_pstate;
 
     // Apply if we are under the EXTERNAL state
+    uint64_t set_freq_khz; // this is the frequency we're hoping to get
     uint64_t cur_freq_khz;
     uint64_t max_freq_khz;
     uint64_t min_freq_khz;
@@ -669,6 +670,33 @@ static int pstate_arch_setup(void)
   Linux Interface
  *****************************************************************/
 
+static unsigned cpus_using_v3_governor;
+static DEFINE_MUTEX(v3_governor_mutex);
+
+/* KCH: this will tell us when there is an actual frequency transition */
+static int v3_cpufreq_notifier(struct notifier_block *nb, unsigned long val,
+        void *data)
+{
+    struct cpufreq_freqs *freq = data;
+
+    if (per_cpu(core_state, freq->cpu).mode != V3_PSTATE_EXTERNAL_CONTROL) {
+        return 0;
+    }
+
+    if (val == CPUFREQ_POSTCHANGE) {
+        DEBUG("P-State: frequency change took effect on cpu %u (now %u kHz)\n",
+                freq->cpu, freq->new);
+        per_cpu(core_state, freq->cpu).cur_freq_khz = freq->new;
+    }
+
+    return 0;
+
+}
+
+
+static struct notifier_block v3_cpufreq_notifier_block = {
+    .notifier_call = v3_cpufreq_notifier
+};
 
 
 /* 
@@ -678,18 +706,54 @@ static int pstate_arch_setup(void)
  */
 static int governor_run(struct cpufreq_policy *policy, unsigned int event)
 {
+    unsigned cpu = policy->cpu;
 
     switch (event) {
         /* we can't use cpufreq_driver_target here as it can result
-         * in a circular dependency, so we'll just do nothing.
+         * in a circular dependency, so we'll keep the current frequency as is
          */
         case CPUFREQ_GOV_START:
+            BUG_ON(!policy->cur);
+
+            mutex_lock(&v3_governor_mutex);
+
+            if (cpus_using_v3_governor == 0) {
+                cpufreq_register_notifier(&v3_cpufreq_notifier_block,
+                        CPUFREQ_TRANSITION_NOTIFIER);
+            }
+
+            cpus_using_v3_governor++;
+
+            per_cpu(core_state, cpu).set_freq_khz = policy->cur;
+            per_cpu(core_state, cpu).cur_freq_khz = policy->cur;
+            per_cpu(core_state, cpu).max_freq_khz = policy->max;
+            per_cpu(core_state, cpu).min_freq_khz = policy->min;
+
+            mutex_unlock(&v3_governor_mutex);
+            break;
         case CPUFREQ_GOV_STOP:
+            mutex_lock(&v3_governor_mutex);
+
+            cpus_using_v3_governor--;
+
+            if (cpus_using_v3_governor == 0) {
+                cpufreq_unregister_notifier(
+                        &v3_cpufreq_notifier_block,
+                        CPUFREQ_TRANSITION_NOTIFIER);
+            }
+
+            per_cpu(core_state, cpu).set_freq_khz = 0;
+            per_cpu(core_state, cpu).cur_freq_khz = 0;
+            per_cpu(core_state, cpu).max_freq_khz = 0;
+            per_cpu(core_state, cpu).min_freq_khz = 0;
+
+            mutex_unlock(&v3_governor_mutex);
+            break;
         case CPUFREQ_GOV_LIMITS:
             /* do nothing */
             break;
         default:
-            ERROR("Undefined governor command\n");
+            ERROR("Undefined governor command (%u)\n", event);
             return -1;
     }				
 
@@ -707,11 +771,12 @@ static struct cpufreq_governor stub_governor =
 
 static struct workqueue_struct *pstate_wq;
 
-
 typedef struct {
     struct work_struct work;
     uint64_t freq;
 } pstate_work_t;
+
+
 
 static inline void pstate_register_linux_governor(void)
 {
@@ -854,6 +919,7 @@ static int linux_setup_palacios_governor(void)
 {
     char * gov;
     unsigned int cpu = get_cpu();
+    put_cpu();
 
     /* KCH:  we assume the v3vee governor is already 
      * registered with kernel by this point 
@@ -872,6 +938,7 @@ static int linux_setup_palacios_governor(void)
     DEBUG("setting the new governor (%s)\n", PALACIOS_GOVNAME);
 
     /* set the new one to ours */
+
     if (governor_switch(PALACIOS_GOVNAME, cpu) < 0) {
         ERROR("Could not set governor to (%s)\n", PALACIOS_GOVNAME);
         return -1;
@@ -886,9 +953,10 @@ static int linux_get_pstate(void)
 {
     struct cpufreq_policy * policy = NULL;
     struct cpufreq_frequency_table *table;
-    int cpu = get_cpu(); 
     unsigned int i = 0;
     unsigned int count = 0;
+    unsigned int cpu = get_cpu(); 
+    put_cpu();
 
 
     policy = palacios_alloc(sizeof(struct cpufreq_policy));
@@ -923,7 +991,8 @@ static int linux_get_pstate(void)
 static int linux_get_freq(void)
 {
     struct cpufreq_policy * policy = NULL;
-    int cpu = get_cpu();
+    unsigned int cpu = get_cpu();
+    put_cpu();
 
     policy = palacios_alloc(sizeof(struct cpufreq_policy));
     if (!policy) {
@@ -944,8 +1013,11 @@ pstate_switch_workfn (struct work_struct *work)
 {
     pstate_work_t * pwork = (pstate_work_t*)work;
     struct cpufreq_policy * policy = NULL;
-    int cpu = get_cpu();
+    uint64_t freq; 
+    unsigned int cpu = get_cpu();
     put_cpu();
+
+    mutex_lock(&v3_governor_mutex);
 
     policy = palacios_alloc(sizeof(struct cpufreq_policy));
     if (!policy) {
@@ -958,16 +1030,25 @@ pstate_switch_workfn (struct work_struct *work)
         goto out1;
     }
 
-    INFO("P-state: setting frequency on core %u to %llu\n", cpu, pwork->freq);
-    cpufreq_driver_target(policy, pwork->freq, CPUFREQ_RELATION_H);
+    freq = pwork->freq;
+    get_cpu_var(core_state).set_freq_khz = freq;
 
-    get_cpu_var(core_state).cur_freq_khz = pwork->freq;
+    if (freq < get_cpu_var(core_state).min_freq_khz) {
+        freq = get_cpu_var(core_state).min_freq_khz;
+    }
+    if (freq > get_cpu_var(core_state).max_freq_khz) {
+        freq = get_cpu_var(core_state).max_freq_khz;
+    }
     put_cpu_var(core_state);
+
+    INFO("P-state: requesting frequency change on core %u to %llu\n", cpu, freq);
+    __cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_L);
 
 out1:
     palacios_free(policy);
 out:
     palacios_free(work);
+    mutex_unlock(&v3_governor_mutex);
 } 
 
 
@@ -976,11 +1057,11 @@ static int linux_set_pstate(uint8_t p)
     struct cpufreq_policy * policy = NULL;
     struct cpufreq_frequency_table *table;
     pstate_work_t * work = NULL;
-    int cpu = get_cpu();
     unsigned int i = 0;
     unsigned int count = 0;
     int state_set = 0;
     int last_valid = 0;
+    unsigned int cpu = get_cpu();
     put_cpu();
 
     policy = palacios_alloc(sizeof(struct cpufreq_policy));
@@ -1044,7 +1125,7 @@ static int linux_set_freq(uint64_t f)
     struct cpufreq_policy * policy = NULL;
     pstate_work_t * work = NULL;
     uint64_t freq;
-    int cpu = get_cpu();
+    unsigned int cpu = get_cpu();
     put_cpu();
 
     policy = palacios_alloc(sizeof(struct cpufreq_policy));
@@ -1089,8 +1170,9 @@ out_err:
 
 static int linux_restore_defaults(void)
 {
-    unsigned int cpu = get_cpu();
     char * gov = NULL;
+    unsigned int cpu = get_cpu();
+    put_cpu();
 
     gov = get_cpu_var(core_state).linux_governor;
     put_cpu_var(core_state);
