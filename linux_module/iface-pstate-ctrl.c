@@ -24,7 +24,9 @@
 #include <linux/cpufreq.h>
 #include <linux/kernel.h>
 #include <linux/kmod.h>
+#include <linux/module.h>
 #include <linux/string.h>
+#include <linux/interrupt.h>
 #include <asm/processor.h>
 #include <asm/msr.h>
 #include <asm/msr-index.h>
@@ -668,6 +670,7 @@ static int pstate_arch_setup(void)
  *****************************************************************/
 
 
+
 /* 
  * This stub governor is simply a placeholder for preventing 
  * frequency changes from the Linux side. For now, we simply leave
@@ -702,6 +705,14 @@ static struct cpufreq_governor stub_governor =
 };
 
 
+static struct workqueue_struct *pstate_wq;
+
+
+typedef struct {
+    struct work_struct work;
+    uint64_t freq;
+} pstate_work_t;
+
 static inline void pstate_register_linux_governor(void)
 {
     cpufreq_register_governor(&stub_governor);
@@ -711,6 +722,31 @@ static inline void pstate_register_linux_governor(void)
 static inline void pstate_unregister_linux_governor(void)
 {
     cpufreq_unregister_governor(&stub_governor);
+}
+
+
+static int pstate_linux_init(void)
+{
+    pstate_register_linux_governor();
+    pstate_wq = create_workqueue("v3vee_pstate_wq");
+    if (!pstate_wq) {
+        ERROR("Could not create work queue\n");
+        goto out_err;
+    }
+
+    return 0;
+
+out_err:
+    pstate_unregister_linux_governor();
+    return -1;
+}
+
+
+static void pstate_linux_deinit(void)
+{
+    pstate_unregister_linux_governor();
+    flush_workqueue(pstate_wq);
+    destroy_workqueue(pstate_wq);
 }
 
 
@@ -764,6 +800,8 @@ static void gov_switch_cleanup(struct subprocess_info * s)
 /* 
  * Switch governors
  * @s - the governor to switch to 
+ * TODO: this should probably be submitted to a work queue
+ * so we don't have to run it in interrupt context
  */
 static int governor_switch(char * s, unsigned int cpu)
 {
@@ -852,6 +890,7 @@ static int linux_get_pstate(void)
     unsigned int i = 0;
     unsigned int count = 0;
 
+
     policy = palacios_alloc(sizeof(struct cpufreq_policy));
     if (!policy) {
         ERROR("Could not allocate policy struct\n");
@@ -900,16 +939,49 @@ static int linux_get_freq(void)
     return policy->cur;
 }
 
+static void  
+pstate_switch_workfn (struct work_struct *work)
+{
+    pstate_work_t * pwork = (pstate_work_t*)work;
+    struct cpufreq_policy * policy = NULL;
+    int cpu = get_cpu();
+    put_cpu();
+
+    policy = palacios_alloc(sizeof(struct cpufreq_policy));
+    if (!policy) {
+        ERROR("Could not allocate space for cpufreq policy\n");
+        goto out;
+    }
+
+    if (cpufreq_get_policy(policy, cpu) != 0) {
+        ERROR("Could not get cpufreq policy\n");
+        goto out1;
+    }
+
+    INFO("P-state: setting frequency on core %u to %llu\n", cpu, pwork->freq);
+    cpufreq_driver_target(policy, pwork->freq, CPUFREQ_RELATION_H);
+
+    get_cpu_var(core_state).cur_freq_khz = pwork->freq;
+    put_cpu_var(core_state);
+
+out1:
+    palacios_free(policy);
+out:
+    palacios_free(work);
+} 
+
 
 static int linux_set_pstate(uint8_t p)
 {
     struct cpufreq_policy * policy = NULL;
     struct cpufreq_frequency_table *table;
+    pstate_work_t * work = NULL;
     int cpu = get_cpu();
     unsigned int i = 0;
     unsigned int count = 0;
     int state_set = 0;
     int last_valid = 0;
+    put_cpu();
 
     policy = palacios_alloc(sizeof(struct cpufreq_policy));
     if (!policy) {
@@ -917,9 +989,15 @@ static int linux_set_pstate(uint8_t p)
         return -1;
     }
 
+    work = (pstate_work_t*)palacios_alloc(sizeof(pstate_work_t));
+    if (!work) {
+        ERROR("Could not allocate work struct\n");
+        goto out_err;
+    }
+
     if (cpufreq_get_policy(policy, cpu)) {
         ERROR("Could not get current policy\n");
-        goto out_err;
+        goto out_err1;
     }
     table = cpufreq_frequency_get_table(cpu);
 
@@ -930,8 +1008,13 @@ static int linux_set_pstate(uint8_t p)
         }
 
         if (count == p) {
-            cpufreq_driver_target(policy, table[i].frequency, CPUFREQ_RELATION_H);
+
+            INIT_WORK((struct work_struct*)work, pstate_switch_workfn);
+            work->freq = table[i].frequency;
+            queue_work(pstate_wq, (struct work_struct*)work);
+
             state_set = 1;
+            break;
         }
 
         count++;
@@ -940,12 +1023,16 @@ static int linux_set_pstate(uint8_t p)
 
     /* we need to deal with the case in which we get a number > max pstate */
     if (!state_set) {
-        cpufreq_driver_target(policy, table[last_valid].frequency, CPUFREQ_RELATION_H);
+        INIT_WORK((struct work_struct*)work, pstate_switch_workfn);
+        work->freq = table[last_valid].frequency;
+        queue_work(pstate_wq, (struct work_struct*)work);
     }
 
     palacios_free(policy);
     return 0;
 
+out_err1: 
+    palacios_free(work);
 out_err:
     palacios_free(policy);
     return -1;
@@ -955,8 +1042,10 @@ out_err:
 static int linux_set_freq(uint64_t f)
 {
     struct cpufreq_policy * policy = NULL;
-    int cpu = get_cpu();
+    pstate_work_t * work = NULL;
     uint64_t freq;
+    int cpu = get_cpu();
+    put_cpu();
 
     policy = palacios_alloc(sizeof(struct cpufreq_policy));
     if (!policy) {
@@ -964,7 +1053,16 @@ static int linux_set_freq(uint64_t f)
         return -1;
     }
 
-    cpufreq_get_policy(policy, cpu);
+    work = (pstate_work_t*)palacios_alloc(sizeof(pstate_work_t));
+    if (!work) {
+        ERROR("Could not allocate work struct\n");
+        goto out_err;
+    }
+
+    if (cpufreq_get_policy(policy, cpu) != 0) {
+        ERROR("Could not get cpufreq policy\n");
+        goto out_err1;
+    }
 
     if (f < policy->min) {
         freq = policy->min;
@@ -974,10 +1072,18 @@ static int linux_set_freq(uint64_t f)
         freq = f;
     }
 
-    cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_H);
+    INIT_WORK((struct work_struct*)work, pstate_switch_workfn);
+    work->freq = freq;
+    queue_work(pstate_wq, (struct work_struct*)work);
 
     palacios_free(policy);
     return 0;
+
+out_err1:
+    palacios_free(work);
+out_err:
+    palacios_free(policy);
+    return -1;
 }
 
 
@@ -1045,11 +1151,7 @@ static void init_core(void)
         get_cpu_var(core_state).have_cpufreq = 1;
         get_cpu_var(core_state).min_freq_khz=p->min;
         get_cpu_var(core_state).max_freq_khz=p->max;
-        get_cpu_var(core_state).cur_freq_khz=p->cur;
-    }
-    
-    cpufreq_cpu_put(p);
-
+        get_cpu_var(core_state).cur_freq_khz=p->cur; } cpufreq_cpu_put(p); 
     put_cpu_var(core_state);
 
     for (i=0;i<get_cpu_var(processors)->performance->state_count; i++) { 
@@ -1069,6 +1171,7 @@ static void deinit_core(void)
 {
     DEBUG("P-State Core Deinit\n");
     palacios_pstate_ctrl_release();
+
 }
 
 
@@ -1125,7 +1228,9 @@ void palacios_pstate_ctrl_set_pstate(uint64_t p)
     } else if (get_cpu_var(core_state).mode==V3_PSTATE_EXTERNAL_CONTROL) {
         put_cpu_var(core_state);
         linux_set_pstate(p);
-    } 
+    } else {
+        put_cpu_var(core_state);
+    }
 }
 
 
@@ -1152,8 +1257,9 @@ void palacios_pstate_ctrl_set_freq(uint64_t p)
     if (get_cpu_var(core_state).mode==V3_PSTATE_EXTERNAL_CONTROL) { 
         put_cpu_var(core_state);
         linux_set_freq(p);
-    } 
-    put_cpu_var(core_state);
+    } else {
+        put_cpu_var(core_state);
+    }
 }
 
 
@@ -1165,7 +1271,7 @@ static int switch_to_external(void)
         put_cpu_var(core_state);
         ERROR("No cpufreq  - cannot switch to external...\n");
         return -1;
-    }
+    } 
     put_cpu_var(core_state);
 
     linux_setup_palacios_governor();
@@ -1188,6 +1294,8 @@ static int switch_to_direct(void)
         // The implementation would set the policy and governor to peg cpu
         // regardless of load
         linux_setup_palacios_governor();
+    } else {
+        put_cpu_var(core_state);
     }
 
     if (machine_state.funcs && machine_state.funcs->arch_init) {
@@ -1210,6 +1318,8 @@ static int switch_to_internal(void)
         put_cpu_var(core_state);
         DEBUG("switch to internal on machine with cpu freq\n");
         linux_setup_palacios_governor();
+    } else {
+        put_cpu_var(core_state);
     }
 
     get_cpu_var(core_state).mode=V3_PSTATE_INTERNAL_CONTROL;
@@ -1227,15 +1337,18 @@ static int switch_from_external(void)
         ERROR("No cpufreq  - how did we get here... external...\n");
         return -1;
     }
+    put_cpu_var(core_state);
 
     DEBUG("Switching back to host control from external\n");
 
     if (get_cpu_var(core_state).have_cpufreq) { 
-	linux_restore_defaults();
+        put_cpu_var(core_state);
+        linux_restore_defaults();
+    } else {
+        put_cpu_var(core_state);
     }
 
     get_cpu_var(core_state).mode = V3_PSTATE_HOST_CONTROL;
-
     put_cpu_var(core_state);
 
     return 0;
@@ -1252,7 +1365,10 @@ static int switch_from_direct(void)
     machine_state.funcs->arch_deinit();
 
     if (get_cpu_var(core_state).have_cpufreq) { 
+        put_cpu_var(core_state);
         linux_restore_defaults();
+    } else {
+        put_cpu_var(core_state);
     }
 
     get_cpu_var(core_state).mode=V3_PSTATE_HOST_CONTROL;
@@ -1268,9 +1384,12 @@ static int switch_from_internal(void)
     DEBUG("Switching back to host control from internal\n");
 
     if (get_cpu_var(core_state).have_cpufreq) { 
+        put_cpu_var(core_state);
         // ERROR("Unimplemented: switch from internal on machine with cpu freq - will just pretend to do so\n");
         // The implementation would switch back to default policy and governor
         linux_restore_defaults();
+    } else {
+        put_cpu_var(core_state);
     }
 
     get_cpu_var(core_state).mode=V3_PSTATE_HOST_CONTROL;
@@ -1285,10 +1404,11 @@ static int switch_from_internal(void)
 void palacios_pstate_ctrl_acquire(uint32_t type)
 {
     if (get_cpu_var(core_state).mode != V3_PSTATE_HOST_CONTROL) { 
+        put_cpu_var(core_state);
         palacios_pstate_ctrl_release();
+    } else {
+        put_cpu_var(core_state);
     }
-
-    put_cpu_var(core_state);
 
     switch (type) { 
         case V3_PSTATE_EXTERNAL_CONTROL:
@@ -1324,25 +1444,27 @@ void palacios_pstate_ctrl_release(void)
     if (get_cpu_var(core_state).mode == V3_PSTATE_HOST_CONTROL) { 
         put_cpu_var(core_state);
         return;
-    }
+    } 
+    put_cpu_var(core_state);
 
     switch (get_cpu_var(core_state).mode) { 
         case V3_PSTATE_EXTERNAL_CONTROL:
+            put_cpu_var(core_state);
             switch_from_external();
             break;
         case V3_PSTATE_DIRECT_CONTROL:
+            put_cpu_var(core_state);
             switch_from_direct();
             break;
         case V3_PSTATE_INTERNAL_CONTROL:
+            put_cpu_var(core_state);
             switch_from_internal();
             break;
         default:
+            put_cpu_var(core_state);
             ERROR("Unknown pstate control type %u\n",core_state.mode);
             break;
     }
-
-    put_cpu_var(core_state);
-
 }
 
 
@@ -1540,7 +1662,7 @@ static int pstate_ctrl_init(void)
 
     pstate_user_setup();
 
-    pstate_register_linux_governor();
+    pstate_linux_init();
 
     INFO("P-State Control Initialized\n");
 
@@ -1552,7 +1674,7 @@ static int pstate_ctrl_deinit(void)
     unsigned int cpu;
     unsigned int numcpus=num_online_cpus();
 
-    pstate_unregister_linux_governor();
+    pstate_linux_deinit();
 
     pstate_user_teardown();
 
