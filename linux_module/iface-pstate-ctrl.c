@@ -43,22 +43,33 @@
 #include "linux-exts.h"
 
 /*
-   This P-STATE control implementation includes:
+   This P-STATE control implementation includes the following modes.
+   You can switch between modes at any time.
 
-   - Direct control of Intel and AMD processor pstates
-   - External control of processor states via Linux (unimplemented)
    - Internal control of processor states in Palacios (handoff from Linux)
+     When Palacios acuires this control, this module disables Linux cpufreq control
+     and allows code within Palacios unfettered access to the DVFS hardware. 
+   - Direct control of Intel and AMD processor pstates using code in this module
+     When you acquire this control, this module disables Linux cpufreq control
+     and directly programs the processor itself in response to your requests
+   - External control of processor states via Linux 
+     When you acuire this control, this module uses the Linux cpufreq control
+     to program the processor on your behelf
+   - Host control of processor stastes
+     This is the normal mode of DVFS control (e.g., Linux cpufreq)
 
    Additionally, it provides a user-space interface for manipulating
    p-state regardless of the host's functionality.  This includes
    an ioctl for commanding the implementation and a /proc file for 
-   showing current status and capabilities.
+   showing current status and capabilities.  From user space, you can
+   use the Direct, External, and Host modes.  
 
-   What we mean by "pstate" here is the processor's internal
+   What we mean by "p-state" here is the processor's internal
    configuration.   For AMD, this is defined as being the same as
    the ACPI-defined p-state.  For Intel, it is not.  There, it is the 
-   contents of the perf ctl MSR, which, often, is the frequency id 
-   and voltage id (the multipliers).
+   contents of the perf ctl MSR, which is opaque.   We try hard to 
+   provide "p-states" that go from 0...max, by analogy or equivalence
+   to the ACPI p-states. 
 
 */
 
@@ -78,11 +89,11 @@ struct pstate_core_info {
     uint32_t mode;
 
     // Apply if we are under the DIRECT state
-    uint8_t cur_pstate;
-    uint8_t max_pstate;
-    uint8_t min_pstate;
+    uint64_t cur_pstate;
+    uint64_t max_pstate;
+    uint64_t min_pstate;
 
-    uint8_t cur_hw_pstate;
+    uint64_t cur_hw_pstate;
 
     // Apply if we are under the EXTERNAL state
     uint64_t set_freq_khz; // this is the frequency we're hoping to get
@@ -195,6 +206,10 @@ struct p_state_ctl_reg_amd {
 /* CPUID Fn8000_0007_EDX[HwPstate(7)] = 1 */
 static uint8_t supports_pstates_amd (void)
 {
+    int i;
+    int mapwrong=0;
+    int amd_num_pstates;
+
     uint32_t eax, ebx, ecx, edx;
 
     cpuid(0x80000007, &eax, &ebx, &ecx, &edx);
@@ -210,6 +225,20 @@ static uint8_t supports_pstates_amd (void)
             machine_state.have_coreboost, 
             machine_state.have_feedback,
             machine_state.have_pstate_hw_coord);
+
+    amd_num_pstates = get_cpu_var(processors)->performance->state_count;
+    if (amd_num_pstates) { 
+	for (i=0;i<amd_num_pstates;i++) { 
+	    INFO("P-State: %u: freq=%llu ctrl=%llx%s\n",
+		 i, 
+		 get_cpu_var(processors)->performance->states[i].core_frequency*1000,
+		 get_cpu_var(processors)->performance->states[i].control,
+		 get_cpu_var(processors)->performance->states[i].control != i ? (mapwrong=1, " ALERT - CTRL MAPPING NOT 1:1") : "");
+	}
+    }
+    if (mapwrong) { 
+	ERROR("P-State: AMD: mapping of pstate and control is not 1:1 on this processor - we will probably not work corrrectly\n");
+    }
 
     return machine_state.have_pstate;
 
@@ -245,6 +274,12 @@ static uint64_t get_pstate_amd(void)
 static void set_pstate_amd(uint64_t p)
 {
     struct p_state_ctl_reg_amd pctl;
+
+    if (p>get_cpu_var(core_state).max_pstate) { 
+	p=get_cpu_var(core_state).max_pstate;
+    }
+    put_cpu_var(core_state);
+
     pctl.val = 0;
     pctl.reg.cmd = p;
 
@@ -299,7 +334,7 @@ static struct pstate_core_funcs amd_funcs =
    This implementation uses SpeedStep, but does check
    to see if the other features (MPERF/APERF, Turbo/IDA, HWP)
    are available.
-   */
+*/
 
 /* Intel System Programmer's Manual Vol. 3B, 14-2 */
 #define MSR_MPERF_IA32         0x000000e7
@@ -424,6 +459,9 @@ static uint8_t supports_pstates_intel(void)
     machine_state.have_mwait_ext =  !!(ecx & 1);
     machine_state.have_mwait_int =  !!(ecx & 1<<1);
 
+
+    // Note we test all the available hardware features documented as of August 2014
+    // We are only currently using speed_step, however.
 
     INFO("P-State: Intel: Speedstep=%d, PstateHWCoord=%d, Opportunistic=%d PolicyHint=%d HWP=%d HDC=%d, MwaitExt=%d MwaitInt=%d \n",
             machine_state.have_speedstep, 
@@ -553,12 +591,12 @@ static void set_pstate_intel(uint64_t p)
     // fid bits
 
     rdmsrl(MSR_PERF_CTL_IA32, val);
-    INFO("P-State: Pre-Set: 0x%llx\n", val);
+    //INFO("P-State: Pre-Set: 0x%llx\n", val);
 
     val &= ~0xffffULL;
     val |= ctrl & 0xffffULL;
 
-    INFO("P-State: Set: 0x%llx\n", val);
+    //INFO("P-State: Set: 0x%llx\n", val);
 
     wrmsrl(MSR_PERF_CTL_IA32, val);
 
@@ -949,7 +987,7 @@ static int linux_setup_palacios_governor(void)
 
 
 
-static int linux_get_pstate(void)
+static uint64_t linux_get_pstate(void)
 {
     struct cpufreq_policy * policy = NULL;
     struct cpufreq_frequency_table *table;
@@ -988,8 +1026,9 @@ static int linux_get_pstate(void)
 }
 
 
-static int linux_get_freq(void)
+static uint64_t linux_get_freq(void)
 {
+    uint64_t freq;
     struct cpufreq_policy * policy = NULL;
     unsigned int cpu = get_cpu();
     put_cpu();
@@ -1005,7 +1044,11 @@ static int linux_get_freq(void)
         return -1;
     }
 
-    return policy->cur;
+    freq=policy->cur;
+
+    palacios_free(policy);
+
+    return freq;
 }
 
 static void  
@@ -1052,7 +1095,7 @@ out:
 } 
 
 
-static int linux_set_pstate(uint8_t p)
+static int linux_set_pstate(uint64_t p)
 {
     struct cpufreq_policy * policy = NULL;
     struct cpufreq_frequency_table *table;
@@ -1203,10 +1246,9 @@ static void init_core(void)
 {
     unsigned cpu;
     struct cpufreq_policy *p;
-    unsigned int i;
 
 
-    DEBUG("P-State Core Init\n");
+    //DEBUG("P-State Core Init\n");
 
     get_cpu_var(core_state).mode = V3_PSTATE_HOST_CONTROL;
     get_cpu_var(core_state).cur_pstate = 0;
@@ -1236,6 +1278,7 @@ static void init_core(void)
         get_cpu_var(core_state).cur_freq_khz=p->cur; } cpufreq_cpu_put(p); 
     put_cpu_var(core_state);
 
+    /*
     for (i=0;i<get_cpu_var(processors)->performance->state_count; i++) { 
         INFO("P-State: %u: freq=%llu ctrl=%llx",
 		i, 
@@ -1243,6 +1286,7 @@ static void init_core(void)
 		get_cpu_var(processors)->performance->states[i].control);
    }
    put_cpu_var(processors);
+    */
 }
 
 
@@ -1467,8 +1511,6 @@ static int switch_from_internal(void)
 
     if (get_cpu_var(core_state).have_cpufreq) { 
         put_cpu_var(core_state);
-        // ERROR("Unimplemented: switch from internal on machine with cpu freq - will just pretend to do so\n");
-        // The implementation would switch back to default policy and governor
         linux_restore_defaults();
     } else {
         put_cpu_var(core_state);
@@ -1577,31 +1619,19 @@ static int pstate_show(struct seq_file * file, void * v)
         palacios_xcall(cpu,update_hw_pstate,0);
     }
 
-    seq_printf(file, "Arch:\t%s\nPStates:\t%s\n\n",
-            machine_state.arch==INTEL ? "Intel" : 
-            machine_state.arch==AMD ? "AMD" : "Other",
-            machine_state.supports_pstates ? "Yes" : "No");
-
     for (cpu=0;cpu<numcpus;cpu++) { 
         struct pstate_core_info *s = &per_cpu(core_state,cpu);
-        seq_printf(file,"pcore %u: hw pstate 0x%x mode %s of [ host ",cpu,
+        seq_printf(file,"pcore %u: hw pstate 0x%llx mode %s ",cpu,
                 s->cur_hw_pstate,
                 s->mode==V3_PSTATE_HOST_CONTROL ? "host" :
                 s->mode==V3_PSTATE_EXTERNAL_CONTROL ? "external" :
                 s->mode==V3_PSTATE_DIRECT_CONTROL ? "direct" : 
                 s->mode==V3_PSTATE_INTERNAL_CONTROL ? "internal" : "UNKNOWN");
-        if (s->have_cpufreq) { 
-            seq_printf(file,"external ");
-        }
-        if (machine_state.supports_pstates) {
-            seq_printf(file,"direct ");
-        }
-        seq_printf(file,"internal ] ");
         if (s->mode==V3_PSTATE_EXTERNAL_CONTROL) { 
             seq_printf(file,"(min=%llu max=%llu cur=%llu) ", s->min_freq_khz, s->max_freq_khz, s->cur_freq_khz);
         } 
         if (s->mode==V3_PSTATE_DIRECT_CONTROL) { 
-            seq_printf(file,"(min=%u max=%u cur=%u) ", (uint32_t)s->min_pstate, (uint32_t)s->max_pstate, (uint32_t)s->cur_pstate);
+            seq_printf(file,"(min=%llu max=%llu cur=%llu) ",s->min_pstate, s->max_pstate, s->cur_pstate);
         }
         seq_printf(file,"\n");
     }
@@ -1622,9 +1652,89 @@ static struct file_operations pstate_fops = {
     .release = seq_release
 };
 
+static int pstate_hw_show(struct seq_file * file, void * v)
+{
+    int numstates;
+
+    seq_printf(file, "V3VEE DVFS Hardware Info\n(all logical cores assumed identical)\n\n");
+
+    seq_printf(file, "Arch:   \t%s\n"
+	             "PStates:\t%s\n\n",
+            machine_state.arch==INTEL ? "Intel" : 
+            machine_state.arch==AMD ? "AMD" : "Other",
+            machine_state.supports_pstates ? "Yes" : "No");
+
+
+#define YN(x) ((x) ? "Y" : "N")
+
+    if (machine_state.arch==INTEL) {
+	seq_printf(file,"SpeedStep:           \t%s\n",YN(machine_state.have_speedstep));
+	seq_printf(file,"APERF/MPERF:         \t%s\n",YN(machine_state.have_pstate_hw_coord));
+	seq_printf(file,"IDA or TurboCore:    \t%s\n",YN(machine_state.have_opportunistic));
+	seq_printf(file,"Policy Hint:         \t%s\n",YN(machine_state.have_policy_hint));
+	seq_printf(file,"Hardware Policy:     \t%s\n",YN(machine_state.have_hwp));
+	seq_printf(file,"Hardware Duty Cycle: \t%s\n",YN(machine_state.have_hdc));
+	seq_printf(file,"MWAIT extensions:    \t%s\n",YN(machine_state.have_mwait_ext));
+	seq_printf(file,"MWAIT wake on intr:  \t%s\n",YN(machine_state.have_mwait_int));
+    } 
+
+    if (machine_state.arch==AMD) { 
+	seq_printf(file,"PState:              \t%s\n",YN(machine_state.have_pstate));
+	seq_printf(file,"APERF/MPERF:         \t%s\n",YN(machine_state.have_pstate_hw_coord));
+	seq_printf(file,"CoreBoost:           \t%s\n",YN(machine_state.have_coreboost));
+	seq_printf(file,"Feedback:            \t%s\n",YN(machine_state.have_feedback));
+    }
+
+
+    seq_printf(file,"\nPstate\tCtrl\tKHz\n");
+    numstates = get_cpu_var(processors)->performance->state_count;
+    if (!numstates) { 
+	seq_printf(file,"UNKNOWN\n");
+    } else {
+	int i;
+	for (i=0;i<numstates;i++) { 
+	    seq_printf(file,
+		       "%u\t%llx\t%llu\n",
+		       i, 
+		       get_cpu_var(processors)->performance->states[i].control,
+		       get_cpu_var(processors)->performance->states[i].core_frequency*1000);
+	}
+    }
+    put_cpu_var(processors);
+
+    seq_printf(file,"\nAvailable Modes:");
+    seq_printf(file," host");
+    if (get_cpu_var(core_state).have_cpufreq) { 
+	seq_printf(file," external");
+    }
+    put_cpu_var(core_state);
+    if (machine_state.supports_pstates) {
+	seq_printf(file," direct");
+    }
+    seq_printf(file," internal\n");
+
+    return 0;
+}
+
+static int pstate_hw_open(struct inode * inode, struct file * file) 
+{
+    return single_open(file, pstate_hw_show, NULL);
+}
+
+
+static struct file_operations pstate_hw_fops = {
+    .owner = THIS_MODULE,
+    .open = pstate_hw_open, 
+    .read = seq_read,
+    .llseek = seq_lseek,
+    .release = seq_release
+};
+
+
 int pstate_proc_setup(void)
 {
     struct proc_dir_entry *proc;
+    struct proc_dir_entry *prochw;
 
     proc = create_proc_entry("v3-dvfs",0444, palacios_get_procdir());
 
@@ -1635,11 +1745,26 @@ int pstate_proc_setup(void)
 
     proc->proc_fops = &pstate_fops;
 
+    INFO("/proc/v3vee/v3-dvfs successfully created\n");
+
+    prochw = create_proc_entry("v3-dvfs-hw",0444,palacios_get_procdir());
+
+
+    if (!prochw) { 
+        ERROR("Failed to create proc entry for p-state hw info\n");
+        return -1;
+    }
+
+    prochw->proc_fops = &pstate_hw_fops;
+
+    INFO("/proc/v3vee/v3-dvfs-hw successfully created\n");
+
     return 0;
 }
 
 void pstate_proc_teardown(void)
 {
+    remove_proc_entry("v3-dvfs-hw",palacios_get_procdir());
     remove_proc_entry("v3-dvfs",palacios_get_procdir());
 }
 
