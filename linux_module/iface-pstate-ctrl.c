@@ -1686,7 +1686,7 @@ static int pstate_hw_show(struct seq_file * file, void * v)
     }
 
 
-    seq_printf(file,"\nPstate\tCtrl\tKHz\n");
+    seq_printf(file,"\nPstate\tCtrl\tKHz\tmW\tuS(X)\tuS(B)\n");
     numstates = get_cpu_var(processors)->performance->state_count;
     if (!numstates) { 
 	seq_printf(file,"UNKNOWN\n");
@@ -1694,10 +1694,13 @@ static int pstate_hw_show(struct seq_file * file, void * v)
 	int i;
 	for (i=0;i<numstates;i++) { 
 	    seq_printf(file,
-		       "%u\t%llx\t%llu\n",
+		       "%u\t%llx\t%llu\t%llu\t%llu\t%llu\n",
 		       i, 
 		       get_cpu_var(processors)->performance->states[i].control,
-		       get_cpu_var(processors)->performance->states[i].core_frequency*1000);
+		       get_cpu_var(processors)->performance->states[i].core_frequency*1000,
+		       get_cpu_var(processors)->performance->states[i].power,
+		       get_cpu_var(processors)->performance->states[i].transition_latency,
+		       get_cpu_var(processors)->performance->states[i].bus_master_latency);
 	}
     }
     put_cpu_var(processors);
