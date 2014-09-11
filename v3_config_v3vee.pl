@@ -89,11 +89,11 @@ print "What is your kernel's maximum contiguous page allocation size in bytes (t
 
 $maxalloc = get_user($maxalloc);
 
-$shadow = 'y';
+$gb4 = 'n';
 
-print "Do you need to run guests with shadow paging or for other reasons that require 4GB enforcement of page allocation? [$shadow] : ";
+print "Do you need to use features that require 4GB enforcement of page allocation? [$gb4] : ";
 
-$shadow = get_user($shadow);
+$gb4 = get_user($gb4);
 
 if ($hotremove eq "y") {
   print "Your kernel supports hot remove.  Do you want to use it? [$hotremove] : ";
@@ -122,6 +122,27 @@ $devmem='y';
 print "Do you need userspace access to your VMs' physical memory? [$devmem] : ";
 $devmem = get_user($devmem);
 
+$qemu='n';
+$qemudir=$pdir."/linux_usr/qemu";
+
+$hostdev = get_palacios_core_feature($pdir,"V3_CONFIG_HOST_DEVICE");
+
+if ($hostdev eq "y") { 
+   print "Your Palacios configuration includes the host device interface.\n";
+   print "You can use it to interface with QEMU devices if you have a\n";
+   print "patched version of QEMU (see linux_usr/qemu for more info)\n\n";
+   print "Do you plan to use QEMU devices? [n] : ";
+   $qemu = get_user($qemu);
+   if ($qemu eq "y") {
+    while (1) { 
+        print "What is the path to your patched version of QEMU ? [$qemudir] : ";
+        $qemudir = get_user($qemudir);
+        last if -e "$qemudir/bin/qemu-system-x86_64";
+        print "$qemudir/bin/qemu-system-x86_64 cannot be found\n";
+      } 
+    }
+}
+
 print <<END2
 
 Parameters
@@ -130,11 +151,13 @@ Parameters
    Initial Palacios Memory (MB) $mem
    Can Hot Remove:              $canhotremove
    Will Hot Remove:             $hotremove
-   Enforce 4 GB Limit:          $shadow
+   Enforce 4 GB Limit:          $gb4
    Compiled Memory Block Size:  $compmemblocksize
    Override Memory Block Size:  $override_memblocksize
    Actual Memory Block Size:    $memblocksize
    Allow Devmem:                $devmem
+   Support QEMU devices:        $qemu
+   QEMU directory:              $qemudir
 
 END2
 ;
@@ -147,6 +170,9 @@ END2
 print "Writing ./ENV\n";
 open(ENV,">ENV");
 print ENV "export PALACIOS_DIR=$pdir\n";
+if ($qemu eq "y") { 
+  print ENV "export PALACIOS_QEMU_DIR=$qemudir\n";
+}
 print ENV "export PATH=$pdir/linux_usr:\$PATH\n";
 close(ENV);
 `chmod 644 ENV`;
@@ -203,7 +229,7 @@ print "  Memory block size:  $chunk MB\n";
 print "  Number of blocks:   $numchunks\n";
 print "  Number of nodes:    $numnodes\n";
 print "  Blocks/node:        $chunkspernode\n";
-print "  32 bit limit?       $shadow\n";
+print "  32 bit limit?       $gb4\n";
 print "  Hot-removed?        $hotremove\n";
 
 if ($numnodes*$chunkspernode*$chunk != $mem) { 
@@ -213,7 +239,7 @@ if ($numnodes*$chunkspernode*$chunk != $mem) {
 
 $cmd = "v3_mem -a";
 $cmd.= " -k " if $hotremove eq 'n';
-$cmd.= " -l " if $shadow eq 'y';
+$cmd.= " -l " if $gb4 eq 'y';
 
 for ($i=0;$i<$numnodes;$i++) {
   for ($j=0;$j<$chunkspernode;$j++) { 

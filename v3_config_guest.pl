@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 
+use Data::Dumper;
 
 print <<END
 
@@ -45,6 +46,9 @@ END
 ;
 
 $pdir = $ENV{PALACIOS_DIR};
+$qdir = $ENV{PALACIOS_QEMU_DIR};
+
+$haveqemu = defined($qdir);
 
 if (!defined($pdir)) { 
   print "Please set PALACIOS_DIR (you probably have not sourced ENV) and try again\n";
@@ -85,6 +89,7 @@ if ($config{numcores}>1) {
 
 do_swapping(\%config, $pdir);
 
+
 print "We will give your guest the default performance tuning characteristics\n";
 $config{perftune_block} .= <<PERFTUNE
   <group name="yield">
@@ -117,6 +122,10 @@ if (is_palacios_core_feature_enabled($pdir, "V3_CONFIG_EXT_VMWARE")) {
   print "We will include the VMware Personality Extension since your Palacios build has it enabled\n";
   $config{extensions_block} .= "  <extension name=\"VMWARE_IFACE\"></extension>\n";
 }
+
+
+do_bioses(\%config, $pdir, $dir);
+
 
 #
 # Basic debugging
@@ -171,17 +180,28 @@ if (is_palacios_core_feature_enabled($pdir,"V3_CONFIG_MPTABLE")) {
 #
 do_device(\%config, $pdir, "V3_CONFIG_PIT", "8254_PIT", "PIT",1); # must have
 
-#
-# Keyboard and mouse (PS/2 controller)
-#
-do_device(\%config, $pdir, "V3_CONFIG_KEYBOARD", "KEYBOARD", "keyboard",1); #must have
 
+if (defined($ENV{PALACIOS_QEMU_DIR})) { 
+  print "\nYour Palacios configuration includes the ability to use QEMU devices from a patched QEMU.\n";
+  print "Do you want to use QEMU's PS/2, graphics, and serial port devices? [n] : ";
+  if (get_user("n") eq "y") { 
+    do_qemu_ui(\%config, $pdir, $dir);
+  }
+}
 
-#
-# Displays, Consoles, Serial
-#
-print "\nWe will now consider consoles and serial ports.\n\n";
-do_consoles_and_ports(\%config, $pdir);
+if (!defined($config{qemu_ui})) { 
+  #
+  # Keyboard and mouse (PS/2 controller)
+  #
+  do_device(\%config, $pdir, "V3_CONFIG_KEYBOARD", "KEYBOARD", "keyboard",1); #must have
+
+  #
+  # Displays, Consoles, Serial
+  #
+  print "\nWe will now consider consoles and serial ports.\n\n";
+  do_consoles_and_ports(\%config, $pdir);
+  
+}
 
 
 #
@@ -242,6 +262,7 @@ $target = PAL;
 
 print $target "<vm class=\"PC\">\n\n";
 print $target file_setup(\%config), "\n";
+print $target bios_setup(\%config),"\n";
 print $target memory_setup(\%config), "\n";
 print $target swapping_setup(\%config), "\n";
 print $target paging_setup(\%config), "\n";
@@ -256,6 +277,12 @@ print $target device_setup(\%config), "\n";
 print $target "</vm>\n";
 
 close(PAL);
+
+print Dumper(\%config);
+
+if (defined($config{qemu}) && $config{qemu} eq "y") {
+  gen_qemu_startup(\%config, $pdir, $dir);
+}
 
 print "\n\nYour guest is now ready in the directory $dir\n\n";
 print "To run it, do:\n\n";
@@ -415,7 +442,7 @@ sub do_swapping {
   if ($canswap) { 
     #Config for swapping
     $cr->{swapping} = yn_question("Do you want to use swapping?", "n", "y", "n");
-    
+
     if ($cr->{swapping} eq "y") { 
       $cr->{swap_alloc} = quant_question("How much memory do you want to allocate [MB] ?", $mem/2);
       print "We will use the default swapping strategy.\n";
@@ -424,8 +451,62 @@ sub do_swapping {
       $cr->{swap_file} = get_user("./swap.bin");
     }
   }
+}
 
-} 
+sub add_bios   {
+  my ($cr, $name, $fileid, $address) =@_;
+
+  push @{$cr->{bios_list}},  { name=>$name, fileid=>$fileid, address=>$address };
+  
+}
+
+sub do_bios {
+  my ($cr, $pdir, $dir) = @_;
+  my $nextbios = defined($cr->{bios_list}) ? "bios".($#{$cr->{bios_list}}+1) : "bios0";
+  
+  if (yn_question("Add a".($nextbios eq "bios0" ? "" : "nother")." custom bios? ", "n", "y", "n") eq "y") { 
+    my ($n, $fn, $addr) ;
+    print "What is your name for this bios? [$nextbios] : ";
+    $n = get_user($nextbios);
+    while (1) { 
+      print "Where is the path to the file for bios $n ? ";
+      $fn = get_user("");
+      if (!(-e $fn)) { 
+	print "Cannot find $fn, try again\n";
+	next;
+      } else {
+	if (system("cp $fn $dir/$n.dat")) { 
+	  print "Unable to copy $fn\n";
+	  next;
+	} else {
+	  add_file($cr, "$n", "$n.dat");
+	  print "What is the destination physical linear address (in hex) for bios $n [0xf0000] ? ";
+	  $addr = get_user("0xf0000");
+	  add_bios($cr,$n,$n,$addr);
+	  return 1;
+	}
+      }
+    }
+  } else {
+    return 0;
+  }
+}
+
+sub do_bioses { 
+  my ($cr, $pdir, $dir) = @_;
+
+  $cr->{bios_custom} = yn_question("Do you want to customize BIOSes?   (done automatically later for QEMU devices) ", "n", "y", "n");
+
+  if ($cr->{bios_custom} eq "y") { 
+    $cr->{bios_custom_nobios} = yn_question("Disable built-in system bios? ", "n", "y", "n");
+    $cr->{bios_custom_novgabios} = yn_question("Disable built-in VGA bios? ", "n", "y", "n");
+    
+    while (do_bios($cr, $pdir, $dir)) {}
+  }
+}
+      
+    
+					    
 
 sub do_device {
   my ($cr,$pdir,$feature, $class, $id, $hardfail, $optblob, $nestblob) =@_;
@@ -441,6 +522,74 @@ sub do_device {
       print "Not configuring a $class since your Palacios build doesn't have it enabled\n";
     }
   }
+}
+
+sub add_qemu_device {
+  my ($cr, $pdir, $type, $name, $url) = @_;
+
+  $cr->{qemu}='y';
+  
+  push @{$cr->{qemu_devices}}, { type=>$type, name=>$name, url=>$url } ;
+
+}
+
+sub do_qemu_ui {
+  my ($cr, $pdir, $dir) = @_;
+  my $vgabios=$ENV{PALACIOS_QEMU_DIR}."/share/qemu/vgabios-cirrus.bin";
+
+  $cr->{qemu_ui}='y';
+  
+  # PS/2 is a generic device
+  add_device($cr,"GENERIC","qemu-ps2",
+	     " forward=\"host_device\" hostdev=\"user:qemu-ps2\" ",
+	     "    <ports> <start>0x60</start> <end>0x60</end> <mode>PASSTHROUGH</mode> </ports>\n".
+	     "    <ports> <start>0x64</start> <end>0x64</end> <mode>PASSTHROUGH</mode> </ports>\n".
+	     "    <ports> <start>0x80</start> <end>0x80</end> <mode>PASSTHROUGH</mode> </ports>\n");
+  add_qemu_device($cr,$pdir, "qemu-ps2", "qemu-ps2", "user:qemu-ps2");
+
+  # so is serial
+  add_device($cr,"GENERIC", "qemu-serial",
+	     " forward=\"host_device\" hostdev=\"user:qemu-serial\" ",
+	     "    <ports> <start>0x3f8</start> <end>0x3ff</end>  <mode>PASSTHROUGH</mode> </ports>\n".
+	     "    <ports> <start>0x2f8</start> <end>0x2ff</end>  <mode>PASSTHROUGH</mode> </ports>\n".
+	     "    <ports> <start>0x3e8</start> <end>0x3ef</end>  <mode>PASSTHROUGH</mode> </ports>\n".
+	     "    <ports> <start>0x2e8</start> <end>0x2ef</end>  <mode>PASSTHROUGH</mode> </ports>\n");
+  add_qemu_device($cr,$pdir, "qemu-serial", "qemu-serial", "user:qemu-serial");
+
+  # Video has both a generic device and a PCI device (enhanced vga) and a bios
+  add_device($cr,"GENERIC", "qemu-video-legacy",
+	     " forward=\"host_device\" hostdev=\"user:qemu-video-legacy\" ",
+	     "    <ports> <start>0x3b4</start> <end>0x3da</end>  <mode>PASSTHROUGH</mode> </ports>\n".
+	     "    <memory> <start>0xa0000</start> <end>0xbffff</end>  <mode>PASSTHROUGH</mode> </memory>\n");
+  add_qemu_device($cr,$pdir, "qemu-video-legacy", "qemu-video-legacy", "user:qemu-video-legacy");
+
+  add_device($cr, "PCI_FRONT", "qemu-video",
+	     " hostdev=\"user:qemu-video\" ",
+	     "    <bus>pci0</bus>\n");
+
+  add_qemu_device($cr,$pdir, "qemu-video", "qemu-video", "user:qemu-video");
+
+  print "To use QEMU video, we will need to add the relevant bios. \n";
+  while (1) { 
+    print "Where is the QEMU video bios ? [$vgabios] : ";
+    $vgabios = get_user($vgabios); 
+    if (-e $vgabios) { 
+      if (system("cp $vgabios $dir/qemu-videobios.dat")) { 
+	print "Cannot copy $vgabios, try again\n";
+	next;
+      } else {
+	last;
+	}
+    } else {
+      print "Cannot find $vgabios, try again\n";
+      next;
+    } 
+  }
+  add_file($cr, "qemu-videobios", "qemu-videobios.dat");
+  add_bios($cr, "qemu-videobios", "qemu-videobios", "0xc0000");
+  $cr->{bios_custom} = 'y';
+  $cr->{bios_custom_novgabios} = 'y';
+
 }
 
 sub do_consoles_and_ports {
@@ -867,7 +1016,7 @@ GENERIC2
 ;
   }
   my @par = find_devices_by_class($cr,"SERIAL");
-  if ($#par<0) { 
+  if ($#par<0 && !defined($cr->{qemu_ui})) {
     $block .=<<GENERIC3
     <ports>
      <!-- Serial COM 1 -->
@@ -1040,6 +1189,25 @@ sub file_setup {
   }
 }
 
+sub bios_setup {
+  my $cr=shift;
+  
+  if (!defined($cr->{bios_custom}) || $cr->{bios_custom} eq "n") { 
+    return " <!-- this configuration does not use a custom bios setup but you can add one with the <bioses> syntax-->\n";
+  } else {
+    my $s;
+    my $b;
+    $s = " <bioses>\n";
+    $s.= "  <disable_rombios/>\n" if defined($cr->{bios_custom_nobios}) && $cr->{bios_custom_nobios} eq "y";
+    $s.= "  <disable_vgabios/>\n" if defined($cr->{bios_custom_novgabios}) && $cr->{bios_custom_novgabios} eq "y";
+    foreach $b (@{$cr->{bios_list}}) { 
+      $s.= "  <bios file=\"".$b->{fileid}."\" address=\"".$b->{address}."\" />\n";
+    }
+    $s.= " </bioses>\n";
+    return $s;
+  }
+}
+
 sub device_setup { 
   my $cr=shift;
   my $cd;
@@ -1141,4 +1309,39 @@ sub gen_image_file {
   } else  {
     return 0;
   }
+}
+
+
+sub gen_qemu_startup {
+  my ($cr, $pdir, $dir) = @_;
+  my $d;
+
+  # FIX ME
+  print "Generating QEMU Startup Script\n";
+
+  open(Q,">$dir/qemu_startup.sh");
+  print Q $ENV{PALACIOS_QEMU_DIR}."/bin/qemu-system-x86_64 -m 2048 -accel pal  ";
+  foreach $d (@{$cr->{qemu_devices}}) { 
+    if ($d->{type} eq "qemu-ps2") { 
+      print Q " -map KBD ".$d->{url}." ";
+    } elsif ($d->{type} eq "qemu-serial") { 
+      print Q " -serial stdio -map SERIAL ".$d->{url}." ";
+    } elsif ($d->{type} eq "qemu-video-legacy") { 
+      print Q " -map VGA ".$d->{url}." ";
+    } elsif ($d->{type} eq "qemu-video") { 
+      print Q " -vga cirrus -map CIRRUS ".$d->{url}." ";
+    } elsif ($d->{type} eq "qemu-e1000") { 
+      print Q " -nic e1000 -map E1000 ".$d->{url}." ";
+    } elsif ($d->{type} eq "qemu-ide-legacy") { 
+      print Q " -ide ... -map IDE-LEGACY ".$d->{url}." ";
+    } elsif ($d->{type} eq "qemu-ide") { 
+      print Q " -ide ... -map IDE ".$d->{url}." ";
+    } else {
+      die "Do not know how to handle QEMU device of type ".$d->{type}."\n";
+    }
+  }
+
+  print Q "\n";
+
+  close(Q);
 }
