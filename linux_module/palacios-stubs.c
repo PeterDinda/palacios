@@ -835,7 +835,7 @@ void palacios_used_fpu(void)
    struct thread_info *cur = current_thread_info();
 
    // We assume we are not preemptible here...
-   cur->status |= 1;
+   cur->status |= TS_USEDFPU; 
    clts(); 
    // After this, FP Save should be handled by Linux if it
    // switches to a different task and that task uses FPU
