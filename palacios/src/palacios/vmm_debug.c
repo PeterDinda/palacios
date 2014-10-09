@@ -262,6 +262,11 @@ void v3_print_guest_state(struct guest_info * core) {
     }
     v3_print_GPRs(core);
 
+    v3_print_idt(core,core->segments.idtr.base);
+    v3_print_gdt(core,core->segments.gdtr.base);
+    v3_print_ldt(core,core->segments.ldtr.base);
+    v3_print_tss(core,core->segments.tr.base);
+
     v3_print_mem_map(core->vm_info);
 
     v3_print_stack(core);
@@ -460,6 +465,13 @@ void v3_print_GPRs(struct guest_info * core) {
 void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
     addr_t base_hva;
 
+    if (v3_get_vm_cpu_mode(core)!=LONG) { 
+	V3_Print(core->vm_info, core, "= IDT ========\n");
+	V3_Print(core->vm_info, core, "(currently only supported in long mode)\n");
+	return;
+    }
+	
+
     if (core->mem_mode == PHYSICAL_MEM) {
         v3_gpa_to_hva(core, 
                       get_addr_linear(core, idtr_base, &(core->segments.cs)),
@@ -482,12 +494,12 @@ void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
 
     struct int_trap_gate_lgcy * entry;
     entry = (struct int_trap_gate_lgcy *)base_hva;
-    PrintDebug(core->vm_info, core, "= IDT ========\n");
-    PrintDebug(core->vm_info, core, "  # | hex | selector | si:ti:rpl |   offset | type | dpl | s | p\n");
+    V3_Print(core->vm_info, core, "= IDT ========\n");
+    V3_Print(core->vm_info, core, "  # | hex | selector | si:ti:rpl |   offset | type | dpl | s | p\n");
     for (i = 0; i < NUM_IDT_ENTRIES; i++) {
         uint32_t tmp = entry->selector;
         struct segment_selector * seg = (struct segment_selector *)(&tmp);
-        PrintDebug(core->vm_info, core, "%3d | %3x |     %04x |   %03x:%x:%x | %04x%04x | %s |   %x | %x | %x | %x\n", i, i,
+        V3_Print(core->vm_info, core, "%3d | %3x |     %04x |   %03x:%x:%x | %04x%04x | %s |   %x | %x | %x | %x\n", i, i,
                 entry->selector,
                 seg->index, seg->ti, seg->rpl,
                 entry->offset_hi, entry->offset_lo,
@@ -498,6 +510,12 @@ void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
 
 void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     addr_t base_hva;
+
+    if (v3_get_vm_cpu_mode(core)!=LONG) { 
+	V3_Print(core->vm_info, core, "= GDT ========\n");
+	V3_Print(core->vm_info, core, "(currently only supported in long mode)\n");
+	return;
+    }
 
     if (core->mem_mode == PHYSICAL_MEM) {
         v3_gpa_to_hva(core, 
@@ -516,15 +534,15 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     }
 
     int i;
-    char* cd[2] = {"code","data"};
+    char* cd[2] = {"data","code"};
     // TODO: handle possibility of gate/segment descriptor
 
     struct code_desc_lgcy * entry;
     entry = (struct code_desc_long *)base_hva;
-    PrintDebug(core->vm_info, core, "= GDT ========\n");
-    PrintDebug(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
+    V3_Print(core->vm_info, core, "= GDT ========\n");
+    V3_Print(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
     for (i = 0; i < NUM_GDT_ENTRIES; i++) {
-        PrintDebug(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
+        V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
                 entry->limit_hi, entry->limit_lo,
                 entry->base_hi, entry->base_mid, entry->base_lo,
                 cd[entry->one1], entry->dpl, entry->p);
@@ -535,7 +553,7 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
 void v3_print_gp_error(struct guest_info * core, addr_t exit_info1) {
     struct selector_error_code * error = (struct selector_error_code *)(&exit_info1);
 
-    PrintDebug(core->vm_info, core, "      selector index: %x, TI: %x, IDT: %x, EXT: %x (error=%llx)\n",
+    V3_Print(core->vm_info, core, "      selector index: %x, TI: %x, IDT: %x, EXT: %x (error=%llx)\n",
             error->index, error->ti, error->idt, error->ext,
             (unsigned long long)exit_info1);
 }
@@ -561,6 +579,12 @@ void v3_print_GPRs(struct guest_info * core) {
 void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
     addr_t base_hva;
 
+    if (v3_get_vm_cpu_mode(core)!=LONG) { 
+	V3_Print(core->vm_info, core, "= IDT ========\n");
+	V3_Print(core->vm_info, core, "(currently only supported in long mode)\n");
+	return;
+    }
+
     if (core->mem_mode == PHYSICAL_MEM) {
         v3_gpa_to_hva(core, 
                       get_addr_linear(core, idtr_base, &(core->segments.cs)),
@@ -582,12 +606,12 @@ void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
 
     struct int_trap_gate_long * entry;
     entry = (struct int_trap_gate_long *)base_hva;
-    PrintDebug(core->vm_info, core, "= IDT ========\n");
-    PrintDebug(core->vm_info, core, "  # | hex | selector | si:ti:rpl |           offset | type | dpl | s | r | p\n");
+    V3_Print(core->vm_info, core, "= IDT ========\n");
+    V3_Print(core->vm_info, core, "  # | hex | selector | si:ti:rpl |           offset | type | dpl | s | r | p\n");
     for (i = 0; i < NUM_IDT_ENTRIES; i++) {
         uint32_t tmp = entry->selector;
         struct segment_selector * seg = (struct segment_selector *)(&tmp);
-        PrintDebug(core->vm_info, core, "%3d | %3x |     %04x |   %03x:%x:%x | %08x%04x%04x | %s |   %x | %x | %x | %x\n", i, i,
+        V3_Print(core->vm_info, core, "%3d | %3x |     %04x |   %03x:%x:%x | %08x%04x%04x | %s |   %x | %x | %x | %x\n", i, i,
                 entry->selector,
                 seg->index, seg->ti, seg->rpl,
                 entry->offset_hi, entry->offset_mid, entry->offset_lo,
@@ -599,6 +623,12 @@ void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
 
 void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     addr_t base_hva;
+
+    if (v3_get_vm_cpu_mode(core)!=LONG) { 
+	V3_Print(core->vm_info, core, "= GDT ========\n");
+	V3_Print(core->vm_info, core, "(currently only supported in long mode)\n");
+	return;
+    }
 
     if (core->mem_mode == PHYSICAL_MEM) {
         v3_gpa_to_hva(core, 
@@ -616,15 +646,15 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     }
 
     int i;
-    char* cd[2] = {"code","data"};
+    char* cd[2] = {"data","code"};
     // TODO: handle possibility of gate/segment descriptor
 
     struct code_desc_long * entry;
     entry = (struct code_desc_long *)base_hva;
-    PrintDebug(core->vm_info, core, "= GDT ========\n");
-    PrintDebug(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
+    V3_Print(core->vm_info, core, "= GDT ========\n");
+    V3_Print(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
     for (i = 0; i < NUM_GDT_ENTRIES; i++) {
-        PrintDebug(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
+        V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
                 entry->limit_hi, entry->limit_lo,
                 entry->base_hi, entry->base_mid, entry->base_lo,
                 cd[entry->one1], entry->dpl, entry->p);
@@ -632,10 +662,115 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     }
 }
 
+void v3_print_ldt(struct guest_info * core, addr_t ldtr_base) {
+    addr_t base_hva;
+
+    if (v3_get_vm_cpu_mode(core)!=LONG) { 
+	V3_Print(core->vm_info, core, "= LDT ========\n");
+	V3_Print(core->vm_info, core, "(currently only supported in long mode)\n");
+	return;
+    }
+
+    V3_Print(core->vm_info, core, "= LDT ========\n");
+
+    if (ldtr_base == 0) {
+        V3_Print(core->vm_info, core, "        (no LDT is installed)\n");
+	return;
+    } 
+
+    if (core->mem_mode == PHYSICAL_MEM) {
+        v3_gpa_to_hva(core, 
+                      get_addr_linear(core, ldtr_base, &(core->segments.cs)),
+                      &base_hva);
+    } else if (core->mem_mode == VIRTUAL_MEM) {
+        v3_gva_to_hva(core, 
+                      get_addr_linear(core, ldtr_base, &(core->segments.cs)),
+                      &base_hva);
+    }
+
+    // SANITY CHECK
+    if (ldtr_base != get_addr_linear(core, ldtr_base, &(core->segments.cs))) {
+        PrintError(core->vm_info, core, "ldtr base address != linear translation, might be something funky with cs\n");
+    }
+
+    int i;
+    char* cd[2] = {"data","code"};
+    // TODO: handle possibility of gate/segment descriptor
+
+    struct code_desc_long * entry;
+    entry = (struct code_desc_long *)base_hva;
+    V3_Print(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
+    for (i = 0; i < NUM_LDT_ENTRIES; i++) {
+        V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
+                entry->limit_hi, entry->limit_lo,
+                entry->base_hi, entry->base_mid, entry->base_lo,
+                cd[entry->one1], entry->dpl, entry->p);
+        entry++;
+    }
+}
+
+void v3_print_tss(struct guest_info * core, addr_t tr_base) {
+    addr_t base_hva;
+    struct tss_long *t;
+
+    if (v3_get_vm_cpu_mode(core)!=LONG) { 
+	V3_Print(core->vm_info, core, "= TSS ========\n");
+	V3_Print(core->vm_info, core, "(currently only supported in long mode)\n");
+	return;
+    }
+
+    V3_Print(core->vm_info, core, "= TSS ========\n");
+
+    if (tr_base == 0) {
+        V3_Print(core->vm_info, core, "        (no TSS is installed)\n");
+	return;
+    } 
+
+    if (core->mem_mode == PHYSICAL_MEM) {
+        v3_gpa_to_hva(core, 
+                      get_addr_linear(core, tr_base, &(core->segments.cs)),
+                      &base_hva);
+    } else if (core->mem_mode == VIRTUAL_MEM) {
+        v3_gva_to_hva(core, 
+                      get_addr_linear(core, tr_base, &(core->segments.cs)),
+                      &base_hva);
+    }
+
+    // SANITY CHECK
+    if (tr_base != get_addr_linear(core, tr_base, &(core->segments.cs))) {
+        PrintError(core->vm_info, core, "tr base address != linear translation, might be something funky with cs\n");
+    }
+    t=(struct tss_long*)base_hva;
+
+    V3_Print(core->vm_info, core," res1 : 0x%llx\n", (uint64_t) t->res1);
+    V3_Print(core->vm_info, core," rsp0 : 0x%llx\n", t->rsp0);
+    V3_Print(core->vm_info, core," rsp1 : 0x%llx\n", t->rsp1);
+    V3_Print(core->vm_info, core," rsp2 : 0x%llx\n", t->rsp2);
+    V3_Print(core->vm_info, core," res2 : 0x%llx\n", t->res2);
+    V3_Print(core->vm_info, core," ist1 : 0x%llx\n", t->ist1);
+    V3_Print(core->vm_info, core," ist2 : 0x%llx\n", t->ist2);
+    V3_Print(core->vm_info, core," ist3 : 0x%llx\n", t->ist3);
+    V3_Print(core->vm_info, core," ist4 : 0x%llx\n", t->ist4);
+    V3_Print(core->vm_info, core," ist5 : 0x%llx\n", t->ist5);
+    V3_Print(core->vm_info, core," ist6 : 0x%llx\n", t->ist6);
+    V3_Print(core->vm_info, core," ist7 : 0x%llx\n", t->ist7);
+    V3_Print(core->vm_info, core," res3 : 0x%llx\n", t->res3);
+    V3_Print(core->vm_info, core," res4 : 0x%llx\n", (uint64_t) t->res4);
+    V3_Print(core->vm_info, core," iomap_base : 0x%llx\n", (uint64_t) t->iomap_base);
+    V3_Print(core->vm_info, core," (following io permission bitmap not currently printed)\n");
+
+}
+
 void v3_print_gp_error(struct guest_info * core, addr_t exit_info1) {
     struct selector_error_code * error = (struct selector_error_code *)(&exit_info1);
 
-    PrintDebug(core->vm_info, core, "      selector index: %x, TI: %x, IDT: %x, EXT: %x (error=%llx)\n",
+    if (v3_get_vm_cpu_mode(core)!=LONG) { 
+	V3_Print(core->vm_info, core, "= IDT ========\n");
+	V3_Print(core->vm_info, core, "(currently only supported in long mode)\n");
+	return;
+    }
+
+    V3_Print(core->vm_info, core, "      selector index: %x, TI: %x, IDT: %x, EXT: %x (error=%llx)\n",
             error->index, error->ti, error->idt, error->ext,
             (unsigned long long)exit_info1);
 }

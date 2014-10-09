@@ -275,6 +275,8 @@ struct apic_dev_state {
 
 
 
+static void dump_all_apic_state(struct v3_vm_info *vm, struct apic_dev_state *a);
+static void dump_apic_state(struct guest_info *core, struct apic_state * a) ;
 
 
 static int apic_read(struct guest_info * core, addr_t guest_addr, void * dst, uint_t length, void * priv_data);
@@ -395,8 +397,12 @@ static int write_apic_msr(struct guest_info * core, uint_t msr, v3_msr_t src, vo
 
     apic->base_addr_msr.value = src.value;
 
+    // unhook from old location
+    v3_unhook_mem(core->vm_info,core->vcpu_id,apic->base_addr);
+
     apic->base_addr = src.value & ~0xfffULL;
 
+    // hook to new location
     if (v3_hook_full_mem(core->vm_info, core->vcpu_id, apic->base_addr, 
 			 apic->base_addr + PAGE_SIZE_4KB, 
 			 apic_read, apic_write, apic_dev) == -1) {
@@ -1886,7 +1892,7 @@ static int apic_free(struct apic_dev_state * apic_dev) {
 
 	v3_lock_deinit(&(apic->irq_queue.lock));
 
-	// unhook memory
+	v3_unhook_mem(vm,core->vcpu_id,apic->base_addr);
 
     }
 
@@ -2163,6 +2169,7 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	    return -1;
 	}
 
+	// hook to initial location
 	v3_hook_full_mem(vm, core->vcpu_id, apic->base_addr, apic->base_addr + PAGE_SIZE_4KB, apic_read, apic_write, apic_dev);
 
 	PrintDebug(vm, VCORE_NONE, "apic %u: (setup device): done, my id is %u\n", i, apic->lapic_id.val);
@@ -2183,6 +2190,283 @@ static int apic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     return 0;
 }
+
+static char hexify_nybble(char c)
+{
+    if (c>=0 && c<=9) { 
+	return '0'+c;
+    } else if (c>=0xa && c<=0xf) { 
+	return 'a'+(c-0xa);
+    } else {
+	return -1;
+    }
+}
+
+
+static int hexify_byte(char *c, char b)
+{
+    char n;
+    n = hexify_nybble( (b >> 4) & 0xf);
+    if (n==-1) { 
+	return -1;
+    }
+    c[0] = n;
+    n = hexify_nybble( b & 0xf);
+    if (n==-1) { 
+	return -1;
+    }
+    c[1] = n;
+    return 0;
+}
+
+// dest must be of length at least 2*n+1
+static int hexify_byte_string(char *dest, char *src, int n)
+{
+    int i;
+    for (i=0;i<n;i++) { 
+	if (hexify_byte(dest,src[i])) { 
+	    return -1;
+	}
+	dest+=2;
+    }
+    *dest=0;
+    return 0;
+}
+
+
+static __attribute__((unused)) void dump_all_apic_state(struct v3_vm_info *vm, struct apic_dev_state *a)
+{
+    int i;
+    for (i=0;i<a->num_apics;i++) { 
+	dump_apic_state(&(vm->cores[i]),&(a->apics[i]));
+    }
+}
+	
+static void dump_apic_state(struct guest_info *core, struct apic_state * a) 
+{
+    char buf[80];
+    struct irq_queue_entry *ie;
+
+    V3_Print(core->vm_info, core, "APIC (vcore %d) {\n", core->vcpu_id);
+    V3_Print(core->vm_info, core, "\tbase_addr: %llx\n", (uint64_t)(a->base_addr));
+    V3_Print(core->vm_info, core, "\tlapic_id_reg {\n");
+    V3_Print(core->vm_info, core, "\t\trsvd: 0x%x\n", a->lapic_id.rsvd);
+    V3_Print(core->vm_info, core, "\t\tapic_id: 0x%x\n", a->lapic_id.apic_id);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tapic_ver_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tver: 0x%x\n", a->apic_ver.ver);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->apic_ver.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tmax_lvts: 0x%x\n", a->apic_ver.max_lvts);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->apic_ver.rsvd2);
+    V3_Print(core->vm_info, core, "\t\text_reg_present: 0x%x\n", a->apic_ver.ext_reg_present);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\text_apic_ctrl_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tver: 0x%x\n", a->ext_apic_ctrl.ver);
+    V3_Print(core->vm_info, core, "\t\tseoi_enable: 0x%x\n", a->ext_apic_ctrl.seoi_enable);
+    V3_Print(core->vm_info, core, "\t\text_id_enable: 0x%x\n", a->ext_apic_ctrl.ext_id_enable);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->ext_apic_ctrl.rsvd2);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tlocal_vec_tbl_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->local_vec_tbl.vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->local_vec_tbl.msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->local_vec_tbl.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->local_vec_tbl.del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->local_vec_tbl.rsvd2);
+    V3_Print(core->vm_info, core, "\t\trem_irr: 0x%x\n", a->local_vec_tbl.rem_irr);
+    V3_Print(core->vm_info, core, "\t\ttrig_mode: 0x%x\n", a->local_vec_tbl.trig_mode);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->local_vec_tbl.mask);
+    V3_Print(core->vm_info, core, "\t\ttmr_mode: 0x%x\n", a->local_vec_tbl.tmr_mode);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->local_vec_tbl.rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\ttmr_vec_tbl_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->tmr_vec_tbl.vec);
+    V3_Print(core->vm_info, core, "\t\trsvd: 0x%x\n", a->tmr_vec_tbl.rsvd);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->tmr_vec_tbl.del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->tmr_vec_tbl.rsvd2);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->tmr_vec_tbl.mask);
+    V3_Print(core->vm_info, core, "\t\ttmr_mode: 0x%x\n", a->tmr_vec_tbl.tmr_mode);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->tmr_vec_tbl.rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\ttmr_div_cfg_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tdiv_val: 0x%x\n", a->tmr_div_cfg.div_val);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->tmr_div_cfg.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdiv_val2: 0x%x\n", a->tmr_div_cfg.div_val2);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->tmr_div_cfg.rsvd2);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tlint_vec_tbl_reg 0 {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->lint0_vec_tbl.vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->lint0_vec_tbl.msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->lint0_vec_tbl.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->lint0_vec_tbl.del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->lint0_vec_tbl.rsvd2);
+    V3_Print(core->vm_info, core, "\t\trem_irr: 0x%x\n", a->lint0_vec_tbl.rem_irr);
+    V3_Print(core->vm_info, core, "\t\ttrig_mode: 0x%x\n", a->lint0_vec_tbl.trig_mode);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->lint0_vec_tbl.mask);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->lint0_vec_tbl.rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tlint_vec_tbl_reg 1 {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->lint1_vec_tbl.vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->lint1_vec_tbl.msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->lint1_vec_tbl.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->lint1_vec_tbl.del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->lint1_vec_tbl.rsvd2);
+    V3_Print(core->vm_info, core, "\t\trem_irr: 0x%x\n", a->lint1_vec_tbl.rem_irr);
+    V3_Print(core->vm_info, core, "\t\ttrig_mode: 0x%x\n", a->lint1_vec_tbl.trig_mode);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->lint1_vec_tbl.mask);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->lint1_vec_tbl.rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tperf_ctr_loc_vec_tbl_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->perf_ctr_loc_vec_tbl.vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->perf_ctr_loc_vec_tbl.msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->perf_ctr_loc_vec_tbl.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->perf_ctr_loc_vec_tbl.del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->perf_ctr_loc_vec_tbl.rsvd2);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->perf_ctr_loc_vec_tbl.mask);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->perf_ctr_loc_vec_tbl.rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\ttherm_loc_vec_tbl_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->therm_loc_vec_tbl.vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->therm_loc_vec_tbl.msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->therm_loc_vec_tbl.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->therm_loc_vec_tbl.del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->therm_loc_vec_tbl.rsvd2);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->therm_loc_vec_tbl.mask);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->therm_loc_vec_tbl.rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\terr_vec_tbl_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->err_vec_tbl.vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->err_vec_tbl.msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->err_vec_tbl.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->err_vec_tbl.del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->err_vec_tbl.rsvd2);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->err_vec_tbl.mask);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->err_vec_tbl.rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\terr_status_reg {\n");
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->err_status.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tsent_acc_err: 0x%x\n", a->err_status.sent_acc_err);
+    V3_Print(core->vm_info, core, "\t\trecv_acc_err: 0x%x\n", a->err_status.recv_acc_err);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->err_status.rsvd2);
+    V3_Print(core->vm_info, core, "\t\tsent_ill_err: 0x%x\n", a->err_status.sent_ill_err);
+    V3_Print(core->vm_info, core, "\t\trecv_ill_err: 0x%x\n", a->err_status.recv_ill_err);
+    V3_Print(core->vm_info, core, "\t\till_reg_addr: 0x%x\n", a->err_status.ill_reg_addr);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->err_status.rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tspurious_int_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->spurious_int.vec);
+    V3_Print(core->vm_info, core, "\t\tapic_soft_en: 0x%x\n", a->spurious_int.apic_soft_en);
+    V3_Print(core->vm_info, core, "\t\tfoc_cpu_chk: 0x%x\n", a->spurious_int.foc_cpu_chk);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->spurious_int.rsvd1);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tint_cmd_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->int_cmd.vec);
+    V3_Print(core->vm_info, core, "\t\tdel_mode: 0x%x\n", a->int_cmd.del_mode);
+    V3_Print(core->vm_info, core, "\t\tdst_mode: 0x%x\n", a->int_cmd.dst_mode);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->int_cmd.del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->int_cmd.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tlvl: 0x%x\n", a->int_cmd.lvl);
+    V3_Print(core->vm_info, core, "\t\ttrig_mode: 0x%x\n", a->int_cmd.trig_mode);
+    V3_Print(core->vm_info, core, "\t\trm_rd_status: 0x%x\n", a->int_cmd.rem_rd_status);
+    V3_Print(core->vm_info, core, "\t\tdst_shorthand: 0x%x\n", a->int_cmd.dst_shorthand);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%llx\n", (uint64_t)(a->int_cmd.rsvd2));
+    V3_Print(core->vm_info, core, "\t\tdst: 0x%x\n", a->int_cmd.dst);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tlog_dst_reg {\n");
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->log_dst.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdst_log_id: 0x%x\n", a->log_dst.dst_log_id);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tdst_fmt_reg {\n");
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->dst_fmt.rsvd1);
+    V3_Print(core->vm_info, core, "\t\tmodel: 0x%x\n", a->dst_fmt.model);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tarb_prio_reg: 0x%x\n",get_apic_apr(a));
+    V3_Print(core->vm_info, core, "\ttask_prio_reg: 0x%x\n", get_apic_tpr(a));
+    V3_Print(core->vm_info, core, "\tproc_prio_reg: 0x%x\n",get_apic_ppr(a));
+    V3_Print(core->vm_info, core, "\text_apic_feature_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tint_en_reg_cap: 0x%x\n", a->ext_apic_feature.int_en_reg_cap);
+    V3_Print(core->vm_info, core, "\t\tspec_eoi_cap: 0x%x\n", a->ext_apic_feature.spec_eoi_cap);
+    V3_Print(core->vm_info, core, "\t\text_apic_id_cap: 0x%x\n", a->ext_apic_feature.ext_apic_id_cap);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->ext_apic_feature.rsvd1);
+    V3_Print(core->vm_info, core, "\t\text_lvt_cnt: 0x%x\n", a->ext_apic_feature.ext_lvt_cnt);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->ext_apic_feature.rsvd2);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\tspec_eoi_reg {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->spec_eoi.vec);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->spec_eoi.rsvd1);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\ttmr_cur_cnt: 0x%x\n", a->tmr_cur_cnt);
+    V3_Print(core->vm_info, core, "\ttmr_init_cnt: 0x%x\n", a->tmr_init_cnt);
+    V3_Print(core->vm_info, core, "\tmissed_ints: 0x%x\n", a->missed_ints);
+    V3_Print(core->vm_info, core, "\text_vec_tbl_reg 0 {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->ext_intr_vec_tbl[0].vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->ext_intr_vec_tbl[0].msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->ext_intr_vec_tbl[0].rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->ext_intr_vec_tbl[0].del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->ext_intr_vec_tbl[0].rsvd2);
+    V3_Print(core->vm_info, core, "\t\trem_irr: 0x%x\n", a->ext_intr_vec_tbl[0].rem_irr);
+    V3_Print(core->vm_info, core, "\t\ttrig_mode: 0x%x\n", a->ext_intr_vec_tbl[0].trig_mode);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->ext_intr_vec_tbl[0].mask);
+    V3_Print(core->vm_info, core, "\t\ttmr_mode: 0x%x\n", a->ext_intr_vec_tbl[0].tmr_mode);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->ext_intr_vec_tbl[0].rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\text_vec_tbl_reg 1 {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->ext_intr_vec_tbl[1].vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->ext_intr_vec_tbl[1].msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->ext_intr_vec_tbl[1].rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->ext_intr_vec_tbl[1].del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->ext_intr_vec_tbl[1].rsvd2);
+    V3_Print(core->vm_info, core, "\t\trem_irr: 0x%x\n", a->ext_intr_vec_tbl[1].rem_irr);
+    V3_Print(core->vm_info, core, "\t\ttrig_mode: 0x%x\n", a->ext_intr_vec_tbl[1].trig_mode);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->ext_intr_vec_tbl[1].mask);
+    V3_Print(core->vm_info, core, "\t\ttmr_mode: 0x%x\n", a->ext_intr_vec_tbl[1].tmr_mode);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->ext_intr_vec_tbl[1].rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\text_vec_tbl_reg 2 {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->ext_intr_vec_tbl[2].vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->ext_intr_vec_tbl[2].msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->ext_intr_vec_tbl[2].rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->ext_intr_vec_tbl[2].del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->ext_intr_vec_tbl[2].rsvd2);
+    V3_Print(core->vm_info, core, "\t\trem_irr: 0x%x\n", a->ext_intr_vec_tbl[2].rem_irr);
+    V3_Print(core->vm_info, core, "\t\ttrig_mode: 0x%x\n", a->ext_intr_vec_tbl[2].trig_mode);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->ext_intr_vec_tbl[2].mask);
+    V3_Print(core->vm_info, core, "\t\ttmr_mode: 0x%x\n", a->ext_intr_vec_tbl[2].tmr_mode);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->ext_intr_vec_tbl[2].rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\text_vec_tbl_reg 3 {\n");
+    V3_Print(core->vm_info, core, "\t\tvec: 0x%x\n", a->ext_intr_vec_tbl[3].vec);
+    V3_Print(core->vm_info, core, "\t\tmsg_type: 0x%x\n", a->ext_intr_vec_tbl[3].msg_type);
+    V3_Print(core->vm_info, core, "\t\trsvd1: 0x%x\n", a->ext_intr_vec_tbl[3].rsvd1);
+    V3_Print(core->vm_info, core, "\t\tdel_status: 0x%x\n", a->ext_intr_vec_tbl[3].del_status);
+    V3_Print(core->vm_info, core, "\t\trsvd2: 0x%x\n", a->ext_intr_vec_tbl[3].rsvd2);
+    V3_Print(core->vm_info, core, "\t\trem_irr: 0x%x\n", a->ext_intr_vec_tbl[3].rem_irr);
+    V3_Print(core->vm_info, core, "\t\ttrig_mode: 0x%x\n", a->ext_intr_vec_tbl[3].trig_mode);
+    V3_Print(core->vm_info, core, "\t\tmask: 0x%x\n", a->ext_intr_vec_tbl[3].mask);
+    V3_Print(core->vm_info, core, "\t\ttmr_mode: 0x%x\n", a->ext_intr_vec_tbl[3].tmr_mode);
+    V3_Print(core->vm_info, core, "\t\trsvd3: 0x%x\n", a->ext_intr_vec_tbl[3].rsvd3);
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\trem_rd_data: 0x%x\n", a->rem_rd_data);
+    hexify_byte_string(buf,a->int_req_reg,32);
+    V3_Print(core->vm_info, core, "\tint_req_reg: 0x%s\n",buf);
+    hexify_byte_string(buf,a->int_svc_reg,32);
+    V3_Print(core->vm_info, core, "\tint_svc_reg: 0x%s\n",buf);
+    hexify_byte_string(buf,a->int_en_reg,32);
+    V3_Print(core->vm_info, core, "\tint_en_reg: 0x%s\n",buf);
+    hexify_byte_string(buf,a->trig_mode_reg,32);
+    V3_Print(core->vm_info, core, "\ttrig_mode_reg: 0x%s\n",buf);
+    V3_Print(core->vm_info, core, "\tirq_ack_cbs: SKIPPED\n");
+    V3_Print(core->vm_info, core, "\tirq_queue: (follows)\n");
+    // note we do not hold the lock for purposes of printing this list... 
+    list_for_each_entry(ie,&(a->irq_queue.entries), list_node) {
+	V3_Print(core->vm_info,core,"\t\tvector 0x%x ack %p priv %p\n", ie->vector, ie->ack, ie->private_data);
+    }
+    V3_Print(core->vm_info, core, "\t}\n");
+    V3_Print(core->vm_info, core, "\teoi: 0x%x\n", a->eoi);
+    V3_Print(core->vm_info, core,"}\n");
+}
+
+
+
 
 
 

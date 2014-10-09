@@ -29,6 +29,7 @@
 
 #define NUM_IDT_ENTRIES 256
 #define NUM_GDT_ENTRIES 16
+#define NUM_LDT_ENTRIES 16
 
 struct segment_selector {
     uint8_t  rpl        :  2;
@@ -212,6 +213,25 @@ struct selector_error_code {
     uint16_t ign        : 16;
 }__attribute__((packed));
 
+struct tss_long {
+    uint32_t res1;
+    uint64_t rsp0;
+    uint64_t rsp1;
+    uint64_t rsp2;
+    uint64_t res2;
+    uint64_t ist1;
+    uint64_t ist2;
+    uint64_t ist3;
+    uint64_t ist4;
+    uint64_t ist5;
+    uint64_t ist6;
+    uint64_t ist7;
+    uint64_t res3;
+    uint32_t res4;
+    uint32_t iomap_base;
+    // Followed by up to 8 KB of io permission bitmap
+} __attribute__((packed));
+
 
 int v3_init_vm_debugging(struct v3_vm_info * vm);
 
@@ -228,6 +248,8 @@ void v3_print_guest_state_all(struct v3_vm_info * vm);
 
 void v3_print_idt(struct guest_info * core, addr_t idtr_base);
 void v3_print_gdt(struct guest_info * core, addr_t gdtr_base);
+void v3_print_ldt(struct guest_info * core, addr_t ldtr_base);
+void v3_print_tss(struct guest_info * core, addr_t ldtr_base);
 void v3_print_gp_error(struct guest_info * core, addr_t exit_info1);
 
 #endif // !__V3VEE__
