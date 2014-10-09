@@ -457,6 +457,89 @@ void v3_print_GPRs(struct guest_info * core) {
     }
 }
 
+void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
+    addr_t base_hva;
+
+    if (core->mem_mode == PHYSICAL_MEM) {
+        v3_gpa_to_hva(core, 
+                      get_addr_linear(core, idtr_base, &(core->segments.cs)),
+                      &base_hva);
+        PrintError(core->vm_info, core, "Kind of weird that we got here.... physical mem?\n");
+    } else if (core->mem_mode == VIRTUAL_MEM) {
+        v3_gva_to_hva(core, 
+                      get_addr_linear(core, idtr_base, &(core->segments.cs)),
+                      &base_hva);
+    }
+
+    // SANITY CHECK
+    if (idtr_base != get_addr_linear(core, idtr_base, &(core->segments.cs))) {
+        PrintError(core->vm_info, core, "idtr base address != linear translation, might be something funky with cs\n");
+    }
+
+    int i;
+    char *types[16] = {"  ILGL","aTSS16","   LDT","bTSS16","call16","  task","intr16","trap16",
+        "  ILGL","aTSS32","  ILGL","bTSS32","call32","  ILGL","intr32","trap32"};
+
+    struct int_trap_gate_lgcy * entry;
+    entry = (struct int_trap_gate_lgcy *)base_hva;
+    PrintDebug(core->vm_info, core, "= IDT ========\n");
+    PrintDebug(core->vm_info, core, "  # | hex | selector | si:ti:rpl |   offset | type | dpl | s | p\n");
+    for (i = 0; i < NUM_IDT_ENTRIES; i++) {
+        uint32_t tmp = entry->selector;
+        struct segment_selector * seg = (struct segment_selector *)(&tmp);
+        PrintDebug(core->vm_info, core, "%3d | %3x |     %04x |   %03x:%x:%x | %04x%04x | %s |   %x | %x | %x | %x\n", i, i,
+                entry->selector,
+                seg->index, seg->ti, seg->rpl,
+                entry->offset_hi, entry->offset_lo,
+                types[entry->type], entry->dpl, entry->s, entry->p);
+        entry++;
+    }
+}
+
+void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
+    addr_t base_hva;
+
+    if (core->mem_mode == PHYSICAL_MEM) {
+        v3_gpa_to_hva(core, 
+                      get_addr_linear(core, gdtr_base, &(core->segments.cs)),
+                      &base_hva);
+        PrintError(core->vm_info, core, "Kind of weird that we got here.... physical mem?\n");
+    } else if (core->mem_mode == VIRTUAL_MEM) {
+        v3_gva_to_hva(core, 
+                      get_addr_linear(core, gdtr_base, &(core->segments.cs)),
+                      &base_hva);
+    }
+
+    // SANITY CHECK
+    if (gdtr_base != get_addr_linear(core, gdtr_base, &(core->segments.cs))) {
+        PrintError(core->vm_info, core, "gdtr base address != linear translation, might be something funky with cs\n");
+    }
+
+    int i;
+    char* cd[2] = {"code","data"};
+    // TODO: handle possibility of gate/segment descriptor
+
+    struct code_desc_lgcy * entry;
+    entry = (struct code_desc_long *)base_hva;
+    PrintDebug(core->vm_info, core, "= GDT ========\n");
+    PrintDebug(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
+    for (i = 0; i < NUM_GDT_ENTRIES; i++) {
+        PrintDebug(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
+                entry->limit_hi, entry->limit_lo,
+                entry->base_hi, entry->base_mid, entry->base_lo,
+                cd[entry->one1], entry->dpl, entry->p);
+        entry++;
+    }
+}
+
+void v3_print_gp_error(struct guest_info * core, addr_t exit_info1) {
+    struct selector_error_code * error = (struct selector_error_code *)(&exit_info1);
+
+    PrintDebug(core->vm_info, core, "      selector index: %x, TI: %x, IDT: %x, EXT: %x (error=%llx)\n",
+            error->index, error->ti, error->idt, error->ext,
+            (unsigned long long)exit_info1);
+}
+
 #elif __V3_64BIT__
 
 void v3_print_GPRs(struct guest_info * core) {
@@ -473,6 +556,88 @@ void v3_print_GPRs(struct guest_info * core) {
     for (i = 0; reg_names[i] != NULL; i++) {
 	V3_Print(core->vm_info, core, "\t%s=0x%p (at %p)\n", reg_names[i], (void *)(addr_t)reg_ptr[i], &(reg_ptr[i]));  
     }
+}
+
+void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
+    addr_t base_hva;
+
+    if (core->mem_mode == PHYSICAL_MEM) {
+        v3_gpa_to_hva(core, 
+                      get_addr_linear(core, idtr_base, &(core->segments.cs)),
+                      &base_hva);
+    } else if (core->mem_mode == VIRTUAL_MEM) {
+        v3_gva_to_hva(core, 
+                      get_addr_linear(core, idtr_base, &(core->segments.cs)),
+                      &base_hva);
+    }
+
+    // SANITY CHECK
+    if (idtr_base != get_addr_linear(core, idtr_base, &(core->segments.cs))) {
+        PrintError(core->vm_info, core, "idtr base address != linear translation, might be something funky with cs\n");
+    }
+
+    int i;
+    char *types[16] = {"ILGL","ILGL"," LDT","ILGL","ILGL","ILGL","ILGL","ILGL","ILGL",
+        "aTSS","ILGL","bTSS","call","ILGL","intr","trap"};
+
+    struct int_trap_gate_long * entry;
+    entry = (struct int_trap_gate_long *)base_hva;
+    PrintDebug(core->vm_info, core, "= IDT ========\n");
+    PrintDebug(core->vm_info, core, "  # | hex | selector | si:ti:rpl |           offset | type | dpl | s | r | p\n");
+    for (i = 0; i < NUM_IDT_ENTRIES; i++) {
+        uint32_t tmp = entry->selector;
+        struct segment_selector * seg = (struct segment_selector *)(&tmp);
+        PrintDebug(core->vm_info, core, "%3d | %3x |     %04x |   %03x:%x:%x | %08x%04x%04x | %s |   %x | %x | %x | %x\n", i, i,
+                entry->selector,
+                seg->index, seg->ti, seg->rpl,
+                entry->offset_hi, entry->offset_mid, entry->offset_lo,
+                types[entry->type], entry->dpl, entry->s,
+                entry->s, entry->p);
+        entry++;
+    }
+}
+
+void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
+    addr_t base_hva;
+
+    if (core->mem_mode == PHYSICAL_MEM) {
+        v3_gpa_to_hva(core, 
+                      get_addr_linear(core, gdtr_base, &(core->segments.cs)),
+                      &base_hva);
+    } else if (core->mem_mode == VIRTUAL_MEM) {
+        v3_gva_to_hva(core, 
+                      get_addr_linear(core, gdtr_base, &(core->segments.cs)),
+                      &base_hva);
+    }
+
+    // SANITY CHECK
+    if (gdtr_base != get_addr_linear(core, gdtr_base, &(core->segments.cs))) {
+        PrintError(core->vm_info, core, "gdtr base address != linear translation, might be something funky with cs\n");
+    }
+
+    int i;
+    char* cd[2] = {"code","data"};
+    // TODO: handle possibility of gate/segment descriptor
+
+    struct code_desc_long * entry;
+    entry = (struct code_desc_long *)base_hva;
+    PrintDebug(core->vm_info, core, "= GDT ========\n");
+    PrintDebug(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
+    for (i = 0; i < NUM_GDT_ENTRIES; i++) {
+        PrintDebug(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
+                entry->limit_hi, entry->limit_lo,
+                entry->base_hi, entry->base_mid, entry->base_lo,
+                cd[entry->one1], entry->dpl, entry->p);
+        entry++;
+    }
+}
+
+void v3_print_gp_error(struct guest_info * core, addr_t exit_info1) {
+    struct selector_error_code * error = (struct selector_error_code *)(&exit_info1);
+
+    PrintDebug(core->vm_info, core, "      selector index: %x, TI: %x, IDT: %x, EXT: %x (error=%llx)\n",
+            error->index, error->ti, error->idt, error->ext,
+            (unsigned long long)exit_info1);
 }
 
 #endif
