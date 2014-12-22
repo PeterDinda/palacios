@@ -7,7 +7,7 @@
 
 // Use these together
 int v3_user_dvfs_acquire_direct(uint32_t core); 
-int v3_user_dvfs_set_pstate(uint32_t core, uint8_t pstate);
+int v3_user_dvfs_set_pstate(uint32_t core, uint64_t pstate);
 
 // Use these together
 int v3_user_dvfs_acquire_external(uint32_t core); 
