@@ -832,10 +832,14 @@ palacios_mutex_unlock_irqrestore(void *mutex, void *flags)
 
 void palacios_used_fpu(void)
 {
-   struct thread_info *cur = current_thread_info();
-
    // We assume we are not preemptible here...
+#ifndef TS_USEDFPU
+   struct task_struct *tsk = current;
+   tsk->thread.fpu.has_fpu = 1;
+#else
+   struct thread_info *cur = current_thread_info();
    cur->status |= TS_USEDFPU; 
+#endif
    clts(); 
    // After this, FP Save should be handled by Linux if it
    // switches to a different task and that task uses FPU
