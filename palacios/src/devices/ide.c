@@ -156,8 +156,8 @@ struct ide_drive {
     void * private_data;
     
     union {
-	uint8_t sector_count;             // 0x1f2,0x172
-	struct atapi_irq_flags irq_flags;
+	uint8_t sector_count;             // 0x1f2,0x172  (ATA)
+	struct atapi_irq_flags irq_flags; // (ATAPI ONLY)
     } __attribute__((packed));
 
     union {
@@ -333,7 +333,7 @@ static void channel_reset(struct ide_channel * channel) {
     channel->error_reg.val = 0x01;
 
     // clear commands
-    channel->cmd_reg = 0x00;
+    channel->cmd_reg = 0;  // NOP
 
     channel->ctrl_reg.irq_disable = 0;
 }
@@ -350,6 +350,9 @@ static void channel_reset_complete(struct ide_channel * channel) {
 
 
 static void ide_abort_command(struct ide_internal * ide, struct ide_channel * channel) {
+
+    PrintDebug(VM_NONE,VCORE_NONE,"Aborting IDE Command\n");
+
     channel->status.val = 0x41; // Error + ready
     channel->error_reg.val = 0x04; // No idea...
 
@@ -377,7 +380,7 @@ static void print_prd_table(struct ide_internal * ide, struct ide_channel * chan
 
     while (1) {
 	uint32_t prd_entry_addr = channel->dma_prd_addr + (sizeof(struct ide_dma_prd) * index);
-	int ret;
+	int ret = 0;
 
 	ret = v3_read_gpa_memory(&(ide->vm->cores[0]), prd_entry_addr, sizeof(struct ide_dma_prd), (void *)&prd_entry);
 	
@@ -810,7 +813,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
     
     switch (channel->cmd_reg) {
 
-	case ATAPI_PIDENTIFY: // ATAPI Identify Device Packet
+	case ATA_PIDENTIFY: // ATAPI Identify Device Packet
 	    if (drive->drive_type != BLOCK_CDROM) {
 		drive_reset(drive);
 
@@ -826,7 +829,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 		ide_raise_irq(ide, channel);
 	    }
 	    break;
-	case ATAPI_IDENTIFY: // Identify Device
+	case ATA_IDENTIFY: // Identify Device
 	    if (drive->drive_type != BLOCK_DISK) {
 		drive_reset(drive);
 
@@ -842,7 +845,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    }
 	    break;
 
-	case ATAPI_PACKETCMD: // ATAPI Command Packet
+	case ATA_PACKETCMD: // ATAPI Command Packet
 	    if (drive->drive_type != BLOCK_CDROM) {
 		ide_abort_command(ide, channel);
 	    }
@@ -854,50 +857,51 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    channel->status.data_req = 1;
 	    channel->status.error = 0;
 
-	    // reset the datxgoto-la buffer...
+	    // reset the data buffer...
 	    drive->transfer_length = ATAPI_PACKET_SIZE;
 	    drive->transfer_index = 0;
 
 	    break;
 
-	case ATAPI_READ: // Read Sectors with Retry
-	case ATAPI_READ_ONCE: // Read Sectors without Retry
+	case ATA_READ: // Read Sectors with Retry
+	case ATA_READ_ONCE: // Read Sectors without Retry
 	    drive->hd_state.cur_sector_num = 1;
 
 	    if (ata_read_sectors(ide, channel) == -1) {
 		PrintError(core->vm_info, core, "Error reading sectors\n");
-		return -1;
+		ide_abort_command(ide,channel);
 	    }
 	    break;
 
-	case ATAPI_READ_EXT: // Read Sectors Extended
+	case ATA_READ_EXT: // Read Sectors Extended
 	    drive->hd_state.cur_sector_num = 1;
 
 	    if (ata_read_sectors_ext(ide, channel) == -1) {
 		PrintError(core->vm_info, core, "Error reading extended sectors\n");
-		return -1;
+		ide_abort_command(ide,channel);
+		
 	    }
 	    break;
 
-	case ATAPI_WRITE: {// Write Sector
+	case ATA_WRITE: 
+	case ATA_WRITE_ONCE: 	    {// Write Sector
  	    drive->hd_state.cur_sector_num = 1;
 
 	    if (ata_write_sectors(ide, channel) == -1) {
 		PrintError(core->vm_info, core, "Error writing sectors\n");
-		return -1;
+		ide_abort_command(ide,channel);
 	    }
 	    break;
 	}
 
-	    
-
-	case ATAPI_READDMA: // Read DMA with retry
-	case ATAPI_READDMA_ONCE: { // Read DMA
+	case ATA_READDMA: // Read DMA with retry
+	case ATA_READDMA_ONCE: { // Read DMA
 	    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
 	    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
+                PrintError(core->vm_info, core, "Error getting LBA for DMA READ\n");
 		ide_abort_command(ide, channel);
-		return 0;
+		return length;
 	    }
 	    
 	    drive->hd_state.cur_sector_num = 1;
@@ -909,18 +913,22 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 		// DMA Read
 		if (dma_read(core, ide, channel) == -1) {
 		    PrintError(core->vm_info, core, "Failed DMA Read\n");
-		    return -1;
+		    ide_abort_command(ide, channel);
 		}
-	    }
+	    } else {
+                PrintError(core->vm_info,core,"Attempt to initiate DMA read on channel that is not active\n");
+		ide_abort_command(ide, channel);
+            }
 	    break;
 	}
 
-	case ATAPI_WRITEDMA: { // Write DMA
+	case ATA_WRITEDMA: { // Write DMA
 	    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
 	    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
+		PrintError(core->vm_info,core,"Cannot get lba\n");
 		ide_abort_command(ide, channel);
-		return 0;
+		return length;
 	    }
 
 	    drive->hd_state.cur_sector_num = 1;
@@ -932,27 +940,30 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 		// DMA Write
 		if (dma_write(core, ide, channel) == -1) {
 		    PrintError(core->vm_info, core, "Failed DMA Write\n");
-		    return -1;
+		    ide_abort_command(ide, channel);
 		}
+	    } else {
+		PrintError(core->vm_info,core,"Attempt to initiate DMA write with DMA inactive\n");
+		ide_abort_command(ide, channel);
 	    }
 	    break;
 	}
-	case ATAPI_STANDBYNOW1: // Standby Now 1
-	case ATAPI_IDLEIMMEDIATE: // Set Idle Immediate
-	case ATAPI_STANDBY: // Standby
-	case ATAPI_SETIDLE1: // Set Idle 1
-	case ATAPI_SLEEPNOW1: // Sleep Now 1
-	case ATAPI_STANDBYNOW2: // Standby Now 2
-	case ATAPI_IDLEIMMEDIATE2: // Idle Immediate (CFA)
-	case ATAPI_STANDBY2: // Standby 2
-	case ATAPI_SETIDLE2: // Set idle 2
-	case ATAPI_SLEEPNOW2: // Sleep Now 2
+	case ATA_STANDBYNOW1: // Standby Now 1
+	case ATA_IDLEIMMEDIATE: // Set Idle Immediate
+	case ATA_STANDBY: // Standby
+	case ATA_SETIDLE1: // Set Idle 1
+	case ATA_SLEEPNOW1: // Sleep Now 1
+	case ATA_STANDBYNOW2: // Standby Now 2
+	case ATA_IDLEIMMEDIATE2: // Idle Immediate (CFA)
+	case ATA_STANDBY2: // Standby 2
+	case ATA_SETIDLE2: // Set idle 2
+	case ATA_SLEEPNOW2: // Sleep Now 2
 	    channel->status.val = 0;
 	    channel->status.ready = 1;
 	    ide_raise_irq(ide, channel);
 	    break;
 
-	case ATAPI_SETFEATURES: // Set Features
+	case ATA_SETFEATURES: // Set Features
 	    // Prior to this the features register has been written to. 
 	    // This command tells the drive to check if the new value is supported (the value is drive specific)
 	    // Common is that bit0=DMA enable
@@ -969,14 +980,14 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    ide_raise_irq(ide, channel);
 	    break;
 
-	case ATAPI_SPECIFY:  // Initialize Drive Parameters
-	case ATAPI_RECAL:  // recalibrate?
+	case ATA_SPECIFY:  // Initialize Drive Parameters
+	case ATA_RECAL:  // recalibrate?
 	    channel->status.error = 0;
 	    channel->status.ready = 1;
 	    channel->status.seek_complete = 1;
 	    ide_raise_irq(ide, channel);
 	    break;
-	case ATAPI_SETMULT: { // Set multiple mode (IDE Block mode) 
+	case ATA_SETMULT: { // Set multiple mode (IDE Block mode) 
 	    // This makes the drive transfer multiple sectors before generating an interrupt
 	    uint32_t tmp_sect_num = drive->sector_num; // GCC SUCKS
 
@@ -999,7 +1010,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    break;
 	}
 
-	case ATAPI_DEVICE_RESET: // Reset Device
+	case ATA_DEVICE_RESET: // Reset Device
 	    drive_reset(drive);
     	    channel->error_reg.val = 0x01;
     	    channel->status.busy = 0;
@@ -1009,7 +1020,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
     	    channel->status.error = 0;
     	    break;
 
-	case ATAPI_CHECKPOWERMODE1: // Check power mode
+	case ATA_CHECKPOWERMODE1: // Check power mode
     	    drive->sector_count = 0xff; /* 0x00=standby, 0x80=idle, 0xff=active or idle */
     	    channel->status.busy = 0;
     	    channel->status.ready = 1;
@@ -1017,65 +1028,21 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
     	    channel->status.data_req = 0;
     	    channel->status.error = 0;
     	    break;
-
-	case ATAPI_MULTREAD:  // read multiple sectors
+	    /*
+	case ATA_MULTREAD:  // read multiple sectors
 	    drive->hd_state.cur_sector_num = drive->hd_state.mult_sector_num;
+	    */
+
 	default:
 	    PrintError(core->vm_info, core, "Unimplemented IDE command (%x)\n", channel->cmd_reg);
-	    return -1;
+	    ide_abort_command(ide, channel);
+	    break;
     }
 
     return length;
 }
 
 
-static int write_data_port(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
-    struct ide_internal * ide = priv_data;
-    struct ide_channel * channel = get_selected_channel(ide, port);
-    struct ide_drive * drive = get_selected_drive(channel);
-
-    PrintDebug(core->vm_info, core, "IDE: Writing Data Port %x (val=%x, len=%d)\n", 
-            port, *(uint32_t *)src, length);
-
-    memcpy(drive->data_buf + drive->transfer_index, src, length);    
-    drive->transfer_index += length;
-
-    // Transfer is complete, dispatch the command
-    if (drive->transfer_index >= drive->transfer_length) {
-        switch (channel->cmd_reg) {
-
-            case ATAPI_WRITE: // Write Sectors
-
-                channel->status.busy = 1;
-                channel->status.data_req = 0;
-                    
-                if (ata_write(ide, channel, drive->data_buf, drive->transfer_length/HD_SECTOR_SIZE) == -1) {
-                    PrintError(core->vm_info, core, "Error writing to disk\n");
-                    return -1;
-                }
-
-                PrintDebug(core->vm_info, core, "IDE: Write sectors complete\n");
-
-                channel->status.error = 0;
-                channel->status.busy = 0;
-
-                ide_raise_irq(ide, channel);
-                break;
-
-            case ATAPI_PACKETCMD: // ATAPI packet command
-                if (atapi_handle_packet(core, ide, channel) == -1) {
-                    PrintError(core->vm_info, core, "Error handling ATAPI packet\n");
-                    return -1;
-                }
-                break;
-            default:
-                PrintError(core->vm_info, core, "Unhandld IDE Command %x\n", channel->cmd_reg);
-                return -1;
-        }
-    }
-
-    return length;
-}
 
 
 static int read_hd_data(uint8_t * dst, uint_t length, struct ide_internal * ide, struct ide_channel * channel) {
@@ -1083,6 +1050,9 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct ide_internal * ide,
     int data_offset = drive->transfer_index % HD_SECTOR_SIZE;
 
 
+    PrintDebug(VM_NONE,VCORE_NONE, "Read HD data:  transfer_index %x transfer length %x current sector numer %x\n",
+	       drive->transfer_index, drive->transfer_length, 
+	       drive->hd_state.cur_sector_num);
 
     if (drive->transfer_index >= drive->transfer_length) {
 	PrintError(VM_NONE, VCORE_NONE, "Buffer overrun... (xfer_len=%d) (cur_idx=%x) (post_idx=%d)\n",
@@ -1091,8 +1061,15 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct ide_internal * ide,
 	return -1;
     }
 
-    
+
+    if (data_offset + length > HD_SECTOR_SIZE) { 
+       PrintError(VM_NONE,VCORE_NONE,"Read spans sectors (data_offset=%d length=%u)!\n",data_offset,length);
+    }
+   
+    // For index==0, the read has been done in ata_read_sectors
     if ((data_offset == 0) && (drive->transfer_index > 0)) {
+	// advance to next sector and read it
+	
 	drive->current_lba++;
 
 	if (ata_read(ide, channel, drive->data_buf, 1) == -1) {
@@ -1121,27 +1098,86 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct ide_internal * ide,
 	(drive->transfer_index == drive->transfer_length)) {
 	if (drive->transfer_index < drive->transfer_length) {
 	    // An increment is complete, but there is still more data to be transferred...
-	    PrintDebug(VM_NONE, VCORE_NONE, "Integral Complete, still transferring more sectors\n");
+	    PrintDebug(VM_NONE, VCORE_NONE, "Increment Complete, still transferring more sectors\n");
 	    channel->status.data_req = 1;
-
-	    drive->irq_flags.c_d = 0;
 	} else {
 	    PrintDebug(VM_NONE, VCORE_NONE, "Final Sector Transferred\n");
 	    // This was the final read of the request
 	    channel->status.data_req = 0;
-
-	    
-	    drive->irq_flags.c_d = 1;
-	    drive->irq_flags.rel = 0;
 	}
 
 	channel->status.ready = 1;
-	drive->irq_flags.io_dir = 1;
 	channel->status.busy = 0;
 
 	ide_raise_irq(ide, channel);
     }
 
+
+    return length;
+}
+
+static int write_hd_data(uint8_t * src, uint_t length, struct ide_internal * ide, struct ide_channel * channel) {
+    struct ide_drive * drive = get_selected_drive(channel);
+    int data_offset = drive->transfer_index % HD_SECTOR_SIZE;
+
+
+    PrintDebug(VM_NONE,VCORE_NONE, "Write HD data:  transfer_index %x transfer length %x current sector numer %x\n",
+	       drive->transfer_index, drive->transfer_length, 
+	       drive->hd_state.cur_sector_num);
+
+    if (drive->transfer_index >= drive->transfer_length) {
+	PrintError(VM_NONE, VCORE_NONE, "Buffer overrun... (xfer_len=%d) (cur_idx=%x) (post_idx=%d)\n",
+		   drive->transfer_length, drive->transfer_index,
+		   drive->transfer_index + length);
+	return -1;
+    }
+
+    if (data_offset + length > HD_SECTOR_SIZE) { 
+       PrintError(VM_NONE,VCORE_NONE,"Write spans sectors (data_offset=%d length=%u)!\n",data_offset,length);
+    }
+
+    // Copy data into our buffer - there will be room due to
+    // (a) the ata_write test below is flushing sectors
+    // (b) if we somehow get a sector-stradling write (an error), this will
+    //     be OK since the buffer itself is >1 sector in memory
+    memcpy(drive->data_buf + data_offset, src, length);
+
+    drive->transfer_index += length;
+
+    if ((data_offset+length) >= HD_SECTOR_SIZE) {
+	// Write out the sector we just finished
+	if (ata_write(ide, channel, drive->data_buf, 1) == -1) {
+	    PrintError(VM_NONE, VCORE_NONE, "Could not write next disk sector\n");
+	    return -1;
+	}
+
+	// go onto next sector
+	drive->current_lba++;
+    }
+
+    /* This is the trigger for interrupt injection.
+     * For write single sector commands we interrupt after every sector
+     * For multi sector reads we interrupt only at end of the cluster size (mult_sector_num)
+     * cur_sector_num is configured depending on the operation we are currently running
+     * We also trigger an interrupt if this is the last byte to transfer, regardless of sector count
+     */
+    if (((drive->transfer_index % (HD_SECTOR_SIZE * drive->hd_state.cur_sector_num)) == 0) || 
+	(drive->transfer_index == drive->transfer_length)) {
+	if (drive->transfer_index < drive->transfer_length) {
+	    // An increment is complete, but there is still more data to be transferred...
+	    PrintDebug(VM_NONE, VCORE_NONE, "Increment Complete, still transferring more sectors\n");
+	    channel->status.data_req = 1;
+	} else {
+	    PrintDebug(VM_NONE, VCORE_NONE, "Final Sector Transferred\n");
+	    // This was the final read of the request
+	    channel->status.data_req = 0;
+	}
+
+	channel->status.ready = 1;
+	channel->status.busy = 0;
+
+	ide_raise_irq(ide, channel);
+    }
 
     return length;
 }
@@ -1237,15 +1273,16 @@ static int read_drive_id( uint8_t * dst, uint_t length, struct ide_internal * id
 }
 
 
-static int ide_read_data_port(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
+
+static int read_data_port(struct guest_info * core, ushort_t port, void * dst, uint_t length, void * priv_data) {
     struct ide_internal * ide = priv_data;
     struct ide_channel * channel = get_selected_channel(ide, port);
     struct ide_drive * drive = get_selected_drive(channel);
 
-    //       PrintDebug(core->vm_info, core, "IDE: Reading Data Port %x (len=%d)\n", port, length);
+    //PrintDebug(core->vm_info, core, "IDE: Reading Data Port %x (len=%d)\n", port, length);
 
-    if ((channel->cmd_reg == 0xec) ||
-	(channel->cmd_reg == 0xa1)) {
+    if ((channel->cmd_reg == ATA_IDENTIFY) ||
+	(channel->cmd_reg == ATA_PIDENTIFY)) {
 	return read_drive_id((uint8_t *)dst, length, ide, channel);
     }
 
@@ -1261,6 +1298,44 @@ static int ide_read_data_port(struct guest_info * core, ushort_t port, void * ds
 	}
     } else {
 	memset((uint8_t *)dst, 0, length);
+    }
+
+    return length;
+}
+
+// For the write side, we care both about
+// direct PIO writes to a drive as well as 
+// writes that pass a packet through to an CD
+static int write_data_port(struct guest_info * core, ushort_t port, void * src, uint_t length, void * priv_data) {
+    struct ide_internal * ide = priv_data;
+    struct ide_channel * channel = get_selected_channel(ide, port);
+    struct ide_drive * drive = get_selected_drive(channel);
+
+    PrintDebug(core->vm_info, core, "IDE: Writing Data Port %x (val=%x, len=%d)\n", 
+            port, *(uint32_t *)src, length);
+
+    if (drive->drive_type == BLOCK_CDROM) {
+	if (channel->cmd_reg == ATA_PACKETCMD) { 
+	    // short command packet - no check for space... 
+	    memcpy(drive->data_buf + drive->transfer_index, src, length);
+	    drive->transfer_index += length;
+	    if (drive->transfer_index >= drive->transfer_length) {
+		if (atapi_handle_packet(core, ide, channel) == -1) {
+		    PrintError(core->vm_info, core, "Error handling ATAPI packet\n");
+		    return -1;
+		}
+	    }
+	} else {
+	    PrintError(core->vm_info,core,"Unknown command %x on CD ROM\n",channel->cmd_reg);
+	    return -1;
+	}
+    } else if (drive->drive_type == BLOCK_DISK) {
+	if (write_hd_data((uint8_t *)src, length, ide, channel) == -1) {
+	    PrintError(core->vm_info, core, "IDE: Could not write HD Data\n");
+	    return -1;
+	}
+    } else {
+	// nothing ... do not support writable cd
     }
 
     return length;
@@ -1870,7 +1945,7 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug(vm, VCORE_NONE, "Connecting to IDE IO ports\n");
 
     ret |= v3_dev_hook_io(dev, PRI_DATA_PORT, 
-			  &ide_read_data_port, &write_data_port);
+			  &read_data_port, &write_data_port);
     ret |= v3_dev_hook_io(dev, PRI_FEATURES_PORT, 
 			  &read_port_std, &write_port_std);
     ret |= v3_dev_hook_io(dev, PRI_SECT_CNT_PORT, 
@@ -1887,7 +1962,7 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 			  &read_port_std, &write_cmd_port);
 
     ret |= v3_dev_hook_io(dev, SEC_DATA_PORT, 
-			  &ide_read_data_port, &write_data_port);
+			  &read_data_port, &write_data_port);
     ret |= v3_dev_hook_io(dev, SEC_FEATURES_PORT, 
 			  &read_port_std, &write_port_std);
     ret |= v3_dev_hook_io(dev, SEC_SECT_CNT_PORT, 

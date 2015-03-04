@@ -43,7 +43,6 @@ static void ata_identify_device(struct ide_drive * drive) {
 
     drive_id->cdrom_flag = 0;
 
-    // Make it the simplest drive possible (1 head, 1 cyl, 1 sect/track)
     drive_id->num_cylinders = drive->num_cylinders;
     drive_id->num_heads = drive->num_heads;
     drive_id->bytes_per_track = drive->num_sectors * HD_SECTOR_SIZE;
@@ -61,7 +60,8 @@ static void ata_identify_device(struct ide_drive * drive) {
 
 
     // enable DMA access
-    drive_id->dma_enable = 1;
+    // PAD disable DMA capability
+    drive_id->dma_enable = 0; // 1;
 
     // enable LBA access
     drive_id->lba_enable = 1;
@@ -77,7 +77,6 @@ static void ata_identify_device(struct ide_drive * drive) {
     drive_id->rw_multiples = 0x8000 | MAX_MULT_SECTORS;
 
 
-
     // words 64-70, 54-58 valid
     drive_id->field_valid = 0x0007; // DMA + pkg cmd valid
 
@@ -85,17 +84,26 @@ static void ata_identify_device(struct ide_drive * drive) {
     // copied from CFA540A
     // drive_id->buf[63] = 0x0103; // variable (DMA stuff)
     //drive_id->buf[63] = 0x0000; // variable (DMA stuff)
+    // 0x0007 => MWDMA modes 0..2 supported - none selected
     drive_id->buf[63] = 0x0007;
 
     
-    //    drive_id->buf[64] = 0x0001; // PIO
+    // PAD: Support PIO mode 0
+    drive_id->buf[64] = 0x0001; // PIO
+
+    // MWDMA transfer min cycle time
     drive_id->buf[65] = 0x00b4;
+    // MWDMA transfer time recommended
     drive_id->buf[66] = 0x00b4;
+    // minimum pio transfer time without flow control
     drive_id->buf[67] = 0x012c;
+    // minimum pio transfer time with IORDY flow control
     drive_id->buf[68] = 0x00b4;
 
     drive_id->buf[71] = 30; // faked
     drive_id->buf[72] = 30; // faked
+
+    // queue depth set to one
 
     //    drive_id->buf[80] = 0x1e; // supports up to ATA/ATAPI-4
     drive_id->major_rev_num = 0x0040; // supports up to ATA/ATAPI-6
@@ -103,8 +111,10 @@ static void ata_identify_device(struct ide_drive * drive) {
 
     drive_id->buf[83] |= 0x0400; // supports 48 bit LBA
 
+    // No special features supported
 
-    drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
+    // PAD: Disable ultra DMA capability
+    //drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
 
 }
 
@@ -134,6 +144,12 @@ static int ata_read(struct ide_internal * ide, struct ide_channel * channel, uin
 static int ata_write(struct ide_internal * ide, struct ide_channel * channel, uint8_t * src, uint_t sect_cnt) {
     struct ide_drive * drive = get_selected_drive(channel);
 
+    if (drive->hd_state.accessed == 0) {
+	PrintError(VM_NONE,VCORE_NONE,"Reseting lba...\n");
+	drive->current_lba = 0;
+	drive->hd_state.accessed = 1;
+    }
+
     PrintDebug(VM_NONE, VCORE_NONE,"Writing Drive LBA=%d (count=%d)\n", (uint32_t)(drive->current_lba), sect_cnt);
 
     int ret = drive->ops->write(src, drive->current_lba * HD_SECTOR_SIZE, sect_cnt * HD_SECTOR_SIZE, drive->private_data);
@@ -153,34 +169,53 @@ static int ata_get_lba(struct ide_internal * ide, struct ide_channel * channel, 
     // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
     uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
-    union {
-	uint32_t addr;
-	uint8_t buf[4];
-    } __attribute__((packed)) lba_addr;
+    if (is_lba_enabled(channel)) { 
+	union {
+	    uint32_t addr;
+	    uint8_t buf[4];
+	} __attribute__((packed)) lba_addr;
+	
+	/* LBA addr bits:
+	   0-8: sector number reg  (drive->lba0)
+	   8-16: low cylinder reg (drive->lba1)
+	   16-24: high cylinder reg (drive->lba2)
+	   24-28:  low 4 bits of drive_head reg (channel->drive_head.head_num)
+	*/
+	
+	
+	lba_addr.buf[0] = drive->lba0;
+	lba_addr.buf[1] = drive->lba1;
+	lba_addr.buf[2] = drive->lba2;
+	lba_addr.buf[3] = channel->drive_head.lba3;
+	
+	*lba = lba_addr.addr;
 
-    /* LBA addr bits:
-       0-8: sector number reg  (drive->lba0)
-       8-16: low cylinder reg (drive->lba1)
-       16-24: high cylinder reg (drive->lba2)
-       24-28:  low 4 bits of drive_head reg (channel->drive_head.head_num)
-     */
+	PrintDebug(VM_NONE,VCORE_NONE,"get_lba: lba0=%u (sect), lba1=%u (cyllow), lba2=%u (cylhigh), lba3=%d (head) => lba=%llu\n", drive->lba0, drive->lba1, drive->lba2, channel->drive_head.lba3, *lba);
 
-    lba_addr.buf[0] = drive->lba0;
-    lba_addr.buf[1] = drive->lba1;
-    lba_addr.buf[2] = drive->lba2;
-    lba_addr.buf[3] = channel->drive_head.lba3;
+    } else {
+	// we are in CHS mode....
 
-
-    if ((lba_addr.addr + sect_cnt) > 
+	*lba = 
+	    (drive->cylinder * drive->num_heads + 
+	     channel->drive_head.head_num) * drive->num_sectors +
+	    // sector number is 1 based
+	    (drive->sector_num - 1);
+	
+	
+	PrintDebug(VM_NONE,VCORE_NONE,"get_lba: Huh, 1995 has returned - CHS (%u,%u,%u) addressing on drive of (%u,%u,%u) translated as %llu....\n", 
+		 drive->cylinder, channel->drive_head.head_num, drive->sector_num,
+		 drive->num_cylinders, drive->num_heads, drive->num_sectors, *lba );
+    }
+	
+    if ((*lba + sect_cnt) > 
 	drive->ops->get_capacity(drive->private_data) / HD_SECTOR_SIZE) {
-	PrintError(VM_NONE, VCORE_NONE,"IDE: request size exceeds disk capacity (lba=%d) (sect_cnt=%d) (ReadEnd=%d) (capacity=%p)\n", 
-		   lba_addr.addr, sect_cnt, 
-		   lba_addr.addr + (sect_cnt * HD_SECTOR_SIZE),
-		   (void *)(addr_t)(drive->ops->get_capacity(drive->private_data)));
+	PrintError(VM_NONE, VCORE_NONE,"IDE: request size exceeds disk capacity (lba=%llu) (sect_cnt=%u) (ReadEnd=%llu) (capacity=%llu)\n", 
+		   *lba, sect_cnt, 
+		   *lba + (sect_cnt * HD_SECTOR_SIZE),
+		   drive->ops->get_capacity(drive->private_data));
 	return -1;
     }
-
-    *lba = lba_addr.addr;
+    
     return 0;
 }
 
@@ -191,21 +226,20 @@ static int ata_write_sectors(struct ide_internal * ide,  struct ide_channel * ch
     uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
     if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
+	PrintError(VM_NONE,VCORE_NONE,"Cannot get lba\n");
         ide_abort_command(ide, channel);
         return 0;
     }
 
-    drive->transfer_length = sect_cnt * HD_SECTOR_SIZE;
+    PrintDebug(VM_NONE,VCORE_NONE,"ata write sectors: lba=%llu sect_cnt=%u\n", drive->current_lba, sect_cnt);
+
+    drive->transfer_length = sect_cnt * HD_SECTOR_SIZE ;
     drive->transfer_index = 0;
     channel->status.busy = 0;
     channel->status.ready = 0;
     channel->status.write_fault = 0;
     channel->status.data_req = 1;
     channel->status.error = 0;
-
-    drive->irq_flags.io_dir = 1;
-    drive->irq_flags.c_d = 0;
-    drive->irq_flags.rel = 0;
 
     PrintDebug(VM_NONE, VCORE_NONE, "IDE: Returning from write sectors\n");
 
@@ -220,6 +254,7 @@ static int ata_read_sectors(struct ide_internal * ide,  struct ide_channel * cha
     uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
     if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
+	PrintError(VM_NONE,VCORE_NONE,"Cannot get lba\n");
 	ide_abort_command(ide, channel);
 	return 0;
     }
@@ -239,11 +274,6 @@ static int ata_read_sectors(struct ide_internal * ide,  struct ide_channel * cha
     channel->status.data_req = 1;
     channel->status.error = 0;
 
-    drive->irq_flags.io_dir = 1;
-    drive->irq_flags.c_d = 0;
-    drive->irq_flags.rel = 0;
-
-
     ide_raise_irq(ide, channel);
 
     PrintDebug(VM_NONE, VCORE_NONE,"Returning from read sectors\n");
@@ -262,5 +292,83 @@ static int ata_read_sectors_ext(struct ide_internal * ide, struct ide_channel * 
 
     return -1;
 }
+
+/* ATA COMMANDS as per */
+/* ACS-2 T13/2015-D Table B.2 Command codes */
+#define ATA_NOP				0x00
+#define CFA_REQ_EXT_ERROR_CODE		0x03 
+#define ATA_DSM                         0x06
+#define ATA_DEVICE_RESET		0x08
+#define ATA_RECAL                       0x10 
+#define ATA_READ			0x20 
+#define ATA_READ_ONCE                   0x21 
+#define ATA_READ_EXT			0x24 
+#define ATA_READDMA_EXT			0x25 
+#define ATA_READDMA_QUEUED_EXT          0x26 
+#define ATA_READ_NATIVE_MAX_EXT		0x27 
+#define ATA_MULTREAD_EXT		0x29 
+#define ATA_WRITE			0x30 
+#define ATA_WRITE_ONCE                  0x31 
+#define ATA_WRITE_EXT			0x34 
+#define ATA_WRITEDMA_EXT		0x35 
+#define ATA_WRITEDMA_QUEUED_EXT		0x36 
+#define ATA_SET_MAX_EXT                 0x37 
+#define ATA_SET_MAX_EXT			0x37 
+#define CFA_WRITE_SECT_WO_ERASE		0x38 
+#define ATA_MULTWRITE_EXT		0x39 
+#define ATA_WRITE_VERIFY                0x3C 
+#define ATA_VERIFY			0x40 
+#define ATA_VERIFY_ONCE                 0x41 
+#define ATA_VERIFY_EXT			0x42 
+#define ATA_SEEK                        0x70 
+#define CFA_TRANSLATE_SECTOR		0x87 
+#define ATA_DIAGNOSE			0x90
+#define ATA_SPECIFY                     0x91 
+#define ATA_DOWNLOAD_MICROCODE		0x92
+#define ATA_STANDBYNOW2                 0x94 
+#define ATA_IDLEIMMEDIATE2              0x95 
+#define ATA_STANDBY2                    0x96 
+#define ATA_SETIDLE2                    0x97 
+#define ATA_CHECKPOWERMODE2             0x98 
+#define ATA_SLEEPNOW2                   0x99 
+#define ATA_PACKETCMD			0xA0 
+#define ATA_PIDENTIFY			0xA1 
+#define ATA_QUEUED_SERVICE              0xA2 
+#define ATA_SMART			0xB0 
+#define CFA_ACCESS_METADATA_STORAGE	0xB8
+#define CFA_ERASE_SECTORS       	0xC0 
+#define ATA_MULTREAD			0xC4 
+#define ATA_MULTWRITE			0xC5 
+#define ATA_SETMULT			0xC6 
+#define ATA_READDMA			0xC8 
+#define ATA_READDMA_ONCE                0xC9 
+#define ATA_WRITEDMA			0xCA 
+#define ATA_WRITEDMA_ONCE               0xCB 
+#define ATA_WRITEDMA_QUEUED		0xCC 
+#define CFA_WRITE_MULTI_WO_ERASE	0xCD 
+#define ATA_GETMEDIASTATUS              0xDA 
+#define ATA_DOORLOCK                    0xDE 
+#define ATA_DOORUNLOCK                  0xDF 
+#define ATA_STANDBYNOW1			0xE0
+#define ATA_IDLEIMMEDIATE		0xE1 
+#define ATA_STANDBY             	0xE2 
+#define ATA_SETIDLE1			0xE3
+#define ATA_READ_BUFFER			0xE4 
+#define ATA_CHECKPOWERMODE1		0xE5
+#define ATA_SLEEPNOW1			0xE6
+#define ATA_FLUSH_CACHE			0xE7
+#define ATA_WRITE_BUFFER		0xE8 
+#define ATA_FLUSH_CACHE_EXT		0xEA 
+#define ATA_IDENTIFY			0xEC 
+#define ATA_MEDIAEJECT                  0xED 
+#define ATA_SETFEATURES			0xEF 
+#define IBM_SENSE_CONDITION             0xF0 
+#define ATA_SECURITY_SET_PASS		0xF1
+#define ATA_SECURITY_UNLOCK		0xF2
+#define ATA_SECURITY_ERASE_PREPARE	0xF3
+#define ATA_SECURITY_ERASE_UNIT		0xF4
+#define ATA_SECURITY_FREEZE_LOCK	0xF5
+#define CFA_WEAR_LEVEL                  0xF5 
+#define ATA_SECURITY_DISABLE		0xF6
 
 #endif
