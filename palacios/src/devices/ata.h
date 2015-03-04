@@ -23,6 +23,9 @@
 #define MAX_MULT_SECTORS  255
 
 
+
+
+
 static void ata_identify_device(struct ide_drive * drive) {
     struct ide_drive_id * drive_id = (struct ide_drive_id *)(drive->data_buf);
     const char* serial_number = " VT00001\0\0\0\0\0\0\0\0\0\0\0\0";
@@ -163,55 +166,68 @@ static int ata_write(struct ide_internal * ide, struct ide_channel * channel, ui
 }
 
 
-
-static int ata_get_lba(struct ide_internal * ide, struct ide_channel * channel, uint64_t * lba) {
+//
+// Grand unified conversion for various addressing modes:
+//
+// CHS    => 64 bit LBA (8 bit sector count)
+// LBA28  => 64 bit LBA (8 bit sector count)
+// LBA48  => 64 bit LBA (16 bit sector count)
+static int ata_get_lba_and_size(struct ide_internal * ide, struct ide_channel * channel, uint64_t * lba, uint64_t *num_sects) {
     struct ide_drive * drive = get_selected_drive(channel);
-    // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
-    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
-    if (is_lba_enabled(channel)) { 
-	union {
-	    uint32_t addr;
-	    uint8_t buf[4];
-	} __attribute__((packed)) lba_addr;
-	
-	/* LBA addr bits:
-	   0-8: sector number reg  (drive->lba0)
-	   8-16: low cylinder reg (drive->lba1)
-	   16-24: high cylinder reg (drive->lba2)
-	   24-28:  low 4 bits of drive_head reg (channel->drive_head.head_num)
-	*/
-	
-	
-	lba_addr.buf[0] = drive->lba0;
-	lba_addr.buf[1] = drive->lba1;
-	lba_addr.buf[2] = drive->lba2;
-	lba_addr.buf[3] = channel->drive_head.lba3;
-	
-	*lba = lba_addr.addr;
-
-	PrintDebug(VM_NONE,VCORE_NONE,"get_lba: lba0=%u (sect), lba1=%u (cyllow), lba2=%u (cylhigh), lba3=%d (head) => lba=%llu\n", drive->lba0, drive->lba1, drive->lba2, channel->drive_head.lba3, *lba);
-
+    if (is_lba48(channel)) {
+	*num_sects = drive->lba48.sector_count;
+	*lba = drive->lba48.lba;
+	PrintDebug(VM_NONE,VCORE_NONE,"get_lba: lba48: lba=%llu, num_sects=%llu\n",*lba,*num_sects);
     } else {
-	// we are in CHS mode....
-
-	*lba = 
-	    (drive->cylinder * drive->num_heads + 
-	     channel->drive_head.head_num) * drive->num_sectors +
-	    // sector number is 1 based
-	    (drive->sector_num - 1);
+	// LBA48 or CHS
+	// The if the sector count == 0 then read 256 sectors (cast up to handle that value)
+	*num_sects = (drive->sector_count == 0) ? 256 : drive->sector_count;
 	
-	
-	PrintDebug(VM_NONE,VCORE_NONE,"get_lba: Huh, 1995 has returned - CHS (%u,%u,%u) addressing on drive of (%u,%u,%u) translated as %llu....\n", 
-		 drive->cylinder, channel->drive_head.head_num, drive->sector_num,
-		 drive->num_cylinders, drive->num_heads, drive->num_sectors, *lba );
+	if (is_lba28(channel)) { 
+	    union {
+		uint32_t addr;
+		uint8_t buf[4];
+	    } __attribute__((packed)) lba_addr;
+	    
+	    /* LBA addr bits:
+	       0-8: sector number reg  (drive->lba0)
+	       8-16: low cylinder reg (drive->lba1)
+	       16-24: high cylinder reg (drive->lba2)
+	       24-28:  low 4 bits of drive_head reg (channel->drive_head.head_num)
+	    */
+	    
+	    
+	    lba_addr.buf[0] = drive->lba0;
+	    lba_addr.buf[1] = drive->lba1;
+	    lba_addr.buf[2] = drive->lba2;
+	    lba_addr.buf[3] = channel->drive_head.lba3;
+	    
+	    *lba = lba_addr.addr;
+	    
+	    PrintDebug(VM_NONE,VCORE_NONE,"get_lba: lba28: lba0=%u (sect), lba1=%u (cyllow), lba2=%u (cylhigh), lba3=%d (head) => lba=%llu numsects=%llu\n", drive->lba0, drive->lba1, drive->lba2, channel->drive_head.lba3, *lba, *num_sects);
+	    
+	} else {
+	    // we are in CHS mode....
+	    
+	    *lba = 
+		(drive->cylinder * drive->num_heads + 
+		 channel->drive_head.head_num) * drive->num_sectors +
+		// sector number is 1 based
+		(drive->sector_num - 1);
+	    
+	    
+	    PrintDebug(VM_NONE,VCORE_NONE,"get_lba: Huh, 1995 has returned - CHS (%u,%u,%u) addressing on drive of (%u,%u,%u) translated as lba=%llu num_sects=%llu....\n", 
+		       drive->cylinder, channel->drive_head.head_num, drive->sector_num,
+		       drive->num_cylinders, drive->num_heads, drive->num_sectors, *lba,*num_sects );
+	}
     }
 	
-    if ((*lba + sect_cnt) > 
+    if ((*lba + *num_sects) > 
 	drive->ops->get_capacity(drive->private_data) / HD_SECTOR_SIZE) {
-	PrintError(VM_NONE, VCORE_NONE,"IDE: request size exceeds disk capacity (lba=%llu) (sect_cnt=%u) (ReadEnd=%llu) (capacity=%llu)\n", 
-		   *lba, sect_cnt, 
-		   *lba + (sect_cnt * HD_SECTOR_SIZE),
+	PrintError(VM_NONE, VCORE_NONE,"IDE: request size exceeds disk capacity (lba=%llu) (num_sects=%llu) (ReadEnd=%llu) (capacity=%llu)\n", 
+		   *lba, *num_sects, 
+		   *lba + (*num_sects * HD_SECTOR_SIZE),
 		   drive->ops->get_capacity(drive->private_data));
 	return -1;
     }
@@ -220,18 +236,17 @@ static int ata_get_lba(struct ide_internal * ide, struct ide_channel * channel, 
 }
 
 
-// 28 bit LBA
 static int ata_write_sectors(struct ide_internal * ide,  struct ide_channel * channel) {
+    uint64_t sect_cnt;
     struct ide_drive * drive = get_selected_drive(channel);
-    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
-    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
-	PrintError(VM_NONE,VCORE_NONE,"Cannot get lba\n");
+    if (ata_get_lba_and_size(ide, channel, &(drive->current_lba), &sect_cnt ) == -1) {
+	PrintError(VM_NONE,VCORE_NONE,"Cannot get lba+size\n");
         ide_abort_command(ide, channel);
         return 0;
     }
 
-    PrintDebug(VM_NONE,VCORE_NONE,"ata write sectors: lba=%llu sect_cnt=%u\n", drive->current_lba, sect_cnt);
+    PrintDebug(VM_NONE,VCORE_NONE,"ata write sectors: lba=%llu sect_cnt=%llu\n", drive->current_lba, sect_cnt);
 
     drive->transfer_length = sect_cnt * HD_SECTOR_SIZE ;
     drive->transfer_index = 0;
@@ -247,14 +262,13 @@ static int ata_write_sectors(struct ide_internal * ide,  struct ide_channel * ch
 }
 
 
-// 28 bit LBA
+// 28 bit LBA or CHS
 static int ata_read_sectors(struct ide_internal * ide,  struct ide_channel * channel) {
+    uint64_t sect_cnt;
     struct ide_drive * drive = get_selected_drive(channel);
-    // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
-    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
 
-    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
-	PrintError(VM_NONE,VCORE_NONE,"Cannot get lba\n");
+    if (ata_get_lba_and_size(ide, channel, &(drive->current_lba),&sect_cnt) == -1) {
+	PrintError(VM_NONE,VCORE_NONE,"Cannot get lba+size\n");
 	ide_abort_command(ide, channel);
 	return 0;
     }
@@ -281,17 +295,6 @@ static int ata_read_sectors(struct ide_internal * ide,  struct ide_channel * cha
     return 0;
 }
 
-
-// 48 bit LBA
-static int ata_read_sectors_ext(struct ide_internal * ide, struct ide_channel * channel) {
-    //struct ide_drive * drive = get_selected_drive(channel);
-    // The if the sector count == 0 then read 256 sectors (cast up to handle that value)
-    //uint32_t sector_count = (drive->sector_count == 0) ? 256 : drive->sector_count;
-
-    PrintError(VM_NONE, VCORE_NONE, "Extended Sector read not implemented\n");
-
-    return -1;
-}
 
 /* ATA COMMANDS as per */
 /* ACS-2 T13/2015-D Table B.2 Command codes */

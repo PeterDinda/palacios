@@ -119,7 +119,7 @@ struct ide_hd_state {
      * for multiple sector ops this equals mult_sector_num
      * for standard ops this equals 1
      */
-    uint32_t cur_sector_num;
+    uint64_t cur_sector_num;
 };
 
 struct ide_drive {
@@ -137,11 +137,11 @@ struct ide_drive {
     char model[41];
 
     // Where we are in the data transfer
-    uint32_t transfer_index;
+    uint64_t transfer_index;
 
     // the length of a transfer
     // calculated for easy access
-    uint32_t transfer_length;
+    uint64_t transfer_length;
 
     uint64_t current_lba;
 
@@ -153,12 +153,24 @@ struct ide_drive {
     uint32_t num_heads;
     uint32_t num_sectors;
 
+
+    struct lba48_state {
+	// all start at zero
+	uint64_t lba;                  
+	uint16_t sector_count;            // for LBA48
+	uint8_t  sector_count_state;      // two step write to 1f2/172 (high first)
+	uint8_t  lba41_state;             // two step write to 1f3
+        uint8_t  lba52_state;             // two step write to 1f4
+        uint8_t  lba63_state;             // two step write to 15
+    } lba48;
+
     void * private_data;
     
     union {
 	uint8_t sector_count;             // 0x1f2,0x172  (ATA)
 	struct atapi_irq_flags irq_flags; // (ATAPI ONLY)
     } __attribute__((packed));
+
 
     union {
 	uint8_t sector_num;               // 0x1f3,0x173
@@ -259,6 +271,18 @@ static inline uint32_t le_to_be_32(const uint32_t val) {
 }
 
 
+static inline int is_lba28(struct ide_channel * channel) {
+    return channel->drive_head.lba_mode && channel->drive_head.rsvd1 && channel->drive_head.rsvd2;
+}
+
+static inline int is_lba48(struct ide_channel * channel) {
+    return channel->drive_head.lba_mode && !channel->drive_head.rsvd1 && !channel->drive_head.rsvd2;
+}
+
+static inline int is_chs(struct ide_channel * channel) {
+    return !channel->drive_head.lba_mode;
+}
+
 static inline int get_channel_index(ushort_t port) {
     if (((port & 0xfff8) == 0x1f0) ||
 	((port & 0xfffe) == 0x3f6) || 
@@ -283,9 +307,6 @@ static inline struct ide_drive * get_selected_drive(struct ide_channel * channel
 }
 
 
-static inline int is_lba_enabled(struct ide_channel * channel) {
-    return channel->drive_head.lba_mode;
-}
 
 
 /* Drive Commands */
@@ -539,7 +560,7 @@ static int dma_read(struct guest_info * core, struct ide_internal * ide, struct 
 	    if (atapi_cmd_is_data_op(drive->cd_state.atapi_cmd)) {
 		if (drive->transfer_index % ATAPI_BLOCK_SIZE) {
 		    PrintError(core->vm_info, core, "We currently don't handle ATAPI BLOCKS that span PRD descriptors\n");
-		    PrintError(core->vm_info, core, "transfer_index=%d, transfer_length=%d\n", 
+		    PrintError(core->vm_info, core, "transfer_index=%llu, transfer_length=%llu\n", 
 			       drive->transfer_index, drive->transfer_length);
 		    return -1;
 		}
@@ -656,7 +677,7 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 
 	if ((prd_entry.end_of_table == 1) && (bytes_left > 0)) {
 	    PrintError(core->vm_info, core, "DMA table not large enough for data transfer...\n");
-	    PrintError(core->vm_info, core, "\t(bytes_left=%u) (transfer_length=%u)...\n", 
+	    PrintError(core->vm_info, core, "\t(bytes_left=%u) (transfer_length=%llu)...\n", 
 		       bytes_left, drive->transfer_length);
 	    PrintError(core->vm_info, core, "PRD Addr: %x, PRD Len: %d, EOT: %d\n", 
 		       prd_entry.base_addr, prd_entry.size, prd_entry.end_of_table);
@@ -863,9 +884,16 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 
 	    break;
 
-	case ATA_READ: // Read Sectors with Retry
+	case ATA_READ:      // Read Sectors with Retry
 	case ATA_READ_ONCE: // Read Sectors without Retry
-	    drive->hd_state.cur_sector_num = 1;
+	case ATA_MULTREAD:  // Read multiple sectors per ire
+	case ATA_READ_EXT:  // Read Sectors Extended (LBA48)
+
+	    if (channel->cmd_reg==ATA_MULTREAD) { 
+		drive->hd_state.cur_sector_num = drive->hd_state.mult_sector_num;
+	    } else {
+		drive->hd_state.cur_sector_num = 1;
+	    }
 
 	    if (ata_read_sectors(ide, channel) == -1) {
 		PrintError(core->vm_info, core, "Error reading sectors\n");
@@ -873,32 +901,28 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    }
 	    break;
 
-	case ATA_READ_EXT: // Read Sectors Extended
-	    drive->hd_state.cur_sector_num = 1;
+	case ATA_WRITE:            // Write Sector with retry
+	case ATA_WRITE_ONCE: 	   // Write Sector without retry
+	case ATA_MULTWRITE:        // Write multiple sectors per irq
+	case ATA_WRITE_EXT:        // Write Sectors Extended (LBA48)
 
-	    if (ata_read_sectors_ext(ide, channel) == -1) {
-		PrintError(core->vm_info, core, "Error reading extended sectors\n");
-		ide_abort_command(ide,channel);
-		
+	    if (channel->cmd_reg==ATA_MULTWRITE) { 
+		drive->hd_state.cur_sector_num = drive->hd_state.mult_sector_num;
+	    } else {
+		drive->hd_state.cur_sector_num = 1;
 	    }
-	    break;
-
-	case ATA_WRITE: 
-	case ATA_WRITE_ONCE: 	    {// Write Sector
- 	    drive->hd_state.cur_sector_num = 1;
 
 	    if (ata_write_sectors(ide, channel) == -1) {
 		PrintError(core->vm_info, core, "Error writing sectors\n");
 		ide_abort_command(ide,channel);
 	    }
 	    break;
-	}
 
 	case ATA_READDMA: // Read DMA with retry
 	case ATA_READDMA_ONCE: { // Read DMA
-	    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
+	    uint64_t sect_cnt;
 
-	    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
+	    if (ata_get_lba_and_size(ide, channel, &(drive->current_lba), &sect_cnt) == -1) {
                 PrintError(core->vm_info, core, "Error getting LBA for DMA READ\n");
 		ide_abort_command(ide, channel);
 		return length;
@@ -923,9 +947,9 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	}
 
 	case ATA_WRITEDMA: { // Write DMA
-	    uint32_t sect_cnt = (drive->sector_count == 0) ? 256 : drive->sector_count;
+	    uint64_t sect_cnt;
 
-	    if (ata_get_lba(ide, channel, &(drive->current_lba)) == -1) {
+	    if (ata_get_lba_and_size(ide, channel, &(drive->current_lba),&sect_cnt) == -1) {
 		PrintError(core->vm_info,core,"Cannot get lba\n");
 		ide_abort_command(ide, channel);
 		return length;
@@ -987,17 +1011,15 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    channel->status.seek_complete = 1;
 	    ide_raise_irq(ide, channel);
 	    break;
+
 	case ATA_SETMULT: { // Set multiple mode (IDE Block mode) 
 	    // This makes the drive transfer multiple sectors before generating an interrupt
-	    uint32_t tmp_sect_num = drive->sector_num; // GCC SUCKS
-
-	    if (tmp_sect_num > MAX_MULT_SECTORS) {
-		ide_abort_command(ide, channel);
-		break;
-	    }
 
 	    if (drive->sector_count == 0) {
+		PrintError(core->vm_info,core,"Attempt to set multiple to zero\n");
 		drive->hd_state.mult_sector_num= 1;
+		ide_abort_command(ide,channel);
+		break;
 	    } else {
 		drive->hd_state.mult_sector_num = drive->sector_count;
 	    }
@@ -1028,10 +1050,6 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
     	    channel->status.data_req = 0;
     	    channel->status.error = 0;
     	    break;
-	    /*
-	case ATA_MULTREAD:  // read multiple sectors
-	    drive->hd_state.cur_sector_num = drive->hd_state.mult_sector_num;
-	    */
 
 	default:
 	    PrintError(core->vm_info, core, "Unimplemented IDE command (%x)\n", channel->cmd_reg);
@@ -1045,17 +1063,17 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 
 
 
-static int read_hd_data(uint8_t * dst, uint_t length, struct ide_internal * ide, struct ide_channel * channel) {
+static int read_hd_data(uint8_t * dst, uint64_t length, struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
-    int data_offset = drive->transfer_index % HD_SECTOR_SIZE;
+    uint64_t data_offset = drive->transfer_index % HD_SECTOR_SIZE;
 
 
-    PrintDebug(VM_NONE,VCORE_NONE, "Read HD data:  transfer_index %x transfer length %x current sector numer %x\n",
+    PrintDebug(VM_NONE,VCORE_NONE, "Read HD data:  transfer_index %llu transfer length %llu current sector numer %llu\n",
 	       drive->transfer_index, drive->transfer_length, 
 	       drive->hd_state.cur_sector_num);
 
     if (drive->transfer_index >= drive->transfer_length) {
-	PrintError(VM_NONE, VCORE_NONE, "Buffer overrun... (xfer_len=%d) (cur_idx=%x) (post_idx=%d)\n",
+	PrintError(VM_NONE, VCORE_NONE, "Buffer overrun... (xfer_len=%llu) (cur_idx=%llu) (post_idx=%llu)\n",
 		   drive->transfer_length, drive->transfer_index,
 		   drive->transfer_index + length);
 	return -1;
@@ -1063,7 +1081,7 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct ide_internal * ide,
 
 
     if (data_offset + length > HD_SECTOR_SIZE) { 
-       PrintError(VM_NONE,VCORE_NONE,"Read spans sectors (data_offset=%d length=%u)!\n",data_offset,length);
+       PrintError(VM_NONE,VCORE_NONE,"Read spans sectors (data_offset=%llu length=%llu)!\n",data_offset,length);
     }
    
     // For index==0, the read has been done in ata_read_sectors
@@ -1116,24 +1134,24 @@ static int read_hd_data(uint8_t * dst, uint_t length, struct ide_internal * ide,
     return length;
 }
 
-static int write_hd_data(uint8_t * src, uint_t length, struct ide_internal * ide, struct ide_channel * channel) {
+static int write_hd_data(uint8_t * src, uint64_t length, struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
-    int data_offset = drive->transfer_index % HD_SECTOR_SIZE;
+    uint64_t data_offset = drive->transfer_index % HD_SECTOR_SIZE;
 
 
-    PrintDebug(VM_NONE,VCORE_NONE, "Write HD data:  transfer_index %x transfer length %x current sector numer %x\n",
+    PrintDebug(VM_NONE,VCORE_NONE, "Write HD data:  transfer_index %llu transfer length %llu current sector numer %llu\n",
 	       drive->transfer_index, drive->transfer_length, 
 	       drive->hd_state.cur_sector_num);
 
     if (drive->transfer_index >= drive->transfer_length) {
-	PrintError(VM_NONE, VCORE_NONE, "Buffer overrun... (xfer_len=%d) (cur_idx=%x) (post_idx=%d)\n",
+	PrintError(VM_NONE, VCORE_NONE, "Buffer overrun... (xfer_len=%llu) (cur_idx=%llu) (post_idx=%llu)\n",
 		   drive->transfer_length, drive->transfer_index,
 		   drive->transfer_index + length);
 	return -1;
     }
 
     if (data_offset + length > HD_SECTOR_SIZE) { 
-       PrintError(VM_NONE,VCORE_NONE,"Write spans sectors (data_offset=%d length=%u)!\n",data_offset,length);
+       PrintError(VM_NONE,VCORE_NONE,"Write spans sectors (data_offset=%llu length=%llu)!\n",data_offset,length);
     }
 
     // Copy data into our buffer - there will be room due to
@@ -1184,20 +1202,20 @@ static int write_hd_data(uint8_t * src, uint_t length, struct ide_internal * ide
 
 
 
-static int read_cd_data(uint8_t * dst, uint_t length, struct ide_internal * ide, struct ide_channel * channel) {
+static int read_cd_data(uint8_t * dst, uint64_t length, struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
-    int data_offset = drive->transfer_index % ATAPI_BLOCK_SIZE;
+    uint64_t data_offset = drive->transfer_index % ATAPI_BLOCK_SIZE;
     //  int req_offset = drive->transfer_index % drive->req_len;
     
     if (drive->cd_state.atapi_cmd != 0x28) {
-        PrintDebug(VM_NONE, VCORE_NONE, "IDE: Reading CD Data (len=%d) (req_len=%d)\n", length, drive->req_len);
-	PrintDebug(VM_NONE, VCORE_NONE, "IDE: transfer len=%d, transfer idx=%d\n", drive->transfer_length, drive->transfer_index);
+        PrintDebug(VM_NONE, VCORE_NONE, "IDE: Reading CD Data (len=%llu) (req_len=%u)\n", length, drive->req_len);
+	PrintDebug(VM_NONE, VCORE_NONE, "IDE: transfer len=%llu, transfer idx=%llu\n", drive->transfer_length, drive->transfer_index);
     }
 
     
 
     if (drive->transfer_index >= drive->transfer_length) {
-	PrintError(VM_NONE, VCORE_NONE, "Buffer Overrun... (xfer_len=%d) (cur_idx=%d) (post_idx=%d)\n", 
+	PrintError(VM_NONE, VCORE_NONE, "Buffer Overrun... (xfer_len=%llu) (cur_idx=%llu) (post_idx=%llu)\n", 
 		   drive->transfer_length, drive->transfer_index, 
 		   drive->transfer_index + length);
 	return -1;
@@ -1376,34 +1394,123 @@ static int write_port_std(struct guest_info * core, ushort_t port, void * src, u
 
 	case PRI_SECT_CNT_PORT:
 	case SEC_SECT_CNT_PORT:
+	    // update CHS and LBA28 state
 	    channel->drives[0].sector_count = *(uint8_t *)src;
 	    channel->drives[1].sector_count = *(uint8_t *)src;
+
+	    // update LBA48 state
+	    if (is_lba48(channel)) {
+		uint16_t val = *(uint8_t*)src; // top bits zero;
+		if (!channel->drives[0].lba48.sector_count_state) { 
+		    channel->drives[0].lba48.sector_count = val<<8;
+		} else {
+		    channel->drives[0].lba48.sector_count |= val;
+		}
+		channel->drives[0].lba48.sector_count_state ^= 1;
+		if (!channel->drives[1].lba48.sector_count_state) { 
+		    channel->drives[1].lba48.sector_count = val<<8;
+		} else {
+		    channel->drives[1].lba48.sector_count |= val;
+		}
+		channel->drives[0].lba48.sector_count_state ^= 1;
+	    }
+	    
 	    break;
 
 	case PRI_SECT_NUM_PORT:
 	case SEC_SECT_NUM_PORT:
+	    // update CHS and LBA28 state
 	    channel->drives[0].sector_num = *(uint8_t *)src;
 	    channel->drives[1].sector_num = *(uint8_t *)src;
+
+	    // update LBA48 state
+	    if (is_lba48(channel)) {
+		uint64_t val = *(uint8_t *)src; // lob off top 7 bytes;
+		if (!channel->drives[0].lba48.lba41_state) { 
+		    channel->drives[0].lba48.lba |= val<<24; 
+		} else {
+		    channel->drives[0].lba48.lba |= val;
+		}
+		channel->drives[0].lba48.lba41_state ^= 1;
+		if (!channel->drives[1].lba48.lba41_state) { 
+		    channel->drives[1].lba48.lba |= val<<24; 
+		} else {
+		    channel->drives[1].lba48.lba |= val;
+		}
+		channel->drives[1].lba48.lba41_state ^= 1;
+	    }
+
 	    break;
 	case PRI_CYL_LOW_PORT:
 	case SEC_CYL_LOW_PORT:
+	    // update CHS and LBA28 state
 	    channel->drives[0].cylinder_low = *(uint8_t *)src;
 	    channel->drives[1].cylinder_low = *(uint8_t *)src;
+
+	    // update LBA48 state
+	    if (is_lba48(channel)) {
+		uint64_t val = *(uint8_t *)src; // lob off top 7 bytes;
+		if (!channel->drives[0].lba48.lba52_state) { 
+		    channel->drives[0].lba48.lba |= val<<32; 
+		} else {
+		    channel->drives[0].lba48.lba |= val<<8;
+		}
+		channel->drives[0].lba48.lba52_state ^= 1;
+		if (!channel->drives[1].lba48.lba52_state) { 
+		    channel->drives[1].lba48.lba |= val<<32; 
+		} else {
+		    channel->drives[1].lba48.lba |= val<<8;
+		}
+		channel->drives[1].lba48.lba52_state ^= 1;
+	    }
+
 	    break;
 
 	case PRI_CYL_HIGH_PORT:
 	case SEC_CYL_HIGH_PORT:
+	    // update CHS and LBA28 state
 	    channel->drives[0].cylinder_high = *(uint8_t *)src;
 	    channel->drives[1].cylinder_high = *(uint8_t *)src;
+
+	    // update LBA48 state
+	    if (is_lba48(channel)) {
+		uint64_t val = *(uint8_t *)src; // lob off top 7 bytes;
+		if (!channel->drives[0].lba48.lba63_state) { 
+		    channel->drives[0].lba48.lba |= val<<40; 
+		} else {
+		    channel->drives[0].lba48.lba |= val<<16;
+		}
+		channel->drives[0].lba48.lba63_state ^= 1;
+		if (!channel->drives[1].lba48.lba63_state) { 
+		    channel->drives[1].lba48.lba |= val<<40; 
+		} else {
+		    channel->drives[1].lba48.lba |= val<<16;
+		}
+		channel->drives[1].lba48.lba63_state ^= 1;
+	    }
+
 	    break;
 
 	case PRI_DRV_SEL_PORT:
 	case SEC_DRV_SEL_PORT: {
-	    channel->drive_head.val = *(uint8_t *)src;
+	    struct ide_drive_head_reg nh, oh;
+
+	    oh.val = channel->drive_head.val;
+	    channel->drive_head.val = nh.val = *(uint8_t *)src;
+
+	    // has LBA flipped?
+	    if ((oh.val & 0xe0) != (nh.val & 0xe0)) {
+		// reset LBA48 state
+		channel->drives[0].lba48.sector_count_state=0;
+		channel->drives[0].lba48.lba41_state=0;
+		channel->drives[0].lba48.lba52_state=0;
+		channel->drives[0].lba48.lba63_state=0;
+		channel->drives[1].lba48.sector_count_state=0;
+		channel->drives[1].lba48.lba41_state=0;
+		channel->drives[1].lba48.lba52_state=0;
+		channel->drives[1].lba48.lba63_state=0;
+	    }
 	    
-	    // make sure the reserved bits are ok..
-	    // JRL TODO: check with new ramdisk to make sure this is right...
-	    channel->drive_head.val |= 0xa0;
 
 	    drive = get_selected_drive(channel);
 
@@ -1652,6 +1759,8 @@ static int ide_save_extended(struct v3_chkpt *chkpt, char *id, void * private_da
 	V3_CHKPT_SAVE(ctx, "PRD_ADDR", ch->dma_prd_addr, savefailout);
 	V3_CHKPT_SAVE(ctx, "DMA_TBL_IDX", ch->dma_tbl_index, savefailout);
 
+
+
 	v3_chkpt_close_ctx(ctx); ctx=0;
 
 	for (drive_num = 0; drive_num < 2; drive_num++) {
@@ -1694,6 +1803,13 @@ static int ide_save_extended(struct v3_chkpt *chkpt, char *id, void * private_da
 	      PrintError(VM_NONE, VCORE_NONE, "Invalid drive type %d\n",drive->drive_type);
 	      goto savefailout;
 	    }
+
+	    V3_CHKPT_SAVE(ctx, "LBA48_LBA", drive->lba48.lba, savefailout);
+	    V3_CHKPT_SAVE(ctx, "LBA48_SECTOR_COUNT", drive->lba48.sector_count, savefailout);
+	    V3_CHKPT_SAVE(ctx, "LBA48_SECTOR_COUNT_STATE", drive->lba48.sector_count_state, savefailout);
+	    V3_CHKPT_SAVE(ctx, "LBA48_LBA41_STATE", drive->lba48.lba41_state, savefailout);
+	    V3_CHKPT_SAVE(ctx, "LBA48_LBA52_STATE", drive->lba48.lba52_state, savefailout);
+	    V3_CHKPT_SAVE(ctx, "LBA48_LBA63_STATE", drive->lba48.lba63_state, savefailout);
 	    
 	    v3_chkpt_close_ctx(ctx); ctx=0;
 	}
@@ -1794,6 +1910,14 @@ static int ide_load_extended(struct v3_chkpt *chkpt, char *id, void * private_da
 	      PrintError(VM_NONE, VCORE_NONE, "Invalid drive type %d\n",drive->drive_type);
 	      goto loadfailout;
 	    }
+
+	    V3_CHKPT_LOAD(ctx, "LBA48_LBA", drive->lba48.lba, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "LBA48_SECTOR_COUNT", drive->lba48.sector_count, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "LBA48_SECTOR_COUNT_STATE", drive->lba48.sector_count_state, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "LBA48_LBA41_STATE", drive->lba48.lba41_state, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "LBA48_LBA52_STATE", drive->lba48.lba52_state, loadfailout);
+	    V3_CHKPT_LOAD(ctx, "LBA48_LBA63_STATE", drive->lba48.lba63_state, loadfailout);
+	    
 	}
     }
 // goodout:
