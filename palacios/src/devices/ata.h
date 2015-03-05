@@ -58,13 +58,14 @@ static void ata_identify_device(struct ide_drive * drive) {
     memcpy(drive_id->firmware_rev, firmware, strlen(firmware));
     memcpy(drive_id->model_num, drive->model, 40);
 
-    // 32 bits access
+    // 32 bits access for PIO supported
     drive_id->dword_io = 1;
 
 
     // enable DMA access
-    // PAD disable DMA capability
-    drive_id->dma_enable = 0; // 1;
+    // We want guest to assume UDMA5
+    // but any DMA model looks the same to the guest
+    drive_id->dma_enable = 1; 
 
     // enable LBA access
     drive_id->lba_enable = 1;
@@ -91,7 +92,9 @@ static void ata_identify_device(struct ide_drive * drive) {
     drive_id->buf[63] = 0x0007;
 
     
-    // PAD: Support PIO mode 0
+    // We wll support PIO mode 0
+    // Maybe revisit this later to allow advanced modes
+    // We really want the guest to use DMA
     drive_id->buf[64] = 0x0001; // PIO
 
     // MWDMA transfer min cycle time
@@ -107,6 +110,7 @@ static void ata_identify_device(struct ide_drive * drive) {
     drive_id->buf[72] = 30; // faked
 
     // queue depth set to one
+    // We should not expect queued DMAs
 
     //    drive_id->buf[80] = 0x1e; // supports up to ATA/ATAPI-4
     drive_id->major_rev_num = 0x0040; // supports up to ATA/ATAPI-6
@@ -116,8 +120,8 @@ static void ata_identify_device(struct ide_drive * drive) {
 
     // No special features supported
 
-    // PAD: Disable ultra DMA capability
-    //drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
+    // Pretend drive is already autoconfed to UDMA5
+    drive_id->dma_ultra = 0x2020; // Ultra_DMA_Mode_5_Selected | Ultra_DMA_Mode_5_Supported;
 
 }
 

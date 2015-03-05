@@ -714,6 +714,14 @@ static int dma_write(struct guest_info * core, struct ide_internal * ide, struct
 
 #define DMA_CHANNEL_FLAG  0x08
 
+/*
+  Note that DMA model is as follows:
+
+    1. Write the PRD pointer to the busmaster (DMA engine)
+    2. Start the transfer on the device
+    3. Tell the busmaster to start shoveling data (active DMA)
+*/
+
 static int write_dma_port(struct guest_info * core, ushort_t port, void * src, uint_t length, void * private_data) {
     struct ide_internal * ide = (struct ide_internal *)private_data;
     uint16_t port_offset = port & (DMA_CHANNEL_FLAG - 1);
@@ -726,40 +734,48 @@ static int write_dma_port(struct guest_info * core, ushort_t port, void * src, u
     switch (port_offset) {
 	case DMA_CMD_PORT:
 	    channel->dma_cmd.val = *(uint8_t *)src;
+	    
+	    PrintDebug(core->vm_info, core, "IDE: dma command write:  0x%x\n", channel->dma_cmd.val);
 
 	    if (channel->dma_cmd.start == 0) {
 		channel->dma_tbl_index = 0;
 	    } else {
+		// Launch DMA operation, interrupt at end
+
 		channel->dma_status.active = 1;
 
 		if (channel->dma_cmd.read == 1) {
-		    // DMA Read
+		    // DMA Read the whole thing - dma_read will raise irq
 		    if (dma_read(core, ide, channel) == -1) {
 			PrintError(core->vm_info, core, "Failed DMA Read\n");
 			return -1;
 		    }
 		} else {
-		    // DMA write
+		    // DMA write the whole thing - dma_write will raiase irw
 		    if (dma_write(core, ide, channel) == -1) {
 			PrintError(core->vm_info, core, "Failed DMA Write\n");
 			return -1;
 		    }
 		}
-
-		channel->dma_cmd.val &= 0x09;
+		
+		// DMA complete
+		// Note that guest cannot abort a DMA transfer
+		channel->dma_cmd.start = 0;
 	    }
 
 	    break;
 	    
 	case DMA_STATUS_PORT: {
+	    // This is intended to clear status
+
 	    uint8_t val = *(uint8_t *)src;
 
 	    if (length != 1) {
-		PrintError(core->vm_info, core, "Invalid read length for DMA status port\n");
+		PrintError(core->vm_info, core, "Invalid write length for DMA status port\n");
 		return -1;
 	    }
 
-	    // weirdness
+	    // but preserve certain bits
 	    channel->dma_status.val = ((val & 0x60) | 
 				       (channel->dma_status.val & 0x01) |
 				       (channel->dma_status.val & ~val & 0x06));
@@ -834,7 +850,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
     
     switch (channel->cmd_reg) {
 
-	case ATA_PIDENTIFY: // ATAPI Identify Device Packet
+	case ATA_PIDENTIFY: // ATAPI Identify Device Packet (CDROM)
 	    if (drive->drive_type != BLOCK_CDROM) {
 		drive_reset(drive);
 
@@ -850,6 +866,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 		ide_raise_irq(ide, channel);
 	    }
 	    break;
+
 	case ATA_IDENTIFY: // Identify Device
 	    if (drive->drive_type != BLOCK_DISK) {
 		drive_reset(drive);
@@ -866,7 +883,7 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    }
 	    break;
 
-	case ATA_PACKETCMD: // ATAPI Command Packet
+	case ATA_PACKETCMD: // ATAPI Command Packet (CDROM)
 	    if (drive->drive_type != BLOCK_CDROM) {
 		ide_abort_command(ide, channel);
 	    }
@@ -918,8 +935,9 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 	    }
 	    break;
 
-	case ATA_READDMA: // Read DMA with retry
-	case ATA_READDMA_ONCE: { // Read DMA
+	case ATA_READDMA:            // Read DMA with retry
+	case ATA_READDMA_ONCE:       // Read DMA without retry
+	case ATA_READDMA_EXT:      { // Read DMA (LBA48)
 	    uint64_t sect_cnt;
 
 	    if (ata_get_lba_and_size(ide, channel, &(drive->current_lba), &sect_cnt) == -1) {
@@ -928,25 +946,20 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 		return length;
 	    }
 	    
-	    drive->hd_state.cur_sector_num = 1;
+	    drive->hd_state.cur_sector_num = 1;  // Not used for DMA
 	    
 	    drive->transfer_length = sect_cnt * HD_SECTOR_SIZE;
 	    drive->transfer_index = 0;
 
-	    if (channel->dma_status.active == 1) {
-		// DMA Read
-		if (dma_read(core, ide, channel) == -1) {
-		    PrintError(core->vm_info, core, "Failed DMA Read\n");
-		    ide_abort_command(ide, channel);
-		}
-	    } else {
-                PrintError(core->vm_info,core,"Attempt to initiate DMA read on channel that is not active\n");
-		ide_abort_command(ide, channel);
-            }
+	    // Now we wait for the transfer to be intiated by flipping the 
+	    // bus-master start bit
 	    break;
 	}
 
-	case ATA_WRITEDMA: { // Write DMA
+	case ATA_WRITEDMA:        // Write DMA with retry
+	case ATA_WRITEDMA_ONCE:   // Write DMA without retry
+	case ATA_WRITEDMA_EXT:  { // Write DMA (LBA48)
+
 	    uint64_t sect_cnt;
 
 	    if (ata_get_lba_and_size(ide, channel, &(drive->current_lba),&sect_cnt) == -1) {
@@ -955,23 +968,16 @@ static int write_cmd_port(struct guest_info * core, ushort_t port, void * src, u
 		return length;
 	    }
 
-	    drive->hd_state.cur_sector_num = 1;
+	    drive->hd_state.cur_sector_num = 1;  // Not used for DMA
 
 	    drive->transfer_length = sect_cnt * HD_SECTOR_SIZE;
 	    drive->transfer_index = 0;
 
-	    if (channel->dma_status.active == 1) {
-		// DMA Write
-		if (dma_write(core, ide, channel) == -1) {
-		    PrintError(core->vm_info, core, "Failed DMA Write\n");
-		    ide_abort_command(ide, channel);
-		}
-	    } else {
-		PrintError(core->vm_info,core,"Attempt to initiate DMA write with DMA inactive\n");
-		ide_abort_command(ide, channel);
-	    }
+	    // Now we wait for the transfer to be intiated by flipping the 
+	    // bus-master start bit
 	    break;
 	}
+
 	case ATA_STANDBYNOW1: // Standby Now 1
 	case ATA_IDLEIMMEDIATE: // Set Idle Immediate
 	case ATA_STANDBY: // Standby
@@ -2048,6 +2054,8 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	}
 
 	ide->southbridge = (struct v3_southbridge *)(southbridge->private_data);
+    } else {
+	PrintError(vm,VCORE_NONE,"Strange - you don't have a PCI bus\n");
     }
 
     PrintDebug(vm, VCORE_NONE, "IDE: Creating IDE bus x 2\n");
@@ -2131,7 +2139,7 @@ static int ide_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	struct pci_device * pci_dev = NULL;
 	int i;
 
-	PrintDebug(vm, VCORE_NONE, "Connecting IDE to PCI bus\n");
+	V3_Print(vm, VCORE_NONE, "Connecting IDE to PCI bus\n");
 
 	for (i = 0; i < 6; i++) {
 	    bars[i].type = PCI_BAR_NONE;
