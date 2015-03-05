@@ -833,8 +833,8 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
     int bar_num = (bar_offset - 0x10) / 4;
     uint32_t new_val = *(uint32_t *)src;
     
-    PrintDebug(VM_NONE, VCORE_NONE, "Updating BAR Register  (Dev=%s) (bar=%d) (old_val=0x%x) (new_val=0x%x)\n", 
-	       pci_dev->name, bar_num, bar->val, new_val);
+    PrintDebug(VM_NONE, VCORE_NONE, "Updating BAR Register  (Dev=%s) (bar=%d) (old_val=0x%x) (new_val=0x%x) (length=%d)\n", 
+	       pci_dev->name, bar_num, bar->val, new_val, length);
 
     // Cache the changes locally
     memcpy(&(pci_dev->config_space[offset]), src, length);
@@ -852,6 +852,16 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 
     *(uint32_t *)(pci_dev->config_space + offset) &= bar->mask;
 
+    // Handle buggy code that discards the freaking I/O bit...
+    if (bar->type == PCI_BAR_IO && !(new_val & 0x1) ) {
+	PrintError(VM_NONE,VCORE_NONE,"Buggy guest:  Updating BAR %d of device %s discards the I/O bit...\n", bar_num, pci_dev->name);
+	*(uint32_t *)(pci_dev->config_space + offset) |= 0x1;
+	new_val |= 0x1;
+    }
+
+
+    // V3_Print(VM_NONE, VCORE_NONE,"mask=%x written val=%x\n", bar->mask, *(uint32_t *)(pci_dev->config_space + offset));
+
     switch (bar->type) {
 	case PCI_BAR_IO: {
 	    int i = 0;
@@ -859,12 +869,6 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 	    PrintDebug(VM_NONE, VCORE_NONE, "\tRehooking %d IO ports from base 0x%x to 0x%x for %d ports\n",
 		       bar->num_ports, PCI_IO_BASE(bar->val), PCI_IO_BASE(new_val),
 		       bar->num_ports);
-		
-	    // only do this if pci device is enabled....
-	    if (!(pci_dev->config_header.status & 0x1)) {
-		PrintError(VM_NONE, VCORE_NONE, "PCI Device IO space not enabled\n");
-        break;
-	    }
 
 	    for (i = 0; i < bar->num_ports; i++) {
 
@@ -879,7 +883,7 @@ static int bar_update(struct pci_device * pci_dev, uint32_t offset,
 
 		    PrintError(VM_NONE, VCORE_NONE, "Could not hook PCI IO port (old port=%u) (new port=%u)\n",  
 			       PCI_IO_BASE(bar->val) + i, PCI_IO_BASE(new_val) + i);
-		    v3_print_io_map(pci_dev->vm);
+		    //v3_print_io_map(pci_dev->vm);
 		    return -1;
 		}
 	    }
@@ -1014,7 +1018,8 @@ static int exp_rom_write(struct pci_device * pci_dev, uint32_t offset,
 static int cmd_write(struct pci_device * pci_dev, uint32_t offset, 
 		     void * src, uint_t length, void * private_data) {
 
-    V3_Print(VM_NONE, VCORE_NONE, "KCH: command update!\n");
+    PrintDebug(VM_NONE, VCORE_NONE, "PCI command update!\n");
+
     int i = 0;
 
     struct pci_cmd_reg old_cmd;
@@ -1363,6 +1368,7 @@ static inline int init_bars(struct v3_vm_info * vm, struct pci_device * pci_dev)
 	    bar->mask = ~((bar->num_pages << 12) - 1);
 	    bar->mask |= 0xf; // preserve the configuration flags
 
+
 	    if (bar->default_base_addr != 0xffffffff) {
 		bar->val = bar->default_base_addr & bar->mask;
 	    } else {
@@ -1588,7 +1594,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
 	    PrintError(VM_NONE, VCORE_NONE, "No more available PCI slots on bus %d\n", bus->bus_num);
 	    return NULL;
 	}
-    V3_Print(VM_NONE, VCORE_NONE,"assigning dev num %d to device (%s, busnum=%d,fnnum=%d)\n", dev_num, name, bus->bus_num, fn_num);
+	V3_Print(VM_NONE, VCORE_NONE,"assigning dev num %d to device (%s, busnum=%d,fnnum=%d)\n", dev_num, name, bus->bus_num, fn_num);
     }
     
     PrintDebug(VM_NONE, VCORE_NONE, "Checking for PCI Device\n");
