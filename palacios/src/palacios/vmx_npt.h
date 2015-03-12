@@ -96,6 +96,66 @@ static int init_ept(struct guest_info * core, struct vmx_hw_info * hw_info) {
 
     ept_ptr->pml_base_addr = PAGE_BASE_ADDR(ept_pa);
 
+    PrintDebug(core->vm_info,core,"init_ept direct_map_pt=%p\n",(void*)(core->direct_map_pt));
+
+
+    return 0;
+}
+
+// 
+// You would think we could just the regular 64 bit PT free
+// routine, but no, because the EPT format is slightly different, in that
+// it has no present bit....   We signify present via the read 
+static void delete_page_tables_ept64(ept_pml4_t * pml4) {
+    int i, j, k;
+
+    if (pml4 == NULL) {
+	return;
+    }
+
+    PrintDebug(VM_NONE, VCORE_NONE,"Deleting EPT Page Tables -- PML4 (%p)\n", pml4);
+
+    for (i = 0; i < MAX_PML4E64_ENTRIES; i++) {
+	if (!pml4[i].read && !pml4[i].write && !pml4[i].exec) {
+	    continue;
+	}
+
+	ept_pdp_t * pdpe = (ept_pdp_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pml4[i].pdp_base_addr));
+
+	for (j = 0; j < MAX_PDPE64_ENTRIES; j++) {
+	    if ((!pdpe[j].read && !pdpe[j].write && !pdpe[j].exec) || (pdpe[j].large_page == 1)) {
+		continue;
+	    }
+
+	    ept_pde_t * pde = (ept_pde_t *)V3_VAddr((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pdpe[j].pd_base_addr));
+
+	    for (k = 0; k < MAX_PDE64_ENTRIES; k++) {
+		if ((!pde[k].read && !pde[k].write && !pde[k].exec) || (pde[k].large_page == 1)) {
+		    continue;
+		}
+
+		V3_FreePages((void *)(addr_t)BASE_TO_PAGE_ADDR_4KB(pde[k].pt_base_addr), 1);
+	    }
+	    
+	    V3_FreePages(V3_PAddr(pde), 1);
+	}
+
+	V3_FreePages(V3_PAddr(pdpe), 1);
+    }
+
+    V3_FreePages(V3_PAddr(pml4), 1);
+}
+
+
+
+static int deinit_ept(struct guest_info * core) {
+    ept_pml4_t    *pml;
+
+    pml = (ept_pml4_t *)CR3_TO_PML4E64_VA(core->direct_map_pt);
+
+    delete_page_tables_ept64(pml);
+ 
+    core->direct_map_pt = 0;
 
     return 0;
 }

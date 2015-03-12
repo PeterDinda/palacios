@@ -182,6 +182,10 @@ static addr_t create_generic_pt_page(struct guest_info *core) {
 
 
 int v3_init_passthrough_pts(struct guest_info * info) {
+    if (info->shdw_pg_mode == NESTED_PAGING && is_vmx_nested()) { 
+        // skip - ept_init will do this allocation
+        return 0;
+    }
     info->direct_map_pt = (addr_t)V3_PAddr((void *)create_generic_pt_page(info));
     return 0;
 }
@@ -189,6 +193,18 @@ int v3_init_passthrough_pts(struct guest_info * info) {
 
 int v3_free_passthrough_pts(struct guest_info * core) {
     v3_cpu_mode_t mode = v3_get_vm_cpu_mode(core);
+
+    if (core->shdw_pg_mode == NESTED_PAGING && is_vmx_nested()) { 
+        // there are no passthrough page tables, but
+        // the EPT implementation is using direct_map_pt to store
+        // the EPT root table pointer...  and the EPT tables
+        // are not compatible with regular x86 tables, so we
+        // must not attempt to free them here...
+        return 0;
+    }
+  
+    // we are either in shadow or in SVM nested
+    // in either case, we can nuke the PTs
 
     // Delete the old direct map page tables
     switch(mode) {
@@ -609,6 +625,8 @@ int v3_init_nested_paging_core(struct guest_info *core, void *hwinfo)
     return init_ept(core, (struct vmx_hw_info *) hwinfo);
   } else {
     // no initialization for SVM
+    // the direct map page tables are used since the 
+    // nested pt format is identical to the main pt format
     return 0;
   }
 }
@@ -637,9 +655,17 @@ int v3_deinit_nested_paging(struct v3_vm_info *vm)
 
 int v3_deinit_nested_paging_core(struct guest_info *core)
 {
-  // nothing to do..  probably dealloc?  FIXME PAD
-
-  return 0;
+  if (core->shdw_pg_mode == NESTED_PAGING) {
+    if (is_vmx_nested()) {
+     return deinit_ept(core);
+    } else {
+      // SVM nested deinit is handled by the passthrough paging teardown
+      return 0;
+    }
+  } else {
+    // not relevant
+    return 0;
+  }
 }
 
 
