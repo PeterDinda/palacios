@@ -185,7 +185,7 @@ config LAZY_FP_SWITCH
           and restored on each entry---this save/restore is entirely
           done in Palacios.
           
-          
+
 endmenu
 
 source "palacios/src/extensions/Kconfig"
@@ -415,6 +415,28 @@ config DEBUG_VNET
 endmenu
 
 source "palacios/src/gears/Kconfig"
+
+
+menu "HVM" 
+
+config HVM
+	bool "Support Hybrid Virtual Machines"
+	default n
+	help 
+          If set, it is possible to make VMs that are partitioned
+          (cores, memory, devices, hardware access, etc) into 
+          a part ("the ROS") that supports normal VM operation and
+          a part ("the HRT") that supports Hybrid Run-Times,
+          for example Nautilus-based HRTs for parallel languages.
+
+config DEBUG_HVM
+        depends on HVM
+        bool "Enable HVM debugging in Palacios"
+        default n
+        help
+          Enable HVM debugging output
+
+endmenu
 
 menu "Debug configuration"
 
