@@ -161,11 +161,13 @@ static int will_use_shadow_paging(struct v3_vm_info *vm)
 
 #define CEIL_DIV(x,y) (((x)/(y)) + !!((x)%(y)))
 
+
 int v3_init_mem_map(struct v3_vm_info * vm) {
     struct v3_mem_map * map = &(vm->mem_map);
     addr_t block_pages = v3_mem_block_size >> 12;
     int i = 0;
     uint64_t num_base_regions_host_mem;
+
     map->num_base_regions = CEIL_DIV(vm->mem_size, v3_mem_block_size); 
 
     num_base_regions_host_mem=map->num_base_regions;  // without swapping
@@ -182,13 +184,13 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 
     PrintDebug(VM_NONE, VCORE_NONE, "v3_init_mem_map: %llu base regions will be allocated of %llu base regions in guest\n",
 	       (uint64_t)num_base_regions_host_mem, (uint64_t)map->num_base_regions);
-    	
-    map->base_regions = V3_Malloc(sizeof(struct v3_mem_region) * map->num_base_regions);
-
+    
+    map->base_regions = V3_AllocPages(CEIL_DIV(sizeof(struct v3_mem_region) * map->num_base_regions, PAGE_SIZE_4KB));
     if (map->base_regions == NULL) {
 	PrintError(vm, VCORE_NONE, "Could not allocate base region array\n");
 	return -1;
     }
+    map->base_regions = V3_VAddr(map->base_regions);
 
     memset(map->base_regions, 0, sizeof(struct v3_mem_region) * map->num_base_regions);
 
@@ -295,8 +297,8 @@ void v3_delete_mem_map(struct v3_vm_info * vm) {
 #endif
     }
 
-    V3_Free(map->base_regions);
-
+    V3_FreePages(V3_PAddr(map->base_regions),
+		 CEIL_DIV(sizeof(struct v3_mem_region) * map->num_base_regions, PAGE_SIZE_4KB));
 }
 
 
