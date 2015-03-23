@@ -37,6 +37,7 @@
 #include <palacios/vmm_mem_track.h>
 #endif
 
+
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
     struct cr0_32 * cr0;
     struct efer_64 * efer;
@@ -376,6 +377,10 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_telemetry(vm);
 #endif
 
+#ifdef V3_CONFIG_HVM
+    v3_deinit_hvm_vm(vm);
+#endif
+
     v3_deinit_events(vm);
 
 #ifdef V3_CONFIG_MEM_TRACK
@@ -481,6 +486,10 @@ int v3_free_core(struct guest_info * core) {
 
 #ifdef V3_CONFIG_TELEMETRY
     v3_deinit_core_telemetry(core);
+#endif
+
+#ifdef V3_CONFIG_HVM
+    v3_deinit_hvm_core(core);
 #endif
 
     switch (v3_mach_type) {

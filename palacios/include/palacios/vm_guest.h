@@ -69,6 +69,10 @@ struct v3_sym_core_state;
 #include <palacios/vmm_mem_track.h>
 #endif
 
+#ifdef V3_CONFIG_HVM
+#include <palacios/vmm_hvm.h>
+#endif
+
 
 
 #include <palacios/vmm_config.h>
@@ -154,6 +158,12 @@ struct guest_info {
 #ifdef V3_CONFIG_MEM_TRACK
     struct v3_core_mem_track memtrack_state;
 #endif
+
+#ifdef V3_CONFIG_HVM
+    struct v3_core_hvm  hvm_state;
+#endif
+
+
     /* struct v3_core_dev_mgr core_dev_mgr; */
 
     void * decoder_state;
@@ -189,6 +199,9 @@ struct v3_vm_info {
     v3_vm_class_t vm_class;
     struct v3_fw_cfg_state fw_cfg_state;
 
+    // This is always the total RAM (addresses 0...mem_size)
+    // in the VM.  
+    // With an HVM, this is partitioned as per hvm_state
     addr_t mem_size; /* In bytes for now */
     uint32_t mem_align;
     struct v3_mem_map mem_map;
@@ -251,11 +264,17 @@ struct v3_vm_info {
     struct v3_vm_mem_track memtrack_state;
 #endif
 
+#ifdef V3_CONFIG_HVM
+    struct v3_vm_hvm  hvm_state;
+#endif
+
     uint64_t yield_cycle_period;  
 
 
     void * host_priv_data;
 
+    // This is always the total number of vcores in the VM 
+    // With an HVM, these are partitioned as per hvm_state
     int num_cores;
 
     int avail_cores; // Available logical cores

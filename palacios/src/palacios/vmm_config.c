@@ -37,6 +37,10 @@
 #include <palacios/vmm_swapping.h>
 #endif
 
+#ifdef V3_CONFIG_HVM
+#include <palacios/vmm_hvm.h>
+#endif
+
 #include <palacios/vmm_host_events.h>
 #include <palacios/vmm_perftune.h>
 
@@ -351,6 +355,14 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     }
 #endif
 
+#ifdef V3_CONFIG_HVM
+    if (v3_init_hvm_vm(vm,vm_cfg)) { 
+	PrintError(vm,VCORE_NONE,"Cannot initialize HVM for VM\n");
+	return -1;
+    }
+#endif
+
+
     if (v3_init_vm(vm) == -1) {
 	PrintError(VM_NONE, VCORE_NONE, "Failed to initialize VM\n");
 	return -1;
@@ -424,6 +436,13 @@ static int pre_config_core(struct guest_info * info, v3_cfg_tree_t * core_cfg) {
 	PrintError(info->vm_info, info, "Error Initializing Core\n");
 	return -1;
     }
+
+#ifdef V3_CONFIG_HVM
+    if (v3_init_hvm_core(info)) { 
+	PrintError(info->vm_info, info, "Error Initializing HVM Core\n");
+	return -1;
+    }
+#endif
 
     if (info->vm_info->vm_class == V3_PC_VM) {
 	if (pre_config_pc_core(info, core_cfg) == -1) {

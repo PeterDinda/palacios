@@ -154,6 +154,10 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
     // Parse host-os defined options into an easily-accessed format.
     v3_parse_options(options);
 
+#ifdef V3_CONFIG_HVM
+    v3_init_hvm();
+#endif
+
     // Memory manager initialization
     v3_init_mem();
 
@@ -255,6 +259,10 @@ void Shutdown_V3() {
 
     v3_deinit_mem();
     
+#ifdef V3_CONFIG_HVM
+    v3_deinit_hvm();
+#endif
+
     v3_deinit_options();
     
 
@@ -869,6 +877,7 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 	case VM_INVALID: base->state = V3_VM_INVALID; break;
 	case VM_RUNNING: base->state = V3_VM_RUNNING; break;
 	case VM_STOPPED: base->state = V3_VM_STOPPED; break;
+	case VM_RESETTING:  base->state = V3_VM_RESETTING; break;
 	case VM_PAUSED: base->state = V3_VM_PAUSED; break;
 	case VM_ERROR: base->state = V3_VM_ERROR; break;
 	case VM_SIMULATING: base->state = V3_VM_SIMULATING; break;
@@ -909,7 +918,7 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
     
     core->num_vcores=numcores;
 
-    for (i=0;i<vm->mem_map.num_base_regions;i++) {
+    for (i=0;i<numregions;i++) {
 	mem->region[i].host_paddr =  (void*)(vm->mem_map.base_regions[i].host_addr);
 	mem->region[i].size = v3_mem_block_size;
 #ifdef V3_CONFIG_SWAPPING
