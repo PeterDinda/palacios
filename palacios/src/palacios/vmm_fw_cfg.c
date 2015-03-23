@@ -350,6 +350,13 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 
     struct v3_fw_cfg_state * cfg_state = &(vm->fw_cfg_state);
     int ret = 0;
+    uint64_t mem_size = vm->mem_size;
+    uint32_t num_cores = vm->num_cores;
+
+#ifdef V3_CONFIG_HVM
+    mem_size = v3_get_hvm_ros_memsize(vm);
+    num_cores = v3_get_hvm_ros_cores(vm);
+#endif
 
     
     // Be paranoid about starting this as all "unallocated"
@@ -383,13 +390,13 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
     fw_cfg_add_bytes(cfg_state, FW_CFG_SIGNATURE, (uint8_t *)"QEMU", 4);
     //fw_cfg_add_bytes(cfg_state, FW_CFG_UUID, qemu_uuid, 16);
     fw_cfg_add_i16(cfg_state, FW_CFG_NOGRAPHIC, /*(uint16_t)(display_type == DT_NOGRAPHIC)*/ 0);
-    fw_cfg_add_i16(cfg_state, FW_CFG_NB_CPUS, (uint16_t)vm->num_cores);
-    fw_cfg_add_i16(cfg_state, FW_CFG_MAX_CPUS, (uint16_t)vm->num_cores);
+    fw_cfg_add_i16(cfg_state, FW_CFG_NB_CPUS, (uint16_t)num_cores);
+    fw_cfg_add_i16(cfg_state, FW_CFG_MAX_CPUS, (uint16_t)num_cores);
     fw_cfg_add_i16(cfg_state, FW_CFG_BOOT_MENU, (uint16_t)1);
     //fw_cfg_bootsplash(cfg_state);
 
     fw_cfg_add_i32(cfg_state, FW_CFG_ID, 1);
-    fw_cfg_add_i64(cfg_state, FW_CFG_RAM_SIZE, (uint64_t)vm->mem_size / (1024 * 1024));
+    fw_cfg_add_i64(cfg_state, FW_CFG_RAM_SIZE, mem_size / (1024 * 1024));
 
     //fw_cfg_add_bytes(cfg_state, FW_CFG_ACPI_TABLES, (uint8_t *)acpi_tables,
     //       acpi_tables_len);
@@ -422,7 +429,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 	/* locations in fw_cfg NUMA array for each info region. */
 	int node_offset = 0;
 	int core_offset = 1;
-	int mem_offset = 1 + vm->num_cores;
+	int mem_offset = 1 + num_cores;
 	
 	if (num_nodes_str) {
 	    num_nodes = atoi(num_nodes_str);
@@ -433,7 +440,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 	    int i = 0;
 
 	    // Allocate the global NUMA configuration array
-	    numa_fw_cfg = V3_Malloc((1 + vm->num_cores + num_nodes) * sizeof(uint64_t));
+	    numa_fw_cfg = V3_Malloc((1 + num_cores + num_nodes) * sizeof(uint64_t));
 
 	    if (numa_fw_cfg == NULL) {
 		PrintError(vm, VCORE_NONE, "Could not allocate fw_cfg NUMA config space\n");
@@ -441,14 +448,14 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 		return -1;
 	    }
 
-	    memset(numa_fw_cfg, 0, (1 + vm->num_cores + num_nodes) * sizeof(uint64_t));
+	    memset(numa_fw_cfg, 0, (1 + num_cores + num_nodes) * sizeof(uint64_t));
 
 	    // First 8 bytes is the number of NUMA zones
 	    numa_fw_cfg[node_offset] = num_nodes;
 	    
 	    
 	    // Next region is array of core->node mappings
-	    for (i = 0; i < vm->num_cores; i++) {
+	    for (i = 0; i < num_cores; i++) {
 		char * vnode_str = v3_cfg_val(vm->cores[i].core_cfg_data, "vnode");
 		
 		if (vnode_str == NULL) {
@@ -508,7 +515,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 		
 		V3_Print(vm, VCORE_NONE, "NUMA CONFIG: (nodes=%llu)\n", numa_fw_cfg[0]);
 	
-		for (i = 0; i < vm->num_cores; i++) {
+		for (i = 0; i < num_cores; i++) {
 		    V3_Print(vm, VCORE_NONE, "\tCore %d -> Node %llu\n", i, numa_fw_cfg[core_offset + i]);
 		}
 	
@@ -523,7 +530,7 @@ int v3_fw_cfg_init(struct v3_vm_info * vm) {
 
 	    // Register the NUMA cfg array with the FW_CFG interface
 	    fw_cfg_add_bytes_internal(cfg_state, FW_CFG_NUMA, (uint8_t *)numa_fw_cfg,
-				      (1 + vm->num_cores + num_nodes) * sizeof(uint64_t));
+				      (1 + num_cores + num_nodes) * sizeof(uint64_t));
 
 	}
     }

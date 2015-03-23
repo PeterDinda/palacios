@@ -21,6 +21,7 @@
 #include <palacios/vmm_string.h>
 #include <palacios/vm_guest_mem.h>
 
+
 /* 
   The guest bios is compiled with blank space for am MP table
   at a default address.  A cookie value is temporarily placed 
@@ -518,6 +519,12 @@ static int mptable_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     int have_apic = find_first_peer_device_of_class(cfg,"lapic")!=NULL;
     int have_ioapic = find_first_peer_device_of_class(cfg,"ioapic")!=NULL;
 
+    uint32_t num_cores = vm->num_cores;
+
+#ifdef V3_CONFIG_HVM
+    num_cores = v3_get_hvm_ros_cores(vm);
+#endif
+
     if (!have_apic) { 
       PrintError(vm, VCORE_NONE,  "Attempt to instantiate MPTABLE but machine has no apics!\n");
       return -1;
@@ -543,12 +550,12 @@ static int mptable_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return 0;
     }
 
-    if (vm->num_cores > 32) { 
+    if (num_cores > 32) { 
 	PrintError(vm, VCORE_NONE,  "No support for >32 cores in writing MP table, aborting.\n");
 	return -1;
     }
 
-    V3_Print(vm, VCORE_NONE, "Constructing mptable for %u cores at %p\n", vm->num_cores, target);
+    V3_Print(vm, VCORE_NONE, "Constructing mptable for %u cores at %p\n", num_cores, target);
 
     if (write_pointer(target, BIOS_MP_TABLE_DEFAULT_LOCATION + sizeof(struct mp_floating_pointer)) == -1) { 
 	PrintError(vm, VCORE_NONE, "Unable to write mptable floating pointer, aborting.\n");
@@ -560,7 +567,7 @@ static int mptable_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	return -1;
     }
 
-    if (write_mptable(target + sizeof(struct mp_floating_pointer), vm->num_cores, have_ioapic, have_pci)) {
+    if (write_mptable(target + sizeof(struct mp_floating_pointer), num_cores, have_ioapic, have_pci)) {
 	PrintError(vm, VCORE_NONE, "Cannot inject mptable configuration header and entries\n");
 	return -1;
     }

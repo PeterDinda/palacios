@@ -638,6 +638,13 @@ static uint16_t compute_checksum(struct nvram_internal * nvram) {
 
 static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvram, char *bootseq) {
     uint16_t checksum = 0;
+    uint64_t mem_size=vm->mem_size;
+    uint32_t num_cores=vm->num_cores;
+
+#ifdef V3_CONFIG_HVM
+    mem_size = v3_get_hvm_ros_memsize(vm);
+    num_cores = v3_get_hvm_ros_cores(vm);
+#endif
 
     memset(nvram->mem_state, 0, NVRAM_REG_MAX);
     memset(nvram->reg_map, 0, NVRAM_REG_MAX / 8);
@@ -725,10 +732,11 @@ static int init_nvram_state(struct v3_vm_info * vm, struct nvram_internal * nvra
     nvram->us = 0;
     nvram->pus = 0;
 
-    set_memory_size(nvram, vm->mem_size);
+
+    set_memory_size(nvram, mem_size);
     init_harddrives(nvram);
 
-    set_memory(nvram, NVRAM_REG_SMPCPUS, vm->num_cores - 1);
+    set_memory(nvram, NVRAM_REG_SMPCPUS, num_cores - 1);
     
     /* compute checksum (must follow all assignments here) */
     checksum = compute_checksum(nvram);
