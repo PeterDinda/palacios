@@ -844,7 +844,6 @@ static int should_deliver_ipi(struct apic_dev_state * apic_dev,
 
 
 
-// Only the src_apic pointer is used
 static int deliver_ipi(struct apic_state * src_apic, 
 		       struct apic_state * dst_apic, 
 		       struct v3_gen_ipi * ipi) {
@@ -852,6 +851,24 @@ static int deliver_ipi(struct apic_state * src_apic,
 
     struct guest_info * dst_core = dst_apic->core;
 
+#ifdef V3_CONFIG_HVM
+
+    // this is the ultimate place where we discrard IPIs that should
+    // not be going to the HRT.  We should have previously
+    // filtered by priority as well - that is, an HRT apic
+    // is not involved in priority calculation for an IPI originating
+    // from a ROS apic or an ioapic or MSI.   On the other hand
+    // an IPI sent from an HRT apic can go anywhere
+    //
+    if (!v3_hvm_should_deliver_ipi(src_apic ? src_apic->core : 0, 
+				   dst_apic->core)) {
+	PrintDebug(VM_NONE,VCORE_NONE,  
+		   "apic: HVM skipping delivery of IPI from core %u to core %u\n",
+		   src_apic ? src_apic->core ? src_apic->core->vcpu_id : -1 : -1, 
+		   dst_apic->core->vcpu_id);
+	return 0;
+    }
+#endif
 
     switch (ipi->mode) {
 
@@ -1020,7 +1037,8 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 		    // we immediately trigger
 		    // fixed, smi, reserved, nmi, init, sipi, etc
 
-		    
+		    // HVM is handled here within deliver_ipi 
+
 		    for (i = 0; i < apic_dev->num_apics; i++) { 
 			int del_flag = 0;
 			
@@ -1045,10 +1063,21 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 		    uint32_t cur_best_apr;
 		    uint8_t mda = ipi->dst;
 		    int i;
+		    uint32_t start_apic = 0;
+		    uint32_t num_apics = apic_dev->num_apics;
+
+#ifdef V3_CONFIG_HVM
+		    // Need to limit lowest priority search to ROS apics
+		    // if this is coming from a ROS apic or ioapic, etc. 
+		    v3_hvm_find_apics_seen_by_core(src_apic ? src_apic->core : 0, 
+						   apic_dev->apics[0].core->vm_info,
+						   &start_apic,
+						   &num_apics);
+#endif
 
 		    // logical, lowest priority
 
-		    for (i = 0; i < apic_dev->num_apics; i++) { 
+		    for (i = start_apic; i < num_apics; i++) { 
 			int del_flag = 0;
 
 			dest_apic = &(apic_dev->apics[i]);
@@ -1083,7 +1112,7 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 
 		    // now we will deliver to the best one if it exists
 		    if (!cur_best_apic) { 
-			PrintDebug(VM_NONE, VCORE_NONE, "apic: lowest priority deliver, but no destinations!\n");
+			PrintDebug(VM_NONE, VCORE_NONE, "apic: lowest priority delivery, but no destinations!\n");
 		    } else {
 			if (deliver_ipi(src_apic, cur_best_apic, ipi) == -1) {
 			    PrintError(VM_NONE, VCORE_NONE, "apic: Error: Could not deliver IPI\n");
@@ -1126,8 +1155,17 @@ static int route_ipi(struct apic_dev_state * apic_dev,
 	    /* assuming that logical verus physical doesn't matter
 	       although it is odd that both are used */
 	    int i;
+	    uint32_t start_apic = 0;
+	    uint32_t num_apics = apic_dev->num_apics;
 
-	    for (i = 0; i < apic_dev->num_apics; i++) { 
+#ifdef V3_CONFIG_HVM
+	    v3_hvm_find_apics_seen_by_core(src_apic ? src_apic->core : 0, 
+					   apic_dev->apics[0].core->vm_info,
+					   &start_apic,
+					   &num_apics);
+#endif
+
+	    for (i = start_apic; i < num_apics; i++) { 
 		dest_apic = &(apic_dev->apics[i]);
 		
 		if ((dest_apic != src_apic) || (ipi->dst_shorthand == APIC_SHORTHAND_ALL)) { 
