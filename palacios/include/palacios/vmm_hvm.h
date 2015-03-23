@@ -60,6 +60,10 @@ int      v3_is_hvm_ros_core(struct guest_info *core);
 int      v3_is_hvm_hrt_core(struct guest_info *core);
 
 
+int      v3_hvm_should_deliver_ipi(struct guest_info *src, struct guest_info *dest);
+void     v3_hvm_find_apics_seen_by_core(struct guest_info *core, struct v3_vm_info *vm, 
+					uint32_t *start_apic, uint32_t *num_apics);
+
 #endif /* ! __V3VEE__ */
 
 

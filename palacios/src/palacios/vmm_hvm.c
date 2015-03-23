@@ -256,3 +256,44 @@ int v3_is_hvm_ros_core(struct guest_info *core)
     return !core->hvm_state.is_hrt;
 }
 
+int      v3_hvm_should_deliver_ipi(struct guest_info *src, struct guest_info *dest)
+{
+    if (!src) {
+	// ioapic or msi to apic
+	return !dest->hvm_state.is_hrt;
+    } else {
+	// apic to apic
+	return src->hvm_state.is_hrt || (!src->hvm_state.is_hrt && !dest->hvm_state.is_hrt) ;
+    }
+}
+
+void     v3_hvm_find_apics_seen_by_core(struct guest_info *core, struct v3_vm_info *vm, 
+					uint32_t *start_apic, uint32_t *num_apics)
+{
+    if (!core) { 
+	// Seen from ioapic, msi, etc: 
+	if (vm->hvm_state.is_hvm) {
+	    // HVM VM shows only the ROS cores/apics to ioapic, msi, etc
+	    *start_apic = 0;
+	    *num_apics = vm->hvm_state.first_hrt_core;
+	} else {
+	    // Non-HVM shows all cores/APICs to apic, msi, etc.
+	    *start_apic = 0;
+	    *num_apics = vm->num_cores;
+	}
+    } else {
+	// Seen from apic
+	if (core->hvm_state.is_hrt) { 
+	    // HRT core/apic sees all apics
+	    // (this policy may change...)
+	    *start_apic = 0;
+	    *num_apics = vm->num_cores;
+	} else {
+	    // non-HRT core/apic sees only non-HRT cores/apics
+	    *start_apic = 0 ;
+	    *num_apics = vm->hvm_state.first_hrt_core;
+	}
+    }
+}
+	
+
