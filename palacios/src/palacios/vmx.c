@@ -1198,9 +1198,9 @@ int v3_start_vmx_guest(struct guest_info * info) {
 
     PrintDebug(info->vm_info, info, "Starting VMX core %u\n", info->vcpu_id);
 
-#if V3_CONFIG_HVM
-    if (v3_setup_hvm_vm_for_boot(vm)) { 
-	PrintError(vm, VCORE_NONE, "HVM setup for boot failed\n");
+#ifdef V3_CONFIG_HVM
+    if (v3_setup_hvm_hrt_core_for_boot(info)) { 
+	PrintError(info->vm_info, info, "Failed to setup HRT core...\n");
 	return -1;
     }
 #endif
