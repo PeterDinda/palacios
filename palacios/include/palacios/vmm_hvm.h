@@ -64,6 +64,10 @@ int      v3_hvm_should_deliver_ipi(struct guest_info *src, struct guest_info *de
 void     v3_hvm_find_apics_seen_by_core(struct guest_info *core, struct v3_vm_info *vm, 
 					uint32_t *start_apic, uint32_t *num_apics);
 
+
+int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm);
+int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core);
+
 #endif /* ! __V3VEE__ */
 
 

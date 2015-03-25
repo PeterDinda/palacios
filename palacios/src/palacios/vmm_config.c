@@ -355,20 +355,17 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     }
 #endif
 
+    if (v3_init_vm(vm) == -1) {
+	PrintError(VM_NONE, VCORE_NONE, "Failed to initialize VM\n");
+	return -1;
+    }
+
 #ifdef V3_CONFIG_HVM
     if (v3_init_hvm_vm(vm,vm_cfg)) { 
 	PrintError(vm,VCORE_NONE,"Cannot initialize HVM for VM\n");
 	return -1;
     }
 #endif
-
-
-    if (v3_init_vm(vm) == -1) {
-	PrintError(VM_NONE, VCORE_NONE, "Failed to initialize VM\n");
-	return -1;
-    }
-
-
 
    if (schedule_hz_str) {
 	sched_hz = atoi(schedule_hz_str);

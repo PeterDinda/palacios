@@ -1198,6 +1198,13 @@ int v3_start_vmx_guest(struct guest_info * info) {
 
     PrintDebug(info->vm_info, info, "Starting VMX core %u\n", info->vcpu_id);
 
+#if V3_CONFIG_HVM
+    if (v3_setup_hvm_vm_for_boot(vm)) { 
+	PrintError(vm, VCORE_NONE, "HVM setup for boot failed\n");
+	return -1;
+    }
+#endif
+    
     while (1) {
 	if (info->core_run_state == CORE_STOPPED) {
 	    if (info->vcpu_id == 0) {

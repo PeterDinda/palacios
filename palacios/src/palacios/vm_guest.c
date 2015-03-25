@@ -318,6 +318,9 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_remove_hypercall(vm, GUEST_INFO_HCALL);
 
 
+#ifdef V3_CONFIG_HVM
+    v3_deinit_hvm_vm(vm);
+#endif
 
 #ifdef V3_CONFIG_SYMBIOTIC
     v3_deinit_symbiotic_vm(vm);
@@ -377,9 +380,6 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
     v3_deinit_telemetry(vm);
 #endif
 
-#ifdef V3_CONFIG_HVM
-    v3_deinit_hvm_vm(vm);
-#endif
 
     v3_deinit_events(vm);
 
@@ -470,6 +470,10 @@ int v3_free_core(struct guest_info * core) {
     v3_deinit_symbiotic_core(core);
 #endif
 
+#ifdef V3_CONFIG_HVM
+    v3_deinit_hvm_core(core);
+#endif
+
     v3_deinit_decoder(core);
 
     v3_deinit_intr_controllers(core);
@@ -488,9 +492,6 @@ int v3_free_core(struct guest_info * core) {
     v3_deinit_core_telemetry(core);
 #endif
 
-#ifdef V3_CONFIG_HVM
-    v3_deinit_hvm_core(core);
-#endif
 
     switch (v3_mach_type) {
 #ifdef V3_CONFIG_SVM

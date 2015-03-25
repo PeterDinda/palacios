@@ -385,6 +385,12 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
         return -1;
     }
 
+#if V3_CONFIG_HVM
+    if (v3_setup_hvm_vm_for_boot(vm)) { 
+	PrintError(vm, VCORE_NONE, "HVM setup for boot failed\n");
+	return -1;
+    }
+#endif
 
     /// CHECK IF WE ARE MULTICORE ENABLED....
 

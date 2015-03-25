@@ -55,6 +55,8 @@ typedef enum {
     TIME_RDHTSC_HCALL   =  0xd001,       //RBX: cpu freq (out)
 
     VNET_HEADER_QUERY_HCALL  =   0xe000,        // Get the current header for a src/dest pair
+
+    HVM_HCALL = 0xf000, 
 } hcall_id_t;
 
 

@@ -849,6 +849,18 @@ int v3_start_svm_guest(struct guest_info * info) {
 
     PrintDebug(info->vm_info, info, "Starting SVM core %u (on logical core %u)\n", info->vcpu_id, info->pcpu_id);
 
+
+#ifdef V3_CONFIG_HVM
+    if (v3_setup_hvm_hrt_core_for_boot(info)) { 
+	PrintError(info->vm_info, info, "Failed to setup HRT core...\n");
+	return -1;
+    }
+#endif
+ 
+
+	    
+
+
     while (1) {
 
 	if (info->core_run_state == CORE_STOPPED) {
@@ -898,7 +910,6 @@ int v3_start_svm_guest(struct guest_info * info) {
 	    info->core_run_state = CORE_STOPPED;
 	    break;
 	}
-	
 
 #ifdef V3_CONFIG_PMU_TELEMETRY
 	v3_pmu_telemetry_start(info);
