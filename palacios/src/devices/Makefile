@@ -37,6 +37,7 @@ obj-$(V3_CONFIG_TMPDISK) += tmpdisk.o
 obj-$(V3_CONFIG_RAMDISK) += ramdisk.o 
 obj-$(V3_CONFIG_NETDISK) += netdisk.o 
 obj-$(V3_CONFIG_FILEDISK) += filedisk.o
+obj-$(V3_CONFIG_QCOWDISK) += qcowdisk.o
 
 obj-$(V3_CONFIG_CGA) += cga.o
 obj-$(V3_CONFIG_TELNET_CONSOLE) += telnet_cons.o

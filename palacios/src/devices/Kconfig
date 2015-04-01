@@ -249,6 +249,19 @@ config DEBUG_FILEDISK
 	help 
 	  Enable debugging for the file based disk backend 	
 
+config QCOWDISK
+	bool "QCOWDISK storage backend"
+	default y
+	depends on FILE && (IDE || LINUX_VIRTIO_BLOCK)
+	help
+	  Includes the QEMU QCOW2 file-based disk backend
+
+config DEBUG_QCOWDISK
+	bool "QCOWDISK backend debugging"
+	depends on QCOWDISK && DEBUG_ON
+	help 
+	  Enable debugging for the QEMU QCOW2-based disk backend 	
+
 config NETDISK
 	bool "NETDISK storage backend"
 	default y

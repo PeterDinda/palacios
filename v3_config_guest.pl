@@ -278,7 +278,7 @@ print $target "</vm>\n";
 
 close(PAL);
 
-print Dumper(\%config);
+#print Dumper(\%config);
 
 if (defined($config{qemu}) && $config{qemu} eq "y") {
   gen_qemu_startup(\%config, $pdir, $dir);
@@ -847,7 +847,7 @@ sub do_storage {
 
 sub do_storage_backend {
   my ($cr, $pdir, $dir, $name, $frontend, $loc, $frontendblock) = @_;
-  my ($canramdisk, $canfiledisk, $cannetdisk, $cantmpdisk);
+  my ($canramdisk, $canfiledisk, $cannetdisk, $cantmpdisk, $canqcowdisk);
   my @devs=("cd","hd","nothing");
   my @disks;
   my $type;
@@ -857,15 +857,17 @@ sub do_storage_backend {
 
   $canramdisk = is_palacios_core_feature_enabled($pdir, "V3_CONFIG_RAMDISK");
   $canfiledisk = is_palacios_core_feature_enabled($pdir, "V3_CONFIG_FILEDISK");
+  $canqcowdisk = is_palacios_core_feature_enabled($pdir, "V3_CONFIG_QCOWDISK");
   $cannetdisk = is_palacios_core_feature_enabled($pdir, "V3_CONFIG_NETDISK");
   $cantmpdisk = is_palacios_core_feature_enabled($pdir, "V3_CONFIG_TMPDISK");
   push @disks, "ramdisk" if $canramdisk;
   push @disks, "filedisk" if $canramdisk;
+  push @disks, "qcowdisk" if $canramdisk;
   push @disks, "netdisk" if $cannetdisk;
   push @disks, "tmpdisk" if $cantmpdisk;
 
 
-  if (!$canramdisk && !$canfiledisk && !$cannetdisk && !$cantmpdisk) {
+  if (!$canramdisk && !$canfiledisk && !$cannetdisk && !$cantmpdisk && !$canqcowdisk) {
     print "You have no storage implementations enabled in your Palacios build, so it is impossible\n";
     print "to add anything to storage controller \"$frontend\" location \"$loc\"\n";
     return -1;
@@ -884,6 +886,7 @@ sub do_storage_backend {
     print "A storage device requires one of the following implementations\n";
     print "  * RAMDISK - the data is kept in memory (common) : ".($canramdisk ? "available" : "UNAVAILABLE")."\n";
     print "  * FILEDISK - the data is kept in a host file (common) : ".($canfiledisk ? "available" : "UNAVAILABLE")."\n";
+    print "  * QCOWDISK - the data is kept in a host file (qcow) : ".($canqcowdisk ? "available" : "UNAVAILABLE")."\n";
     print "  * NETDISK - the data is accessed via the network (uncommon) : ".($cannetdisk ? "available" : "UNAVAILABLE")."\n";
     print "  * TMPDISK - the data is kept in memory and discarded (common) : ".($cantmpdisk ? "available" : "UNAVAILABLE")."\n";
     while (1) {
@@ -893,7 +896,7 @@ sub do_storage_backend {
       last if $#test==0;
     }
 
-    if ($type eq "filedisk" || $type eq "ramdisk") { 
+    if ($type eq "filedisk" || $type eq "ramdisk" || $type eq "qcowdisk") { 
       print "$type requires a file (.iso for example).  Do you have one? [y] : ";
       if (get_user("y") eq "y") { 
 	while (1) { 
@@ -930,8 +933,11 @@ sub do_storage_backend {
 	add_device($cr,"RAMDISK","$frontend\_$loc", undef, 
 		   "    <file>$frontend\_$loc</file>\n".$attach);
 	add_file($cr, "$frontend\_$loc", "$frontend\_$loc.dat");
-      } else {
+      } elsif ($type eq "filedisk") {
 	add_device($cr,"FILEDISK","$frontend\_$loc", $what eq "hd" ? "writable=\"1\"" : undef, 
+		   "    <path>$frontend\_$loc.dat</path>\n".$attach);
+      } else {
+	add_device($cr,"QCOWDISK","$frontend\_$loc", $what eq "hd" ? "writable=\"1\"" : undef, 
 		   "    <path>$frontend\_$loc.dat</path>\n".$attach);
       }
       last;
