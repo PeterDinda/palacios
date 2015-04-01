@@ -883,7 +883,6 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 	case VM_INVALID: base->state = V3_VM_INVALID; break;
 	case VM_RUNNING: base->state = V3_VM_RUNNING; break;
 	case VM_STOPPED: base->state = V3_VM_STOPPED; break;
-	case VM_RESETTING:  base->state = V3_VM_RESETTING; break;
 	case VM_PAUSED: base->state = V3_VM_PAUSED; break;
 	case VM_ERROR: base->state = V3_VM_ERROR; break;
 	case VM_SIMULATING: base->state = V3_VM_SIMULATING; break;
