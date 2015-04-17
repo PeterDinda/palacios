@@ -185,12 +185,11 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
     PrintDebug(VM_NONE, VCORE_NONE, "v3_init_mem_map: %llu base regions will be allocated of %llu base regions in guest\n",
 	       (uint64_t)num_base_regions_host_mem, (uint64_t)map->num_base_regions);
     
-    map->base_regions = V3_AllocPages(CEIL_DIV(sizeof(struct v3_mem_region) * map->num_base_regions, PAGE_SIZE_4KB));
+    map->base_regions = V3_VMalloc(sizeof(struct v3_mem_region) * map->num_base_regions);
     if (map->base_regions == NULL) {
 	PrintError(vm, VCORE_NONE, "Could not allocate base region array\n");
 	return -1;
     }
-    map->base_regions = V3_VAddr(map->base_regions);
 
     memset(map->base_regions, 0, sizeof(struct v3_mem_region) * map->num_base_regions);
 
@@ -297,8 +296,7 @@ void v3_delete_mem_map(struct v3_vm_info * vm) {
 #endif
     }
 
-    V3_FreePages(V3_PAddr(map->base_regions),
-		 CEIL_DIV(sizeof(struct v3_mem_region) * map->num_base_regions, PAGE_SIZE_4KB));
+    V3_VFree(map->base_regions);
 }
 
 

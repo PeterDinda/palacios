@@ -147,6 +147,24 @@ int      v3_get_vcore(struct guest_info *);
 	}					\
     } while (0)
 
+#define V3_VMalloc(size) ({				\
+	    extern struct v3_os_hooks * os_hooks;	\
+	    void * var = 0;				\
+	    if ((os_hooks) && (os_hooks)->vmalloc) {	\
+		var = (os_hooks)->vmalloc(size);		\
+	    }						\
+	    if (!var) PrintError(VM_NONE,VCORE_NONE,"VMALLOC FAILURE. Memory LEAK!!\n"); \
+	    var;					\
+	})
+
+#define V3_VFree(addr)				\
+    do {					\
+	extern struct v3_os_hooks * os_hooks;	\
+	if ((os_hooks) && (os_hooks)->vfree) {	\
+	    (os_hooks)->vfree(addr);		\
+	}					\
+    } while (0)
+
 // uint_t V3_CPU_KHZ();
 #define V3_CPU_KHZ() ({							\
 	    unsigned int khz = 0;					\
@@ -338,10 +356,16 @@ struct v3_os_hooks {
     // For page allocation:
     //   - node_id -1 => any node, otherwise the numa node we want to alloc from
     //   - constraint = 0 => no constraints, otherwise a bitwise-or of the following flags
+    // Allocates physically contiguous pages
 #define V3_ALLOC_PAGES_CONSTRAINT_4GB  1
     void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id, int constraint);
     void (*free_pages)(void * page, int num_pages);
 
+    // Allocates virtually contiguous memory
+    void *(*vmalloc)(unsigned int size);
+    void (*vfree)(void * addr);
+
+    // Allocates virtually and physically contiguous memory
     void *(*malloc)(unsigned int size);
     void (*free)(void * addr);
 
