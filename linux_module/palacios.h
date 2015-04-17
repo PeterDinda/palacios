@@ -62,10 +62,9 @@ struct v3_guest_img {
     char name[128];
 } __attribute__((packed));
 
-typedef enum { PREALLOCATED=0,          // user space-allocated (e.g. hot remove)
+typedef enum { PREALLOCATED=0,         // user space-allocated (e.g. hot remove)
 	      REQUESTED,               // kernel will attempt allocation (anywhere)
 	      REQUESTED32,             // kernel will attempt allocation (<4GB)
-
 } v3_mem_region_type_t;
 
 struct v3_mem_region {
@@ -156,7 +155,7 @@ struct proc_dir_entry *palacios_get_procdir(void);
 void  palacios_print_scoped(void *vm, int vcore, const char *fmt, ...);
 #define palacios_print(...) palacios_print_scoped(0,-1, __VA_ARGS__)
 // node_id=-1 => no node constraint
-void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id, int constraints);
+void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id, int (*filter_func)(void *paddr, void *filter_state), void *filter_state);
 void  palacios_free_pages(void *page_addr, int num_pages);
 void *palacios_alloc(unsigned int size);
 // node_id=-1 => no node constraint

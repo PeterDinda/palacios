@@ -161,7 +161,7 @@ static addr_t create_generic_pt_page(struct guest_info *core) {
     void * page = 0;
     void *temp;
 
-    temp = V3_AllocPagesExtended(1, PAGE_SIZE_4KB, -1, 0); // no constraints
+    temp = V3_AllocPagesExtended(1, PAGE_SIZE_4KB, -1, 0, 0); // no constraints
 
     if (!temp) {  
 	PrintError(VM_NONE, VCORE_NONE,"Cannot allocate page\n");

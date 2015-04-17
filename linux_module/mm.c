@@ -21,20 +21,9 @@ static uintptr_t * seed_addrs = NULL;
 
 
 // alignment is in bytes
-uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id, int constraints) {
+uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id, int (*filter_func)(void *paddr, void *filter_state), void *filter_state) {
     uintptr_t addr = 0; 
     int any = node_id==-1; // can allocate on any
-    int buddy_constraints=0;
-
-    if (constraints && constraints!=V3_ALLOC_PAGES_CONSTRAINT_4GB) { 
-	ERROR("Unknown constraint mask 0x%x\n",constraints);
-	return 0;
-    }
-    
-    if (constraints & V3_ALLOC_PAGES_CONSTRAINT_4GB) { 
-	buddy_constraints |= LWK_BUDDY_CONSTRAINT_4GB;
-    }
-
 
     if (node_id == -1) {
 	int cpu_id = get_cpu();
@@ -50,14 +39,14 @@ uintptr_t alloc_palacios_pgs(u64 num_pages, u32 alignment, int node_id, int cons
 	return 0;
     }
 
-    addr = buddy_alloc(memzones[node_id], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT, buddy_constraints);
+    addr = buddy_alloc(memzones[node_id], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT, filter_func, filter_state);
 
     if (!addr && any) { 
 	int i;
 	// do a scan to see if we can satisfy request on any node
 	for (i=0; i< numa_num_nodes(); i++) { 
 	    if (i!=node_id) { 
-		addr = buddy_alloc(memzones[i], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT, buddy_constraints);
+		addr = buddy_alloc(memzones[i], get_order(num_pages * PAGE_SIZE) + PAGE_SHIFT, filter_func, filter_state);
 		if (addr) {
 		    break;
 		}
@@ -313,7 +302,7 @@ int palacios_init_mm( void ) {
 		pgs = alloc_pages_node(node_id, GFP_KERNEL, MAX_ORDER - 1);
 
 		if (!pgs) {
-		    INFO("Could not allocate initial memory block for node %d beloew 4GB\n", node_id);
+		    INFO("Could not allocate initial memory block for node %d below 4GB\n", node_id);
 		    if (!pgs) {
 			ERROR("Could not allocate initial memory block for node %d without restrictions\n", node_id);
 			BUG_ON(!pgs);

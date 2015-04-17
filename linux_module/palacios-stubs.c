@@ -175,18 +175,18 @@ void palacios_print_scoped(void * vm, int vcore, const char *fmt, ...) {
  * Allocates a contiguous region of pages of the requested size.
  * Returns the physical address of the first page in the region.
  */
-void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id, int constraints) {
+void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id, int (*filter_func)(void *paddr, void *filter_state), void *filter_state) {
     void * pg_addr = NULL;
 
     if (num_pages<=0) { 
-	ERROR("ALERT ALERT Attempt to allocate zero or fewer pages (%d pages, alignment %d, node %d, constraints 0x%x)\n",num_pages, alignment, node_id, constraints);
+	ERROR("ALERT ALERT Attempt to allocate zero or fewer pages (%d pages, alignment %d, node %d, filter_func %p, filter_state %p)\n",num_pages, alignment, node_id, filter_func, filter_state);
       return NULL;
     }
 
-    pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment, node_id, constraints);
+    pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment, node_id, filter_func, filter_state);
 
     if (!pg_addr) { 
-	ERROR("ALERT ALERT  Page allocation has FAILED Warning (%d pages, alignment %d, node %d, constraints 0x%x)\n",num_pages, alignment, node_id, constraints);
+	ERROR("ALERT ALERT  Page allocation has FAILED Warning (%d pages, alignment %d, node %d, filter_func %p, filter_state %p)\n",num_pages, alignment, node_id, filter_func, filter_state);
 	return NULL;
     }
 

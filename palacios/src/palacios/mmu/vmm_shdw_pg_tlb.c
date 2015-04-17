@@ -54,13 +54,6 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core);
 #include "vmm_shdw_pg_tlb_32pae.h"
 #include "vmm_shdw_pg_tlb_64.h"
 
-static inline int get_constraints(struct guest_info *core) 
-{
-  // the current version of VTLB does not require any constraints
-  // on where page tables are allocated since it will use
-  // 32PAE page tables on a 64 bit machine even in 32 bit mode and below
-  return 0;  
-}
 
 
 static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) {
@@ -98,7 +91,7 @@ static struct shadow_page_data * create_new_shadow_pt(struct guest_info * core) 
 	return NULL;
     }
 
-    page_tail->page_pa = (addr_t)V3_AllocPagesExtended(1,PAGE_SIZE_4KB,-1,get_constraints(core));
+    page_tail->page_pa = (addr_t)V3_AllocPagesExtended(1,PAGE_SIZE_4KB,-1,0,0);
 
     if (!page_tail->page_pa) {
 	PrintError(core->vm_info, core, "Cannot allocate page\n");

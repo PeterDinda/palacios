@@ -285,13 +285,14 @@ int buddy_remove_pool(struct buddy_memzone * zone,
  * Arguments:
  *       [IN] mp:    Buddy system memory allocator object.
  *       [IN] order: Block size to allocate (2^order bytes).
- *       [IN] constraints: bitmmask showing restrictions for scan. currently: 0=none, or LWK_BUDDY_CONSTRAINT_4GB
+ *       [IN] filter_func: returns nonzero if given paddr is OK to use
+ *       [IN] filter_state: opaque argument to filter_func
  * Returns:
  *       Success: Pointer to the start of the allocated memory block.
  *       Failure: NULL
  */
 uintptr_t
-buddy_alloc(struct buddy_memzone *zone, unsigned long order, int constraints)
+buddy_alloc(struct buddy_memzone *zone, unsigned long order, int (*filter_func)(void *paddr, void *filter_state), void *filter_state)
 {
     unsigned long j;
     struct buddy_mempool * mp = NULL;
@@ -300,11 +301,6 @@ buddy_alloc(struct buddy_memzone *zone, unsigned long order, int constraints)
     struct block * block = NULL;
     struct block * buddy_block = NULL;
     unsigned long flags = 0;
-
-    if (constraints && constraints!=LWK_BUDDY_CONSTRAINT_4GB) { 
-	ERROR("Do not know how to satisfy constraint mask 0x%x\n", constraints);
-	return (uintptr_t) NULL;
-    }
 
     BUG_ON(zone == NULL);
     BUG_ON(order > zone->max_order);
@@ -333,23 +329,22 @@ buddy_alloc(struct buddy_memzone *zone, unsigned long order, int constraints)
 	list_for_each(cur, list) {
 	    block = list_entry(cur, struct block, link);
 
-	    if (!constraints) {
-		// without a constraint, we just want the first one
+	    if (!filter_func) {
+		// without a filter, we just want the first one
 		break;
-	    }
-	    
-	    if (constraints & LWK_BUDDY_CONSTRAINT_4GB) {
-		// under this constraint, we will only use if the entirity
-		// of the allocation within the block will be below 4 GB
+	    } else {
+
 		void *block_pa = (void*)__pa(block);
-		if ((block_pa + (1ULL<<order)) <= (void*)(0x100000000ULL)) {
+
+		if (filter_func(block_pa,filter_state)) { 
 		    // this block will work
 		    break;
 		} else {
-		    // look for the next block
+		    // this block won't work
 		    block=NULL;
 		    continue;
 		}
+
 	    }
 	}
 	

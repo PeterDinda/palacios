@@ -59,7 +59,7 @@ int      v3_get_vcore(struct guest_info *);
 	extern struct v3_os_hooks * os_hooks;		        	\
 	void * ptr = 0;					        	\
 	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
-	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB,-1,0); \
+	    ptr = (os_hooks)->allocate_pages(num_pages,PAGE_SIZE_4KB,-1,0,0); \
 	}						        	\
 	ptr;						        	\
     })
@@ -70,7 +70,7 @@ int      v3_get_vcore(struct guest_info *);
 	extern struct v3_os_hooks * os_hooks;		        	\
 	void * ptr = 0;					        	\
 	if ((os_hooks) && (os_hooks)->allocate_pages) {	        	\
-	    ptr = (os_hooks)->allocate_pages(num_pages,align,-1,0);  	\
+	    ptr = (os_hooks)->allocate_pages(num_pages,align,-1,0,0);	\
 	}						        	\
 	ptr;						        	\
     })
@@ -81,17 +81,17 @@ int      v3_get_vcore(struct guest_info *);
         extern struct v3_os_hooks * os_hooks;                           \
         void * ptr = 0;                                                 \
         if ((os_hooks) && (os_hooks)->allocate_pages) {                 \
-            ptr = (os_hooks)->allocate_pages(num_pages, PAGE_SIZE_4KB, node_id,0); \
+            ptr = (os_hooks)->allocate_pages(num_pages, PAGE_SIZE_4KB, node_id,0,0); \
         }                                                               \
         ptr;                                                            \
     })
 
-#define V3_AllocPagesExtended(num_pages, align, node_id, constraints)			\
+#define V3_AllocPagesExtended(num_pages, align, node_id, filter_func, filter_state) \
     ({                                                                  \
         extern struct v3_os_hooks * os_hooks;                           \
         void * ptr = 0;                                                 \
         if ((os_hooks) && (os_hooks)->allocate_pages) {                 \
-            ptr = (os_hooks)->allocate_pages(num_pages, align, node_id,constraints); \
+            ptr = (os_hooks)->allocate_pages(num_pages, align, node_id, filter_func, filter_state); \
         }                                                               \
         ptr;                                                            \
     })
@@ -357,8 +357,9 @@ struct v3_os_hooks {
     //   - node_id -1 => any node, otherwise the numa node we want to alloc from
     //   - constraint = 0 => no constraints, otherwise a bitwise-or of the following flags
     // Allocates physically contiguous pages
-#define V3_ALLOC_PAGES_CONSTRAINT_4GB  1
-    void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id, int constraint);
+    //   - with desired alignment
+    //   - that the filter_func returns nonzero on (if filter_func is given)
+    void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id, int (*filter_func)(void *paddr, void *filter_state), void *filter_state);
     void (*free_pages)(void * page, int num_pages);
 
     // Allocates virtually contiguous memory

@@ -221,7 +221,7 @@ int v3_init_mem_map(struct v3_vm_info * vm) {
 	    region->host_addr = (addr_t)V3_AllocPagesExtended(block_pages,
 							      PAGE_SIZE_4KB,
 							      node_id,
-							      0); // no constraints 
+							      0, 0); // no constraints 
 	    
 	    if ((void *)region->host_addr == NULL) { 
 		PrintError(vm, VCORE_NONE, "Could not allocate guest memory\n");

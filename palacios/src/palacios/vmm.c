@@ -616,7 +616,7 @@ int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu) {
     new_hpa = V3_AllocPagesExtended(num_pages,
 				    PAGE_SIZE_4KB,
 				    new_node,
-				    0);  // no constraints given new shadow pager impl
+				    0, 0);  // no constraints given new shadow pager impl
 
     if (!new_hpa) { 
 	PrintError(vm, VCORE_NONE, "Cannot allocate memory for new base region...\n");
