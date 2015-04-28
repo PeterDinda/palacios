@@ -31,8 +31,6 @@
 
 #include <palacios/vmm_xml.h>
 
-#include <stdio.h>
-#include <stdlib.h>
 
 /*
 
@@ -471,7 +469,7 @@ static int swap_out_region_internal(struct v3_vm_info *vm, struct v3_mem_region 
     
     for (i=0, fail=0; i<vm->num_cores;i++ ) {
 	struct guest_info * core = &(vm->cores[i]);
-	int rc;
+	int rc=0;
 
 	if (core->shdw_pg_mode == SHADOW_PAGING) {
 	    v3_mem_mode_t mem_mode = v3_get_vm_mem_mode(core);

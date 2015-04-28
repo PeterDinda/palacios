@@ -35,7 +35,7 @@ int v3_can_handle_fp_state()
   if (can_do_fp!=-1) { 
     return can_do_fp;
   } else {
-    uint32_t eax, ebx, ecx, edx;
+    uint32_t eax=0, ebx=0, ecx=0, edx=0;
 
     v3_cpuid(CPUID_FEATURE_IDS,&eax,&ebx,&ecx,&edx);
     

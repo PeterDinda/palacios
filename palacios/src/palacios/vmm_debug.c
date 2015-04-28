@@ -488,6 +488,11 @@ void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
         PrintError(core->vm_info, core, "idtr base address != linear translation, might be something funky with cs\n");
     }
 
+    if (!base_hva) {
+	PrintError(core->vm_info, core "idtr address does not translate!  skipping.\n");
+	return ;
+    }
+
     int i;
     char *types[16] = {"  ILGL","aTSS16","   LDT","bTSS16","call16","  task","intr16","trap16",
         "  ILGL","aTSS32","  ILGL","bTSS32","call32","  ILGL","intr32","trap32"};
@@ -531,6 +536,11 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     // SANITY CHECK
     if (gdtr_base != get_addr_linear(core, gdtr_base, &(core->segments.cs))) {
         PrintError(core->vm_info, core, "gdtr base address != linear translation, might be something funky with cs\n");
+    }
+
+    if (!base_hva) {
+	PrintError(core->vm_info, core "gdtr address does not translate!  skipping.\n");
+	return ;
     }
 
     int i;
@@ -600,6 +610,11 @@ void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
         PrintError(core->vm_info, core, "idtr base address != linear translation, might be something funky with cs\n");
     }
 
+    if (!base_hva) {
+	PrintError(core->vm_info, core, "idtr address does not translate!  skipping.\n");
+	return ;
+    }
+
     int i;
     char *types[16] = {"ILGL","ILGL"," LDT","ILGL","ILGL","ILGL","ILGL","ILGL","ILGL",
         "aTSS","ILGL","bTSS","call","ILGL","intr","trap"};
@@ -643,6 +658,11 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     // SANITY CHECK
     if (gdtr_base != get_addr_linear(core, gdtr_base, &(core->segments.cs))) {
         PrintError(core->vm_info, core, "gdtr base address != linear translation, might be something funky with cs\n");
+    }
+
+    if (!base_hva) {
+	PrintError(core->vm_info, core, "gdtr address does not translate!  skipping.\n");
+	return ;
     }
 
     int i;
@@ -693,6 +713,11 @@ void v3_print_ldt(struct guest_info * core, addr_t ldtr_base) {
         PrintError(core->vm_info, core, "ldtr base address != linear translation, might be something funky with cs\n");
     }
 
+    if (!base_hva) {
+	PrintError(core->vm_info, core, "ldtr address does not translate!  skipping.\n");
+	return ;
+    }
+
     int i;
     char* cd[2] = {"data","code"};
     // TODO: handle possibility of gate/segment descriptor
@@ -740,6 +765,12 @@ void v3_print_tss(struct guest_info * core, addr_t tr_base) {
     if (tr_base != get_addr_linear(core, tr_base, &(core->segments.cs))) {
         PrintError(core->vm_info, core, "tr base address != linear translation, might be something funky with cs\n");
     }
+
+    if (!base_hva) {
+	PrintError(core->vm_info, core, "tr address does not translate!  skipping.\n");
+	return ;
+    }
+
     t=(struct tss_long*)base_hva;
 
     V3_Print(core->vm_info, core," res1 : 0x%llx\n", (uint64_t) t->res1);

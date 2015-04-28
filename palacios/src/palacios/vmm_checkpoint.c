@@ -1275,7 +1275,7 @@ int v3_chkpt_send_vm(struct v3_vm_info * vm, char * store, char * url, v3_chkpt_
     int iter = 0;
     bool last_modpage_iteration=false;
     struct v3_bitmap modified_pages_to_send;
-    uint64_t start_time;
+    uint64_t start_time=0;
     uint64_t stop_time;
     int num_mod_pages=0;
     struct mem_migration_state *mm_state;

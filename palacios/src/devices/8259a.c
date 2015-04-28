@@ -595,7 +595,7 @@ static int write_master_port1(struct guest_info * core, ushort_t port, void * sr
         if (IS_OCW2(cw)) {
             // handle the EOI here
             struct ocw2 * cw2 =  (struct ocw2*)&cw;
-	    int eoi_irq;
+	    int eoi_irq=-1;
 
             PrintDebug(core->vm_info, core, "8259 PIC: Master: Handling OCW2 = %x (wr_Master1)\n", cw);
 
@@ -750,7 +750,7 @@ static int write_slave_port1(struct guest_info * core, ushort_t port, void * src
 	state->slave_state = ICW2;
     } else if (state->slave_state == READY) {
 	if (IS_OCW2(cw)) {
-	    int eoi_irq;
+	    int eoi_irq = -1;
 	    // handle the EOI here
 	    struct ocw2 * cw2 =  (struct ocw2 *)&cw;
 
