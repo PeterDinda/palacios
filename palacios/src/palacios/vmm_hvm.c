@@ -28,8 +28,8 @@
 
 #include <palacios/vm_guest_mem.h>
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <palacios/vmm_debug.h>
+
 
 /*
 
@@ -68,6 +68,13 @@
 #define PrintDebug(fmt, args...)
 #endif
 
+
+// if set, we will map the first 1 GB of memory using a 3 level
+// hierarchy, for compatibility with Nautilus out of the box.
+// Otherwise we will map the first 512 GB using a 2 level
+// hieratchy
+#define HVM_MAP_1G_2M 1
+
 int v3_init_hvm()
 {
     PrintDebug(VM_NONE,VCORE_NONE, "hvm: init\n");
@@ -83,8 +90,16 @@ int v3_deinit_hvm()
 
 static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, void * priv_data)
 {
-    V3_Print(core->vm_info,core, "hvm: received hypercall %x  rax=%llx rbx=%llx rcx=%llx\n",
-	     hcall_id, core->vm_regs.rax, core->vm_regs.rbx, core->vm_regs.rcx);
+    uint64_t c;
+
+    rdtscll(c);
+
+
+    V3_Print(core->vm_info,core, "hvm: received hypercall %x  rax=%llx rbx=%llx rcx=%llx at cycle count %llu (%llu cycles since last boot start) num_exits=%llu since initial boot\n",
+	     hcall_id, core->vm_regs.rax, core->vm_regs.rbx, core->vm_regs.rcx, c, c-core->hvm_state.last_boot_start, core->num_exits);
+    v3_print_core_telemetry(core);
+    //    v3_print_guest_state(core);
+
     return 0;
 }
 
@@ -98,7 +113,7 @@ int v3_init_hvm_vm(struct v3_vm_info *vm, struct v3_xml *config)
     char *enable;
     char *ros_cores;
     char *ros_mem;
-    char *hrt_file_id;
+    char *hrt_file_id=0;
 
     PrintDebug(vm, VCORE_NONE, "hvm: vm init\n");
 
@@ -317,10 +332,18 @@ void     v3_hvm_find_apics_seen_by_core(struct guest_info *core, struct v3_vm_in
     }
 }
 
+#define MAX(x,y) ((x)>(y)?(x):(y))
+#define MIN(x,y) ((x)<(y)?(x):(y))
+
+#ifdef HVM_MAP_1G_2M
+#define BOOT_STATE_END_ADDR (MIN(vm->mem_size,0x40000000ULL))
+#else
+#define BOOT_STATE_END_ADDR (MIN(vm->mem_size,0x800000000ULL))
+#endif
 
 static void get_null_int_handler_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*) PAGE_ADDR(vm->mem_size - PAGE_SIZE);
+    *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR - PAGE_SIZE);
     *limit = PAGE_SIZE;
 }
 
@@ -372,7 +395,7 @@ static void write_null_int_handler(struct v3_vm_info *vm)
 
 static void get_idt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*) PAGE_ADDR(vm->mem_size - 2 * PAGE_SIZE);
+    *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR - 2 * PAGE_SIZE);
     *limit = 16*256;
 }
 
@@ -450,7 +473,7 @@ static void write_idt(struct v3_vm_info *vm)
 
 static void get_gdt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*)PAGE_ADDR(vm->mem_size - 3 * PAGE_SIZE);
+    *base = (void*)PAGE_ADDR(BOOT_STATE_END_ADDR - 3 * PAGE_SIZE);
     *limit = 8*3;
 }
 
@@ -475,7 +498,7 @@ static void write_gdt(struct v3_vm_info *vm)
 
 static void get_tss_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*)PAGE_ADDR(vm->mem_size - 4 * PAGE_SIZE);
+    *base = (void*)PAGE_ADDR(BOOT_STATE_END_ADDR - 4 * PAGE_SIZE);
     *limit = PAGE_SIZE;
 }
 
@@ -501,15 +524,31 @@ static void write_tss(struct v3_vm_info *vm)
      512 entries
   1 top level
      1 entries
+
+OR
+  
+  PTS MAP FIRST 1 GB identity mapped:
+  1 third level
+    512 entries
+  1 second level
+    1 entries
+  1 top level
+    1 entries
 */
 
 static void get_pt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*)PAGE_ADDR(vm->mem_size-(5+1)*PAGE_SIZE);
+#ifdef HVM_MAP_1G_2M
+    *base = (void*)PAGE_ADDR(BOOT_STATE_END_ADDR-(5+2)*PAGE_SIZE);
+    *limit =  3*PAGE_SIZE;
+#else
+    *base = (void*)PAGE_ADDR(BOOT_STATE_END_ADDR-(5+1)*PAGE_SIZE);
     *limit =  2*PAGE_SIZE;
+#endif
 }
 
-static void write_pt(struct v3_vm_info *vm)
+#ifndef HVM_MAP_1G_2M
+static void write_pt_2level_512GB(struct v3_vm_info *vm)
 {
     void *base;
     uint64_t size;
@@ -520,6 +559,10 @@ static void write_pt(struct v3_vm_info *vm)
     get_pt_loc(vm,&base, &size);
     if (size!=2*PAGE_SIZE) { 
 	PrintError(vm,VCORE_NONE,"Cannot support pt request, defaulting\n");
+    }
+
+    if (vm->mem_size > 0x800000000ULL) { 
+	PrintError(vm,VCORE_NONE, "VM has more than 512 GB\n");
     }
 
     memset(&pdpe,0,sizeof(pdpe));
@@ -544,12 +587,89 @@ static void write_pt(struct v3_vm_info *vm)
 	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+i*sizeof(pml4e)),sizeof(pml4e),(uint8_t*)&pml4e);
     }
 
-    PrintDebug(vm,VCORE_NONE,"hvm: Wrote page tables (1 PML4, 1 PDPE) at %p\n",base);
+    PrintDebug(vm,VCORE_NONE,"hvm: Wrote page tables (1 PML4, 1 PDPE) at %p (512 GB mapped)\n",base);
+}
+
+#else 
+
+static void write_pt_3level_1GB(struct v3_vm_info *vm)
+{
+    void *base;
+    uint64_t size;
+    struct pml4e64 pml4e;
+    struct pdpe64 pdpe;
+    struct pde64 pde;
+
+    uint64_t i;
+
+    get_pt_loc(vm,&base, &size);
+    if (size!=3*PAGE_SIZE) { 
+	PrintError(vm,VCORE_NONE,"Cannot support pt request, defaulting\n");
+    }
+
+    if (vm->mem_size > 0x40000000ULL) { 
+	PrintError(vm,VCORE_NONE, "VM has more than 1 GB\n");
+    }
+
+    memset(&pde,0,sizeof(pde));
+    pde.present=1;
+    pde.writable=1;
+    pde.large_page=1;
+    
+    for (i=0;i<512;i++) {
+	pde.pt_base_addr = i*0x200;  // 0x200 = 512 pages = 2 MB
+	v3_write_gpa_memory(&vm->cores[0],
+			    (addr_t)(base+2*PAGE_SIZE+i*sizeof(pde)),
+			    sizeof(pde),(uint8_t*)&pde);
+    }
+
+    memset(&pdpe,0,sizeof(pdpe));
+    pdpe.present=1;
+    pdpe.writable=1;
+    pdpe.large_page=0;
+
+    pdpe.pd_base_addr = PAGE_BASE_ADDR((addr_t)(base+2*PAGE_SIZE));
+
+    v3_write_gpa_memory(&vm->cores[0],(addr_t)base+PAGE_SIZE,sizeof(pdpe),(uint8_t*)&pdpe);    
+    
+    for (i=1;i<512;i++) {
+	pdpe.present = 0; 
+	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+PAGE_SIZE+i*sizeof(pdpe)),sizeof(pdpe),(uint8_t*)&pdpe);
+    }
+
+    memset(&pml4e,0,sizeof(pml4e));
+    pml4e.present=1;
+    pml4e.writable=1;
+    pml4e.pdp_base_addr = PAGE_BASE_ADDR((addr_t)(base+PAGE_SIZE));
+
+    v3_write_gpa_memory(&vm->cores[0],(addr_t)base,sizeof(pml4e),(uint8_t*)&pml4e);    
+
+    for (i=1;i<512;i++) {
+	pml4e.present=0;
+	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+i*sizeof(pml4e)),sizeof(pml4e),(uint8_t*)&pml4e);
+    }
+
+    PrintDebug(vm,VCORE_NONE,"hvm: Wrote page tables (1 PML4, 1 PDPE, 1 PDP) at %p (1 GB mapped)\n",base);
+}
+
+#endif
+
+static void write_pt(struct v3_vm_info *vm)
+{
+#ifdef HVM_MAP_1G_2M
+    write_pt_3level_1GB(vm);
+#else
+    write_pt_2level_512GB(vm);
+#endif
 }
 
 static void get_bp_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*) PAGE_ADDR(vm->mem_size-(6+1)*PAGE_SIZE);
+#ifdef HVM_MAP_1G_2M
+    *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR-(6+2)*PAGE_SIZE);
+#else
+    *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR-(6+1)*PAGE_SIZE);
+#endif
     *limit =  PAGE_SIZE;
 }
 
@@ -593,22 +713,146 @@ static void get_hrt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
     *limit = bp_base - *base;
 }
 
-static void write_hrt(struct v3_vm_info *vm)
+
+#define ERROR(fmt, args...) PrintError(VM_NONE,VCORE_NONE,"hvm: " fmt,##args)
+#define INFO(fmt, args...) PrintDebug(VM_NONE,VCORE_NONE,"hvm: " fmt,##args)
+
+#define ELF_MAGIC    0x464c457f
+#define MB2_MAGIC    0xe85250d6
+
+#define MB2_INFO_MAGIC    0x36d76289
+
+static int is_elf(uint8_t *data, uint64_t size)
+{
+    if (*((uint32_t*)data)==ELF_MAGIC) {
+	return 1;
+    } else { 
+	return 0;
+    }
+}
+
+static mb_header_t *find_mb_header(uint8_t *data, uint64_t size)
+{
+    uint64_t limit = size > 32768 ? 32768 : size;
+    uint64_t i;
+
+    // Scan for the .boot magic cookie
+    // must be in first 32K, assume 4 byte aligned
+    for (i=0;i<limit;i+=4) { 
+	if (*((uint32_t*)&data[i])==MB2_MAGIC) {
+	    INFO("Found multiboot header at offset 0x%llx\n",i);
+	    return (mb_header_t *) &data[i];
+	}
+    }
+    return 0;
+}
+
+
+// 
+// BROKEN - THIS DOES NOT DO WHAT YOU THINK
+//
+static int setup_elf(struct v3_vm_info *vm, void *base, uint64_t limit)
+{
+    v3_write_gpa_memory(&vm->cores[0],(addr_t)base,vm->hvm_state.hrt_file->size,vm->hvm_state.hrt_file->data);
+
+    vm->hvm_state.hrt_entry_addr = (uint64_t) (base+0x40);
+
+    PrintDebug(vm,VCORE_NONE,"hvm: wrote HRT ELF %s at %p\n", vm->hvm_state.hrt_file->tag,base);
+    PrintDebug(vm,VCORE_NONE,"hvm: set ELF entry to %p and hoping for the best...\n", (void*) vm->hvm_state.hrt_entry_addr);
+    
+    vm->hvm_state.hrt_type = HRT_ELF64;
+
+    return 0;
+
+}
+
+static int setup_mb_kernel(struct v3_vm_info *vm, void *base, uint64_t limit)
+{
+    mb_data_t mb;
+    uint32_t offset;
+
+
+    // FIX USING GENERIC TOOLS
+
+    if (v3_parse_multiboot_header(vm->hvm_state.hrt_file,&mb)) { 
+	PrintError(vm,VCORE_NONE, "hvm: failed to parse multiboot kernel header\n");
+	return -1;
+    }
+
+    if (!mb.addr || !mb.entry) { 
+	PrintError(vm,VCORE_NONE, "hvm: kernel is missing address or entry point\n");
+	return -1;
+    }
+
+    if (((void*)(uint64_t)(mb.addr->header_addr) < base ) ||
+	((void*)(uint64_t)(mb.addr->load_end_addr) > base+limit) ||
+	((void*)(uint64_t)(mb.addr->bss_end_addr) > base+limit)) { 
+	PrintError(vm,VCORE_NONE, "hvm: kernel is not within the allowed portion of HVM\n");
+	return -1;
+    }
+
+    offset = mb.addr->load_addr - mb.addr->header_addr;
+
+    // Skip the ELF header - assume 1 page... weird.... 
+    v3_write_gpa_memory(&vm->cores[0],
+			(addr_t)(mb.addr->load_addr),
+			vm->hvm_state.hrt_file->size-PAGE_SIZE-offset,
+			vm->hvm_state.hrt_file->data+PAGE_SIZE+offset);
+
+	
+    // vm->hvm_state.hrt_entry_addr = (uint64_t) mb.entry->entry_addr + PAGE_SIZE; //HACK PAD
+
+    vm->hvm_state.hrt_entry_addr = (uint64_t) mb.entry->entry_addr;
+    
+    vm->hvm_state.hrt_type = HRT_MBOOT64;
+
+    PrintDebug(vm,VCORE_NONE,
+	       "hvm: wrote 0x%llx bytes starting at offset 0x%llx to %p; set entry to %p\n",
+	       (uint64_t) vm->hvm_state.hrt_file->size-PAGE_SIZE-offset,
+	       (uint64_t) PAGE_SIZE+offset,
+	       (void*)(addr_t)(mb.addr->load_addr),
+	       (void*) vm->hvm_state.hrt_entry_addr);
+    return 0;
+
+}
+
+
+static int setup_hrt(struct v3_vm_info *vm)
 {
     void *base;
     uint64_t limit;
 
     get_hrt_loc(vm,&base,&limit);
-    
+
     if (vm->hvm_state.hrt_file->size > limit) { 
 	PrintError(vm,VCORE_NONE,"hvm: Cannot map HRT because it is too big (%llu bytes, but only have %llu space\n", vm->hvm_state.hrt_file->size, (uint64_t)limit);
-	return;
+	return -1;
     }
 
-    v3_write_gpa_memory(&vm->cores[0],(addr_t)base,vm->hvm_state.hrt_file->size,vm->hvm_state.hrt_file->data);
+    if (!is_elf(vm->hvm_state.hrt_file->data,vm->hvm_state.hrt_file->size)) { 
+	PrintError(vm,VCORE_NONE,"hvm: supplied HRT is not an ELF but we are going to act like it is!\n");
+	if (setup_elf(vm,base,limit)) {
+	    PrintError(vm,VCORE_NONE,"hvm: Fake ELF setup failed\n");
+	    return -1;
+	}
+	vm->hvm_state.hrt_type=HRT_BLOB;
+    } else {
+	if (find_mb_header(vm->hvm_state.hrt_file->data,vm->hvm_state.hrt_file->size)) { 
+	    PrintDebug(vm,VCORE_NONE,"hvm: appears to be a multiboot kernel\n");
+	    if (setup_mb_kernel(vm,base,limit)) { 
+		PrintError(vm,VCORE_NONE,"hvm: multiboot kernel setup failed\n");
+		return -1;
+	    } 
+	} else {
+	    PrintDebug(vm,VCORE_NONE,"hvm: supplied HRT is an ELF\n");
+	    if (setup_elf(vm,base,limit)) {
+		PrintError(vm,VCORE_NONE,"hvm: Fake ELF setup failed\n");
+		return -1;
+	    }
+	}
+    }
 
-    PrintDebug(vm,VCORE_NONE,"hvm: wrote HRT %s at %p\n", vm->hvm_state.hrt_file->tag,base);
-    
+    return 0;
 }
 
 
@@ -659,7 +903,10 @@ int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm)
 
     write_bp(vm);
     
-    write_hrt(vm);
+    if (setup_hrt(vm)) {
+	PrintError(vm,VCORE_NONE,"hvm: failed to setup HRT\n");
+	return -1;
+    } 
 
 
     PrintDebug(vm,VCORE_NONE,"hvm: setup of HVM memory done\n");
@@ -693,6 +940,8 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     void *base;
     uint64_t limit;
 
+    rdtscll(core->hvm_state.last_boot_start);
+
     if (!core->hvm_state.is_hrt) { 
 	PrintDebug(core->vm_info,core,"hvm: skipping HRT setup for core %u as it is not an HRT core\n", core->vcpu_id);
 	return 0;
@@ -725,21 +974,27 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     core->vm_regs.rdi = (v3_reg_t) base;
     // HRT entry point
     get_hrt_loc(core->vm_info, &base,&limit);
-    core->rip = (uint64_t) base + 0x40; // hack for test.o
+    core->rip = (uint64_t) core->vm_info->hvm_state.hrt_entry_addr ; 
 
     // Setup CRs for long mode and our stub page table
     // CR0: PG, PE
     core->ctrl_regs.cr0 = 0x80000001;
+    core->shdw_pg_state.guest_cr0 = core->ctrl_regs.cr0;
+
     // CR2: don't care (output from #PF)
     // CE3: set to our PML4E, without setting PCD or PWT
     get_pt_loc(core->vm_info, &base,&limit);
     core->ctrl_regs.cr3 = PAGE_ADDR((addr_t)base);
+    core->shdw_pg_state.guest_cr3 = core->ctrl_regs.cr3;
+
     // CR4: PGE, PAE, PSE (last byte: 1 0 1 1 0 0 0 0)
     core->ctrl_regs.cr4 = 0xb0;
+    core->shdw_pg_state.guest_cr4 = core->ctrl_regs.cr4;
     // CR8 as usual
     // RFLAGS zeroed is fine: come in with interrupts off
-    // EFER needs SVME LMA LME (last 16 bites: 0 0 0 1 0 1 0 1 0 0 0 0 0 0 0 0
+    // EFER needs SVME LMA LME (last 16 bits: 0 0 0 1 0 1 0 1 0 0 0 0 0 0 0 0
     core->ctrl_regs.efer = 0x1500;
+    core->shdw_pg_state.guest_efer.value = core->ctrl_regs.efer;
 
 
     /* 
@@ -817,10 +1072,83 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     memcpy(&core->segments.fs,&core->segments.ds,sizeof(core->segments.ds));
     memcpy(&core->segments.gs,&core->segments.ds,sizeof(core->segments.ds));
     
+
+    if (core->vm_info->hvm_state.hrt_type==HRT_MBOOT64) { 
+	/*
+	  Temporary hackery for multiboot2 "64"
+	  We will push the MB structure onto the stack and update RSP
+	  and RBX
+	*/
+	uint8_t buf[256];
+	uint64_t size;
+	
+	if ((size=v3_build_multiboot_table(core,buf,256))==-1) { 
+	    PrintError(core->vm_info,core,"hvm: Failed to write MB info\n");
+	    return -1;
+	}
+	core->vm_regs.rsp -= size;
+
+	v3_write_gpa_memory(core,
+			    core->vm_regs.rsp,
+			    size,
+			    buf);
+
+	PrintDebug(core->vm_info,core, "hvm: wrote MB info at %p\n", (void*)core->vm_regs.rsp);
+
+	if (core->vcpu_id == core->vm_info->hvm_state.first_hrt_core) {
+	    // We are the BSP for this HRT
+	    // this is where rbx needs to point
+	    core->vm_regs.rbx = core->vm_regs.rsp;
+	    PrintDebug(core->vm_info,core, "hvm: \"BSP\" core\n");
+	} else {
+	    // We are an AP for this HRT
+	    // so we don't get the multiboot struct
+	    core->vm_regs.rbx = 0;
+	    PrintDebug(core->vm_info,core, "hvm: \"AP\" core\n");
+	}
+
+
+
+	// one more push, something that looks like a return address
+	size=0;
+	core->vm_regs.rsp -= 8;
+
+	v3_write_gpa_memory(core,
+			    core->vm_regs.rsp,
+			    8,
+			    (uint8_t*) &size);
+	
+	// Now for our magic - this signals
+	// the kernel that a multiboot loader loaded it
+	// and that rbx points to its offered data
+	core->vm_regs.rax = MB2_INFO_MAGIC;
+    
+	/* 
+	   Note that "real" MB starts in protected mode without paging
+	   This hack starts in long mode... so these requirements go
+	   out the window for a large part
+
+	   Requirements:
+
+	   OK EAX has magic 
+	   OK EBX points to MB info
+	   OK CS = base 0, offset big, code (LONG MODE)
+	   OK DS,ES,FS,GS,SS => base 0, offset big, data (LONG MODE)
+	   OK A20 gate on
+	   XXX CR0 PE on PG off (nope)
+	   XXX EFLAGS IF and VM off
+	*/
+	   
+
+
+    }
+
+
     // reset paging here for shadow... 
 
     if (core->shdw_pg_mode != NESTED_PAGING) { 
 	PrintError(core->vm_info, core, "hvm: shadow paging guest... this will end badly\n");
+	return -1;
     }
 
 

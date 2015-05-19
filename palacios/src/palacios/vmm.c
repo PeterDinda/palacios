@@ -154,6 +154,10 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
     // Parse host-os defined options into an easily-accessed format.
     v3_parse_options(options);
 
+#ifdef V3_CONFIG_MULTIBOOT
+    v3_init_multiboot();
+#endif
+
 #ifdef V3_CONFIG_HVM
     v3_init_hvm();
 #endif
@@ -261,6 +265,10 @@ void Shutdown_V3() {
     
 #ifdef V3_CONFIG_HVM
     v3_deinit_hvm();
+#endif
+
+#ifdef V3_CONFIG_MULTIBOOT
+    v3_deinit_multiboot();
 #endif
 
     v3_deinit_options();
@@ -385,6 +393,12 @@ int v3_start_vm(struct v3_vm_info * vm, unsigned int cpu_mask) {
         return -1;
     }
 
+#if V3_CONFIG_MULTIBOOT
+    if (v3_setup_multiboot_vm_for_boot(vm)) { 
+	PrintError(vm, VCORE_NONE, "Multiboot setup for boot failed\n");
+	return -1;
+    }
+#endif
 #if V3_CONFIG_HVM
     if (v3_setup_hvm_vm_for_boot(vm)) { 
 	PrintError(vm, VCORE_NONE, "HVM setup for boot failed\n");

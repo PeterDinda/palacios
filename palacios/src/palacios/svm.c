@@ -850,6 +850,13 @@ int v3_start_svm_guest(struct guest_info * info) {
     PrintDebug(info->vm_info, info, "Starting SVM core %u (on logical core %u)\n", info->vcpu_id, info->pcpu_id);
 
 
+#ifdef V3_CONFIG_MULTIBOOT
+    if (v3_setup_multiboot_core_for_boot(info)) { 
+	PrintError(info->vm_info, info, "Failed to setup Multiboot core...\n");
+	return -1;
+    }
+#endif
+
 #ifdef V3_CONFIG_HVM
     if (v3_setup_hvm_hrt_core_for_boot(info)) { 
 	PrintError(info->vm_info, info, "Failed to setup HRT core...\n");

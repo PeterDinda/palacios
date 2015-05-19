@@ -69,6 +69,10 @@ struct v3_sym_core_state;
 #include <palacios/vmm_mem_track.h>
 #endif
 
+#ifdef V3_CONFIG_MULTIBOOT
+#include <palacios/vmm_multiboot.h>
+#endif
+
 #ifdef V3_CONFIG_HVM
 #include <palacios/vmm_hvm.h>
 #endif
@@ -264,9 +268,14 @@ struct v3_vm_info {
     struct v3_vm_mem_track memtrack_state;
 #endif
 
+#ifdef V3_CONFIG_MULTIBOOT
+    struct v3_vm_multiboot  mb_state;
+#endif
+
 #ifdef V3_CONFIG_HVM
     struct v3_vm_hvm  hvm_state;
 #endif
+
 
     uint64_t yield_cycle_period;  
 

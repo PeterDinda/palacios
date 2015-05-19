@@ -30,10 +30,13 @@ struct v3_vm_hvm {
     uint32_t  first_hrt_core;
     uint64_t  first_hrt_gpa;
     struct v3_cfg_file *hrt_file;
+    uint64_t  hrt_entry_addr;
+    enum { HRT_BLOB, HRT_ELF64, HRT_MBOOT2, HRT_MBOOT64 } hrt_type;
 };
 
 struct v3_core_hvm {
     uint8_t   is_hrt;
+    uint64_t  last_boot_start;
 };
 
 struct v3_xml;

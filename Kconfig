@@ -57,6 +57,8 @@ config OTHER_OS
 
 endchoice
 
+source "Kconfig.stdlibs"
+
 config CRAY_XT
         bool "Red Storm (Cray XT3/XT4)"
         help
@@ -260,185 +262,7 @@ config DEBUG_CHECKPOINT
 
 endmenu
 
-
-source "Kconfig.stdlibs"
-
-
-menu "Virtual Paging"
-
-config NESTED_PAGING
-	bool "Enable nested paging"
-        default y 
-        help
-           Enable nested paging (should always be on)
-
-config SHADOW_PAGING
-	bool "Enable shadow paging"
-	default y
-	help 
-	   Enables shadow paging for virtual machines
-
-
-config SHADOW_PAGING_VTLB
-	bool "Virtual TLB"
-	default y
-	depends on SHADOW_PAGING
-	help 
-	   Enables Virtual TLB implemenation for shadow paging
-           Virtual TLB now uses PAE so there are no 4 GB restrictions
-
-
-config DEBUG_SHDW_PG_VTLB
-	bool "Enable VTLB debugging"
-	default n
-	depends on SHADOW_PAGING_VTLB
-	help
-	  Enables debugging messages for VTLB implementation
-
-config SHADOW_PAGING_CACHE
-	bool "Shadow Page Cache"
-	default n
-	depends on SHADOW_PAGING && EXPERIMENTAL
-	help 
-	   Enables caching implementation of shadow paging
-
-config DEBUG_SHADOW_PAGING_CACHE
-	bool "Enable Shadow Page Cache Debugging"
-        default n
-        depends on SHADOW_PAGING_CACHE
-        help
-           Enables debugging messages for the VTLB + Caching implementation
-
-#config SHADOW_PAGING_KVM
-#	bool "KVM-style Shadow Pager"
-#	default n
-#	depends on SHADOW_PAGING && EXPERIMENTAL
-#	help 
-#	   Enables shadow pager derived from KVM 
-#           You probably do not want this and it will probably not compile!
-#
-#config DEBUG_SHADOW_PAGING_KVM 
-#	bool "Enable KVM-style Shadow Pager Debugging"
-#        default n
-#        depends on SHADOW_PAGING_KVM
-#        help
-#           Enables debugging messages for the KVM-style shadow pager
-
-
-config SWAPPING
-        bool "Enable swapping"
-        default n
-        depends on (SHADOW_PAGING || NESTED_PAGING) && FILE
-        help
-           Enables swapping of regions of guest physical memory to a file 
-
-config DEBUG_SWAPPING
-        bool "Enable swapping debugging"
-	default n
-        depends on SWAPPING
-        help
-           Provides debugging output from the swapping system
-
-config MEM_TRACK
-	 bool "Enable memory access tracking"
-	default n
-	depends on SHADOW_PAGING || NESTED_PAGING
-	help
-	   Allows tracking of memory accesses on a page granularity
-
-config DEBUG_MEM_TRACK
-	 bool "Enable memory access tracking debugging" 
-	default n
-	depends on MEM_TRACK
-	help
-	   Provides debugging output for memory access tracking
-
-endmenu
-
-menu "Symbiotic Functions"
-
-config SYMBIOTIC
-	bool "Enable Symbiotic Functionality"
-	default n
-	help 
-	  Enable Symbiotic components of the VMM. 
-	  This includes the SymSpy interface.
-
-config SYMCALL
-	bool "Symbiotic upcalls"
-	default n
-	depends on SYMBIOTIC && EXPERIMENTAL
-	help
-	  Enables the Symbiotic upcall interface
-
-config SWAPBYPASS
-	bool "SwapBypass"
-	default n
-	depends on SYMBIOTIC && SYMCALL && EXPERIMENTAL
-	help 
-	  This enables the SwapBypass architecture
-
-config SWAPBYPASS_TELEMETRY
-	bool "Enable SwapBypass Telemetry"
-	default n
-	depends on TELEMETRY && SWAPBYPASS
-	help 
-	  Enable the telemetry information for the SwapBypass subsystem
-
-menuconfig SYMMOD 
-	bool "Symbiotic Modules"
-	default n
-	depends on EXPERIMENTAL
-#	depends on SYMBIOTIC
-	help
-	  Enable Symbiotic module loading
-
-
-endmenu
-
-menu "VNET"
-
-config VNET
-        bool "Enable Vnet in Palacios"
-        default n
-        help
-          Enable the Vnet in Palacios
-
-config DEBUG_VNET
-        depends on VNET
-        bool "Enable Vnet Debug in Palacios"
-        default n
-        help
-          Enable the Vnet debug in Palacios
-
-
-endmenu
-
-source "palacios/src/gears/Kconfig"
-
-
-menu "HVM" 
-
-config HVM
-	bool "Support Hybrid Virtual Machines"
-	default n
-	help 
-          If set, it is possible to make VMs that are partitioned
-          (cores, memory, devices, hardware access, etc) into 
-          a part ("the ROS") that supports normal VM operation and
-          a part ("the HRT") that supports Hybrid Run-Times,
-          for example Nautilus-based HRTs for parallel languages.
-
-config DEBUG_HVM
-        depends on HVM
-        bool "Enable HVM debugging in Palacios"
-        default n
-        help
-          Enable HVM debugging output
-
-endmenu
-
-menu "Debug configuration"
+menu "Debug Configuration"
 
 ## Is unwind information useful
 
@@ -585,7 +409,106 @@ config DEBUG_MEM_ALLOC
 endmenu
 
 
-menu "BIOS Selection"
+
+
+menu "Virtual Paging"
+
+config NESTED_PAGING
+	bool "Enable nested paging"
+        default y 
+        help
+           Enable nested paging (should always be on)
+
+config SHADOW_PAGING
+	bool "Enable shadow paging"
+	default y
+	help 
+	   Enables shadow paging for virtual machines
+
+
+config SHADOW_PAGING_VTLB
+	bool "Virtual TLB"
+	default y
+	depends on SHADOW_PAGING
+	help 
+	   Enables Virtual TLB implemenation for shadow paging
+           Virtual TLB now uses PAE so there are no 4 GB restrictions
+
+
+config DEBUG_SHDW_PG_VTLB
+	bool "Enable VTLB debugging"
+	default n
+	depends on SHADOW_PAGING_VTLB
+	help
+	  Enables debugging messages for VTLB implementation
+
+config SHADOW_PAGING_CACHE
+	bool "Shadow Page Cache"
+	default n
+	depends on SHADOW_PAGING && EXPERIMENTAL
+	help 
+	   Enables caching implementation of shadow paging
+
+config DEBUG_SHADOW_PAGING_CACHE
+	bool "Enable Shadow Page Cache Debugging"
+        default n
+        depends on SHADOW_PAGING_CACHE
+        help
+           Enables debugging messages for the VTLB + Caching implementation
+
+#config SHADOW_PAGING_KVM
+#	bool "KVM-style Shadow Pager"
+#	default n
+#	depends on SHADOW_PAGING && EXPERIMENTAL
+#	help 
+#	   Enables shadow pager derived from KVM 
+#           You probably do not want this and it will probably not compile!
+#
+#config DEBUG_SHADOW_PAGING_KVM 
+#	bool "Enable KVM-style Shadow Pager Debugging"
+#        default n
+#        depends on SHADOW_PAGING_KVM
+#        help
+#           Enables debugging messages for the KVM-style shadow pager
+
+
+config SWAPPING
+        bool "Enable swapping"
+        default n
+        depends on (SHADOW_PAGING || NESTED_PAGING) && FILE
+        help
+           Enables swapping of regions of guest physical memory to a file 
+
+config DEBUG_SWAPPING
+        bool "Enable swapping debugging"
+	default n
+        depends on SWAPPING
+        help
+           Provides debugging output from the swapping system
+
+config MEM_TRACK
+	 bool "Enable memory access tracking"
+	default n
+	depends on SHADOW_PAGING || NESTED_PAGING
+	help
+	   Allows tracking of memory accesses on a page granularity
+
+config DEBUG_MEM_TRACK
+	 bool "Enable memory access tracking debugging" 
+	default n
+	depends on MEM_TRACK
+	help
+	   Provides debugging output for memory access tracking
+
+endmenu
+
+
+source "palacios/src/devices/Kconfig"
+
+menu "Boot Environments"
+
+
+menu "BIOS"
 
 choice 
        prompt "Boot Code Selection"
@@ -612,7 +535,6 @@ config OTHERBIOS
 
 
 endchoice
-
 
 config SEABIOS_PATH
 	string "Path to pre-built SEABIOS binary"
@@ -666,8 +588,116 @@ config VMXASSIST_PATH
 	  This is vmxassist image to boot real mode guests on 
 	  Intel VMX Platforms
 
+endmenu 
+
+menu Multiboot
+
+config MULTIBOOT
+	bool "Support Multiboot2-compliant boot"
+	default y
+	help 
+          If set, it is possible to boot a multiboot2 compliant
+          kernel directly.
+
+config DEBUG_MULTIBOOT
+        depends on MULTIBOOT
+        bool "Enable Multiboot2 debugging in Palacios"
+        default n
+        help
+          Enable Multiboot2 debugging output
+
 endmenu
 
 
-source "palacios/src/devices/Kconfig"
+endmenu
+
+menu "Symbiosis"
+
+config SYMBIOTIC
+	bool "Enable Symbiotic Functionality"
+	default n
+	help 
+	  Enable Symbiotic components of the VMM. 
+	  This includes the SymSpy interface.
+
+config SYMCALL
+	bool "Symbiotic upcalls"
+	default n
+	depends on SYMBIOTIC && EXPERIMENTAL
+	help
+	  Enables the Symbiotic upcall interface
+
+config SWAPBYPASS
+	bool "SwapBypass"
+	default n
+	depends on SYMBIOTIC && SYMCALL && EXPERIMENTAL
+	help 
+	  This enables the SwapBypass architecture
+
+config SWAPBYPASS_TELEMETRY
+	bool "Enable SwapBypass Telemetry"
+	default n
+	depends on TELEMETRY && SWAPBYPASS
+	help 
+	  Enable the telemetry information for the SwapBypass subsystem
+
+menuconfig SYMMOD 
+	bool "Symbiotic Modules"
+	default n
+	depends on EXPERIMENTAL
+#	depends on SYMBIOTIC
+	help
+	  Enable Symbiotic module loading
+
+
+endmenu
+
+menu "VNET"
+
+config VNET
+        bool "Enable Vnet in Palacios"
+        default n
+        help
+          Enable the Vnet in Palacios
+
+config DEBUG_VNET
+        depends on VNET
+        bool "Enable Vnet Debug in Palacios"
+        default n
+        help
+          Enable the Vnet debug in Palacios
+
+
+endmenu
+
+source "palacios/src/gears/Kconfig"
+
+
+menu HVM
+
+config HVM
+	bool "Support Hybrid Virtual Machines"
+	depends on MULTIBOOT
+	default n
+	help 
+          If set, it is possible to make VMs that are partitioned
+          (cores, memory, devices, hardware access, etc) into 
+          a part ("the ROS") that supports normal VM operation and
+          a part ("the HRT") that supports Hybrid Run-Times,
+          for example Nautilus-based HRTs for parallel languages.
+
+config DEBUG_HVM
+        depends on HVM
+        bool "Enable HVM debugging in Palacios"
+        default n
+        help
+          Enable HVM debugging output
+
+endmenu
+
+
+
+
+
+
 

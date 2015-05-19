@@ -93,6 +93,7 @@ obj-$(V3_CONFIG_SYMMOD) += vmm_symmod.o
 
 obj-$(V3_CONFIG_MEM_TRACK) += vmm_mem_track.o
 
+obj-$(V3_CONFIG_MULTIBOOT) += vmm_multiboot.o
 obj-$(V3_CONFIG_HVM) += vmm_hvm.o vmm_hvm_lowlevel.o
 
 obj-y += mmu/
