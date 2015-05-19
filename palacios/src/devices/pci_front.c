@@ -135,6 +135,11 @@ struct pci_front_internal {
     char name[32];
 
     v3_host_dev_t     host_dev;  // the actual implementation
+
+    void              *rom_hpa;  // where our copy of the rom is in the host (physically cont.)
+    uint64_t           rom_size; // bytes
+    void              *rom_gpa;  // where we are mapping it into the guest
+    
 };
 
 
@@ -692,6 +697,64 @@ static int pci_front_cmd_update(struct pci_device *pci_dev, pci_cmd_t cmd, uint6
     return 0;
 }
 
+
+
+static void remap_rom(struct v3_vm_info *vm, struct pci_front_internal *state, void *new_gpa, int enable)
+{
+    if (state->rom_gpa) { 
+	// unmap
+	struct v3_mem_region *old_reg = v3_get_mem_region(vm,V3_MEM_CORE_ANY,(addr_t)state->rom_gpa);
+	if (old_reg) { 
+	    V3_Print(vm,VCORE_NONE,"pci_front: removing old memory region\n");
+	    v3_delete_mem_region(vm,old_reg);
+	} 
+	state->rom_gpa = 0;
+    }
+
+    if (enable) { 
+	if (v3_add_shadow_mem(vm,
+			      V3_MEM_CORE_ANY,
+			      (addr_t)new_gpa,
+			      (addr_t) 
+			      new_gpa+state->rom_size-1,
+			      (addr_t)state->rom_hpa)) {
+	    PrintError(vm,VCORE_NONE,"pci_front: cannot add new shadow mapping\n");
+	    return;
+	}
+	state->rom_gpa = new_gpa; 
+    } 
+
+    V3_Print(vm,VCORE_NONE,"pci_front: remapped rom to %p (enable=%u)\n",state->rom_gpa,enable) ;
+}
+
+#define ROM_ADDR_MASK 0xfffff800
+#define ROM_ENABLE    0x1
+#define ROM_BAR_OFFSET 0x30
+
+static int pci_front_rom_update(struct pci_device * pci_dev, uint32_t * src, void * priv_data)
+{
+    struct vm_device * dev = (struct vm_device *)priv_data;
+    struct pci_front_internal * state = (struct pci_front_internal *)dev->private_data;
+
+    V3_Print(dev->vm,VCORE_NONE,"pci_front: rom update with value 0x%x\n",*src);
+
+    // the assumption is that the config_write happened before this
+    if (((*src) & ROM_ADDR_MASK) == ROM_ADDR_MASK) { 
+	// this is a write to get the size
+	// we will ignore it and assume the that 
+	// preceding config_write occured, now we just need to do a pull to make
+	// sure we have the right size
+	v3_host_dev_read_config(state->host_dev, 0x30, &state->config_space[0x30], 4);
+    } else {
+	// actually mapping device, address now valid
+	void *addr = (void*)(uint64_t)((*src) & ROM_ADDR_MASK);
+	remap_rom(dev->vm,state,addr,(*src) & ROM_ENABLE);
+    }
+    
+    return 0;
+
+}
+
 static int pci_front_config_read(struct pci_device *pci_dev, uint_t reg_num, void * dst, uint_t length, void * priv_data)
 {
     struct vm_device * dev = (struct vm_device *)priv_data;
@@ -806,17 +869,15 @@ static int setup_virt_pci_dev(struct v3_vm_info * vm_info, struct vm_device * de
 				     state->name, bars,
 				     pci_front_config_update,
 				     pci_front_config_read,      
-				     pci_front_cmd_update,      // no support for command updates
-				     NULL,      // no support for expansion roms              
+				     pci_front_cmd_update,     
+				     pci_front_rom_update,     
 				     dev);
 
 
     state->pci_dev = pci_dev;
 
 
-    // EXPANSION ROMS CURRENTLY UNSUPPORTED
-
-    // COMMANDS CURRENTLY UNSUPPORTED
+    // COMMANDS CURRENTLY UNSUPPORTED (ignored)
 
     return 0;
 }
@@ -840,6 +901,9 @@ static int pci_front_free(struct pci_front_internal *state)
 	state->host_dev=0;
     }
 
+    if (state->rom_hpa) { 
+	V3_FreePages(state->rom_hpa,state->rom_size/PAGE_SIZE + 1);
+    }
 
     V3_Free(state);
 
@@ -892,10 +956,17 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     char *dev_id;
     char *bus_id;
     char *url;
+    char *rom_id;
+    struct v3_cfg_file *rom_file;
+    v3_cfg_tree_t *rom;
+    void *rom_hpa;
+    uint64_t rom_size;
 
+    
     
     if (!(dev_id = v3_cfg_val(cfg, "ID"))) { 
 	PrintError(vm, VCORE_NONE, "pci_front: no id  given!\n");
+
 	return -1;
     }
     
@@ -908,17 +979,47 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	PrintError(vm, VCORE_NONE, "pci_front (%s): no host device url given!\n",dev_id);
 	return -1;
     }
-    
+
+    if (!(rom=v3_cfg_subtree(cfg,"rom"))) { 
+	V3_Print(vm, VCORE_NONE, "pci_front (%s): no expansion block\n",dev_id);
+	rom_file = 0;
+	rom_hpa=0;
+    } else {
+	rom_id = v3_cfg_val(rom,"file");
+	if (!rom_id) { 
+	    PrintError(vm, VCORE_NONE, "pci_front (%s): no rom id given\n",dev_id);
+	    return -1;
+	} else {
+	    rom_file = v3_cfg_get_file(vm,rom_id);
+	    if (!rom_file) { 
+		PrintError(vm,VCORE_NONE, "pci_front (%s): cannot find expansion rom %s\n",dev_id,rom_id);
+		return -1;
+	    } 
+	    rom_size = rom_file->size;
+	    rom_hpa = V3_AllocPages(rom_size/PAGE_SIZE + 1 );
+	    if (!rom_hpa) { 
+		PrintError(vm,VCORE_NONE, "pci_front %s) : cannot allocate space for expansion rom %s\n",dev_id,rom_id);
+		return -1;
+	    } 
+	    memcpy(V3_VAddr(rom_hpa),rom_file->data,rom_size);
+		
+	}
+	V3_Print(vm,VCORE_NONE,"pci_front (%s): rom %s tag %s size 0x%llx hpa %p\n", 
+		 dev_id,rom_id,rom_file->tag,rom_file->size,rom_hpa);
+    }
+	
+
     if (!(bus = v3_find_dev(vm,bus_id))) { 
 	PrintError(vm, VCORE_NONE, "pci_front (%s): cannot attach to bus %s\n",dev_id,bus_id);
 	return -1;
     }
-    
+
     if (!(state = V3_Malloc(sizeof(struct pci_front_internal)))) { 
 	PrintError(vm, VCORE_NONE, "pci_front (%s): cannot allocate state for device\n",dev_id);
 	return -1;
     }
-    
+
+
     memset(state, 0, sizeof(struct pci_front_internal));
     
     state->pci_bus = bus;
@@ -935,10 +1036,19 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	return -1;
     }
 
+    state->rom_gpa = 0 ; // this will be set later by the pull
+    state->rom_hpa = rom_hpa;
+    state->rom_size = rom_size;
+
     if (pull_config(state,state->config_space)) { 
         PrintError(dev->vm, VCORE_NONE, "pci_front (%s): cannot initially configure device\n",state->name);
         v3_remove_device(dev);
         return -1;
+    }
+
+    if (state->rom_hpa) { 
+	// have rom - add it to address space, initially disabled
+	remap_rom(vm,state,(void*)(uint64_t)*((uint32_t*)&state->config_space[0x30]),0);
     }
 
     // setup virtual device for now
