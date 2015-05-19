@@ -473,7 +473,11 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 		schedule();  // avoid livelock for polling user space process  SUSPICOUS
 		return 0; // no request available now
 	    } 
-	    
+
+	    // safe to unlock here since if we are in the waiting state
+	    // the palacios side will not modify the request
+	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+
 	    if (copy_to_user(argp,&(dev->req->data_len),sizeof(uint64_t))) { 
 		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: unable to copy to user for host device \"%s\"\n",dev->url);
@@ -481,8 +485,6 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 
 	    }
 	    
-	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
 	    DEEP_DEBUG_PRINT("palacios: hostdev: have request\n");
 
 	    return 1; // have request for you
@@ -505,15 +507,15 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 		return 0; // no request available now
 	    } 
 
+	    // Safe to unlock here since if we are in the waiting 
+	    // state, the request will not be modified by the palacios side
+	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	    
 	    if (copy_to_user(argp,dev->req,dev->req->data_len)) { 
-		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: unable to copy to user for host device \"%s\"\n",dev->url);
 		return -EFAULT; // failed to copy!
 	    }
     
-	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
 	    DEEP_DEBUG_PRINT("palacios: hostdev: request pulled\n");
 	    
 	    return 1; // copied request for you
@@ -536,37 +538,31 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 		return 0; // no request outstanding, so we do not need a response!
 	    }
 	    
+	    // Safe to unlock here as the palacios side will not
+	    // modify the request or copy the response until we
+	    // reset dev->waiting
+	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+
 	    if (copy_from_user(&user_datalen,argp,sizeof(uint64_t))) { 
-		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: unable to copy from user for host device \"%s\"\n",dev->url);
 		return -EFAULT; // failed to copy!
 	    } 
 
 	    if (user_datalen<sizeof(struct palacios_host_dev_host_request_response)) { 
 		// bad user
-		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: user has response that is too small on host device \"%s\"\n",dev->url);
 		return -EFAULT;
 	    }
 
 	    if (!palacios_bigenough_reqresp(dev->resp,user_datalen-sizeof(struct palacios_host_dev_host_request_response))) {
 		// not enough room.
-		// we drop the lock, turn on interrupts, resize, and then retry
-		DEEP_DEBUG_PRINT("palacios: response not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
+		DEEP_DEBUG_PRINT("palacios: response not big enough, resizing on device \"%s\"\n",dev->url);
 
-		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		
 		if (palacios_resize_reqresp(&(dev->resp),user_datalen-sizeof(struct palacios_host_dev_host_request_response),0)) {
 		    ERROR("palacios: unable to resize to accept response of size %llu from user for host device \"%s\"\n",user_datalen,dev->url);
 		    return -EFAULT;
-		} else {
-		    // reacquire the lock
-		    // There shouldn't be a race here, since there should
-		    // be exactly one user space thread giving us a response for this device
-		    // and it is blocked waiting for us to finish
-		    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-		    DEEP_DEBUG_PRINT("palacios: reacuired lock on device \"%s\"\n",dev->url);
-		}
+		} 
 	    }
 
 	    //We only copy data_len bytes from user, but we will
@@ -574,7 +570,6 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 	    old_len = dev->resp->len;
 	    if (copy_from_user(dev->resp, argp, user_datalen)) { 
 		dev->resp->len=old_len;
-		palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 		ERROR("palacios: unable to copy from user for host device \"%s\"\n",dev->url);
 		return -EFAULT; // failed to copy!
 	    } 
@@ -583,8 +578,6 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 	    DEEP_DEBUG_PRINT("palacios: hostdev: valid response pushed\n");
 	    // now have valid response!
 	    dev->waiting=0;
-
-	    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
 	    // wake the palacios side up so that it sees it
 	    cycle_response_request(dev);
@@ -872,10 +865,7 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
 
     DEEP_DEBUG_PRINT("palacios: hostdev: read io port 0x%x\n",port);
 	    
-
-    
     if (palacios_host_dev_rendezvous(dev)) {
-	//palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 	ERROR("palacios: ignoring request as user side is not connected (and did not rendezvous) for host device \"%s\"\n",dev->url);
 	return 0;
     }
@@ -887,26 +877,19 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
 	return 0;
     }
 
-    
+    // if we're not waiting on user, we have access to
+    // to the request and response fields
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
     
     // resize request (no data)
     if (!palacios_bigenough_reqresp(dev->req,0)) {
 	// not enough room.
-	// we drop the lock, turn on interrupts, resize, and then retry
-	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
-	
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	DEEP_DEBUG_PRINT("palacios: request not big enough, resizing on device \"%s\"\n",dev->url);
 	
 	if (palacios_resize_reqresp(&(dev->req),0,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
 	    return 0;
-	} else {
-	    // reacquire the lock
-	    // There shouldn't be a race here since there should not be another
-	    // request from palacios until this one finishes
-	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
-	}
+	} 
     }
     
 
@@ -919,21 +902,17 @@ static uint64_t palacios_host_dev_read_io(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
-
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
+    // no need to lock, we own the response since 
+    // waiting is now 0
 
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
 
     memcpy(dest,dev->resp->data, op_len);
     
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
     return op_len;
 }
 
@@ -961,24 +940,18 @@ static uint64_t palacios_host_dev_read_mem(v3_host_dev_t hostdev,
 	ERROR("palacios: guest issued memory read request with host device \"%s\" in wrong state (waiting=%d, connected=%d)\n",dev->url,dev->waiting,dev->connected);
 	return 0;
     }
+
+    // We now are assured to have ownership over request
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
     
     // resize request (no data)
     if (!palacios_bigenough_reqresp(dev->req,0)) {
 	// not enough room.
-	// we drop the lock, turn on interrupts, resize, and then retry
-	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
-	
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	DEEP_DEBUG_PRINT("palacios: request not big enough, resizing on device \"%s\"\n",dev->url);
 	
 	if (palacios_resize_reqresp(&(dev->req),0,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
 	    return 0;
-	} else {
-	    // reacquire the lock
-	    // There shouldn't be a race here since there should not be another
-	    // request from palacios until this one finishes
-	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
 	}
     }
 
@@ -991,21 +964,15 @@ static uint64_t palacios_host_dev_read_mem(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
 
     memcpy(dest,dev->resp->data, op_len);
     
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
     return op_len;
 }
 
@@ -1034,24 +1001,18 @@ static uint64_t palacios_host_dev_read_conf(v3_host_dev_t hostdev,
 	return 0;
     }
     
+    // Now have exclusive access to request
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+
     // resize request (no data)
     if (!palacios_bigenough_reqresp(dev->req,0)) {
 	// not enough room.
-	// we drop the lock, turn on interrupts, resize, and then retry
-	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
-	
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	DEEP_DEBUG_PRINT("palacios: request not big enough, resizing on device \"%s\"\n",dev->url);
 	
 	if (palacios_resize_reqresp(&(dev->req),0,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
 	    return 0;
-	} else {
-	    // reacquire the lock
-	    // There shouldn't be a race here since there should not be another
-	    // request from palacios until this one finishes
-	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
-	}
+	} 
     }
 
     dev->req->type=PALACIOS_HOST_DEV_HOST_REQUEST_READ_CONF;
@@ -1063,21 +1024,15 @@ static uint64_t palacios_host_dev_read_conf(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
 
     memcpy(dest,dev->resp->data, op_len);
     
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
     return op_len;
 }
 
@@ -1107,24 +1062,18 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 	return 0;
     }
 
+    // have exclusive access to request
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	
     // resize request 
     if (!palacios_bigenough_reqresp(dev->req,len)) {
 	// not enough room.
-	// we drop the lock, turn on interrupts, resize, and then retry
-	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
-	
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	DEEP_DEBUG_PRINT("palacios: request not big enough, resizing on device \"%s\"\n",dev->url);
 	
 	if (palacios_resize_reqresp(&(dev->req),len,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
 	    return 0;
-	} else {
-	    // reacquire the lock
-	    // There shouldn't be a race here since there should not be another
-	    // request from palacios until this one finishes
-	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
-	}
+	} 
     }
 
     dev->req->type=PALACIOS_HOST_DEV_HOST_REQUEST_WRITE_IO;
@@ -1138,18 +1087,12 @@ static uint64_t palacios_host_dev_write_io(v3_host_dev_t hostdev,
 
     dev->waiting=1;
 
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-   
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
-
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
@@ -1181,24 +1124,18 @@ static uint64_t palacios_host_dev_write_mem(v3_host_dev_t hostdev,
 	return 0;
     }
     
+    // Now have exclusive access to request
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+    
     // resize request 
     if (!palacios_bigenough_reqresp(dev->req,len)) {
 	// not enough room.
-	// we drop the lock, turn on interrupts, resize, and then retry
-	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
-	
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	DEEP_DEBUG_PRINT("palacios: request not big enough, resizing on device \"%s\"\n",dev->url);
 	
 	if (palacios_resize_reqresp(&(dev->req),len,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
 	    return 0;
-	} else {
-	    // reacquire the lock
-	    // There shouldn't be a race here since there should not be another
-	    // request from palacios until this one finishes
-	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
-	}
+	} 
     }
 
     dev->req->type=PALACIOS_HOST_DEV_HOST_REQUEST_WRITE_MEM;
@@ -1212,18 +1149,12 @@ static uint64_t palacios_host_dev_write_mem(v3_host_dev_t hostdev,
 
     dev->waiting=1;
     
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
-
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-
     op_len= dev->resp->op_len < len ? dev->resp->op_len : len ;
-
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
@@ -1256,24 +1187,18 @@ static uint64_t palacios_host_dev_write_conf(v3_host_dev_t hostdev,
 	return 0;
     }
     
+    // Have exclusive access to request
+    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+
     // resize request 
     if (!palacios_bigenough_reqresp(dev->req,len)) {
 	// not enough room.
-	// we drop the lock, turn on interrupts, resize, and then retry
-	DEEP_DEBUG_PRINT("palacios: request not big enough, dropping lock to resize on device \"%s\"\n",dev->url);
-	
-	palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
+	DEEP_DEBUG_PRINT("palacios: request not big enough, resizing on device \"%s\"\n",dev->url);
 	
 	if (palacios_resize_reqresp(&(dev->req),len,0)) {
 	    ERROR("palacios: cannot resize for request on device \"%s\"\n",dev->url);
 	    return 0;
-	} else {
-	    // reacquire the lock
-	    // There shouldn't be a race here since there should not be another
-	    // request from palacios until this one finishes
-	    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-	    DEEP_DEBUG_PRINT("palacios: reacquired lock on device \"%s\"\n",dev->url);
-	}
+	} 
     }
 
     dev->req->type=PALACIOS_HOST_DEV_HOST_REQUEST_WRITE_CONF;
@@ -1286,19 +1211,13 @@ static uint64_t palacios_host_dev_write_conf(v3_host_dev_t hostdev,
     memcpy(dev->req->data,src,len);
 
     dev->waiting=1;
-    
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     // hand over to the user space and wait for it to respond
     cycle_request_response(dev);
 
     // We're back!   So now we'll hand the response back to Palacios
 
-    palacios_spinlock_lock_irqsave(&(dev->lock),f);
-
     op_len = dev->resp->op_len < len ? dev->resp->op_len : len ;
-
-    palacios_spinlock_unlock_irqrestore(&(dev->lock),f);
 
     return op_len;
 }
