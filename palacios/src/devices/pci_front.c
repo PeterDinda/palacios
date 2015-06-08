@@ -682,17 +682,21 @@ static int pci_bar_write(int bar_num, uint32_t * src, void * private_data) {
 
 static int pci_front_cmd_update(struct pci_device *pci_dev, pci_cmd_t cmd, uint64_t arg, void * priv_data)
 {
+#ifdef V3_CONFIG_DEBUG_PCI_FRONT
     struct vm_device * dev = (struct vm_device *)priv_data;
     struct pci_front_internal * state = (struct pci_front_internal *)dev->private_data;
 
     uint16_t command = (uint16_t)arg;
+#endif
 
-    PrintDebug(VM_NONE, VCORE_NONE, "pci_front (%s): command update\n", state->name);
+    PrintDebug(VM_NONE, VCORE_NONE, "pci_front (%s): command update 0x%x\n", state->name,command);
 
-    if (v3_host_dev_write_config(state->host_dev, 0x4, &command, 2) != 2) {
-        PrintError(dev->vm, VCORE_NONE, "pci_front (%s): cmd update: unable to write all bytes\n", state->name);
-        return -1;
-    }
+    // Note that the config_update corresponding to this callback 
+    // has occurred before this request, and so has already been delivered 
+    // to the host_dev interface.   
+    //
+    // We do not need to handle the special semantics of cmd_update here
+    // hence nothing...
 
     return 0;
 }
@@ -769,15 +773,6 @@ static int pci_front_config_read(struct pci_device *pci_dev, uint_t reg_num, voi
         PrintDebug(VM_NONE, VCORE_NONE, "byte %d: %x\n", i, state->config_space[reg_num+i]);
     }
 
-    /*
-    PrintDebug(VM_NONE, VCORE_NONE, "pci_front config space read callback (%d bytes starting at reg num %x) returning:\n", length, reg_num);
-    for (i = 0; i < length/4; i++) {
-        PrintDebug(VM_NONE, VCORE_NONE, "%x\n", *(uint32_t*)(&(state->config_space[reg_num]) + i*4));
-    }
-    */
-
-    
-    
     return 0;
 }
 
@@ -959,8 +954,8 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     char *rom_id;
     struct v3_cfg_file *rom_file;
     v3_cfg_tree_t *rom;
-    void *rom_hpa;
-    uint64_t rom_size;
+    void *rom_hpa=0;
+    uint64_t rom_size=0;
 
     
     
