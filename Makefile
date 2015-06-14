@@ -298,7 +298,14 @@ V3_INCLUDE      := -Ipalacios/include \
 
 CPPFLAGS        := $(V3_INCLUDE) -D__V3VEE__
 
+#
+# We want no-strict-aliasing here whether or not the target kernel
+# has it configued.  See Linus's rant about gcc's "if the standard
+# says we can do anything, we will do the wrong thing" behavior with
+# regard to this option
+#
 CFLAGS 		:=  -fno-stack-protector -Wall -Werror  -mno-red-zone -fno-common \
+                    -fno-strict-aliasing -ffreestanding \
 		    $(call cc-option, -Wno-unused-but-set-variable,)
 
 
@@ -513,6 +520,8 @@ NOSTDINC_FLAGS +=
 
 # disable pointer signedness warnings in gcc 4.0
 CFLAGS += $(call cc-option,-Wno-pointer-sign,)
+
+CFLAGS += -O
 
 # Default kernel image to build when no specific target is given.
 # KBUILD_IMAGE may be overruled on the commandline or
