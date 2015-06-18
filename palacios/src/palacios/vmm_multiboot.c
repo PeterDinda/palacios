@@ -217,6 +217,7 @@ typedef struct mb_info_hrt {
     uint32_t       first_hrt_apic_id;
     uint32_t       have_hrt_ioapic;
     uint32_t       first_hrt_ioapic_entry;
+    uint64_t       first_hrt_addr;
 } __attribute__((packed)) mb_info_hrt_t;
 
 
@@ -449,7 +450,7 @@ int v3_parse_multiboot_header(struct v3_cfg_file *file, mb_data_t *result)
     - only ROS memory visible
     - regular multiboot or bios boot assumed
    HRT core
-    - full HRT memory visible
+    - all memory visible
     - HRT64 multiboot assumed
 
 */
@@ -457,14 +458,14 @@ int v3_parse_multiboot_header(struct v3_cfg_file *file, mb_data_t *result)
 uint64_t v3_build_multiboot_table(struct guest_info *core, uint8_t *dest, uint64_t size)
 {
     struct v3_vm_info *vm = core->vm_info;
-    mb_info_header_t *header;
+    mb_info_header_t *header=0;
 #ifdef V3_CONFIG_HVM
-    mb_info_hrt_t *hrt;
+    mb_info_hrt_t *hrt=0;
 #endif
-    mb_info_mem_t *mem;
-    mb_info_memmap_t *memmap;
-    mb_info_tag_t *tag;
-    uint64_t num_mem, cur_mem;
+    mb_info_mem_t *mem=0;
+    mb_info_memmap_t *memmap=0;
+    mb_info_tag_t *tag=0;
+    uint64_t num_mem=0, cur_mem=0;
     
     uint64_t total_mem = vm->mem_size;
 
@@ -544,6 +545,7 @@ uint64_t v3_build_multiboot_table(struct guest_info *core, uint8_t *dest, uint64
 	hrt->first_hrt_apic_id = vm->hvm_state.first_hrt_core;
 	hrt->have_hrt_ioapic=0;
 	hrt->first_hrt_ioapic_entry=0;
+	hrt->first_hrt_addr = vm->hvm_state.first_hrt_gpa;
     }
 #endif
 
@@ -636,7 +638,9 @@ uint64_t v3_build_multiboot_table(struct guest_info *core, uint8_t *dest, uint64
 int v3_write_multiboot_kernel(struct v3_vm_info *vm, mb_data_t *mb, struct v3_cfg_file *file,
 			      void *base, uint64_t limit)
 {
-    uint32_t offset;
+    uint32_t offset=0;
+    uint32_t header_offset = (uint32_t) ((uint64_t)(mb->header) - (uint64_t)(file->data));
+    uint32_t size;
 
     if (!mb->addr || !mb->entry) { 
 	PrintError(vm,VCORE_NONE, "multiboot: kernel is missing address or entry point\n");
@@ -650,20 +654,38 @@ int v3_write_multiboot_kernel(struct v3_vm_info *vm, mb_data_t *mb, struct v3_cf
 	return -1;
     }
 
-    offset = mb->addr->load_addr - mb->addr->header_addr;
+    offset = header_offset - (mb->addr->header_addr - mb->addr->load_addr);
+    size = mb->addr->load_end_addr - mb->addr->load_addr;
+    
+    if (size != file->size-offset) { 
+	V3_Print(vm,VCORE_NONE,"multiboot: strange: size computed as %u, but file->size-offset = %llu\n",size,file->size-offset);
+    }
 
-    // Skip the ELF header - assume 1 page... weird.... 
     // We are trying to do as little ELF loading here as humanly possible
     v3_write_gpa_memory(&vm->cores[0],
 			(addr_t)(mb->addr->load_addr),
-			file->size-PAGE_SIZE-offset,
-			file->data+PAGE_SIZE+offset);
+			size,
+			file->data+offset);
 
     PrintDebug(vm,VCORE_NONE,
 	       "multiboot: wrote 0x%llx bytes starting at offset 0x%llx to %p\n",
-	       (uint64_t) file->size-PAGE_SIZE-offset,
-	       (uint64_t) PAGE_SIZE+offset,
+	       (uint64_t) size,
+	       (uint64_t) offset,
 	       (void*)(addr_t)(mb->addr->load_addr));
+
+    size = mb->addr->bss_end_addr - mb->addr->load_end_addr + 1;
+
+    // Now we need to zero the BSS
+    v3_set_gpa_memory(&vm->cores[0],
+		      (addr_t)(mb->addr->load_end_addr),
+		      size,
+		      0);
+		      
+    PrintDebug(vm,VCORE_NONE,
+	       "multiboot: zeroed 0x%llx bytes starting at %p\n",
+	       (uint64_t) size,
+	       (void*)(addr_t)(mb->addr->load_end_addr));
+		      
 
     return 0;
 
@@ -732,12 +754,7 @@ static void write_gdt(struct v3_vm_info *vm, void *base, uint64_t limit)
 	
 static void write_tss(struct v3_vm_info *vm, void *base, uint64_t limit)
 {
-    int i;
-    uint64_t tss_data=0x0;
-
-    for (i=0;i<limit/8;i++) {
-	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+8*i),8,(uint8_t*) &tss_data);
-    }
+    v3_set_gpa_memory(&vm->cores[0],(addr_t)base,limit,0);
 
     PrintDebug(vm,VCORE_NONE,"multiboot: wrote TSS at %p\n",base);
 }
@@ -944,22 +961,26 @@ int v3_setup_multiboot_core_for_boot(struct guest_info *core)
     core->segments.cs.selector = 0x8 ; // entry 1 of GDT (RPL=0)
     core->segments.cs.base = (addr_t) base;
     core->segments.cs.limit = limit;
-    core->segments.cs.type = 0xe;
-    core->segments.cs.system = 0; 
+    core->segments.cs.type = 0xa;
+    core->segments.cs.system = 1; 
     core->segments.cs.dpl = 0;
     core->segments.cs.present = 1;
     core->segments.cs.long_mode = 0;
+    core->segments.cs.db = 1; // 32 bit operand and address size
+    core->segments.cs.granularity = 1; // pages
 
     // DS, SS, etc are identical
     core->segments.ds.selector = 0x10; // entry 2 of GDT (RPL=0)
     core->segments.ds.base = (addr_t) base;
     core->segments.ds.limit = limit;
-    core->segments.ds.type = 0x6;
-    core->segments.ds.system = 0; 
+    core->segments.ds.type = 0x2;
+    core->segments.ds.system = 1; 
     core->segments.ds.dpl = 0;
     core->segments.ds.present = 1;
     core->segments.ds.long_mode = 0;
-    
+    core->segments.ds.db = 1; // 32 bit operand and address size
+    core->segments.ds.granularity = 1; // pages
+
     memcpy(&core->segments.ss,&core->segments.ds,sizeof(core->segments.ds));
     memcpy(&core->segments.es,&core->segments.ds,sizeof(core->segments.ds));
     memcpy(&core->segments.fs,&core->segments.ds,sizeof(core->segments.ds));
@@ -984,3 +1005,54 @@ int v3_setup_multiboot_core_for_boot(struct guest_info *core)
 
     return 0;
 }
+
+
+int v3_handle_multiboot_reset(struct guest_info *core)
+{
+    int rc;
+
+    if (core->core_run_state!=CORE_RESETTING) { 
+	return 0;
+    }
+
+    if (!core->vm_info->mb_state.is_multiboot) { 
+	return 0;
+    }
+
+    // wait for everyone
+    v3_counting_barrier(&core->vm_info->reset_barrier);
+
+    if (core->vcpu_id==0) {
+	// I am leader (this is true if I am a ROS core or this is a non-HVM)
+	core->vm_info->run_state = VM_RESETTING;
+    }
+
+    rc=0;
+	
+    if (core->vcpu_id==0) {
+	// we will recopy the image
+	rc |= v3_setup_multiboot_vm_for_boot(core->vm_info);
+    }
+
+    rc |= v3_setup_multiboot_core_for_boot(core);
+
+    if (core->vcpu_id==0) { 
+	core->core_run_state = CORE_RUNNING;
+	core->vm_info->run_state = VM_RUNNING;
+    } else {
+	// for APs, we need to bring them back to the init state
+	core->cpu_mode = REAL;
+	core->mem_mode = PHYSICAL_MEM;
+	core->core_run_state = CORE_STOPPED;
+    }
+
+    // sync on the way out
+    v3_counting_barrier(&core->vm_info->reset_barrier);
+
+    if (rc<0) {
+	return rc;
+    } else {
+	return 1; // reboot
+    }
+}
+	
