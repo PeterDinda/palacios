@@ -45,7 +45,8 @@ obj-y := \
 	vmm_exits.o \
 	vmm_events.o \
 	vmm_perftune.o \
-	vmm_fw_cfg.o 
+	vmm_fw_cfg.o \
+	vmm_bios.o
 
 
 obj-$(V3_CONFIG_SWAPPING) += vmm_swapping.o
