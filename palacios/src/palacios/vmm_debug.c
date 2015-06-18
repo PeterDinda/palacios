@@ -152,10 +152,20 @@ void v3_print_segments(struct v3_segments * segs) {
 
     for (i = 0; seg_names[i] != NULL; i++) {
 
-	V3_Print(VM_NONE, VCORE_NONE, "\t%s: Sel=%x, base=%p, limit=%x (long_mode=%d, db=%d)\n", seg_names[i], seg_ptr[i].selector, 
-		   (void *)(addr_t)seg_ptr[i].base, seg_ptr[i].limit,
-		   seg_ptr[i].long_mode, seg_ptr[i].db);
-
+	V3_Print(VM_NONE, VCORE_NONE, "\t%s: selector=0x%x, base=%p, limit=0x%x type=0x%x system=0x%x dpl=0x%x present=0x%x avail=0x%x long_mode=0x%x db=0x%x granularity=0x%x unusable=0x%x\n", 
+		 seg_names[i], 
+		 seg_ptr[i].selector, 
+		 (void *)(addr_t)seg_ptr[i].base, 
+		 seg_ptr[i].limit,
+		 seg_ptr[i].type,
+		 seg_ptr[i].system,
+		 seg_ptr[i].dpl,
+		 seg_ptr[i].present,
+		 seg_ptr[i].avail,
+		 seg_ptr[i].long_mode,
+		 seg_ptr[i].db,
+		 seg_ptr[i].granularity,
+		 seg_ptr[i].unusable);
     }
 }
 
