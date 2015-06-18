@@ -430,6 +430,37 @@ int v3_write_gva_memory(struct guest_info * guest_info, addr_t gva, int count, u
     return bytes_written;
 }
 
+int v3_set_gva_memory(struct guest_info * guest_info, addr_t gva, int count, uchar_t src) {
+    addr_t cursor = gva;
+    int bytes_written = 0;
+
+
+
+    while (count > 0) {
+	int dist_to_pg_edge = (PAGE_ADDR(cursor) + PAGE_SIZE) - cursor;
+	int bytes_to_copy = (dist_to_pg_edge > count) ? count : dist_to_pg_edge;
+	addr_t host_addr = 0;
+
+    
+	if (v3_gva_to_hva(guest_info, cursor, &host_addr) != 0) {
+	    PrintDebug(guest_info->vm_info, guest_info, "Invalid GVA(%p)->HVA lookup\n", (void *)cursor);
+	    return bytes_written;
+	}
+    
+    
+
+	memset((void*)host_addr,
+	       src,
+	       bytes_to_copy);
+    
+	bytes_written += bytes_to_copy;
+	count -= bytes_to_copy;
+	cursor += bytes_to_copy;    
+    }
+
+    return bytes_written;
+}
+
 
 
 
@@ -451,6 +482,31 @@ int v3_write_gpa_memory(struct guest_info * guest_info, addr_t gpa, int count, u
 
 
 	memcpy((void*)host_addr, src + bytes_written, bytes_to_copy);
+
+	bytes_written += bytes_to_copy;
+	count -= bytes_to_copy;
+	cursor += bytes_to_copy;    
+    }
+
+    return bytes_written;
+}
+
+
+int v3_set_gpa_memory(struct guest_info * guest_info, addr_t gpa, int count, uchar_t src) {
+    addr_t cursor = gpa;
+    int bytes_written = 0;
+
+    while (count > 0) {
+	int dist_to_pg_edge = (PAGE_ADDR(cursor) + PAGE_SIZE) - cursor;
+	int bytes_to_copy = (dist_to_pg_edge > count) ? count : dist_to_pg_edge;
+	addr_t host_addr;
+
+	if (v3_gpa_to_hva(guest_info, cursor, &host_addr) != 0) {
+	    return bytes_written;
+	}
+
+
+	memset((void*)host_addr, src, bytes_to_copy);
 
 	bytes_written += bytes_to_copy;
 	count -= bytes_to_copy;
