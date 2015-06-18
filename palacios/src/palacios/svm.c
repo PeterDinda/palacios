@@ -41,6 +41,8 @@
 
 #include <palacios/vmm_perftune.h>
 
+#include <palacios/vmm_bios.h>
+
 
 #ifdef V3_CONFIG_CHECKPOINT
 #include <palacios/vmm_checkpoint.h>
@@ -71,6 +73,7 @@
 uint32_t v3_last_exit;
 
 // This is a global pointer to the host's VMCB
+// These are physical addresses
 static addr_t host_vmcbs[V3_CONFIG_MAX_CPUS] = { [0 ... V3_CONFIG_MAX_CPUS - 1] = 0};
 
 
@@ -79,6 +82,7 @@ extern void v3_stgi();
 extern void v3_clgi();
 //extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs, uint64_t * fs, uint64_t * gs);
 extern int v3_svm_launch(vmcb_t * vmcb, struct v3_gprs * vm_regs, vmcb_t * host_vmcb);
+
 
 
 static vmcb_t * Allocate_VMCB() {
@@ -117,27 +121,50 @@ static int v3_svm_handle_efer_write(struct guest_info * core, uint_t msr, struct
     return 0;
 }
 
+/*
+ * This is invoked both on an initial boot and on a reset
+ * 
+ * The difference is that on a reset we will not rehook anything
+ *
+ */
 
 static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
     uint_t i;
 
+    if (core->core_run_state!=CORE_INVALID && core->core_run_state!=CORE_RESETTING) { 
+	PrintError(core->vm_info, core, "Atempt to Init_VMCB_BIOS in invalid state (%d)\n",core->core_run_state);
+	return;
+    }
 
-    //
+    // need to invalidate any shadow page tables early
+    if (core->shdw_pg_mode == SHADOW_PAGING && core->core_run_state==CORE_RESETTING) {
+	if (v3_get_vm_cpu_mode(core) != REAL) {
+	    if (v3_invalidate_shadow_pts(core) == -1) {
+		PrintError(core->vm_info,core,"Could not invalidate shadow page tables\n");
+		return;
+	    }
+	}
+    }
+
+    // Guarantee we are starting from a clean slate
+    // even on a reset
+    memset(vmcb,0,4096);
+
     ctrl_area->svm_instrs.VMRUN = 1;
     ctrl_area->svm_instrs.VMMCALL = 1;
     ctrl_area->svm_instrs.VMLOAD = 1;
     ctrl_area->svm_instrs.VMSAVE = 1;
     ctrl_area->svm_instrs.STGI = 1;
     ctrl_area->svm_instrs.CLGI = 1;
-    ctrl_area->svm_instrs.SKINIT = 1;
-    ctrl_area->svm_instrs.ICEBP = 1;
-    ctrl_area->svm_instrs.WBINVD = 1;
+    ctrl_area->svm_instrs.SKINIT = 1; // secure startup... why
+    ctrl_area->svm_instrs.ICEBP = 1;  // in circuit emulator breakpoint
+    ctrl_area->svm_instrs.WBINVD = 1; // write back and invalidate caches... why?
     ctrl_area->svm_instrs.MONITOR = 1;
     ctrl_area->svm_instrs.MWAIT_always = 1;
     ctrl_area->svm_instrs.MWAIT_if_armed = 1;
-    ctrl_area->instrs.INVLPGA = 1;
+    ctrl_area->instrs.INVLPGA = 1;   // invalidate page in asid... why?
     ctrl_area->instrs.CPUID = 1;
 
     ctrl_area->instrs.HLT = 1;
@@ -146,23 +173,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.RDTSC = 0;
     ctrl_area->svm_instrs.RDTSCP = 0;
 
-    // guest_state->cr0 = 0x00000001;    // PE 
-  
-    /*
-      ctrl_area->exceptions.de = 1;
-      ctrl_area->exceptions.df = 1;
-      
-      ctrl_area->exceptions.ts = 1;
-      ctrl_area->exceptions.ss = 1;
-      ctrl_area->exceptions.ac = 1;
-      ctrl_area->exceptions.mc = 1;
-      ctrl_area->exceptions.gp = 1;
-      ctrl_area->exceptions.ud = 1;
-      ctrl_area->exceptions.np = 1;
-      ctrl_area->exceptions.of = 1;
-      
-      ctrl_area->exceptions.nmi = 1;
-    */
 
 #ifdef V3_CONFIG_TM_FUNC
     v3_tm_set_excp_intercepts(ctrl_area);
@@ -172,7 +182,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.NMI = 1;
     ctrl_area->instrs.SMI = 0; // allow SMIs to run in guest
     ctrl_area->instrs.INIT = 1;
-    //    ctrl_area->instrs.PAUSE = 1;
+    //    ctrl_area->instrs.PAUSE = 1;    // do not care as does not halt
     ctrl_area->instrs.shutdown_evts = 1;
 
 
@@ -182,30 +192,50 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
     /* Setup Guest Machine state */
 
+    memset(&core->vm_regs,0,sizeof(core->vm_regs));
+    memset(&core->ctrl_regs,0,sizeof(core->ctrl_regs));
+    memset(&core->dbg_regs,0,sizeof(core->dbg_regs));
+    memset(&core->segments,0,sizeof(core->segments));    
+    memset(&core->msrs,0,sizeof(core->msrs));    
+    memset(&core->fp_state,0,sizeof(core->fp_state));    
+
+    // reset interrupts
+    core->intr_core_state.irq_pending=0; 
+    core->intr_core_state.irq_started=0; 
+    core->intr_core_state.swintr_posted=0; 
+
+    // reset exceptions
+    core->excp_state.excp_pending=0;
+
+    // reset of gprs to expected values at init
     core->vm_regs.rsp = 0x00;
     core->rip = 0xfff0;
+    core->vm_regs.rdx = 0x00000f00;  // family/stepping/etc
 
-    core->vm_regs.rdx = 0x00000f00;
-
-
+    
     core->cpl = 0;
 
     core->ctrl_regs.rflags = 0x00000002; // The reserved bit is always 1
+
     core->ctrl_regs.cr0 = 0x60010010; // Set the WP flag so the memory hooks work in real-mode
-    core->ctrl_regs.efer |= EFER_MSR_svm_enable;
+    core->shdw_pg_state.guest_cr0 = core->ctrl_regs.cr0;
 
+    // cr3 zeroed above
+    core->shdw_pg_state.guest_cr3 = core->ctrl_regs.cr3;
+    // cr4 zeroed above
+    core->shdw_pg_state.guest_cr4 = core->ctrl_regs.cr4;
 
-
-
+    core->ctrl_regs.efer |= EFER_MSR_svm_enable ;
+    core->shdw_pg_state.guest_efer.value = core->ctrl_regs.efer;
 
     core->segments.cs.selector = 0xf000;
     core->segments.cs.limit = 0xffff;
-    core->segments.cs.base = 0x0000000f0000LL;
+    core->segments.cs.base = 0x0000f0000LL;
 
     // (raw attributes = 0xf3)
-    core->segments.cs.type = 0x3;
+    core->segments.cs.type = 0xa;
     core->segments.cs.system = 0x1;
-    core->segments.cs.dpl = 0x3;
+    core->segments.cs.dpl = 0x0;
     core->segments.cs.present = 1;
 
 
@@ -220,27 +250,35 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	seg->selector = 0x0000;
 	//    seg->base = seg->selector << 4;
 	seg->base = 0x00000000;
-	seg->limit = ~0u;
+	seg->limit = 0xffff;
 
 	// (raw attributes = 0xf3)
-	seg->type = 0x3;
+	seg->type = 0x2;
 	seg->system = 0x1;
-	seg->dpl = 0x3;
+	seg->dpl = 0x0;
 	seg->present = 1;
     }
 
+    core->segments.gdtr.selector = 0x0000;
     core->segments.gdtr.limit = 0x0000ffff;
     core->segments.gdtr.base = 0x0000000000000000LL;
+    core->segments.gdtr.dpl = 0x0;
+
+    core->segments.idtr.selector = 0x0000; 
     core->segments.idtr.limit = 0x0000ffff;
     core->segments.idtr.base = 0x0000000000000000LL;
-
-    core->segments.ldtr.selector = 0x0000;
     core->segments.ldtr.limit = 0x0000ffff;
     core->segments.ldtr.base = 0x0000000000000000LL;
+    core->segments.ldtr.system = 0;
+    core->segments.ldtr.type = 0x2;
+    core->segments.ldtr.dpl = 0x0;
+
     core->segments.tr.selector = 0x0000;
     core->segments.tr.limit = 0x0000ffff;
     core->segments.tr.base = 0x0000000000000000LL;
-
+    core->segments.tr.system = 0;
+    core->segments.tr.type = 0x3;
+    core->segments.tr.dpl = 0x0;
 
     core->dbg_regs.dr6 = 0x00000000ffff0ff0LL;
     core->dbg_regs.dr7 = 0x0000000000000400LL;
@@ -253,7 +291,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->instrs.MSR_PROT = 1;   
 
 
-    PrintDebug(core->vm_info, core, "Exiting on interrupts\n");
     ctrl_area->guest_ctrl.V_INTR_MASKING = 1;
     ctrl_area->instrs.INTR = 1;
     // The above also assures the TPR changes (CR8) are only virtual
@@ -270,28 +307,33 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 
     
 
-    v3_hook_msr(core->vm_info, EFER_MSR, 
-		&v3_handle_efer_read,
-		&v3_svm_handle_efer_write, 
-		core);
+    if (core->core_run_state == CORE_INVALID) { 
+	v3_hook_msr(core->vm_info, EFER_MSR, 
+		    &v3_handle_efer_read,
+		    &v3_svm_handle_efer_write, 
+		    core);
+    }
 
     if (core->shdw_pg_mode == SHADOW_PAGING) {
-	PrintDebug(core->vm_info, core, "Creating initial shadow page table\n");
 	
 	/* JRL: This is a performance killer, and a simplistic solution */
 	/* We need to fix this */
 	ctrl_area->TLB_CONTROL = 1;
 	ctrl_area->guest_ASID = 1;
 	
-	
-	if (v3_init_passthrough_pts(core) == -1) {
-	    PrintError(core->vm_info, core, "Could not initialize passthrough page tables\n");
-	    return ;
+
+	if (core->core_run_state == CORE_INVALID) { 
+	    if (v3_init_passthrough_pts(core) == -1) {
+		PrintError(core->vm_info, core, "Could not initialize passthrough page tables\n");
+		return ;
+	    }
+	    // the shadow page tables are OK since we have not initialized hem yet
+	} else {
+	    // CORE_RESETTING
+	    // invalidation of shadow page tables happened earlier in this function
 	}
 
-
 	core->shdw_pg_state.guest_cr0 = 0x0000000000000010LL;
-	PrintDebug(core->vm_info, core, "Created\n");
 	
 	core->ctrl_regs.cr0 |= 0x80000000;
 
@@ -324,9 +366,13 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	PrintDebug(core->vm_info, core, "NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
 
 	// Set the Nested Page Table pointer
-	if (v3_init_passthrough_pts(core) == -1) {
-	    PrintError(core->vm_info, core, "Could not initialize Nested page tables\n");
-	    return ;
+	if (core->core_run_state == CORE_INVALID) { 
+	    if (v3_init_passthrough_pts(core) == -1) {
+		PrintError(core->vm_info, core, "Could not initialize Nested page tables\n");
+		return ;
+	    }
+	} else {
+	    // the existing nested page tables will work fine
 	}
 
 	ctrl_area->N_CR3 = core->direct_map_pt;
@@ -335,13 +381,14 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     }
     
     /* tell the guest that we don't support SVM */
-    v3_hook_msr(core->vm_info, SVM_VM_CR_MSR, 
-	&v3_handle_vm_cr_read,
-	&v3_handle_vm_cr_write, 
-	core);
+    if (core->core_run_state == CORE_INVALID) { 
+	v3_hook_msr(core->vm_info, SVM_VM_CR_MSR, 
+		    &v3_handle_vm_cr_read,
+		    &v3_handle_vm_cr_write, 
+		    core);
+    }
 
-
-    {
+    if (core->core_run_state == CORE_INVALID) { 
 #define INT_PENDING_AMD_MSR		0xc0010055
 
 	v3_hook_msr(core->vm_info, IA32_STAR_MSR, NULL, NULL, NULL);
@@ -361,6 +408,8 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	// Passthrough read operations are ok.
 	v3_hook_msr(core->vm_info, INT_PENDING_AMD_MSR, NULL, v3_msr_unhandled_write, NULL);
     }
+
+
 }
 
 
@@ -389,10 +438,80 @@ int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class) {
 
 
 int v3_deinit_svm_vmcb(struct guest_info * core) {
-    V3_FreePages(V3_PAddr(core->vmm_data), 1);
+    if (core->vmm_data) { 
+	V3_FreePages(V3_PAddr(core->vmm_data), 1);
+    }
     return 0;
 }
 
+
+static int svm_handle_standard_reset(struct guest_info *core)
+{
+    if (core->core_run_state != CORE_RESETTING) { 
+	return 0;
+    }
+
+    PrintDebug(core->vm_info,core,"Handling standard reset (guest state before follows)\n");
+
+#ifdef V3_CONFIG_DEBUG_SVM
+    v3_print_guest_state(core);
+#endif
+
+    // wait until all resetting cores get here (ROS or whole VM)
+    v3_counting_barrier(&core->vm_info->reset_barrier);
+
+    // I could be a ROS core, or I could be in a non-HVM 
+    // either way, if I'm core 0, I'm the leader
+    if (core->vcpu_id==0) {
+	core->vm_info->run_state = VM_RESETTING;
+	// copy bioses again because some, 
+	// like seabios, assume
+	// this should also blow away the BDA and EBDA
+	PrintDebug(core->vm_info,core,"Clear memory (%p bytes)\n",(void*)core->vm_info->mem_size);
+	if (v3_set_gpa_memory(core, 0, core->vm_info->mem_size, 0)!=core->vm_info->mem_size) { 
+	    PrintError(core->vm_info,core,"Clear of memory failed\n");
+	}
+	PrintDebug(core->vm_info,core,"Copying bioses\n");
+	if (v3_setup_bioses(core->vm_info, core->vm_info->cfg_data->cfg)) { 
+	    PrintError(core->vm_info,core,"Setup of bioses failed\n");
+	}
+    }
+
+    Init_VMCB_BIOS((vmcb_t*)(core->vmm_data), core);
+
+    PrintDebug(core->vm_info,core,"InitVMCB done\n");
+
+    core->cpl = 0;
+    core->cpu_mode = REAL;
+    core->mem_mode = PHYSICAL_MEM;
+    core->num_exits=0;
+
+    PrintDebug(core->vm_info,core,"Machine reset to REAL/PHYSICAL\n");
+
+    memset(V3_VAddr((void*)(host_vmcbs[V3_Get_CPU()])),0,4096*4); // good measure...
+
+    // core zero will be restarted by the main execution loop
+    core->core_run_state = CORE_STOPPED;
+
+    if (core->vcpu_id==0) { 
+	core->vm_info->run_state = VM_RUNNING;
+    } 
+
+#ifdef V3_CONFIG_DEBUG_SVM
+    PrintDebug(core->vm_info,core,"VMCB state at end of reset\n");
+    PrintDebugVMCB((vmcb_t*)(core->vmm_data));
+    PrintDebug(core->vm_info,core,"Guest state at end of reset\n");
+    v3_print_guest_state(core);
+#endif
+
+    // wait until we are all ready to go
+    v3_counting_barrier(&core->vm_info->reset_barrier);
+
+    PrintDebug(core->vm_info,core,"Returning with request for recycle loop\n");
+
+    return 1; // reboot is occuring
+
+}
 
 #ifdef V3_CONFIG_CHECKPOINT
 int v3_svm_save_core(struct guest_info * core, void * ctx){
@@ -565,14 +684,12 @@ static int update_irq_entry_state(struct guest_info * info) {
 		info->intr_core_state.irq_pending = 1;
 		info->intr_core_state.irq_vector = irq;
 		
-		break;
 	    }
 	    case V3_NMI:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
 		break;
 	    case V3_SOFTWARE_INTR:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
-
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
 		PrintDebug(info->vm_info, info, "Injecting software interrupt --  type: %d, vector: %d\n", 
 			   SVM_INJECTION_SOFT_INTR, info->intr_core_state.swintr_vector);
@@ -583,7 +700,6 @@ static int update_irq_entry_state(struct guest_info * info) {
 		/* reset swintr state */
 		info->intr_core_state.swintr_posted = 0;
 		info->intr_core_state.swintr_vector = 0;
-		
 		break;
 	    case V3_VIRTUAL_IRQ:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
@@ -620,6 +736,8 @@ v3_svm_config_tsc_virtualization(struct guest_info * info) {
     return 0;
 }
 
+
+
 /* 
  * CAUTION and DANGER!!! 
  * 
@@ -633,6 +751,8 @@ int v3_svm_enter(struct guest_info * info) {
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
     uint64_t guest_cycles = 0;
+    struct Interrupt_Info exit_int_info;
+
 
     // Conditionally yield the CPU if the timeslice has expired
     v3_schedule(info);
@@ -644,7 +764,9 @@ int v3_svm_enter(struct guest_info * info) {
     // Update timer devices after being in the VM before doing 
     // IRQ updates, so that any interrupts they raise get seen 
     // immediately.
+
     v3_advance_time(info, NULL);
+
     v3_update_timers(info);
 
 
@@ -670,6 +792,9 @@ int v3_svm_enter(struct guest_info * info) {
     // 
     
     guest_state->rflags = info->ctrl_regs.rflags;
+
+    // LMA ,LME, SVE?
+
     guest_state->efer = info->ctrl_regs.efer;
     
     /* Synchronize MSRs */
@@ -693,6 +818,7 @@ int v3_svm_enter(struct guest_info * info) {
 	update_irq_entry_state(info);
     }
 #else 
+
     update_irq_entry_state(info);
 #endif
 
@@ -797,6 +923,7 @@ int v3_svm_enter(struct guest_info * info) {
     exit_code = guest_ctrl->exit_code;
     exit_info1 = guest_ctrl->exit_info1;
     exit_info2 = guest_ctrl->exit_info2;
+    exit_int_info = guest_ctrl->exit_int_info;
 
 #ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
@@ -809,7 +936,6 @@ int v3_svm_enter(struct guest_info * info) {
     // reenable global interrupts after vm exit
     v3_stgi();
 
- 
     // Conditionally yield the CPU if the timeslice has expired
     v3_schedule(info);
 
@@ -825,9 +951,13 @@ int v3_svm_enter(struct guest_info * info) {
 	if (ret != 0) {
 	    PrintError(info->vm_info, info, "Error in SVM exit handler (ret=%d)\n", ret);
 	    PrintError(info->vm_info, info, "  last Exit was %d (exit code=0x%llx)\n", v3_last_exit, (uint64_t) exit_code);
+
+	    //V3_Sleep(5*1000000);
+    
 	    return -1;
 	}
     }
+
 
     if (info->timeouts.timeout_active) {
 	/* Check to see if any timeouts have expired */
@@ -842,8 +972,10 @@ int v3_svm_enter(struct guest_info * info) {
     return 0;
 }
 
-
 int v3_start_svm_guest(struct guest_info * info) {
+
+    int started=0;
+
     //    vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data));
     //  vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
@@ -861,13 +993,9 @@ int v3_start_svm_guest(struct guest_info * info) {
     if (v3_setup_hvm_hrt_core_for_boot(info)) { 
 	PrintError(info->vm_info, info, "Failed to setup HRT core...\n");
 	return -1;
-    }
+    } 
 #endif
  
-
-	    
-
-
     while (1) {
 
 	if (info->core_run_state == CORE_STOPPED) {
@@ -879,7 +1007,8 @@ int v3_start_svm_guest(struct guest_info * info) {
 
 		V3_NO_WORK(info);
 
-		while (info->core_run_state == CORE_STOPPED) {
+		// Compiler must not optimize away this read
+		while (*((volatile int *)(&info->core_run_state)) == CORE_STOPPED) {
 		    
 		    if (info->vm_info->run_state == VM_STOPPED) {
 			// The VM was stopped before this core was initialized. 
@@ -898,6 +1027,11 @@ int v3_start_svm_guest(struct guest_info * info) {
 		// We'll be paranoid about race conditions here
 		v3_wait_at_barrier(info);
 	    } 
+	}
+
+	if (!started) {
+
+	    started=1;
 	    
 	    PrintDebug(info->vm_info, info, "SVM core %u(on %u): I am starting at CS=0x%x (base=0x%p, limit=0x%x),  RIP=0x%p\n", 
 		       info->vcpu_id, info->pcpu_id, 
@@ -908,7 +1042,10 @@ int v3_start_svm_guest(struct guest_info * info) {
 	    
 	    PrintDebug(info->vm_info, info, "SVM core %u: Launching SVM VM (vmcb=%p) (on cpu %u)\n", 
 		       info->vcpu_id, (void *)info->vmm_data, info->pcpu_id);
-	    //PrintDebugVMCB((vmcb_t*)(info->vmm_data));
+
+#ifdef V3_CONFIG_DEBUG_SVM
+	    PrintDebugVMCB((vmcb_t*)(info->vmm_data));
+#endif
 	    
 	    v3_start_time(info);
 	}
@@ -917,6 +1054,25 @@ int v3_start_svm_guest(struct guest_info * info) {
 	    info->core_run_state = CORE_STOPPED;
 	    break;
 	}
+	
+	
+#ifdef V3_CONFIG_HVM
+	if (v3_handle_hvm_reset(info) > 0) { 
+	    continue;
+	}
+#endif
+       
+#ifdef V3_CONFIG_MULTIBOOT
+	if (v3_handle_multiboot_reset(info) > 0) {
+	    continue;
+	}
+#endif
+	
+	if (svm_handle_standard_reset(info) > 0 ) {
+	    continue;
+	}
+	
+
 
 #ifdef V3_CONFIG_PMU_TELEMETRY
 	v3_pmu_telemetry_start(info);
@@ -926,7 +1082,7 @@ int v3_start_svm_guest(struct guest_info * info) {
 	v3_pwrstat_telemetry_start(info);
 #endif
 	
-	if (v3_svm_enter(info) == -1) {
+	if (v3_svm_enter(info) == -1 ) {
 	    vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 	    addr_t host_addr;
 	    addr_t linear_addr = 0;
@@ -1010,6 +1166,7 @@ int v3_reset_svm_vm_core(struct guest_info * core, addr_t rip) {
     // So the selector needs to be VV00
     // and the base needs to be VV000
     //
+    V3_Print(core->vm_info,core,"SVM Reset to RIP %p\n",(void*)rip);
     core->rip = 0;
     core->segments.cs.selector = rip << 8;
     core->segments.cs.limit = 0xffff;
@@ -1257,177 +1414,5 @@ void v3_deinit_svm_cpu(int cpu_id) {
 
 
 
-
-
-#if 0
-void Init_VMCB_pe(vmcb_t *vmcb, struct guest_info vm_info) {
-  vmcb_ctrl_t * ctrl_area = GET_VMCB_CTRL_AREA(vmcb);
-  vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA(vmcb);
-  uint_t i = 0;
-
-
-  guest_state->rsp = vm_info.vm_regs.rsp;
-  guest_state->rip = vm_info.rip;
-
-
-  /* I pretty much just gutted this from TVMM */
-  /* Note: That means its probably wrong */
-
-  // set the segment registers to mirror ours
-  guest_state->cs.selector = 1<<3;
-  guest_state->cs.attrib.fields.type = 0xa; // Code segment+read
-  guest_state->cs.attrib.fields.S = 1;
-  guest_state->cs.attrib.fields.P = 1;
-  guest_state->cs.attrib.fields.db = 1;
-  guest_state->cs.attrib.fields.G = 1;
-  guest_state->cs.limit = 0xfffff;
-  guest_state->cs.base = 0;
-  
-  struct vmcb_selector *segregs [] = {&(guest_state->ss), &(guest_state->ds), &(guest_state->es), &(guest_state->fs), &(guest_state->gs), NULL};
-  for ( i = 0; segregs[i] != NULL; i++) {
-    struct vmcb_selector * seg = segregs[i];
-    
-    seg->selector = 2<<3;
-    seg->attrib.fields.type = 0x2; // Data Segment+read/write
-    seg->attrib.fields.S = 1;
-    seg->attrib.fields.P = 1;
-    seg->attrib.fields.db = 1;
-    seg->attrib.fields.G = 1;
-    seg->limit = 0xfffff;
-    seg->base = 0;
-  }
-
-
-  {
-    /* JRL THIS HAS TO GO */
-    
-    //    guest_state->tr.selector = GetTR_Selector();
-    guest_state->tr.attrib.fields.type = 0x9; 
-    guest_state->tr.attrib.fields.P = 1;
-    // guest_state->tr.limit = GetTR_Limit();
-    //guest_state->tr.base = GetTR_Base();// - 0x2000;
-    /* ** */
-  }
-
-
-  /* ** */
-
-
-  guest_state->efer |= EFER_MSR_svm_enable;
-  guest_state->rflags = 0x00000002; // The reserved bit is always 1
-  ctrl_area->svm_instrs.VMRUN = 1;
-  guest_state->cr0 = 0x00000001;    // PE 
-  ctrl_area->guest_ASID = 1;
-
-
-  //  guest_state->cpl = 0;
-
-
-
-  // Setup exits
-
-  ctrl_area->cr_writes.cr4 = 1;
-  
-  ctrl_area->exceptions.de = 1;
-  ctrl_area->exceptions.df = 1;
-  ctrl_area->exceptions.pf = 1;
-  ctrl_area->exceptions.ts = 1;
-  ctrl_area->exceptions.ss = 1;
-  ctrl_area->exceptions.ac = 1;
-  ctrl_area->exceptions.mc = 1;
-  ctrl_area->exceptions.gp = 1;
-  ctrl_area->exceptions.ud = 1;
-  ctrl_area->exceptions.np = 1;
-  ctrl_area->exceptions.of = 1;
-  ctrl_area->exceptions.nmi = 1;
-
-  
-
-  ctrl_area->instrs.IOIO_PROT = 1;
-  ctrl_area->IOPM_BASE_PA = (uint_t)V3_AllocPages(3); // need not be shadow-safe, not exposed to guest
-
-  if (!ctrl_area->IOPM_BASE_PA) { 
-      PrintError(core->vm_info, core, "Cannot allocate IO bitmap\n");
-      return;
-  }
-  
-  {
-    reg_ex_t tmp_reg;
-    tmp_reg.r_reg = ctrl_area->IOPM_BASE_PA;
-    memset((void*)(tmp_reg.e_reg.low), 0xffffffff, PAGE_SIZE * 2);
-  }
-
-  ctrl_area->instrs.INTR = 1;
-
-  
-  {
-    char gdt_buf[6];
-    char idt_buf[6];
-
-    memset(gdt_buf, 0, 6);
-    memset(idt_buf, 0, 6);
-
-
-    uint_t gdt_base, idt_base;
-    ushort_t gdt_limit, idt_limit;
-    
-    GetGDTR(gdt_buf);
-    gdt_base = *(ulong_t*)((uchar_t*)gdt_buf + 2) & 0xffffffff;
-    gdt_limit = *(ushort_t*)(gdt_buf) & 0xffff;
-    PrintDebug(core->vm_info, core, "GDT: base: %x, limit: %x\n", gdt_base, gdt_limit);
-
-    GetIDTR(idt_buf);
-    idt_base = *(ulong_t*)(idt_buf + 2) & 0xffffffff;
-    idt_limit = *(ushort_t*)(idt_buf) & 0xffff;
-    PrintDebug(core->vm_info, core, "IDT: base: %x, limit: %x\n",idt_base, idt_limit);
-
-
-    // gdt_base -= 0x2000;
-    //idt_base -= 0x2000;
-
-    guest_state->gdtr.base = gdt_base;
-    guest_state->gdtr.limit = gdt_limit;
-    guest_state->idtr.base = idt_base;
-    guest_state->idtr.limit = idt_limit;
-
-
-  }
-  
-  
-  // also determine if CPU supports nested paging
-  /*
-  if (vm_info.page_tables) {
-    //   if (0) {
-    // Flush the TLB on entries/exits
-    ctrl_area->TLB_CONTROL = 1;
-
-    // Enable Nested Paging
-    ctrl_area->NP_ENABLE = 1;
-
-    PrintDebug(core->vm_info, core, "NP_Enable at 0x%x\n", &(ctrl_area->NP_ENABLE));
-
-        // Set the Nested Page Table pointer
-    ctrl_area->N_CR3 |= ((addr_t)vm_info.page_tables & 0xfffff000);
-
-
-    //   ctrl_area->N_CR3 = Get_CR3();
-    // guest_state->cr3 |= (Get_CR3() & 0xfffff000);
-
-    guest_state->g_pat = 0x7040600070406ULL;
-
-    PrintDebug(core->vm_info, core, "Set Nested CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(ctrl_area->N_CR3)), (uint_t)*((unsigned char *)&(ctrl_area->N_CR3) + 4));
-    PrintDebug(core->vm_info, core, "Set Guest CR3: lo: 0x%x  hi: 0x%x\n", (uint_t)*(&(guest_state->cr3)), (uint_t)*((unsigned char *)&(guest_state->cr3) + 4));
-    // Enable Paging
-    //    guest_state->cr0 |= 0x80000000;
-  }
-  */
-
-}
-
-
-
-
-
-#endif
 
 
