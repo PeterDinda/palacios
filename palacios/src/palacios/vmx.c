@@ -1259,6 +1259,18 @@ int v3_start_vmx_guest(struct guest_info * info) {
 	}
 	
 	
+#ifdef V3_CONFIG_HVM
+        if (v3_handle_hvm_reset(info) > 0) {
+	    continue;
+        }
+#endif
+	
+#ifdef V3_CONFIG_MULTIBOOT
+        if (v3_handle_multiboot_reset(info) > 0) {
+	    continue;
+        }
+#endif
+
 #ifdef V3_CONFIG_PMU_TELEMETRY
 	v3_pmu_telemetry_start(info);
 #endif
