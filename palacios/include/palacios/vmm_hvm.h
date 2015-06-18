@@ -71,6 +71,8 @@ void     v3_hvm_find_apics_seen_by_core(struct guest_info *core, struct v3_vm_in
 int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm);
 int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core);
 
+int v3_handle_hvm_reset(struct guest_info *core);
+
 #endif /* ! __V3VEE__ */
 
 

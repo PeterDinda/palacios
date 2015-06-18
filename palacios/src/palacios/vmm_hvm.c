@@ -97,7 +97,7 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 
     V3_Print(core->vm_info,core, "hvm: received hypercall %x  rax=%llx rbx=%llx rcx=%llx at cycle count %llu (%llu cycles since last boot start) num_exits=%llu since initial boot\n",
 	     hcall_id, core->vm_regs.rax, core->vm_regs.rbx, core->vm_regs.rcx, c, c-core->hvm_state.last_boot_start, core->num_exits);
-    v3_print_core_telemetry(core);
+    //v3_print_core_telemetry(core);
     //    v3_print_guest_state(core);
 
     return 0;
@@ -238,11 +238,7 @@ uint64_t v3_get_hvm_ros_memsize(struct v3_vm_info *vm)
 }
 uint64_t v3_get_hvm_hrt_memsize(struct v3_vm_info *vm)
 {
-    if (vm->hvm_state.is_hvm) { 
-	return vm->mem_size - vm->hvm_state.first_hrt_gpa;
-    } else {
-	return 0;
-    }
+    return vm->mem_size;
 }
 
 uint32_t v3_get_hvm_ros_cores(struct v3_vm_info *vm)
@@ -502,18 +498,14 @@ static void get_tss_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
     *limit = PAGE_SIZE;
 }
 
-static uint64_t tss_data=0x0;
-
 static void write_tss(struct v3_vm_info *vm)
 {
     void *base;
     uint64_t limit;
-    int i;
 
     get_tss_loc(vm,&base,&limit);
-    for (i=0;i<limit/8;i++) {
-	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+8*i),8,(uint8_t*) &tss_data);
-    }
+
+    v3_set_gpa_memory(&vm->cores[0],(addr_t)base,limit,0);
 
     PrintDebug(vm,VCORE_NONE,"hvm: wrote TSS at %p\n",base);
 }
@@ -663,7 +655,7 @@ static void write_pt(struct v3_vm_info *vm)
 #endif
 }
 
-static void get_bp_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
+static void get_mb_info_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
 #ifdef HVM_MAP_1G_2M
     *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR-(6+2)*PAGE_SIZE);
@@ -673,44 +665,57 @@ static void get_bp_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
     *limit =  PAGE_SIZE;
 }
 
-static void write_bp(struct v3_vm_info *vm)
+static void write_mb_info(struct v3_vm_info *vm) 
 {
-    void *base;
-    uint64_t limit;
-    uint64_t data=-1;
-    int i;
+    if (vm->hvm_state.hrt_type!=HRT_MBOOT64) { 
+	PrintError(vm, VCORE_NONE,"hvm: Cannot handle this HRT type\n");
+	return;
+    } else {
+	uint8_t buf[256];
+	uint64_t size;
+	void *base;
+	uint64_t limit;
 
-    get_bp_loc(vm,&base,&limit);
-    
-    for (i=0;i<limit/8;i++) { 
-	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+i*8),8,(uint8_t*)&data);
+	get_mb_info_loc(vm,&base,&limit);
+	
+	if ((size=v3_build_multiboot_table(&vm->cores[vm->hvm_state.first_hrt_core],buf,256))==-1) { 
+	    PrintError(vm,VCORE_NONE,"hvm: Failed to build MB info\n");
+	    return;
+	}
+
+	if (size>limit) { 
+	    PrintError(vm,VCORE_NONE,"hvm: MB info is too large\n");
+	    return;
+	}
+	
+	v3_write_gpa_memory(&vm->cores[vm->hvm_state.first_hrt_core],
+			    (addr_t)base,
+			    size,
+			    buf);
+
+	PrintDebug(vm,VCORE_NONE, "hvm: wrote MB info at %p\n", base);
     }
-
-    PrintDebug(vm,VCORE_NONE,"hvm: wrote boundary page at %p\n", base);
-    
 }
 
-#define MIN_STACK (4096*4)
+#define SCRATCH_STACK_SIZE 4096
 
 
 static void get_hrt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    void *bp_base;
-    uint64_t bp_limit;
+    void *mb_base;
+    uint64_t mb_limit;
     
-    get_bp_loc(vm,&bp_base,&bp_limit);
+    get_mb_info_loc(vm,&mb_base,&mb_limit);
     
-    // assume at least a minimal stack
-
-    bp_base-=MIN_STACK;
+    mb_base-=SCRATCH_STACK_SIZE*v3_get_hvm_hrt_cores(vm);
 
     *base = (void*)PAGE_ADDR(vm->hvm_state.first_hrt_gpa);
 
-    if (bp_base < *base+PAGE_SIZE) { 
+    if (mb_base < *base+PAGE_SIZE) { 
 	PrintError(vm,VCORE_NONE,"hvm: HRT stack colides with HRT\n");
     }
 
-    *limit = bp_base - *base;
+    *limit = mb_base - *base;
 }
 
 
@@ -769,16 +774,19 @@ static int setup_elf(struct v3_vm_info *vm, void *base, uint64_t limit)
 static int setup_mb_kernel(struct v3_vm_info *vm, void *base, uint64_t limit)
 {
     mb_data_t mb;
-    uint32_t offset;
-
-
-    // FIX USING GENERIC TOOLS
 
     if (v3_parse_multiboot_header(vm->hvm_state.hrt_file,&mb)) { 
 	PrintError(vm,VCORE_NONE, "hvm: failed to parse multiboot kernel header\n");
 	return -1;
     }
 
+
+    if (v3_write_multiboot_kernel(vm,&mb,vm->hvm_state.hrt_file,base,limit)) {
+	PrintError(vm,VCORE_NONE, "hvm: failed to write multiboot kernel into memory\n");
+	return -1;
+    }
+
+    /*
     if (!mb.addr || !mb.entry) { 
 	PrintError(vm,VCORE_NONE, "hvm: kernel is missing address or entry point\n");
 	return -1;
@@ -794,6 +802,7 @@ static int setup_mb_kernel(struct v3_vm_info *vm, void *base, uint64_t limit)
     offset = mb.addr->load_addr - mb.addr->header_addr;
 
     // Skip the ELF header - assume 1 page... weird.... 
+    // FIX ME TO CONFORM TO MULTIBOOT.C
     v3_write_gpa_memory(&vm->cores[0],
 			(addr_t)(mb.addr->load_addr),
 			vm->hvm_state.hrt_file->size-PAGE_SIZE-offset,
@@ -802,9 +811,6 @@ static int setup_mb_kernel(struct v3_vm_info *vm, void *base, uint64_t limit)
 	
     // vm->hvm_state.hrt_entry_addr = (uint64_t) mb.entry->entry_addr + PAGE_SIZE; //HACK PAD
 
-    vm->hvm_state.hrt_entry_addr = (uint64_t) mb.entry->entry_addr;
-    
-    vm->hvm_state.hrt_type = HRT_MBOOT64;
 
     PrintDebug(vm,VCORE_NONE,
 	       "hvm: wrote 0x%llx bytes starting at offset 0x%llx to %p; set entry to %p\n",
@@ -812,6 +818,14 @@ static int setup_mb_kernel(struct v3_vm_info *vm, void *base, uint64_t limit)
 	       (uint64_t) PAGE_SIZE+offset,
 	       (void*)(addr_t)(mb.addr->load_addr),
 	       (void*) vm->hvm_state.hrt_entry_addr);
+
+
+    */
+
+    vm->hvm_state.hrt_entry_addr = (uint64_t) mb.entry->entry_addr;
+    
+    vm->hvm_state.hrt_type = HRT_MBOOT64;
+
     return 0;
 
 }
@@ -875,8 +889,11 @@ static int setup_hrt(struct v3_vm_info *vm)
   PAGETABLES  (identy map of first N GB)
      ROOT PT first, followed by 2nd level, etc.
      Currently PML4 followed by 1 PDPE for 512 GB of mapping
-  BOUNDARY PAGE (all 0xff - avoid smashing page tables in case we keep going...)
-  (stack - we will push machine description)
+  MBINFO_PAGE
+  SCRATCH_STACK_HRT_CORE0 
+  SCRATCH_STACK_HRT_CORE1
+  ..
+  SCRATCH_STACK_HRT_COREN
   ...
   HRT (as many pages as needed, page-aligned, starting at first HRT address)
   ---
@@ -901,13 +918,14 @@ int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm)
 
     write_pt(vm);
 
-    write_bp(vm);
     
     if (setup_hrt(vm)) {
 	PrintError(vm,VCORE_NONE,"hvm: failed to setup HRT\n");
 	return -1;
     } 
 
+    // need to parse HRT first
+    write_mb_info(vm);
 
     PrintDebug(vm,VCORE_NONE,"hvm: setup of HVM memory done\n");
 
@@ -915,7 +933,7 @@ int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm)
 }
 
 /*
-  On entry:
+  On entry for every core:
 
    IDTR points to stub IDT
    GDTR points to stub GDT
@@ -923,12 +941,12 @@ int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm)
    CR3 points to root page table
    CR0 has PE and PG
    EFER has LME AND LMA
-   RSP is TOS (looks like a call)
-       INFO                     <= RDI
-       0 (fake return address)  <= RSP
-       
-   RIP is entry point to HRT
-   RDI points to machine info on stack
+   RSP is TOS of core's scratch stack (looks like a call)
+
+   RAX = MB magic cookie
+   RBX = address of multiboot info table
+   RCX = this core id / apic id (0..N-1)
+   RDX = this core id - first HRT core ID (==0 for the first HRT core)
 
    Other regs are zeroed
 
@@ -950,6 +968,8 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     PrintDebug(core->vm_info, core, "hvm: setting up HRT core (%u) for boot\n", core->vcpu_id);
 
     
+
+    
     memset(&core->vm_regs,0,sizeof(core->vm_regs));
     memset(&core->ctrl_regs,0,sizeof(core->ctrl_regs));
     memset(&core->dbg_regs,0,sizeof(core->dbg_regs));
@@ -964,17 +984,49 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     core->mem_mode = VIRTUAL_MEM; 
     core->core_run_state = CORE_RUNNING ;
 
-    // We are going to enter right into the HRT
-    // HRT stack and argument passing
-    get_bp_loc(core->vm_info, &base,&limit);
-    // TODO: push description here
-    core->vm_regs.rsp = (v3_reg_t) base;  // so if we ret, we will blow up
-    core->vm_regs.rbp = (v3_reg_t) base; 
-    // TODO: RDI should really get pointer to description
-    core->vm_regs.rdi = (v3_reg_t) base;
+
+    // magic
+    core->vm_regs.rax = MB2_INFO_MAGIC;
+
+    // multiboot info pointer
+    get_mb_info_loc(core->vm_info, &base,&limit);
+    core->vm_regs.rbx = (uint64_t) base;  
+
+    // core number
+    core->vm_regs.rcx = core->vcpu_id;
+    
+    // HRT core number
+    core->vm_regs.rdx = core->vcpu_id - core->vm_info->hvm_state.first_hrt_core;
+
+    // Now point to scratch stack for this core
+    // it begins at an ofset relative to the MB info page
+    get_mb_info_loc(core->vm_info, &base,&limit);
+    base -= core->vm_regs.rdx * SCRATCH_STACK_SIZE;
+    core->vm_regs.rsp = (v3_reg_t) base;  
+    core->vm_regs.rbp = (v3_reg_t) base-8; 
+
+    // push onto the stack a bad rbp and bad return address
+    core->vm_regs.rsp-=16;
+    v3_set_gpa_memory(core,
+		      core->vm_regs.rsp,
+		      16,
+		      0xff);
+
+
     // HRT entry point
     get_hrt_loc(core->vm_info, &base,&limit);
     core->rip = (uint64_t) core->vm_info->hvm_state.hrt_entry_addr ; 
+
+
+    PrintDebug(core->vm_info,core,"hvm: hrt core %u has rip=%p, rsp=%p, rbp=%p, rax=%p, rbx=%p, rcx=%p, rdx=%p\n",
+	       (core->vcpu_id - core->vm_info->hvm_state.first_hrt_core),
+	       (void*)(core->rip),
+	       (void*)(core->vm_regs.rsp),
+	       (void*)(core->vm_regs.rbp),
+	       (void*)(core->vm_regs.rax),
+	       (void*)(core->vm_regs.rbx),
+	       (void*)(core->vm_regs.rcx),
+	       (void*)(core->vm_regs.rdx));
 
     // Setup CRs for long mode and our stub page table
     // CR0: PG, PE
@@ -1073,77 +1125,6 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     memcpy(&core->segments.gs,&core->segments.ds,sizeof(core->segments.ds));
     
 
-    if (core->vm_info->hvm_state.hrt_type==HRT_MBOOT64) { 
-	/*
-	  Temporary hackery for multiboot2 "64"
-	  We will push the MB structure onto the stack and update RSP
-	  and RBX
-	*/
-	uint8_t buf[256];
-	uint64_t size;
-	
-	if ((size=v3_build_multiboot_table(core,buf,256))==-1) { 
-	    PrintError(core->vm_info,core,"hvm: Failed to write MB info\n");
-	    return -1;
-	}
-	core->vm_regs.rsp -= size;
-
-	v3_write_gpa_memory(core,
-			    core->vm_regs.rsp,
-			    size,
-			    buf);
-
-	PrintDebug(core->vm_info,core, "hvm: wrote MB info at %p\n", (void*)core->vm_regs.rsp);
-
-	if (core->vcpu_id == core->vm_info->hvm_state.first_hrt_core) {
-	    // We are the BSP for this HRT
-	    // this is where rbx needs to point
-	    core->vm_regs.rbx = core->vm_regs.rsp;
-	    PrintDebug(core->vm_info,core, "hvm: \"BSP\" core\n");
-	} else {
-	    // We are an AP for this HRT
-	    // so we don't get the multiboot struct
-	    core->vm_regs.rbx = 0;
-	    PrintDebug(core->vm_info,core, "hvm: \"AP\" core\n");
-	}
-
-
-
-	// one more push, something that looks like a return address
-	size=0;
-	core->vm_regs.rsp -= 8;
-
-	v3_write_gpa_memory(core,
-			    core->vm_regs.rsp,
-			    8,
-			    (uint8_t*) &size);
-	
-	// Now for our magic - this signals
-	// the kernel that a multiboot loader loaded it
-	// and that rbx points to its offered data
-	core->vm_regs.rax = MB2_INFO_MAGIC;
-    
-	/* 
-	   Note that "real" MB starts in protected mode without paging
-	   This hack starts in long mode... so these requirements go
-	   out the window for a large part
-
-	   Requirements:
-
-	   OK EAX has magic 
-	   OK EBX points to MB info
-	   OK CS = base 0, offset big, code (LONG MODE)
-	   OK DS,ES,FS,GS,SS => base 0, offset big, data (LONG MODE)
-	   OK A20 gate on
-	   XXX CR0 PE on PG off (nope)
-	   XXX EFLAGS IF and VM off
-	*/
-	   
-
-
-    }
-
-
     // reset paging here for shadow... 
 
     if (core->shdw_pg_mode != NESTED_PAGING) { 
@@ -1153,4 +1134,60 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
 
 
     return 0;
+}
+
+int v3_handle_hvm_reset(struct guest_info *core)
+{
+
+    if (core->core_run_state != CORE_RESETTING) { 
+	return 0;
+    }
+
+    if (!core->vm_info->hvm_state.is_hvm) { 
+	return 0;
+    }
+
+    if (v3_is_hvm_hrt_core(core)) { 
+	// this is an HRT reset
+	int rc=0;
+
+	// wait for all the HRT cores
+	v3_counting_barrier(&core->vm_info->reset_barrier);
+
+	if (core->vcpu_id==core->vm_info->hvm_state.first_hrt_core) { 
+	    // I am leader
+	    core->vm_info->run_state = VM_RESETTING;
+	}
+
+	core->core_run_state = CORE_RESETTING;
+
+	if (core->vcpu_id==core->vm_info->hvm_state.first_hrt_core) {
+	    // we really only need to clear the bss
+	    // and recopy the .data, but for now we'll just
+	    // do everything
+	    rc |= v3_setup_hvm_vm_for_boot(core->vm_info);
+	}
+
+	// now everyone is ready to reset
+	rc |= v3_setup_hvm_hrt_core_for_boot(core);
+
+	core->core_run_state = CORE_RUNNING;
+
+	if (core->vcpu_id==core->vm_info->hvm_state.first_hrt_core) { 
+	    // leader
+	    core->vm_info->run_state = VM_RUNNING;
+	}
+
+	v3_counting_barrier(&core->vm_info->reset_barrier);
+
+	if (rc<0) { 
+	    return rc;
+	} else {
+	    return 1;
+	}
+
+    } else { 
+	// ROS core will be handled by normal reset functionality
+	return 0;
+    }
 }
