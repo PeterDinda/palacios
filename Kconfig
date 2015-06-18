@@ -616,6 +616,7 @@ menu "Symbiosis"
 config SYMBIOTIC
 	bool "Enable Symbiotic Functionality"
 	default n
+        depends on BOCHSBIOS
 	help 
 	  Enable Symbiotic components of the VMM. 
 	  This includes the SymSpy interface.
@@ -644,8 +645,7 @@ config SWAPBYPASS_TELEMETRY
 menuconfig SYMMOD 
 	bool "Symbiotic Modules"
 	default n
-	depends on EXPERIMENTAL
-#	depends on SYMBIOTIC
+	depends on EXPERIMENTAL && SYMBIOTIC
 	help
 	  Enable Symbiotic module loading
 
