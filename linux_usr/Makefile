@@ -16,6 +16,7 @@ BASE_EXECS = 	v3_mem \
                 v3_create_bind \
 		v3_free  \
 	  	v3_launch \
+	        v3_reset  \
 		v3_stop   \
 		v3_pause  \
 		v3_continue \

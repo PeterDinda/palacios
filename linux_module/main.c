@@ -326,7 +326,8 @@ static int read_guests_details(struct seq_file *s, void *v)
 			   base->state==V3_VM_STOPPED ? "stopped" :
 			   base->state==V3_VM_PAUSED ? "paused" :
 			   base->state==V3_VM_ERROR ? "ERROR" :
-			   base->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
+			   base->state==V3_VM_SIMULATING ? "simulating" : 
+			   base->state==V3_VM_RESETTING ? "resetting"  : "UNKNOWN",
 			   core->num_vcores,
 			   mem->num_regions);
 		seq_printf(s, "Core States\n");
@@ -337,7 +338,8 @@ static int read_guests_details(struct seq_file *s, void *v)
 			       j, 
 			       core->vcore[j].state==V3_VCORE_INVALID ? "INVALID" :
 			       core->vcore[j].state==V3_VCORE_RUNNING ? "running" :
-			       core->vcore[j].state==V3_VCORE_STOPPED ? "stopped" : "UNKNOWN",
+			       core->vcore[j].state==V3_VCORE_STOPPED ? "stopped" :
+			       core->vcore[j].state==V3_VCORE_RESETTING ? "resetting" : "UNKNOWN",
 			       core->vcore[j].pcore,
 			       core->vcore[j].num_exits,
 			       core->vcore[j].last_rip,

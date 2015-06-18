@@ -195,6 +195,38 @@ static long v3_vm_ioctl(struct file * filp,
 	    v3_simulate_vm(guest->v3_ctx, arg);
 	    break;
 	}
+	case V3_VM_RESET: {
+	    struct v3_reset_cmd r;
+	    void __user * argp = (void __user *)arg;
+	    v3_vm_reset_type t;
+	    uint32_t core_range[2];
+
+	    if (copy_from_user(&r, argp, sizeof(struct v3_reset_cmd))) {
+		WARNING("Copy from user error getting reset info\n");
+		return -EFAULT;
+	    }
+	    
+	    if (r.type==V3_RESET_VM_ALL) { 
+		t=V3_VM_RESET_ALL;
+	    } else if (r.type==V3_RESET_VM_HRT) {
+		t=V3_VM_RESET_HRT;
+	    } else if (r.type==V3_RESET_VM_ROS) {
+		t=V3_VM_RESET_ROS;
+	    } else if (r.type==V3_RESET_VM_CORE_RANGE){
+		t=V3_VM_RESET_CORE_RANGE;
+		core_range[0]=r.first_core;
+		core_range[1]=r.first_core+r.num_cores-1;
+	    } else {
+		ERROR("Unknown reset type %d requested\n",r.type);
+		return -EFAULT;
+	    }
+	    
+	    if (v3_reset_vm_extended(guest->v3_ctx, t, core_range) == -1) {
+		WARNING("Error reseting VM\n");
+		return -EFAULT;
+	    }
+	    break;
+	}
 
 
 #ifdef V3_CONFIG_CHECKPOINT

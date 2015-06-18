@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
 
     printf("Freeing VM %d\n", vm_idx);
     
-    if (v3_dev_ioctl(V3_FREE_GUEST, vm_idx) < 0) {
+    if (v3_dev_ioctl(V3_FREE_GUEST, (void*)vm_idx) < 0) {
         fprintf(stderr, "Error freeing VM %d (%s)\n", vm_idx,argv[1]);
         return -1;
     }

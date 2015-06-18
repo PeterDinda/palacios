@@ -44,6 +44,8 @@
 
 #define V3_VM_MOVE_MEM 36
 
+#define V3_VM_RESET    40
+
 #define V3_VM_FB_INPUT 257
 #define V3_VM_FB_QUERY 258
 
@@ -90,6 +92,16 @@ struct v3_mem_move_cmd{
     unsigned short     pcore_id;
 } __attribute__((packed));
 
+struct v3_reset_cmd {
+#define V3_RESET_VM_ALL    0
+#define V3_RESET_VM_HRT    1
+#define V3_RESET_VM_ROS    2
+#define V3_RESET_VM_CORE_RANGE  3
+    unsigned int type;
+    unsigned int first_core;  // for CORE_RANGE
+    unsigned int num_cores;   // for CORE_RANGE
+} __attribute__((packed));
+    
 struct v3_chkpt_info {
     char store[128];
     char url[256]; /* This might need to be bigger... */
