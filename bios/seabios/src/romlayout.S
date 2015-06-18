@@ -459,7 +459,9 @@ entry_18:
         ORG 0xe05b
 entry_post:
         cmpl $0, %cs:HaveRunPost                // Check for resume/reboot
-        jnz entry_resume
+		
+	//  Do not attempt a resume on Palacios
+    //        jnz entry_resume
         ENTRY_INTO32 _cfunc32flat_handle_post   // Normal entry point
 
         ORG 0xe2c3

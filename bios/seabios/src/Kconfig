@@ -4,18 +4,26 @@ mainmenu "SeaBIOS Configuration"
 
 menu "General Features"
 
+  choice
+    prompt "Target"
+    default PALACIOS
+
     config COREBOOT
         bool "Build for coreboot"
-        default n
         help
             Configure as a coreboot payload.
 
     config XEN
-        depends on !COREBOOT
         bool "Build for Xen HVM"
-        default n
         help
             Configure to be used by xen hvmloader, for a HVM guest.
+
+    config PALACIOS
+        bool "Build for Palacios VMM"
+        help
+            Configure to be used by the Palacios VMM for a regular or ROS guest
+
+  endchoice
 
     config THREADS
         bool "Parallelize hardware init"

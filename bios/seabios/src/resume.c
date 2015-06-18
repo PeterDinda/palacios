@@ -128,17 +128,25 @@ tryReboot(void)
     dprintf(1, "Attempting a hard reboot\n");
 
     // Setup for reset on qemu.
-    if (! CONFIG_COREBOOT) {
+    if (! CONFIG_COREBOOT && !CONFIG_PALACIOS) {
         qemu_prep_reset();
         if (HaveRunPost)
             apm_shutdown();
     }
 
+    HaveRunPost=0;
+
+    dprintf(1,"Attempting i8042 reboot\n");
+
     // Try keyboard controller reboot.
     i8042_reboot();
 
+    dprintf(1,"Attempting PCI reboot\n");
+
     // Try PCI 0xcf9 reboot
     pci_reboot();
+
+    dprintf(1,"Attempting int3 reboot\n");
 
     // Try triple fault
     asm volatile("int3");
