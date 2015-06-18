@@ -484,6 +484,99 @@ int v3_reset_vm_core(struct guest_info * core, addr_t rip) {
 }
 
 
+// resets the whole VM (non-HVM) or the ROS (HVM) 
+int v3_reset_vm(struct v3_vm_info *vm)
+{
+#ifdef V3_CONFIG_HVM
+    if (vm->hvm_state.is_hvm) { 
+	return v3_reset_vm_extended(vm,V3_VM_RESET_ROS,0);
+    } else {
+	return v3_reset_vm_extended(vm,V3_VM_RESET_ALL,0);
+    }
+#else
+    return v3_reset_vm_extended(vm,V3_VM_RESET_ALL,0);
+#endif
+}
+
+int v3_reset_vm_extended(struct v3_vm_info *vm, v3_vm_reset_type t, void *data)
+{
+    uint32_t start, end, i;
+    uint32_t newcount;
+
+    if (vm->run_state != VM_RUNNING) { 
+	PrintError(vm,VCORE_NONE,"Attempt to reset VM in state %d (must be in running state)\n",vm->run_state);
+	return -1;
+    }
+	
+
+    switch (t) { 
+	case V3_VM_RESET_ALL:
+#ifdef V3_CONFIG_HVM
+	    if (vm->hvm_state.is_hvm) { 
+		PrintError(vm,VCORE_NONE,"Attempt to do ALL reset of HVM (not allowed)\n");
+		return -1;
+	    }
+#endif
+	    start=0; end=vm->num_cores-1;
+	    break;
+#ifdef V3_CONFIG_HVM
+	case V3_VM_RESET_HRT:
+	case V3_VM_RESET_ROS:
+	    if (vm->hvm_state.is_hvm) { 
+		if (t==V3_VM_RESET_HRT) { 
+		    start = vm->hvm_state.first_hrt_core;
+		    end = vm->num_cores-1;
+		} else {
+		    start = 0;
+		    end = vm->hvm_state.first_hrt_core-1;
+		}
+	    } else {
+		PrintError(vm,VCORE_NONE,"This is not an HVM and so HVM-specific resets do not apply\n");
+		return -1;
+	    }
+#endif
+	    break;
+	case V3_VM_RESET_CORE_RANGE:
+	    start = ((uint32_t*)data)[0];
+	    end = ((uint32_t*)data)[1];
+	    break;
+	default:
+	    PrintError(vm,VCORE_NONE,"Unsupported reset type %d for this VM\n",t);
+	    return -1;
+	    break;
+    }
+
+    PrintDebug(vm,VCORE_NONE,"Resetting cores %d through %d\n",start,end);
+
+    newcount = end-start+1;
+    
+    for (i=start;i<=end;i++) { 
+	if (!(vm->cores[i].core_run_state == CORE_RUNNING || vm->cores[i].core_run_state == CORE_STOPPED)) {
+	    PrintError(vm,VCORE_NONE,"Cannot reset VM as core %u is in state %d (must be running or stopped)\n",i,vm->cores[i].core_run_state);
+	    return -1;
+	}
+    }
+
+
+    // This had better be the only thread using the barrier at this point...
+    v3_init_counting_barrier(&vm->reset_barrier,newcount);
+
+    // OK, I am the reseter, tell the relevant cores what to do
+    // each will atomically decrement the reset countdown and then
+    // spin waiting for it to hit zero.
+
+    for (i=start;i<=end;i++) { 
+	vm->cores[i].core_run_state = CORE_RESETTING;
+	// force exit of core
+	v3_interrupt_cpu(vm, vm->cores[i].pcpu_id, 0);
+    }
+    
+    // we don't wait for reset to finish
+    // because reset could have been initiated by a core
+
+    return 0;
+}
+
 
 /* move a virtual core to different physical core */
 int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu) {
@@ -900,6 +993,7 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 	case VM_PAUSED: base->state = V3_VM_PAUSED; break;
 	case VM_ERROR: base->state = V3_VM_ERROR; break;
 	case VM_SIMULATING: base->state = V3_VM_SIMULATING; break;
+	case VM_RESETTING: base->state = V3_VM_RESETTING; break;
 	default: base->state = V3_VM_UNKNOWN; break;
     }
 
@@ -908,6 +1002,7 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 	    case CORE_INVALID: core->vcore[i].state = V3_VCORE_INVALID; break;
 	    case CORE_RUNNING: core->vcore[i].state = V3_VCORE_RUNNING; break;
 	    case CORE_STOPPED: core->vcore[i].state = V3_VCORE_STOPPED; break;
+	    case CORE_RESETTING: core->vcore[i].state = V3_VCORE_RESETTING; break;
 	    default: core->vcore[i].state = V3_VCORE_UNKNOWN; break;
 	}
 	switch (vm->cores[i].cpu_mode) {

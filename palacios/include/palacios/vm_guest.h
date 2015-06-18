@@ -39,6 +39,7 @@
 #include <palacios/vmm_regs.h>
 #include <palacios/vmm_extensions.h>
 #include <palacios/vmm_barrier.h>
+#include <palacios/vmm_subset.h>
 #include <palacios/vmm_timeout.h>
 #include <palacios/vmm_exits.h>
 #include <palacios/vmm_events.h>
@@ -276,6 +277,8 @@ struct v3_vm_info {
     struct v3_vm_hvm  hvm_state;
 #endif
 
+    // used to implement reset of regular VM and ROS
+    v3_counting_barrier_t  reset_barrier;
 
     uint64_t yield_cycle_period;  
 

@@ -73,8 +73,8 @@ int v3_handle_halt(struct guest_info * info)
 	    // participate in any barrier that might be raised
 	    v3_wait_at_barrier(info);
 
-	    // stop if the VM is being halted
-	    if (info->core_run_state == CORE_STOPPED) { 
+	    // stop if the VM is being halted or core is being reset
+	    if (info->core_run_state == CORE_STOPPED || info->core_run_state == CORE_RESETTING) { 
 		break;
 	    }
 

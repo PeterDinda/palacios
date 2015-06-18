@@ -413,8 +413,8 @@ struct v3_interrupt {
 };
 
 
-typedef enum {V3_VM_UNKNOWN, V3_VM_INVALID, V3_VM_RUNNING, V3_VM_STOPPED, V3_VM_PAUSED, V3_VM_ERROR, V3_VM_SIMULATING} v3_vm_state_t;
-typedef enum {V3_VCORE_UNKNOWN, V3_VCORE_INVALID, V3_VCORE_RUNNING, V3_VCORE_STOPPED} v3_vcore_state_t;
+typedef enum {V3_VM_UNKNOWN, V3_VM_INVALID, V3_VM_RUNNING, V3_VM_STOPPED, V3_VM_PAUSED, V3_VM_ERROR, V3_VM_SIMULATING, V3_VM_RESETTING} v3_vm_state_t;
+typedef enum {V3_VCORE_UNKNOWN, V3_VCORE_INVALID, V3_VCORE_RUNNING, V3_VCORE_STOPPED, V3_VCORE_RESETTING } v3_vcore_state_t;
 typedef enum {V3_VCORE_CPU_UNKNOWN, V3_VCORE_CPU_REAL, V3_VCORE_CPU_PROTECTED, V3_VCORE_CPU_PROTECTED_PAE, V3_VCORE_CPU_LONG, V3_VCORE_CPU_LONG_32_COMPAT, V3_VCORE_CPU_LONG_16_COMPAT} v3_vcore_cpu_mode_t;
 
 typedef enum {V3_VCORE_MEM_STATE_UNKNOWN, V3_VCORE_MEM_STATE_SHADOW, V3_VCORE_MEM_STATE_NESTED} v3_vcore_mem_state_t;
@@ -464,6 +464,10 @@ int v3_stop_vm(struct v3_vm_info * vm);
 int v3_pause_vm(struct v3_vm_info * vm);
 int v3_continue_vm(struct v3_vm_info * vm);
 int v3_simulate_vm(struct v3_vm_info * vm, unsigned int msecs);
+
+int v3_reset_vm(struct v3_vm_info *vm);
+typedef enum {V3_VM_RESET_ALL,V3_VM_RESET_HRT,V3_VM_RESET_ROS,V3_VM_RESET_CORE_RANGE} v3_vm_reset_type;
+int v3_reset_vm_extended(struct v3_vm_info *vm, v3_vm_reset_type t, void *data);
 
 int v3_save_vm(struct v3_vm_info * vm, char * store, char * url, unsigned long long opts);
 int v3_load_vm(struct v3_vm_info * vm, char * store, char * url, unsigned long long opts);
