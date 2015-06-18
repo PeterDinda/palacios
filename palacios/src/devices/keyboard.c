@@ -28,7 +28,6 @@
 #include <palacios/vm_guest.h>
 #include <palacios/vmm_debug.h>
 
-
 #ifndef V3_CONFIG_DEBUG_KEYBOARD
 #undef PrintDebug
 #define PrintDebug(fmt, args...)
@@ -813,7 +812,7 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
 	case 0xf2:   // instead of what is currently in output_byte (I think)
 	case 0xf3:   // main effect is taht if bit zero is zero
 	case 0xf4:   // should cause reset
-	case 0xf5:   // I doubt anything more recent than a 286 running  OS2 with the penalty box will care
+	case 0xf5:   
 	case 0xf6:   
 	case 0xf7:
 	case 0xf8:
@@ -822,9 +821,15 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
 	case 0xfb:
 	case 0xfc:
 	case 0xfd:
-	case 0xfe:
 	case 0xff:
-	    PrintDebug(core->vm_info, core, "keyboard: ignoring command 0x%x on output port\n", cmd);
+	    if (!(cmd & 0x1)) { 
+		// general purpose reset
+		PrintDebug(core->vm_info, core, "keyboard: reseting VM\n");
+		v3_reset_vm(core->vm_info);
+
+	    } else {
+		PrintDebug(core->vm_info, core, "keyboard: ignoring command 0x%x on output port\n", cmd);
+	    }
 	    break;
    
 	    // case ac  diagonstic - returns 16 bytes from keyboard microcontroler on 60h
