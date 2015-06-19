@@ -683,6 +683,8 @@ static int update_irq_entry_state(struct guest_info * info) {
 
 		info->intr_core_state.irq_pending = 1;
 		info->intr_core_state.irq_vector = irq;
+
+		break;
 		
 	    }
 	    case V3_NMI:
@@ -751,7 +753,6 @@ int v3_svm_enter(struct guest_info * info) {
     vmcb_saved_state_t * guest_state = GET_VMCB_SAVE_STATE_AREA((vmcb_t*)(info->vmm_data)); 
     addr_t exit_code = 0, exit_info1 = 0, exit_info2 = 0;
     uint64_t guest_cycles = 0;
-    struct Interrupt_Info exit_int_info;
 
 
     // Conditionally yield the CPU if the timeslice has expired
@@ -923,7 +924,6 @@ int v3_svm_enter(struct guest_info * info) {
     exit_code = guest_ctrl->exit_code;
     exit_info1 = guest_ctrl->exit_info1;
     exit_info2 = guest_ctrl->exit_info2;
-    exit_int_info = guest_ctrl->exit_int_info;
 
 #ifdef V3_CONFIG_SYMCALL
     if (info->sym_core_state.symcall_state.sym_call_active == 0) {
@@ -952,8 +952,6 @@ int v3_svm_enter(struct guest_info * info) {
 	    PrintError(info->vm_info, info, "Error in SVM exit handler (ret=%d)\n", ret);
 	    PrintError(info->vm_info, info, "  last Exit was %d (exit code=0x%llx)\n", v3_last_exit, (uint64_t) exit_code);
 
-	    //V3_Sleep(5*1000000);
-    
 	    return -1;
 	}
     }
@@ -1166,7 +1164,6 @@ int v3_reset_svm_vm_core(struct guest_info * core, addr_t rip) {
     // So the selector needs to be VV00
     // and the base needs to be VV000
     //
-    V3_Print(core->vm_info,core,"SVM Reset to RIP %p\n",(void*)rip);
     core->rip = 0;
     core->segments.cs.selector = rip << 8;
     core->segments.cs.limit = 0xffff;
