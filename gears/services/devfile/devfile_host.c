@@ -186,7 +186,7 @@ static void put_return(palacios_core_t core,
 		       uint64_t errno)
 {
     acc->set_rax(core,rc);
-    acc->set_rbx(core,rc);
+    acc->set_rbx(core,errno);
 }
 	
 /*
@@ -232,34 +232,6 @@ static int deref_args(palacios_core_t core,
 }
 
 
-#if 0
-/* Create /dev/v3-devfile in the host */
-
-// User mode helper call to create module private chardev for ioctls
-static int setup_mknod_call(int major_num)
-{
-    //www.ibm.com/developerworks/library/l-user-space-apps/
-    struct subprocess_info *sub_info;  
-    char buf[20];
-    
-    snprintf(buf,20,"%d",major_num);
-    
-    const char *argv[] = { "/bin/mknod", "/dev/" DEVFILE_NAME,"c", buf, "0", NULL };
-    static char *envp[] = { "HOME=/", "TERM=linux", "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
-
-    sub_info = call_usermodehelper_setup( (char*)argv[0], (char**)argv, envp, GFP_ATOMIC );
-    
-    if (sub_info == NULL) {
-	ERROR("failed to create %s\n",DEVFILE_PATH);
-	return -ENOMEM;
-    }
-    
-    SHALLOW_DEBUG_PRINT("set up usermode call\n");
-    
-    return call_usermodehelper_exec( sub_info, UMH_WAIT_PROC );
-}
-
-#endif
 
 static uint64_t devfile_syscall_return(struct devfile_state *s, uint64_t *errno)
 {
@@ -505,21 +477,6 @@ int init_module(void)
     
     device_create(devfile_class, NULL, dev, NULL, "v3-devfile");
 
-#if 0
-   // Setup chardev for IOCTL
-    major = register_chrdev(0,"dfvDev", &fops);
-    if(major < 0){
-        SHALLOW_DEBUG_PRINT("registering dfvDev char device failed with %d\n", major);
-        return major;
-    }
-    SHALLOW_DEBUG_PRINT("assigned major: %d\n", major);
-    SHALLOW_DEBUG_PRINT("creating node with mknod %s c %d 0\n", DEVFILE_PATH, major);
-
-    // Call Helper API function to setup chardev
-    rc = setup_mknod_call(major);
-    SHALLOW_DEBUG_PRINT("UMH api mknod %s c %d 0 -- ret: %d\n\n", DEVFILE_PATH, major,rc);
-
-#endif
 
     INFO("inited\n");
     
@@ -535,9 +492,6 @@ void cleanup_module(void)
     device_destroy(devfile_class,dev);
     class_destroy(devfile_class);
 
-#if 0
-    unregister_chrdev(major, "dfvDev");
-#endif
     if (state) {
 	kfree(state);
     }
