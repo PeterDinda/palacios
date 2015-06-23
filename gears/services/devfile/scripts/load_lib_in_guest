@@ -1,0 +1,17 @@
+#copy the missing library over to correct path
+cd /lib64
+cp /mnt/libtest/libdl.so.2 .
+
+#set LD_PRELOAD correctly
+export LD_PRELOAD=/mnt/dev_file/devfile_preload.so
+
+
+#check if the loader is able to load the LD_library 
+./ld-linux-x86-64.so.2 --list /mnt/dev_file/devfile_preload.so
+
+#check if test program gets the ld preload loaded
+./ld-linux-x86-64.so.2 --list /mnt/dev_file/test_preload
+
+# run test program
+cd /mnt/dev_file/
+#./test_preload r 24 /dev/urandom

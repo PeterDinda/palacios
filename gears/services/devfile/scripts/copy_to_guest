@@ -1,0 +1,8 @@
+cd ~/akbill/palacios/guest7/
+mount littlefs.dat tmp
+cp -u ~/akbill/palacios/gears/services/devfile/test_preload tmp/dev_file/.
+cp -u ~/akbill/palacios/gears/services/devfile/devfile_preload.so tmp/dev_file/.
+cp -u ~/akbill/palacios/gears/services/devfile/scripts/load_lib_in_guest tmp/dev_file/.
+echo "Copy done"
+umount tmp
+cd ~/akbill/palacios

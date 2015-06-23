@@ -1,0 +1,18 @@
+jobs -p | xargs kill -9
+source patched_close_guest
+./v3_deinit
+cd linux_usr
+make clean
+make
+cd ..
+make clean
+make -j 8
+source ENV
+source gears/services/devfile/scripts/patched_copy_to_guest
+./v3_init
+cd gears/services/devfile/
+make
+insmod devfile_host.ko
+cd ../../..
+source gears/services/dev_ile/patched_start_guest
+jobs -l

@@ -1,0 +1,5 @@
+#!/bin/sh
+v3_hypercall /dev/v3-vm0 remove 99993 devfile_hypercall 
+v3_stop /dev/v3-vm0
+v3_free 0
+rmmod devfile_host.ko

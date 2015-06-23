@@ -1,0 +1,8 @@
+cd dev_file_guest
+mount littlefs.dat tmp
+cp -u ../gears/services/devfile/scripts/load_lib_in_guest tmp/dev_file/.
+cp -u ../gears/services/devfile/test_prelaod tmp/dev_file/.
+cp -u ../gears/services/devfile/devfile_preload.so tmp/dev_file/.
+echo "Copy done"
+umount tmp
+cd ..

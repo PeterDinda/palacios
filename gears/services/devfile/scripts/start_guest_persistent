@@ -1,0 +1,4 @@
+cd guest7
+v3_create -b guest7.pal gg
+v3_devfile_shadow /dev/v3-vm0
+cd ..

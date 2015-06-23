@@ -1,0 +1,9 @@
+#!/bin/sh
+cd guest7
+v3_create -b -u guest7.pal gg
+cd ../dev_file/
+insmod devfile_host.ko
+v3_hypercall /dev/v3-vm0 add 99993 devfile_hypercall
+v3_launch /dev/v3-vm0
+v3_console /dev/v3-vm0
+cd ..

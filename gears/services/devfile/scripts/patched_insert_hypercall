@@ -1,0 +1,5 @@
+#!/bin/sh
+source ENV
+v3_hypercall /dev/v3-vm0 add 99993 devfile_hypercall
+v3_launch /dev/v3-vm0
+v3_console /dev/v3-vm0

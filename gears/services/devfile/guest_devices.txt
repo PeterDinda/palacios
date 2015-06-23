@@ -1,0 +1,9 @@
+/dev/urandom
+/dev/input/mouse0
+/dev/input/event0
+/dev/input/event1
+/dev/ttyS0
+/dev/ttyS1
+/dev/ttyS2
+/dev/ttyS3
+/dev/newDevice

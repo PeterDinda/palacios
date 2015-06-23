@@ -1,0 +1,190 @@
+Device File Palacios Extension
+ 
+Akhil Guliani and William Gross
+(Advised by Peter Dinda)
+Northwestern University
+
+What Is This?
+
+This is a proof-of-concept implementation of device file
+virtualization in the spirit of the Paradice system.  Unlike Paradice,
+it is implemented using only a preload library in the guest (no guest
+modifications) and a kernel module in the host (no kernel
+modifications).   Also, there are no modifications to the Palacios
+VMM either, as the core mechanisms used are the host hypercall
+interface and the user-level guest memory access capabilities
+implemented within Palacios.
+
+Note that it is a proof of concept.  It does not do many of the things
+that Paradice can do.  For example, a hypercall currently involves a
+hard stop of the guest core.   Address space integration in the shadow
+process is page granularity only.  Pointer detection for system call
+forwarding is done at a coarse granularity, meaning that ioctls would
+need ot be hand coded.    Select across guest and host fds is
+completely ignored.  
+
+Theory of Operation
+
+The basic idea is that we introduce a preload library into a guest
+process.   This library hijacks system calls.   When you open a /dev
+device that is in the list of devices we are proxying, the libraryio
+handles the open by converting it to a hypercall, and binding the
+result of the "open" hypercall and the fd returned.   On subsequent
+system calls involving the fd, the system calls are also converted to
+hypercalls.  The preload library merges fds/syscalls handled by the
+guest and those handled by the host.  The preload library also assures
+that any data accessed is touched (page table entry exists), and could
+pin it (currently does not).   It also limits any pointer argument to
+point to an block that fits within one page (e.g., read(1K offset,
+4K length) turns into read(1K offset, 3K length).
+
+The hypercall is directed to the second component, a kernel module.
+The kernel module swizzles pointers involved in the system call from
+their GVAs to their GPAs.  It then queues them for interaction with
+host user space process called the shadow process.  The kernel module
+and the shadow share a page used to transfer the system call arguments
+and the return value and errno.   The kernel module signals the shadow
+that a new swizzled system call is available by letting a poll/select
+complete.   The shadow signals the kernel module that it is finished
+with the system call via an ioctl. 
+
+The shadow process maps the guest's physical memory into its address
+space using the guest memory access mechanisms.  It then goes into a
+select waiting for the kernel module.  When it receives a system call
+from the kernel module, it swizzles any pointer arguments in the
+system call from their GPAs (provided by the kernel module) to their
+corresponding HVAs (where the guest is mapped).  It then issues the
+system call, and writes back on the shared page both the return code
+and the current errno value.  It then signals completion via the
+ioctl.  
+
+The kernel module then returns from the hypercall to palacios, which
+returns to the guest preload library, which copies out the relevant
+results so that it appears that a system call has completed (on the
+guest).
+
+Note that this model can be potentailly also be used as a general
+system call forwarding mechanism. 
+
+What's Here and There
+
+In this directory (palacios/gears/services/devfile) you will find the
+prelaod library and the kernel module.  There is also a simple test
+program for the guest.. In the palacios user space directory
+(palacios/linux_usr), you will find the shadow process code.  The
+latter is separate as it has dependencies on the guest memory access
+library and build config.
+
+In palacios/gears/services/devfile/scripts, you will find scripts
+which may help to evaluate the system.   
+
+
+General Setup
+
+[root@v-test-r415-3 linux_usr]# ./v3_devfile_shadow 
+v3_devfile_shadow <vm_device>
+
+Shadow process to support device file-level virtualization
+in the spirit of Paradice.
+
+This operates with the devfile_host.ko kernel module
+in the host and devfile_preload.so preload library in
+the guest.  These can be found, along with example scripts
+in palacios/gears/services/devfile.
+
+The general steps are:
+ 1. insmod kernel module into host
+ 2. copy preload library into guest
+ 3. instantiate guest
+ 4. use v3_hypercall to bind the devfile hypercall (99993)
+    to the kernel module for your guest
+ 5. run v3_devfile_shadow
+ 6. run process in guest that uses preload library
+
+
+****Scripts and More Detail Below****
+
+Setup:
+
+Copy the patched_start_guest, patched_mem_script,
+patched_insert_hypercall, and patched_view_console to the top of the
+palacios directory then cd to the to top of the directory so that you
+are at path/to/palacios/ and the scripts are at
+path/to/palacios/patched_*
+
+
+
+Guest Requirements:
+
+For this system to work, the guest needs a couple things. It needs to
+be configured with a CGA console (to get v3_console to work). It needs
+to have sufficient memory (1024kb seems to work).  It needs to accept
+an LD_PRELOAD library. It needs to be an x86_64 architecture OS. It
+needs to be running a Linux kernel. It needs a second drive set up as
+a CD-ROM.  Once that second drive is set up, replace the backing file
+with a handmade loopback file system (perhaps using dd). For our
+scripts to work exactly, this handmade file system should be called
+littlefs.dat and an empty directory (for mounting) should be present
+in the guest folder called tmp. The scripts are short and few, so the
+relevant paths in them can be modified as necessary to fit your setup.
+
+
+
+Start Guest with Device File Forwarding:
+
+in that terminal source patched_mem_script in other terminal go to the
+same position and source insert_hypercall if the terminal doesn't open
+into the guest, resize your terminal appropriately and then source
+patched_view_console and then from the guest do the following
+
+mkdir mnt
+mount /dev/hdb mnt
+cd /mnt/dev_file
+source load_lib_in_guest
+./test_preload
+EXAMPLE: ./test_preload r 10 /dev/urandom 
+
+This will attempt to read 10 bytes from /dev/urandom, where /dev/urandom
+is a host device.
+
+If that last argument (/dev/urandom)is present in the
+devfile_preload.c library, then the system will access the host
+version of that device, if not it will just perform the regular system
+calls on the guest's version of that device if it is present.
+
+
+Close Running Guest with Device File Forwarding:
+
+To shut down smoothly kill the shadow process run from the first
+terminal (patched_mem_script) make sure the second terminal has left
+the guest by pressing \ then in either terminal source
+patched_close_guest
+
+
+Adding Host Devices in /dev to the list of Supported Devices:
+
+go to path/to/palacios/gears/services/devfile
+edit guest_devices.txt
+then run from the command line 'python guest_device_setup.py'
+
+this will update the dev_file_ld_lib.c file, which can be made from
+that directory the object file is copied over to the guests /dev/hdb
+drive within the patched_mem_script NOTE: Adding devices requires the
+preload library (devfile_preload.c) to be made and copied to the guest
+so, they cannot be added while a guest is running with this
+feature. Close the guest first, add the new device changes, run the
+python script, make the /gears/services/dev_file directory, start the
+guest.
+
+
+
+Extending the System Call Interface:
+
+devfile_preload.c is the LD_PRELOAD library for the guest that hijacks
+some basic system calls to see if they should be forwarded to the
+host. To support a broader range of devices, this basic set can be
+added to.  Any addition should follow a similar structure to the read
+or write system call in there. The things to make sure are that all
+pointer arguments get pinned into memory and that the file descriptor
+argument is checked against the set of active fds in the dtrack struct
+(also in the library file).

@@ -1,0 +1,18 @@
+jobs -p | xargs kill -9
+./close_guest
+./v3_deinit
+cd ~/akbill/palacios/linux_usr
+make clean
+make
+cd ..
+make clean
+make -j 8
+source ENV
+source copy_to_guest
+./v3_init
+cd ~/akbill/palacios/gears/services/dev_file/
+make
+insmod devfile_host.ko
+cd scripts
+source start_guest_persistent
+jobs -l
