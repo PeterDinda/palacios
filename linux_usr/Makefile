@@ -54,7 +54,8 @@ EXPERIMENTAL_EXECS = 	v3_simulate  \
                         v3_top_inject \
                         v3_env_inject \
 			v3_syscall \
-			v3_register_gm
+			v3_register_gm \
+			v3_devfile_shadow
 
 
 
@@ -186,6 +187,11 @@ v3_guest_mem_access : v3_guest_mem_access.c libv3_guest_mem.a libv3_ctrl.a
 	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -lv3_ctrl -o $@
 
 v3_guest_mem_track : v3_guest_mem_track.c libv3_guest_mem.a libv3_ctrl.a
+	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -lv3_ctrl -o $@
+
+
+# Use this for shadow process
+v3_devfile_shadow : v3_devfile_shadow.c libv3_guest_mem.a libv3_ctrl.a
 	$(CC) $(CFLAGS) $< -L. -lv3_guest_mem -lv3_ctrl -o $@
 
 #

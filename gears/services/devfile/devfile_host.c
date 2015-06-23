@@ -544,3 +544,6 @@ void cleanup_module(void)
 
     INFO("deinited\n");
 }
+
+
+MODULE_LICENSE("GPL");
