@@ -420,9 +420,13 @@ typedef enum {V3_VCORE_CPU_UNKNOWN, V3_VCORE_CPU_REAL, V3_VCORE_CPU_PROTECTED, V
 typedef enum {V3_VCORE_MEM_STATE_UNKNOWN, V3_VCORE_MEM_STATE_SHADOW, V3_VCORE_MEM_STATE_NESTED} v3_vcore_mem_state_t;
 typedef enum {V3_VCORE_MEM_MODE_UNKNOWN, V3_VCORE_MEM_MODE_PHYSICAL, V3_VCORE_MEM_MODE_VIRTUAL} v3_vcore_mem_mode_t;
 
+typedef enum {V3_VM_GENERAL, V3_VM_HVM} v3_vm_type_t;
+typedef enum {V3_VCORE_GENERAL, V3_VCORE_ROS, V3_VCORE_HRT} v3_vcore_type_t;
+
 
 struct v3_vm_base_state {
     v3_vm_state_t       state;
+    v3_vm_type_t        vm_type;
 };
 
 struct v3_vm_vcore_state {
@@ -430,26 +434,29 @@ struct v3_vm_vcore_state {
   v3_vcore_cpu_mode_t cpu_mode;
   v3_vcore_mem_state_t mem_state;
   v3_vcore_mem_mode_t mem_mode;
+  v3_vcore_type_t  vcore_type;
   unsigned long pcore;
   void *   last_rip;
   unsigned long long num_exits;
 };
 
 struct v3_vm_core_state {
-    unsigned long         num_vcores;
+    unsigned long long       num_vcores;
     struct v3_vm_vcore_state vcore[];
 };
 
 struct v3_vm_mem_region {
+    void               *guest_paddr;
     void               *host_paddr;
     unsigned long long  size;
-    int                 swapped;
-    int                 pinned;
+    int                 swapped:1;
+    int                 pinned:1;
 };
 
 struct v3_vm_mem_state {
     unsigned long long      mem_size;
-    unsigned long           num_regions;
+    unsigned long long      ros_mem_size;
+    unsigned long long      num_regions;
     struct v3_vm_mem_region region[]; 
 };
 
@@ -479,6 +486,10 @@ int v3_move_vm_core(struct v3_vm_info * vm, int vcore_id, int target_cpu);
 int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu);
 
 int v3_free_vm(struct v3_vm_info * vm);
+
+int v3_get_state_sizes_vm(struct v3_vm_info        *vm, 
+			  unsigned long long       *num_vcores, 
+			  unsigned long long       *num_regions);
 
 int v3_get_state_vm(struct v3_vm_info        *vm, 
 		    struct v3_vm_base_state  *base,

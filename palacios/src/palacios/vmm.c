@@ -977,9 +977,10 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
     uint32_t numcores;
     uint32_t numregions; 
     extern uint64_t v3_mem_block_size;
+    void     *cur_gpa;
 
     if (!vm || !base || !core || !mem)  { 
-        PrintError(VM_NONE, VCORE_NONE, "Invalid rquest to v3_get_state_vm\n");
+        PrintError(VM_NONE, VCORE_NONE, "Invalid request to v3_get_state_vm\n");
 	return -1;
     }
 
@@ -996,6 +997,14 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 	case VM_RESETTING: base->state = V3_VM_RESETTING; break;
 	default: base->state = V3_VM_UNKNOWN; break;
     }
+
+    base->vm_type = V3_VM_GENERAL;
+
+#ifdef V3_CONFIG_HVM
+    if (vm->hvm_state.is_hvm) { 
+	base->vm_type = V3_VM_HVM;
+    } 
+#endif
 
     for (i=0;i<numcores;i++) {
 	switch (vm->cores[i].core_run_state) {
@@ -1024,6 +1033,18 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 	    case VIRTUAL_MEM: core->vcore[i].mem_mode=V3_VCORE_MEM_MODE_VIRTUAL; break;
 	    default: core->vcore[i].mem_mode=V3_VCORE_MEM_MODE_UNKNOWN; break;
 	}
+
+	core->vcore[i].vcore_type = V3_VCORE_GENERAL;
+
+#ifdef V3_CONFIG_HVM
+	if (vm->hvm_state.is_hvm) { 
+	    if (v3_is_hvm_ros_core(&vm->cores[i])) { 
+		core->vcore[i].vcore_type = V3_VCORE_ROS;
+	    } else {
+		core->vcore[i].vcore_type = V3_VCORE_HRT;
+	    }
+	}
+#endif
 	
 	core->vcore[i].pcore=vm->cores[i].pcpu_id;
 	core->vcore[i].last_rip=(void*)(vm->cores[i].rip);
@@ -1032,7 +1053,10 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
     
     core->num_vcores=numcores;
 
+    cur_gpa=0;
+
     for (i=0;i<numregions;i++) {
+	mem->region[i].guest_paddr = cur_gpa;
 	mem->region[i].host_paddr =  (void*)(vm->mem_map.base_regions[i].host_addr);
 	mem->region[i].size = v3_mem_block_size;
 #ifdef V3_CONFIG_SWAPPING
@@ -1043,9 +1067,35 @@ int v3_get_state_vm(struct v3_vm_info        *vm,
 	mem->region[i].pinned = 0;
 #endif
 
+	cur_gpa += mem->region[i].size;
     }
 
     mem->num_regions=numregions;
+
+
+    mem->mem_size=vm->mem_size;
+    mem->ros_mem_size=vm->mem_size;
+
+#ifdef V3_CONFIG_HVM
+    if (vm->hvm_state.is_hvm) { 
+	mem->ros_mem_size=v3_get_hvm_ros_memsize(vm);
+    }
+#endif
+
+    return 0;
+}
+
+int v3_get_state_sizes_vm(struct v3_vm_info        *vm, 
+			  unsigned long long       *num_vcores, 
+			  unsigned long long       *num_regions)
+{
+    if (!vm || !num_vcores || !num_regions) {
+        PrintError(VM_NONE, VCORE_NONE, "Invalid request to v3_get_state_sizes\n");
+	return -1;
+    }
+
+    *num_vcores = vm->num_cores;
+    *num_regions = vm->mem_map.num_base_regions;
     
     return 0;
 }

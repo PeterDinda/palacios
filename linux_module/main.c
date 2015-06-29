@@ -274,6 +274,7 @@ static int read_guests_details(struct seq_file *s, void *v)
 {
     unsigned int i = 0;
     unsigned int j = 0;
+    uint64_t num_vcores, num_regions;
     struct v3_vm_base_state *base=0;
     struct v3_vm_core_state *core=0;
     struct v3_vm_mem_state *mem=0;
@@ -285,22 +286,26 @@ static int read_guests_details(struct seq_file *s, void *v)
       goto out;
     }
 
-    core = palacios_alloc(sizeof(struct v3_vm_core_state) + MAX_VCORES*sizeof(struct v3_vm_vcore_state));
-    
-    if (!core) { 
-	ERROR("No space for core state structure\n");
-	goto out;
-    }
-    
-    mem = palacios_alloc(sizeof(struct v3_vm_mem_state) + MAX_REGIONS*sizeof(struct v3_vm_mem_region));
-    
-    if (!mem) { 
-	ERROR("No space for memory state structure\n");
-	goto out;
-    }
-    
     for(i = 0; i < MAX_VMS; i++) {
+
 	if (guest_map[i] != NULL) {
+	    
+	    v3_get_state_sizes_vm(guest_map[i]->v3_ctx,&num_vcores,&num_regions);
+
+	    core = palacios_alloc(sizeof(struct v3_vm_core_state) + num_vcores*sizeof(struct v3_vm_vcore_state));
+	    
+	    if (!core) { 
+		ERROR("No space for core state structure\n");
+		goto out;
+	    }
+    
+	    mem = palacios_alloc(sizeof(struct v3_vm_mem_state) + num_regions*sizeof(struct v3_vm_mem_region));
+    
+	    if (!mem) { 
+		ERROR("No space for memory state structure\n");
+		goto out;
+	    }
+    
 	    seq_printf(s,
 		       "---------------------------------------------------------------------------------------\n");
 	    seq_printf(s, 
@@ -310,17 +315,21 @@ static int read_guests_details(struct seq_file *s, void *v)
 		       i,guest_map[i]->name, i);
 	    
 	    // Get extended data
-	    core->num_vcores=MAX_VCORES; // max we can handle
-	    mem->num_regions=MAX_REGIONS; // max we can handle
+	    core->num_vcores=num_vcores;
+	    mem->num_regions=num_regions;
 	    
 	    if (v3_get_state_vm(guest_map[i]->v3_ctx, base, core, mem)) {
 		ERROR("Cannot get VM info\n");
 		seq_printf(s, "<unable to get data for this VM>\n");
 	    } else {
 		seq_printf(s, 
+			   "Type:         %s\n"
 			   "State:        %s\n"
-			   "Cores:        %lu\n"
-			   "Regions:      %lu\n\n",
+			   "Cores:        %llu\n"
+			   "Regions:      %llu\n"
+			   "Memsize:      %llu (%llu ROS)\n\n",
+			   base->vm_type==V3_VM_GENERAL ? "general" :
+			   base->vm_type==V3_VM_HVM ? "HVM" : "UNKNOWN",
 			   base->state==V3_VM_INVALID ? "INVALID" :
 			   base->state==V3_VM_RUNNING ? "running" :
 			   base->state==V3_VM_STOPPED ? "stopped" :
@@ -329,12 +338,15 @@ static int read_guests_details(struct seq_file *s, void *v)
 			   base->state==V3_VM_SIMULATING ? "simulating" : 
 			   base->state==V3_VM_RESETTING ? "resetting"  : "UNKNOWN",
 			   core->num_vcores,
-			   mem->num_regions);
+			   mem->num_regions,
+			   mem->mem_size,
+			   mem->ros_mem_size);
+
 		seq_printf(s, "Core States\n");
 		
 		for (j=0;j<core->num_vcores;j++) {
 		    seq_printf(s,
-			       "   vcore %u %s on pcore %lu %llu exits rip=0x%p %s %s %s\n",
+			       "   vcore %u %s on pcore %lu %llu exits rip=0x%p %s %s %s %s\n",
 			       j, 
 			       core->vcore[j].state==V3_VCORE_INVALID ? "INVALID" :
 			       core->vcore[j].state==V3_VCORE_RUNNING ? "running" :
@@ -352,21 +364,30 @@ static int read_guests_details(struct seq_file *s, void *v)
 			       core->vcore[j].mem_mode==V3_VCORE_MEM_MODE_PHYSICAL ? "physical" :
 			       core->vcore[j].mem_mode==V3_VCORE_MEM_MODE_VIRTUAL ? "virtual" : "UNKNOWN",
 			       core->vcore[j].mem_state==V3_VCORE_MEM_STATE_SHADOW ? "shadow" :
-			       core->vcore[j].mem_state==V3_VCORE_MEM_STATE_NESTED ? "nested" : "UNKNOWN");
+			       core->vcore[j].mem_state==V3_VCORE_MEM_STATE_NESTED ? "nested" : "UNKNOWN",
+			       core->vcore[j].vcore_type==V3_VCORE_GENERAL ? "" :
+			       core->vcore[j].vcore_type==V3_VCORE_ROS ? "ros" :
+			       core->vcore[j].vcore_type==V3_VCORE_HRT ? "hrt" : "UNKNOWN");
 		}
 
 		seq_printf(s, "\nMemory Regions\n");
 		for (j=0;j<mem->num_regions;j++) { 
-		    seq_printf(s,"   region %u has HPAs 0x%p-0x%p (node %d) %s %s\n",
-			       j, mem->region[j].host_paddr, mem->region[j].host_paddr+mem->region[j].size,
+		    seq_printf(s,"   region %u has HPAs 0x%016llx-0x%016llx (node %d) GPA 0x%016llx %s %s\n",
+			       j, (uint64_t)mem->region[j].host_paddr, (uint64_t)mem->region[j].host_paddr+mem->region[j].size,
 			       numa_addr_to_node((uintptr_t)(mem->region[j].host_paddr)),
+			       (uint64_t)mem->region[j].guest_paddr,
 			       mem->region[j].swapped ? "swapped" : "",
 			       mem->region[j].pinned ? "pinned" : "");
 		}
 	    }
 	    seq_printf(s,
 		       "---------------------------------------------------------------------------------------\n");
+
+	    palacios_free(mem); mem=0;
+	    palacios_free(core); core=0;
+
 	}
+
     }
     
     
@@ -417,7 +438,7 @@ static int read_guests(struct seq_file *s, void *v)
 		ERROR("Cannot get VM info\n");
 		seq_printf(s, "\t<unable to get data for this VM>\n");
 	    } else {
-		seq_printf(s,"\t%s\t%lu vcores\t%lu regions\n",
+		seq_printf(s,"\t%s\t%llu vcores\t%llu regions\t%llu mem\t%s\n",
 			   base->state==V3_VM_INVALID ? "INVALID" :
 			   base->state==V3_VM_RUNNING ? "running" :
 			   base->state==V3_VM_STOPPED ? "stopped" :
@@ -425,7 +446,10 @@ static int read_guests(struct seq_file *s, void *v)
 			   base->state==V3_VM_ERROR ? "ERROR" :
 			   base->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
 			   core->num_vcores,
-			   mem->num_regions);
+			   mem->num_regions,
+			   mem->mem_size,
+			   base->vm_type == V3_VM_GENERAL ? "general" :
+			   base->vm_type == V3_VM_HVM ? "hvm" : "UNKNOWN");
 	    }
 	}
     }
