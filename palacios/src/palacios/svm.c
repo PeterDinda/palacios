@@ -12,6 +12,7 @@
  * All rights reserved.
  *
  * Author: Jack Lange <jarusl@cs.northwestern.edu>
+ *         Peter Dinda <jarusl@cs.northwestern.edu> (Reset)
  *
  * This is free software.  You are permitted to use,
  * redistribute, and modify it as specified in the file "V3VEE_LICENSE".
@@ -463,12 +464,22 @@ static int svm_handle_standard_reset(struct guest_info *core)
     // I could be a ROS core, or I could be in a non-HVM 
     // either way, if I'm core 0, I'm the leader
     if (core->vcpu_id==0) {
+	uint64_t mem_size=core->vm_info->mem_size;
+
+#ifdef V3_CONFIG_HVM
+	// on a ROS reset, we should only 
+	// manipulate the part of the memory seen by
+	// the ROS
+	if (core->vm_info->hvm_state.is_hvm) { 
+	    mem_size=v3_get_hvm_ros_memsize(core->vm_info);
+	}
+#endif
 	core->vm_info->run_state = VM_RESETTING;
 	// copy bioses again because some, 
 	// like seabios, assume
 	// this should also blow away the BDA and EBDA
 	PrintDebug(core->vm_info,core,"Clear memory (%p bytes)\n",(void*)core->vm_info->mem_size);
-	if (v3_set_gpa_memory(core, 0, core->vm_info->mem_size, 0)!=core->vm_info->mem_size) { 
+	if (v3_set_gpa_memory(core, 0, mem_size, 0)!=mem_size) { 
 	    PrintError(core->vm_info,core,"Clear of memory failed\n");
 	}
 	PrintDebug(core->vm_info,core,"Copying bioses\n");
@@ -484,7 +495,7 @@ static int svm_handle_standard_reset(struct guest_info *core)
     core->cpl = 0;
     core->cpu_mode = REAL;
     core->mem_mode = PHYSICAL_MEM;
-    core->num_exits=0;
+    //core->num_exits=0;
 
     PrintDebug(core->vm_info,core,"Machine reset to REAL/PHYSICAL\n");
 

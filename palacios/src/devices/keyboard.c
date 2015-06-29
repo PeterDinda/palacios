@@ -821,6 +821,7 @@ static int keyboard_write_command(struct guest_info * core, ushort_t port, void 
 	case 0xfb:
 	case 0xfc:
 	case 0xfd:
+	case 0xfe:
 	case 0xff:
 	    if (!(cmd & 0x1)) { 
 		// general purpose reset

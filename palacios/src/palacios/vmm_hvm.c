@@ -1166,10 +1166,18 @@ int v3_handle_hvm_reset(struct guest_info *core)
 	    // and recopy the .data, but for now we'll just
 	    // do everything
 	    rc |= v3_setup_hvm_vm_for_boot(core->vm_info);
+
+	    if (rc) { 
+		PrintError(core->vm_info,core,"hvm: failed to setup HVM VM for boot rc=%d\n",rc);
+	    }
 	}
 
 	// now everyone is ready to reset
 	rc |= v3_setup_hvm_hrt_core_for_boot(core);
+
+	if (rc) { 
+	    PrintError(core->vm_info,core,"hvm: failed to setup HVM core for boot rc=%d\n",rc);
+	}
 
 	core->core_run_state = CORE_RUNNING;
 
@@ -1181,6 +1189,7 @@ int v3_handle_hvm_reset(struct guest_info *core)
 	v3_counting_barrier(&core->vm_info->reset_barrier);
 
 	if (rc<0) { 
+	    PrintError(core->vm_info,core,"hvm: reset failed\n");
 	    return rc;
 	} else {
 	    return 1;
