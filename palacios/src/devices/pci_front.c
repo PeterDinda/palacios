@@ -709,7 +709,7 @@ static void remap_rom(struct v3_vm_info *vm, struct pci_front_internal *state, v
 	// unmap
 	struct v3_mem_region *old_reg = v3_get_mem_region(vm,V3_MEM_CORE_ANY,(addr_t)state->rom_gpa);
 	if (old_reg) { 
-	    V3_Print(vm,VCORE_NONE,"pci_front: removing old memory region\n");
+	    PrintDebug(vm,VCORE_NONE,"pci_front: removing old memory region\n");
 	    v3_delete_mem_region(vm,old_reg);
 	} 
 	state->rom_gpa = 0;
@@ -728,7 +728,7 @@ static void remap_rom(struct v3_vm_info *vm, struct pci_front_internal *state, v
 	state->rom_gpa = new_gpa; 
     } 
 
-    V3_Print(vm,VCORE_NONE,"pci_front: remapped rom to %p (enable=%u)\n",state->rom_gpa,enable) ;
+    PrintDebug(vm,VCORE_NONE,"pci_front: remapped rom to %p (enable=%u)\n",state->rom_gpa,enable) ;
 }
 
 #define ROM_ADDR_MASK 0xfffff800
@@ -740,7 +740,7 @@ static int pci_front_rom_update(struct pci_device * pci_dev, uint32_t * src, voi
     struct vm_device * dev = (struct vm_device *)priv_data;
     struct pci_front_internal * state = (struct pci_front_internal *)dev->private_data;
 
-    V3_Print(dev->vm,VCORE_NONE,"pci_front: rom update with value 0x%x\n",*src);
+    PrintDebug(dev->vm,VCORE_NONE,"pci_front: rom update with value 0x%x\n",*src);
 
     // the assumption is that the config_write happened before this
     if (((*src) & ROM_ADDR_MASK) == ROM_ADDR_MASK) { 
@@ -976,7 +976,7 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     }
 
     if (!(rom=v3_cfg_subtree(cfg,"rom"))) { 
-	V3_Print(vm, VCORE_NONE, "pci_front (%s): no expansion block\n",dev_id);
+	PrintDebug(vm, VCORE_NONE, "pci_front (%s): no expansion block\n",dev_id);
 	rom_file = 0;
 	rom_hpa=0;
     } else {
@@ -999,7 +999,7 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
 	    memcpy(V3_VAddr(rom_hpa),rom_file->data,rom_size);
 		
 	}
-	V3_Print(vm,VCORE_NONE,"pci_front (%s): rom %s tag %s size 0x%llx hpa %p\n", 
+	PrintDebug(vm,VCORE_NONE,"pci_front (%s): rom %s tag %s size 0x%llx hpa %p\n", 
 		 dev_id,rom_id,rom_file->tag,rom_file->size,rom_hpa);
     }
 	
