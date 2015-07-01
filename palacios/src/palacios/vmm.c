@@ -359,7 +359,7 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name, unsi
 	PrintDebug(vm, VCORE_NONE, "Creating virtual core %u on logical core %u\n",
 		   vcore_id, core->pcpu_id);
 
-	sprintf(core->exec_name, "%s-%u", vm->name, vcore_id);
+	sprintf(core->exec_name, "%s-%d", vm->name, vcore_id);
 
         PrintDebug(vm, VCORE_NONE, "run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
 		   core->pcpu_id, start_core, core, core->exec_name);
@@ -537,8 +537,12 @@ int v3_reset_vm_extended(struct v3_vm_info *vm, v3_vm_reset_type t, void *data)
 #endif
 	    break;
 	case V3_VM_RESET_CORE_RANGE:
-	    start = ((uint32_t*)data)[0];
-	    end = ((uint32_t*)data)[1];
+	    if (data) { 
+		start = ((uint32_t*)data)[0];
+		end = ((uint32_t*)data)[1];
+	    } else {
+		return -1;
+	    }
 	    break;
 	default:
 	    PrintError(vm,VCORE_NONE,"Unsupported reset type %d for this VM\n",t);

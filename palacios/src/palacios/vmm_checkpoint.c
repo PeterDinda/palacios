@@ -260,13 +260,15 @@ int v3_chkpt_close_ctx(struct v3_chkpt_ctx * ctx) {
 
 
 int v3_chkpt_save(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * buf) {
-    struct v3_chkpt * chkpt = ctx->chkpt;    
+    struct v3_chkpt * chkpt;
     int rc;
 
     if (!ctx) { 
       PrintError(VM_NONE, VCORE_NONE, "Attempt to save tag %s on null context\n",tag);
       return -1;
     }
+
+    chkpt = ctx->chkpt;    
 
     if (chkpt->current_ctx != ctx) { 
       PrintError(VM_NONE, VCORE_NONE, "Attempt to save on context that is not the current context for the store\n");
@@ -285,13 +287,15 @@ int v3_chkpt_save(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * bu
 
 
 int v3_chkpt_load(struct v3_chkpt_ctx * ctx, char * tag, uint64_t len, void * buf) {
-    struct v3_chkpt * chkpt = ctx->chkpt;    
+    struct v3_chkpt * chkpt;    
     int rc;
 
     if (!ctx) { 
       PrintError(VM_NONE, VCORE_NONE, "Attempt to load tag %s from null context\n",tag);
       return -1;
     }
+
+    chkpt = ctx->chkpt;    
     
     if (chkpt->current_ctx != ctx) { 
       PrintError(VM_NONE, VCORE_NONE, "Attempt to load from context that is not the current context for the store\n");

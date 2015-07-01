@@ -388,7 +388,7 @@ handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
 
 int v3_init_time_vm(struct v3_vm_info * vm) {
     v3_cfg_tree_t * cfg_tree = vm->cfg_data->cfg;
-    int ret;
+    int ret=0;
     
     PrintDebug(vm, VCORE_NONE, "Installing TSC MSR hook.\n");
     ret = v3_hook_msr(vm, TSC_MSR, 
@@ -409,9 +409,18 @@ int v3_init_time_vm(struct v3_vm_info * vm) {
     PrintDebug(vm, VCORE_NONE, "Registering TIME_CPUFREQ hypercall.\n");
     ret = v3_register_hypercall(vm, TIME_CPUFREQ_HCALL, 
 				handle_cpufreq_hcall, NULL);
+
+    if (ret!=0) { 
+	return ret;
+    }
+
     PrintDebug(vm, VCORE_NONE, "Registering TIME_RDHTSC hypercall.\n");
     ret = v3_register_hypercall(vm, TIME_RDHTSC_HCALL, 
 				handle_rdhtsc_hcall, NULL);
+
+    if (ret!=0) { 
+	return ret;
+    }
 
     handle_time_configuration(vm, v3_cfg_subtree(cfg_tree, "time"));
 

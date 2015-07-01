@@ -112,8 +112,8 @@ int v3_init_vmx_hw(struct vmx_hw_info * hw_info) {
 
     /* Get secondary PROCBASED controls if secondary controls are available (optional or required) */
     /* Intel Manual 3B. Sect. G.3.3 */
-    if ( ((hw_info->proc_ctrls.req_mask & 0x80000000) == 0) || 
-	 ((hw_info->proc_ctrls.req_val & 0x80000000) == 1) ) {
+    if ( (!(hw_info->proc_ctrls.req_mask & 0x80000000)) || 
+	  (hw_info->proc_ctrls.req_val & 0x80000000) ) {
       
 	get_ctrl_caps(&(hw_info->sec_proc_ctrls), VMX_PROCBASED_CTLS2_MSR);
 

@@ -222,6 +222,10 @@ struct hashtable * v3_create_htable(uint_t min_size,
 	}
     }
 
+    if (prime_index==prime_table_length) { 
+	return NULL;
+    }
+
     htable = (struct hashtable *)V3_Malloc(sizeof(struct hashtable));
 
     if (htable == NULL) {

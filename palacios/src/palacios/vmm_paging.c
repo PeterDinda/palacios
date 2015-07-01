@@ -797,7 +797,7 @@ int v3_drill_host_pt_32(struct guest_info * info, v3_reg_t host_cr3, addr_t vadd
 	    }
 	    return 0;
 	case PT_ENTRY_PAGE:
-	    if ((ret = callback(info, PAGE_PT32, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data) != 0)) {
+	    if ((ret = callback(info, PAGE_PT32, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
 		return (ret == -1) ? -1 : PAGE_PT32;
 	    }
     
@@ -834,7 +834,7 @@ int v3_drill_host_pt_32pae(struct guest_info * info, v3_reg_t host_cr3, addr_t v
 	    return -1;
 	case PT_ENTRY_PAGE:
 
-	    if ((ret = callback(info, PAGE_PD32PAE, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data) != 0)) {
+	    if ((ret = callback(info, PAGE_PD32PAE, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data)) != 0) {
 		return (ret == -1) ? -1 : PAGE_PD32PAE;
 	    }
       
@@ -847,7 +847,7 @@ int v3_drill_host_pt_32pae(struct guest_info * info, v3_reg_t host_cr3, addr_t v
 		    }
 		    return 0;
 		case PT_ENTRY_PAGE:
-		    if ((ret = callback(info, PAGE_PT32PAE, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data) != 0)) {
+		    if ((ret = callback(info, PAGE_PT32PAE, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
 			return (ret == -1) ? -1 : PAGE_PT32PAE;
 		    }
 
@@ -904,7 +904,7 @@ int v3_drill_host_pt_64(struct guest_info * info, v3_reg_t host_cr3, addr_t vadd
 		    return 0;
 		case PT_ENTRY_PAGE:
 
-		    if ((ret = callback(info, PAGE_PD64, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data) != 0)) {
+		    if ((ret = callback(info, PAGE_PD64, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data)) != 0) {
 			return (ret == -1) ? -1 : PAGE_PD64;
 		    }
 
@@ -918,7 +918,7 @@ int v3_drill_host_pt_64(struct guest_info * info, v3_reg_t host_cr3, addr_t vadd
 			    return 0;
 			case PT_ENTRY_PAGE:
 
-			    if ((ret = callback(info, PAGE_PT64, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data) != 0)) {
+			    if ((ret = callback(info, PAGE_PT64, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
 				return (ret == -1) ? -1 : PAGE_PT64;
 			    }
 
@@ -993,7 +993,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		    return -1;
 		}
 
-		if ((ret = callback(info, PAGE_PT32, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data) != 0)) {
+		if ((ret = callback(info, PAGE_PT32, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data)) != 0) {
 		    return (ret == -1) ? -1 : PAGE_PT32;
 		}
 
@@ -1087,7 +1087,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 					return -1;
 				    }
 
-				    if ((ret = callback(info, PAGE_PT32PAE, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data) != 0)) {
+				    if ((ret = callback(info, PAGE_PT32PAE, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data)) != 0) {
 					return (ret == -1) ? -1 : PAGE_PT32PAE;
 				    }
 
@@ -1215,7 +1215,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 					    return -1;
 					}
 
-					if ((ret = callback(info, PAGE_PT64, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data) != 0)) {
+					if ((ret = callback(info, PAGE_PT64, vaddr, (addr_t)guest_pte, guest_pte_pa, private_data)) != 0) {
 					    return (ret == -1) ? -1 : PAGE_PT64;
 					}
 		

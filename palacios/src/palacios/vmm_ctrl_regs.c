@@ -49,6 +49,11 @@ int v3_handle_cr0_write(struct guest_info * info) {
     } else { 
 	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
+
+    if (ret!=15) { 
+	PrintError(info->vm_info, info, "Could not read instruction\n");
+	return -1;
+    }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
         PrintError(info->vm_info, info, "Could not decode instruction\n");
@@ -229,7 +234,11 @@ int v3_handle_cr0_read(struct guest_info * info) {
     } else { 
 	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
-    
+
+    if (ret!=15) { 
+	PrintError(info->vm_info, info, "Could not read instruction\n");
+	return -1;
+    }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
 	PrintError(info->vm_info, info, "Could not decode instruction\n");
@@ -302,6 +311,11 @@ int v3_handle_cr3_write(struct guest_info * info) {
 	ret = v3_read_gpa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     } else { 
 	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    }
+    
+    if (ret!=15) { 
+	PrintError(info->vm_info, info, "Could not read instruction\n");
+	return -1;
     }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
@@ -381,6 +395,11 @@ int v3_handle_cr3_read(struct guest_info * info) {
 	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
     
+    if (ret!=15) { 
+	PrintError(info->vm_info, info, "Could not read instruction\n");
+	return -1;
+    }
+    
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
 	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
@@ -440,6 +459,11 @@ int v3_handle_cr4_read(struct guest_info * info) {
 	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
     
+    if (ret!=15) { 
+	PrintError(info->vm_info, info, "Could not read instruction\n");
+	return -1;
+    }
+    
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
 	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
@@ -496,6 +520,12 @@ int v3_handle_cr4_write(struct guest_info * info) {
 	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
     
+    if (ret!=15) { 
+	PrintError(info->vm_info, info, "Could not read instruction\n");
+	return -1;
+    }
+    
+
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
 	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
@@ -639,6 +669,11 @@ int v3_handle_cr8_write(struct guest_info * info) {
 	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     }
     
+    if (ret!=15) { 
+	PrintError(info->vm_info, info, "Could not read instruction\n");
+	return -1;
+    }
+    
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {
 	PrintError(info->vm_info, info, "Could not decode instruction\n");
 	return -1;
@@ -679,6 +714,11 @@ int v3_handle_cr8_read(struct guest_info * info) {
 	ret = v3_read_gpa_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
     } else { 
 	ret = v3_read_gva_memory(info, get_addr_linear(info, info->rip, &(info->segments.cs)), 15, instr);
+    }
+    
+    if (ret!=15) { 
+	PrintError(info->vm_info, info, "Could not read instruction\n");
+	return -1;
     }
     
     if (v3_decode(info, (addr_t)instr, &dec_instr) == -1) {

@@ -546,7 +546,10 @@ static int init_vmcs_bios(struct guest_info * core, struct vmx_data * vmx_state)
     vmx_ret |= check_vmcs_write(VMCS_LINK_PTR_HIGH, (addr_t)0xffffffffUL);
 #endif
 
-
+    if (vmx_ret != VMX_SUCCESS) { 
+	PrintError(core->vm_info, core, "Error configuring VMX\n");
+	return -1;
+    }
 
  
 
@@ -620,6 +623,11 @@ static void __init_vmx_vmcs(void * arg) {
 
     PrintDebug(core->vm_info, core, "Serializing VMCS: %p\n", (void *)vmx_state->vmcs_ptr_phys);
     vmx_ret = vmcs_clear(vmx_state->vmcs_ptr_phys);
+
+    if (vmx_ret != VMX_SUCCESS) { 
+	PrintError(core->vm_info,core,"VMCS Clear failed\n");
+	return;
+    }
 
     core->core_run_state = CORE_STOPPED;
     return;

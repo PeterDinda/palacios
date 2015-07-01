@@ -1111,7 +1111,7 @@ static char *toxml_r(struct v3_xml * xml, char **s, size_t *len, size_t *max,
 
     *len += sprintf(*s + *len, "</%s>", xml->name); // close tag
 
-    while (txt[off] && off < xml->off) off++; // make sure off is within bounds
+    while (off < xml->off && txt[off]) off++; // make sure off is within bounds
     return (xml->ordered) ? toxml_r(xml->ordered, s, len, max, off)
                           : ampencode(txt + off, -1, s, len, max, 0);
 }
