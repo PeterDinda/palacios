@@ -173,7 +173,7 @@ static uint32_t _create_link(struct vnet_link * link) {
     link->sock_addr.sin_port = htons(link->dst_port);
 
 
-    if ((err = link->sock->ops->connect(link->sock, (struct sockaddr *)&(link->sock_addr), sizeof(struct sockaddr), 0) < 0)) {
+    if ((err = link->sock->ops->connect(link->sock, (struct sockaddr *)&(link->sock_addr), sizeof(struct sockaddr), 0)) < 0) {
 	WARNING("Could not connect to remote VNET Server, error %d\n", err);
 	return -1;
     }

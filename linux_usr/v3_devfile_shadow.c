@@ -191,7 +191,6 @@ int main(int argc, char** argv)
      uint64_t sys_rc, sys_errno, sys_code, a1,a2,a3,a4,a5,a6, bit_vec;
      int host_mod_fd, fd_shared, i, val;
      long long zero = 0;
-     void* region;
      void* unbacked_region;
      fd_set readset;
      int select_rc;
@@ -236,8 +235,8 @@ int main(int argc, char** argv)
      sprintf(unbacked_region,"helloworldhelloworldhelloworld");
 
      DEBUG_PRINT("unbacked_region ptr: %p contents: %s\n",unbacked_region,(char*)unbacked_region);
-     DEBUG_PRINT("Vadrr : %p ; Paddr : %p\n", unbacked_region, vtop((uint64_t)unbacked_region));
-     DEBUG_PRINT("Persisting as a userspace for VM %s with address %p\n",argv[1], region);
+     DEBUG_PRINT("Vaddr : %p ; Paddr : %p\n", unbacked_region, vtop((uint64_t)unbacked_region));
+     DEBUG_PRINT("Persisting as a userspace for VM %s with address %p\n",argv[1], unbacked_region);
 
      if (ioctl(host_mod_fd,INIT_IOCTL,vtop((uint64_t)unbacked_region))) {
          perror("init ioctl");
@@ -279,7 +278,7 @@ int main(int argc, char** argv)
              perror("Failed Syscall: ");
          }
 
-         DEBUG_PRINT("Device File: System call rc %d, %016llu %016llx %016lld\n",(int)sys_rc,sys_rc);
+         DEBUG_PRINT("Device File: System call rc %d, errno %d\n",(int)sys_rc,sys_errno);
 
          //put return value into shared region
          store_args_to_shared_page((uint64_t*)unbacked_region, &sys_rc, &sys_errno); 

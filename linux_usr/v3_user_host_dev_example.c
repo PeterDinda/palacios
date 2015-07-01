@@ -17,7 +17,7 @@ void usage()
 int do_work(struct palacios_host_dev_host_request_response *req, 
 	    struct palacios_host_dev_host_request_response **resp)
 {
-    uint64_t datasize;
+    uint64_t datasize=0;
     
     //
     //

@@ -124,7 +124,6 @@ static int amd_get_slot(void) {
   }
 
   return slot;
-  return -1;
 }
 
 /*

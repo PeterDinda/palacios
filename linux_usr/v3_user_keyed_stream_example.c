@@ -19,7 +19,7 @@ void usage()
 int do_work(struct palacios_user_keyed_stream_op *req, 
 	    struct palacios_user_keyed_stream_op **resp)
 {
-    uint64_t datasize;
+    uint64_t datasize=0;
     
     //
     //
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
     //
 
     if (strncmp(url,"user:",5)) { 
-	fprintf(stderr, "URL %s is not a user: url\n");
+	fprintf(stderr, "URL %s is not a user: url\n",url);
 	exit(-1);
     }
 

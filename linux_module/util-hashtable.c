@@ -203,6 +203,11 @@ struct hashtable * palacios_create_htable(uint_t min_size,
 	}
     }
 
+    if (prime_index==prime_table_len) { 
+	// cannot build large enough hash table
+	return NULL;
+    }
+
     htable = (struct hashtable *)palacios_alloc(sizeof(struct hashtable));
 
     if (htable == NULL) {

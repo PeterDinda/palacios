@@ -52,6 +52,9 @@ int main(int argc, char* argv[]) {
 	    cmd.first_core = atoi(argv[3]);
 	    cmd.num_cores = atoi(argv[4]);
 	}
+    } else {
+	usage();
+	return -1;
     }
 
     printf("Doing VM reset:  %s ",

@@ -613,7 +613,7 @@ void buddy_deinit(struct buddy_memzone * zone, int (*free_callback)(void *user_m
 	char proc_file_name[128];
 
 	memset(proc_file_name, 0, 128);
-	snprintf(proc_file_name, 128, "v3-mem%d", zone->node_id);
+	snprintf(proc_file_name, 128, "v3-mem%u", zone->node_id);
 
 	remove_proc_entry(proc_file_name, palacios_get_procdir());
     }

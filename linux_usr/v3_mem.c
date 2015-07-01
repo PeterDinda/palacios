@@ -655,7 +655,7 @@ static int offline_memory(unsigned long long mem_size_bytes,
 		    return -1;
 		}
 
-		status_buf[BUF_SIZE]=0;
+		status_buf[BUF_SIZE-1]=0;
 		
 		VPRINTF("Checking offlined block %d (%s)...", i + reg_start, fname);
 		
@@ -814,7 +814,7 @@ static int write_offlined()
 
     fclose(off);
     if (!(off=fopen(offname,"w+"))) {  // truncate
-	EPRINTF("Cannot open %s for writing!\n");
+	EPRINTF("Cannot open %s for writing!\n",offname);
 	return -1;
     }
 

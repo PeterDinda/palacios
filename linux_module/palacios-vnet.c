@@ -116,7 +116,7 @@ host_start_timer(void * vnet_timer){
 
 static void
 host_reset_timer(void * vnet_timer, unsigned long interval){
-    struct host_timer * timer = (struct host_timer *)timer;
+    struct host_timer * timer = (struct host_timer *)vnet_timer;
 
     timer->interval = interval;
 }

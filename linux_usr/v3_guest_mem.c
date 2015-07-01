@@ -67,6 +67,7 @@ struct v3_guest_mem_map * v3_guest_mem_get_map(char *vmdev)
 
   // Now collect the region info
   guest_cur=0;
+  i=0;
   while (i<num_regions) { 
       if (!fgets(buf,MAXLINE,f)) {
 	  fprintf(stderr,"Did not find all regions...\n");
@@ -78,7 +79,7 @@ struct v3_guest_mem_map * v3_guest_mem_get_map(char *vmdev)
 	  m->block[i].hpa = (void*)start;
 	  m->block[i].numpages = (end-start) / 4096 + !!((end-start) % 4096);
 	  if ((end-start)%4096) { 
-	      fprintf(stderr,"Odd, region %d is a non-integral number of pages");
+	      fprintf(stderr,"Odd, region %d is a non-integral number of pages",i);
 	  }
 	  guest_cur+=end-start;
 	  m->block[i].cumgpa=(void*)(guest_cur-1);
