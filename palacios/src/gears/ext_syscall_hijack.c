@@ -103,7 +103,7 @@ static void print_syscall (uint8_t is64, struct guest_info * core) {
 int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_data) {
  
     uint_t syscall_nr = (uint_t) core->vm_regs.rax;
-    int err = 0, ret = 0;
+    int err = 0;
 
     struct v3_syscall_hook * hook = syscall_hooks[syscall_nr];
 
