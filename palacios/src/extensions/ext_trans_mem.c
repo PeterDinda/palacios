@@ -1742,9 +1742,7 @@ deinit_trans_mem_core (struct guest_info * core,
     v3_lock_deinit(&(tm->addr_ctxt_lock));
     v3_lock_deinit(&(tm->access_type_lock));
 
-    if (tm) {
-        V3_Free(tm);
-    }
+    V3_Free(tm);
 
     return 0;
 }

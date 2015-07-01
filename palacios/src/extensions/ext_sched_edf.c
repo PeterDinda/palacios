@@ -595,7 +595,7 @@ delete_core_edf( struct vm_core_edf_sched *core_edf  , struct vm_edf_rq *runqueu
 	    return true;
         }
 	else{
-	    PrintError(core->info->vm_info, core->info,"EDF Sched. delete_core_edf.Attempted to erase unexisting core");
+	    PrintError(VM_NONE,VCORE_NONE,"EDF Sched. delete_core_edf.Attempted to erase unexisting core");
             return false;
         }
 }

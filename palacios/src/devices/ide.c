@@ -507,7 +507,11 @@ static int dma_read(struct guest_info * core, struct ide_internal * ide, struct 
 		    cmd_ret = v3_write_gpa_memory(core, prd_entry.base_addr + prd_offset, 
 						  bytes_to_write, drive->data_buf); 
 
-		    // check cmd_ret
+		    if (cmd_ret!=bytes_to_write) { 
+			PrintError(core->vm_info, core, "Failed to write data to memory\n");
+			return -1;
+		    }
+
 
 
 		    bytes_to_write = 0;

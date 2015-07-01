@@ -99,13 +99,11 @@ static int i440_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 	ret |= v3_dev_hook_io(dev, 0x0cfc + i, &io_read, &io_write);
     }
 
-    /*
     if (ret != 0) {
 	PrintError(vm, VCORE_NONE, "Error hooking i440FX io ports\n");
-	v3_remove_device(dev);
-	return -1;
+	//v3_remove_device(dev);
+	//return -1;
     }
-    */
 
     for (i = 0; i < 6; i++) {
 	bars[i].type = PCI_BAR_NONE;

@@ -48,7 +48,7 @@ struct virtio_sym_state {
     struct vm_device * pci_bus;
     struct pci_device * pci_dev;
 
-    struct virtio_queue queue[1];
+    struct virtio_queue queue[2];
 
     struct virtio_queue * cur_queue;
 

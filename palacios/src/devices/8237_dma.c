@@ -52,5 +52,5 @@ struct vm_device * v3_create_dma() {
 
     struct vm_device * dev = v3_create_device("DMA", &dev_ops, dma);
 
-    return dma;
+    return dev;
 }

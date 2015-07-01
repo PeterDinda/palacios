@@ -956,6 +956,8 @@ static int rx_one_pkt(struct rtl8139_state * nic_state,
     uint32_t header, val;
     uint8_t bcast_addr[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 
+    header = 0;
+
     if (regs->rcr & AcceptAllPhys) {
 	PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: packet received in promiscuous mode\n");
     } else {
