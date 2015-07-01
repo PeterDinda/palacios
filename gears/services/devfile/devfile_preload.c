@@ -29,6 +29,7 @@ int touch_ptr(volatile char* ptr, int size)
 {
     int i;
     for(i=0;i<size;i+=4096){
+	// both read and write it
         ptr[i] = ptr[i];
     }
     return 0;
