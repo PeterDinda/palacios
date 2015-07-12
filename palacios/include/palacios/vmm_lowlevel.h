@@ -70,9 +70,14 @@ static void __inline__ v3_cpuid(uint32_t target,
 				uint32_t * eax, uint32_t * ebx, 
 				uint32_t * ecx, uint32_t * edx) {
 #ifdef __V3_64BIT__
+    // avoid rbx on -FPIC - gcc likes to own rbx even on 64 bit PIC code
     __asm__ __volatile__ (
+			  "pushq %%rbx\n\t"
+			  "movq %%rdi, %%rbx\n\t"
 			  "cpuid\n\t"
-			  : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+			  "movq %%rbx, %%rdi\n\t"
+			  "popq %%rbx\n\t"
+			  : "=a" (*eax), "=D" (*ebx), "=c" (*ecx), "=d" (*edx)
 			  : "0" (target), "2" (*ecx)
 			  );
 #elif __V3_32BIT__

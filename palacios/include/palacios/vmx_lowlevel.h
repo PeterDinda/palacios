@@ -205,22 +205,22 @@ static inline int vmx_off() {
 static inline int enable_vmx() {
 #ifdef __V3_64BIT__
     __asm__ __volatile__ (
-			  "movq %%cr4, %%rbx;"
-			  "orq  $0x00002000, %%rbx;"
-			  "movq %%rbx, %%cr4;"
+			  "movq %%cr4, %%rcx;"
+			  "orq  $0x00002000, %%rcx;"
+			  "movq %%rcx, %%cr4;"
 			  : 
 			  :
-			  : "%rbx"
+			  : "%rcx"
 			  );
 
 
     __asm__ __volatile__ (
-			  "movq %%cr0, %%rbx; "
-			  "orq  $0x00000020,%%rbx; "
-			  "movq %%rbx, %%cr0;"
+			  "movq %%cr0, %%rcx; "
+			  "orq  $0x00000020,%%rcx; "
+			  "movq %%rcx, %%cr0;"
 			  :
 			  :
-			  : "%rbx"
+			  : "%rcx"
 			  );
 #elif __V3_32BIT__
     __asm__ __volatile__ (

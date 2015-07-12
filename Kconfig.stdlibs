@@ -128,6 +128,12 @@ config BUILT_IN_ATOI
 	help 
 	  This enables Palacios' internal implementation of atoi
 
+config BUILT_IN_ATOX
+	bool "atox()"
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of atox
+
 config BUILT_IN_STRCHR
 	bool "strchr()"
 	default n
@@ -148,6 +154,34 @@ config BUILT_IN_STRPBRK
 	depends on BUILT_IN_STDLIB
 	help 
 	  This enables Palacios' internal implementation of strpbrk
+
+config BUILT_IN_STR_TOLOWER
+	bool "str_tolower()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of str_tolower
+
+config BUILT_IN_STR_TOUPPER
+	bool "str_toupper()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of str_toupper
+
+config BUILT_IN_STRTOI
+	bool "strtoi()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strtoi
+
+config BUILT_IN_STRTOX
+	bool "strtox()"
+	default n
+	depends on BUILT_IN_STDLIB
+	help 
+	  This enables Palacios' internal implementation of strtox
 
 
 config BUILT_IN_STDIO

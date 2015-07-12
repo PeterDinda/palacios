@@ -320,6 +320,7 @@ int atoi(const char * buf) {
 #endif
 
 
+#ifdef V3_CONFIG_BUILT_IN_STRTOI
 int strtoi(const char * nptr, char ** endptr) {
     int ret = 0;
     char * buf = (char *)nptr;
@@ -337,7 +338,9 @@ int strtoi(const char * nptr, char ** endptr) {
 
     return ret;
 }
+#endif
 
+#ifdef V3_CONFIG_BUILT_IN_ATOX
 uint64_t atox(const char * buf) {
     uint64_t ret = 0;
 
@@ -359,7 +362,9 @@ uint64_t atox(const char * buf) {
 
     return ret;
 }
+#endif
 
+#ifdef V3_CONFIG_BUILT_IN_STRTOX
 uint64_t strtox(const char * nptr, char ** endptr) {
     uint64_t ret = 0;
     char * buf = (char *)nptr;
@@ -387,7 +392,7 @@ uint64_t strtox(const char * nptr, char ** endptr) {
     return ret;
 
 }
-
+#endif
 
 
 #ifdef V3_CONFIG_BUILT_IN_STRCHR
@@ -505,7 +510,7 @@ char *strstr(const char *haystack, const char *needle)
 }
 #endif
 
-
+#ifdef V3_CONFIG_BUILT_IN_STR_TOLOWER
 void str_tolower(char * s) {
     while (isalpha(*s)) {
 	if (!islower(*s)) {
@@ -514,8 +519,9 @@ void str_tolower(char * s) {
 	s++;
     }
 }
+#endif
 
-
+#ifdef V3_CONFIG_BUILT_IN_STR_TOUPPER
 void str_toupper(char * s) {
     while (isalpha(*s)) {
 	if (!isupper(*s)) {
@@ -524,3 +530,4 @@ void str_toupper(char * s) {
 	s++;
     }
 }
+#endif

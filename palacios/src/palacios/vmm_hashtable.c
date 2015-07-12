@@ -197,7 +197,7 @@ static const uint_t load_factors[] = {
     32715575, 65431158, 130862298, 261724573,
     523449198, 1046898282 };
 
-const uint_t prime_table_length = sizeof(primes) / sizeof(primes[0]);
+static const uint_t prime_table_length = sizeof(primes) / sizeof(primes[0]);
 
 
 
