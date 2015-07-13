@@ -12,6 +12,7 @@ obj-$(V3_CONFIG_HOST_PMU) += vmm_pmu.o
 obj-$(V3_CONFIG_HOST_PWRSTAT) += vmm_pwrstat.o
 obj-$(V3_CONFIG_HOST_PSTATE_CTRL) += vmm_pstate_ctrl.o
 obj-$(V3_CONFIG_HOST_LAZY_FPU_SWITCH) += vmm_lazy_fpu.o
+obj-$(V3_CONFIG_CACHE_INFO) += vmm_cache_info.o
 
 obj-y += null.o
 obj-y += vmm_numa.o

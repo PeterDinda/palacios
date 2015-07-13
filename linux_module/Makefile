@@ -38,6 +38,7 @@ v3vee-$(V3_CONFIG_EXT_MACH_CHECK) += mcheck.o
 
 v3vee-$(V3_CONFIG_MEM_TRACK) += memtrack.o
 
+v3vee-$(V3_CONFIG_CACHE_INFO) += iface-cache_info.o
 v3vee-$(V3_CONFIG_HOST_PMU) += iface-pmu.o
 v3vee-$(V3_CONFIG_HOST_PWRSTAT) += iface-pwrstat.o
 v3vee-$(V3_CONFIG_HOST_PSTATE_CTRL) += iface-pstate-ctrl.o

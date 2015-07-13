@@ -101,4 +101,11 @@ config HOST_LAZY_FPU_SWITCH
 	help
 		Select this if your host provides lazy context switch support
                 for floating point state and you would like Palacios to use it
+
+config CACHE_INFO
+	bool "Host provides information about cache structure"
+	default n
+	help
+		Select this if your host provides lazy context switch support
+                for floating point state and you would like Palacios to use it
 endmenu
