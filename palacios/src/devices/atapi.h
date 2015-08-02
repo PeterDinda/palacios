@@ -239,9 +239,11 @@ static int atapi_read10(struct guest_info * core,
 static void atapi_req_sense(struct ide_internal * ide, struct ide_channel * channel) {
     struct ide_drive * drive = get_selected_drive(channel);
 
+    drive->cd_state.sense.read_len=0xa;
+
     memcpy(drive->data_buf, drive->cd_state.sense.buf, sizeof(drive->cd_state.sense.buf));
    
-    atapi_setup_cmd_resp(ide, channel, 18);
+    atapi_setup_cmd_resp(ide, channel, sizeof(drive->cd_state.sense.buf));
 }
 
 

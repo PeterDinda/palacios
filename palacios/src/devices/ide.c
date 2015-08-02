@@ -1082,7 +1082,7 @@ static int read_hd_data(uint8_t * dst, uint64_t length, struct ide_internal * id
 	       drive->transfer_index, drive->transfer_length, 
 	       drive->hd_state.cur_sector_num);
 
-    if (drive->transfer_index >= drive->transfer_length) {
+    if (drive->transfer_index >= drive->transfer_length && drive->transfer_index>=DATA_BUFFER_SIZE) {
 	PrintError(VM_NONE, VCORE_NONE, "Buffer overrun... (xfer_len=%llu) (cur_idx=%llu) (post_idx=%llu)\n",
 		   drive->transfer_length, drive->transfer_index,
 		   drive->transfer_index + length);
@@ -1224,7 +1224,7 @@ static int read_cd_data(uint8_t * dst, uint64_t length, struct ide_internal * id
 
     
 
-    if (drive->transfer_index >= drive->transfer_length) {
+    if (drive->transfer_index >= drive->transfer_length && drive->transfer_index>=DATA_BUFFER_SIZE) {
 	PrintError(VM_NONE, VCORE_NONE, "Buffer Overrun... (xfer_len=%llu) (cur_idx=%llu) (post_idx=%llu)\n", 
 		   drive->transfer_length, drive->transfer_index, 
 		   drive->transfer_index + length);
