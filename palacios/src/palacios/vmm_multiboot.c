@@ -294,7 +294,8 @@ static int parse_multiboot_kernel(uint8_t *data, uint64_t size, mb_data_t *mb)
 		INFO("  size            =  0x%x\n", mb_modalign->size);
 	    }
 		break;
-#if 1
+
+#if V3_CONFIG_HVM
 	    case MB_TAG_MB64_HRT: {
 		if (mb_mb64_hrt) { 
 		    ERROR("Multiple mb64_hrt tags found!\n");
@@ -305,7 +306,6 @@ static int parse_multiboot_kernel(uint8_t *data, uint64_t size, mb_data_t *mb)
 	    }
 		break;
 #endif
-		
 	    default: 
 		INFO("Unknown tag... Skipping...\n");
 		break;
