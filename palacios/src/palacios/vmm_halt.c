@@ -45,7 +45,9 @@ int v3_handle_halt(struct guest_info * info)
 
 	start_cycles  = v3_get_host_time(&info->time_state);
 
-	while (!v3_intr_pending(info) && (info->vm_info->run_state == VM_RUNNING)) {
+	while (!v3_intr_pending(info) &&
+	       !v3_excp_pending(info) &&
+	       (info->vm_info->run_state == VM_RUNNING)) {
             uint64_t t, cycles;
 
 	    t = v3_get_host_time(&info->time_state);
@@ -83,6 +85,11 @@ int v3_handle_halt(struct guest_info * info)
 	/* V3_Print(info->vm_info, info, "palacios: done with halt\n"); */
 	
 	info->rip += 1;
+	
+	if (info->vcpu_id==2) { 
+	  V3_Print(info->vm_info,info,"palacios: finishing halt with exppend=%d intrpend=%d\n", v3_excp_pending(info), v3_intr_pending(info));
+	}
+
     }
 
     return 0;
