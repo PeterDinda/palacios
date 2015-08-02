@@ -56,7 +56,7 @@
   <mem ... >RAM</mem>   (MB)  Note these are  
   <cores count="CORES" ...>   backward compatible
 
-  <hvm enable="y">
+  <hvm enable="y" >
     <ros cores="ROS_CORES" mem="ROS_MEM" /> (MB)
     <hrt file_id="hrtelf" /hrt>
   </hvm>
@@ -68,12 +68,6 @@
 #define PrintDebug(fmt, args...)
 #endif
 
-
-// if set, we will map the first 1 GB of memory using a 3 level
-// hierarchy, for compatibility with Nautilus out of the box.
-// Otherwise we will map the first 512 GB using a 2 level
-// hieratchy
-#define HVM_MAP_1G_2M 1
 
 int v3_init_hvm()
 {
@@ -87,19 +81,245 @@ int v3_deinit_hvm()
     return 0;
 }
 
+// ignore requests from when we are in the wrong state
+#define ENFORCE_STATE_MACHINE 1
 
+// invoke the HRT using a page fault instead of
+// the SWINTR mechanism
+#define USE_UPCALL_MAGIC_PF  1
+#define UPCALL_MAGIC_ADDRESS 0x0000800df00df00dULL
+#define UPCALL_MAGIC_ERROR   0xf00df00d
+
+/*
+  64 bit only hypercall:
+
+  rax = hypercall number
+  rbx = 0x646464...
+  then args are:  rcx, rdx, rsi, rdi r8, r9, r10, r11
+  rcx = 1st arg
+*/
 static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, void * priv_data)
 {
     uint64_t c;
+    uint64_t bitness = core->vm_regs.rbx;
+    uint64_t a1 = core->vm_regs.rcx;
+    uint64_t a2 = core->vm_regs.rdx;
+    struct v3_vm_hvm *h = &core->vm_info->hvm_state;
 
-    rdtscll(c);
+
+    if (bitness!=0x6464646464646464) { 
+	PrintError(core->vm_info,core,"hvm: unable to handle non-64 bit hypercall\n");
+	core->vm_regs.rax = -1;
+	return 0;
+    }
+
+    switch (a1) {
+	case 0x0:   // null
+	    
+	    rdtscll(c);
+	    
+	    V3_Print(core->vm_info,core, "hvm: received hypercall %x  rax=%llx rbx=%llx rcx=%llx at cycle count %llu (%llu cycles since last boot start) num_exits=%llu since initial boot\n",
+		     hcall_id, core->vm_regs.rax, core->vm_regs.rbx, core->vm_regs.rcx, c, core->hvm_state.last_boot_start, core->num_exits);
+	    //v3_print_core_telemetry(core);
+	    //    v3_print_guest_state(core);
+	    core->vm_regs.rax = 0;
+	    break;
+	    
+	case 0x1: // reset ros
+	    PrintDebug(core->vm_info,core, "hvm: reset ROS\n");
+	    if (v3_reset_vm_extended(core->vm_info,V3_VM_RESET_ROS,0)) { 
+		PrintError(core->vm_info,core, "hvm: reset of ROS failed\n");
+		core->vm_regs.rax = -1;
+	    } else {
+		core->vm_regs.rax = 0;
+	    }
+	    break;
+
+	case 0x2: // reset hrt
+	    PrintDebug(core->vm_info,core, "hvm: reset HRT\n");
+	    if (v3_reset_vm_extended(core->vm_info,V3_VM_RESET_HRT,0)) { 
+		PrintError(core->vm_info,core, "hvm: reset of HRT failed\n");
+		core->vm_regs.rax = -1;
+	    } else {
+		core->vm_regs.rax = 0;
+	    }
+	    break;
+
+	case 0x3: // reset both
+	    PrintDebug(core->vm_info,core, "hvm: reset ROS+HRT\n");
+	    if (v3_reset_vm_extended(core->vm_info,V3_VM_RESET_ALL,0)) { 
+		PrintError(core->vm_info,core, "hvm: reset of HRT failed\n");
+		core->vm_regs.rax = -1;
+	    } else {
+		core->vm_regs.rax = 0;
+	    }
+	    break;
+	    
+	case 0xf: // get HRT state
+	    core->vm_regs.rax = h->trans_state;
+	    //PrintDebug(core->vm_info,core,"hvm: get HRT transaction state 0x%llx\n",core->vm_regs.rax);
+	    break;
+
+	case 0x20: // invoke function (ROS->HRT)
+	case 0x21: // invoke parallel function (ROS->HRT)
+	    if (v3_is_hvm_hrt_core(core)) { 
+		PrintError(core->vm_info,core,"hvm: %s function invocation not supported from HRT core\n", a1==0x20 ? "" : "parallel");
+		core->vm_regs.rax = -1;
+	    } else {
+		if (ENFORCE_STATE_MACHINE && h->trans_state!=HRT_IDLE) { 
+		    PrintError(core->vm_info,core, "hvm: cannot invoke %s function %p in state %d\n",a1==0x20 ? "" : "parallel", (void*)a2,h->trans_state);
+		    core->vm_regs.rax = -1;
+		} else {
+		    uint64_t *page = (uint64_t *) h->comm_page_hva;
+		    uint64_t first, last, cur;
+
+		    PrintDebug(core->vm_info,core, "hvm: %s invoke function %p\n",a1==0x20 ? "" : "parallel",(void*)a2);
+		    page[0] = a1;
+		    page[1] = a2;
+
+		    if (a1==0x20) { 
+			first=last=h->first_hrt_core;
+		    } else {
+			first=h->first_hrt_core;
+			last=core->vm_info->num_cores-1;
+		    }
+
+		    core->vm_regs.rax = 0;
+
+		    h->trans_count = last-first+1;
+
+		    for (cur=first;cur<=last;cur++) { 
+
+#if USE_UPCALL_MAGIC_PF
+			PrintDebug(core->vm_info,core,"hvm: injecting magic #PF into core %llu\n",cur);
+			core->vm_info->cores[cur].ctrl_regs.cr2 = UPCALL_MAGIC_ADDRESS;
+			if (v3_raise_exception_with_error(&core->vm_info->cores[cur],
+							  PF_EXCEPTION, 
+							  UPCALL_MAGIC_ERROR)) { 
+			    PrintError(core->vm_info,core, "hvm: cannot inject HRT #PF to core %llu\n",cur);
+			    core->vm_regs.rax = -1;
+			    break;
+			}
+#else
+			PrintDebug(core->vm_info,core,"hvm: injecting SW intr 0x%u into core %llu\n",h->hrt_int_vector,cur);
+			if (v3_raise_swintr(&core->vm_info->cores[cur],h->hrt_int_vector)) { 
+			    PrintError(core->vm_info,core, "hvm: cannot inject HRT interrupt to core %llu\n",cur);
+			    core->vm_regs.rax = -1;
+			    break;
+			}
+#endif
+			// Force core to exit now
+			v3_interrupt_cpu(core->vm_info,core->vm_info->cores[cur].pcpu_id,0);
+			  
+		    }
+		    if (core->vm_regs.rax==0) { 
+			if (a1==0x20) { 
+			    h->trans_state = HRT_CALL;
+			} else {
+			    h->trans_state = HRT_PARCALL;
+			}
+		    }  else {
+			PrintError(core->vm_info,core,"hvm: in inconsistent state due to HRT call failure\n");
+			h->trans_state = HRT_IDLE;
+			h->trans_count = 0;
+		    }
+		}
+	    }
+	    break;
 
 
-    V3_Print(core->vm_info,core, "hvm: received hypercall %x  rax=%llx rbx=%llx rcx=%llx at cycle count %llu (%llu cycles since last boot start) num_exits=%llu since initial boot\n",
-	     hcall_id, core->vm_regs.rax, core->vm_regs.rbx, core->vm_regs.rcx, c, c-core->hvm_state.last_boot_start, core->num_exits);
-    //v3_print_core_telemetry(core);
-    //    v3_print_guest_state(core);
+	case 0x2f: // function exec done
+	    if (v3_is_hvm_ros_core(core)) { 
+		PrintError(core->vm_info,core, "hvm: request for exec done from ROS core\n");
+		core->vm_regs.rax=-1;
+	    } else {
+		if (ENFORCE_STATE_MACHINE && h->trans_state!=HRT_CALL && h->trans_state!=HRT_PARCALL) {
+		    PrintError(core->vm_info,core,"hvm: function completion when not in HRT_CALL or HRT_PARCALL state\n");
+		    core->vm_regs.rax=-1;
+		} else {
+		    uint64_t one=1;
+		    PrintDebug(core->vm_info,core, "hvm: function complete\n");
+		    if (__sync_fetch_and_sub(&h->trans_count,one)==1) {
+			// last one, switch state
+			h->trans_state=HRT_IDLE;
+			PrintDebug(core->vm_info,core, "hvm: function complete - back to idle\n");
+		    }
+		    core->vm_regs.rax=0;
+		}
+	    }
+		    
+	    break;
 
+	case 0x30: // merge address space
+	case 0x31: // unmerge address space
+	    if (v3_is_hvm_hrt_core(core)) { 
+		PrintError(core->vm_info,core,"hvm: request to %smerge address space from HRT core\n", a1==0x30 ? "" : "un");
+		core->vm_regs.rax=-1;
+	    } else {
+		if (ENFORCE_STATE_MACHINE && h->trans_state!=HRT_IDLE) { 
+		    PrintError(core->vm_info,core,"hvm: request to %smerge address space in non-idle state\n",a1==0x30 ? "" : "un");
+		    core->vm_regs.rax=-1;
+		} else {
+		    uint64_t *page = (uint64_t *) h->comm_page_hva;
+
+		    PrintDebug(core->vm_info,core,"hvm: %smerge address space request with %p\n",a1==0x30 ? "" : "un",(void*)core->ctrl_regs.cr3);
+		    // should sanity check to make sure guest is in 64 bit without anything strange
+
+		    page[0] = a1;
+		    page[1] = core->ctrl_regs.cr3;  // this is a do-not-care for an unmerge
+
+		    core->vm_regs.rax = 0;
+#if USE_UPCALL_MAGIC_PF
+		    PrintDebug(core->vm_info,core,"hvm: injecting magic #PF into core %u\n",h->first_hrt_core);
+		    core->vm_info->cores[h->first_hrt_core].ctrl_regs.cr2 = UPCALL_MAGIC_ADDRESS;
+		    if (v3_raise_exception_with_error(&core->vm_info->cores[h->first_hrt_core],
+						      PF_EXCEPTION,  
+						      UPCALL_MAGIC_ERROR)) { 
+		      PrintError(core->vm_info,core, "hvm: cannot inject HRT #PF to core %u\n",h->first_hrt_core);
+		      core->vm_regs.rax = -1;
+		      break;
+		    }
+#else
+		    PrintDebug(core->vm_info,core,"hvm: injecting SW intr 0x%u into core %u\n",h->hrt_int_vector,h->first_hrt_core);
+		    if (v3_raise_swintr(&core->vm_info->cores[h->first_hrt_core],h->hrt_int_vector)) { 
+			PrintError(core->vm_info,core, "hvm: cannot inject HRT interrupt to core %u\n",h->first_hrt_core);
+			core->vm_regs.rax = -1;
+		    } 
+#endif		
+		    // Force core to exit now
+		    v3_interrupt_cpu(core->vm_info,core->vm_info->cores[h->first_hrt_core].pcpu_id,0);
+
+		    h->trans_state = HRT_MERGE;
+		}
+		
+	    }
+		
+	    break;
+	    
+
+	case 0x3f: // merge operation done
+	    if (v3_is_hvm_ros_core(core)) { 
+		PrintError(core->vm_info,core, "hvm: request for merge done from ROS core\n");
+		core->vm_regs.rax=-1;
+	    } else {
+		if (ENFORCE_STATE_MACHINE && h->trans_state!=HRT_MERGE) {
+		    PrintError(core->vm_info,core,"hvm: merge/unmerge done when in non-idle state\n");
+		    core->vm_regs.rax=-1;
+		} else {
+		    PrintDebug(core->vm_info,core, "hvm: merge or unmerge complete - back to idle\n");
+		    h->trans_state=HRT_IDLE;
+		    core->vm_regs.rax=0;
+		}
+	    }
+		    
+	    break;
+
+	default:
+	    PrintError(core->vm_info,core,"hvm: unknown hypercall %llx\n",a1);
+	    core->vm_regs.rax=-1;
+	    break;
+    }
+		
     return 0;
 }
 
@@ -153,7 +373,7 @@ int v3_init_hvm_vm(struct v3_vm_info *vm, struct v3_xml *config)
     }
 
     vm->hvm_state.first_hrt_gpa = ((uint64_t)atoi(ros_mem))*1024*1024;
-	
+
     if (!(hrt_config=v3_cfg_subtree(hvm_config,"hrt"))) { 
 	PrintError(vm,VCORE_NONE,"hvm: HVM configuration without HRT block...\n");
 	return -1;
@@ -205,6 +425,15 @@ int v3_deinit_hvm_vm(struct v3_vm_info *vm)
     PrintDebug(vm, VCORE_NONE, "hvm: HVM VM deinit\n");
 
     v3_remove_hypercall(vm,HVM_HCALL);
+
+    if (vm->hvm_state.comm_page_hpa) { 
+	struct v3_mem_region *r = v3_get_mem_region(vm,-1,(addr_t)vm->hvm_state.comm_page_hpa);
+	if (!r) { 
+	    PrintError(vm,VCORE_NONE,"hvm: odd, VM has comm_page_hpa, but no shadow memory\n");
+	} else {
+	    v3_delete_mem_region(vm,r);
+	}
+    }
 
     return 0;
 }
@@ -331,15 +560,15 @@ void     v3_hvm_find_apics_seen_by_core(struct guest_info *core, struct v3_vm_in
 #define MAX(x,y) ((x)>(y)?(x):(y))
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
-#ifdef HVM_MAP_1G_2M
-#define BOOT_STATE_END_ADDR (MIN(vm->mem_size,0x40000000ULL))
-#else
-#define BOOT_STATE_END_ADDR (MIN(vm->mem_size,0x800000000ULL))
-#endif
 
+static uint64_t boot_state_end_addr(struct v3_vm_info *vm) 
+{
+    return PAGE_ADDR(vm->mem_size);
+}
+   
 static void get_null_int_handler_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR - PAGE_SIZE);
+    *base = (void*) PAGE_ADDR(boot_state_end_addr(vm) - PAGE_SIZE);
     *limit = PAGE_SIZE;
 }
 
@@ -391,7 +620,7 @@ static void write_null_int_handler(struct v3_vm_info *vm)
 
 static void get_idt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR - 2 * PAGE_SIZE);
+    *base = (void*) PAGE_ADDR(boot_state_end_addr(vm) - 2 * PAGE_SIZE);
     *limit = 16*256;
 }
 
@@ -403,7 +632,7 @@ static void get_idt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 //    3 ist        => (stack) = 0 => current stack
 //    5 reserved   => 0
 //    4 type       => 0xe=>INT, 0xf=>TRAP 
-//    1 reserved   => 0
+//    1 reserved   => 0  (indicates "system" by being zero)
 //    2 dpl        => 0
 //    1 present    => 1
 //   16 offsetmid  => 0
@@ -414,7 +643,7 @@ static void get_idt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 // 
 // Note little endian
 //
-static uint64_t idt64_trap_gate_entry_mask[2] = {  0x00008f0000080000, 0x0 } ;
+static uint64_t idt64_trap_gate_entry_mask[2] = { 0x00008f0000080000, 0x0 } ;
 static uint64_t idt64_int_gate_entry_mask[2] =  { 0x00008e0000080000, 0x0 };
 
 static void write_idt(struct v3_vm_info *vm)
@@ -430,6 +659,8 @@ static void write_idt(struct v3_vm_info *vm)
     get_idt_loc(vm,&base,&limit);
 
     get_null_int_handler_loc(vm,&handler,&handler_len);
+
+    handler += vm->hvm_state.gva_offset;
 
     memcpy(trap_gate,idt64_trap_gate_entry_mask,16);
     memcpy(int_gate,idt64_int_gate_entry_mask,16);
@@ -469,7 +700,7 @@ static void write_idt(struct v3_vm_info *vm)
 
 static void get_gdt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*)PAGE_ADDR(BOOT_STATE_END_ADDR - 3 * PAGE_SIZE);
+    *base = (void*)PAGE_ADDR(boot_state_end_addr(vm) - 3 * PAGE_SIZE);
     *limit = 8*3;
 }
 
@@ -494,7 +725,7 @@ static void write_gdt(struct v3_vm_info *vm)
 
 static void get_tss_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-    *base = (void*)PAGE_ADDR(BOOT_STATE_END_ADDR - 4 * PAGE_SIZE);
+    *base = (void*)PAGE_ADDR(boot_state_end_addr(vm) - 4 * PAGE_SIZE);
     *limit = PAGE_SIZE;
 }
 
@@ -510,159 +741,307 @@ static void write_tss(struct v3_vm_info *vm)
     PrintDebug(vm,VCORE_NONE,"hvm: wrote TSS at %p\n",base);
 }
 
+
+#define TOP_HALF_START  0xffff800000000000ULL
+#define BOTTOM_HALF_END 0x00007fffffffffffULL
+
+
+#define L4_UNIT PAGE_SIZE
+#define L3_UNIT (512ULL * L4_UNIT)
+#define L2_UNIT (512ULL * L3_UNIT)
+#define L1_UNIT (512ULL * L2_UNIT)
+
+static void compute_pts_4KB(struct v3_vm_info *vm, 
+			    uint64_t *l1, uint64_t *l2, uint64_t *l3, uint64_t *l4)    
+{
+
+    // we map the physical memory up to max_mem_mapped either at 0x0 or at TOP_HALF start
+    // that is, it either fills in the first 256 rows of PML4 or the last 256 rows of PML4
+    // so it is the same number of page tables regardless
+
+    uint64_t max_gva = vm->hvm_state.max_mem_mapped;
+
+    *l1 = 1;  // 1 PML4
+    *l2 = CEIL_DIV(CEIL_DIV(max_gva,512ULL*512ULL*4096ULL),512);
+    *l3 = CEIL_DIV(CEIL_DIV(max_gva,512ULL*4096ULL),512);
+    *l4 = CEIL_DIV(CEIL_DIV(max_gva,4096ULL),512);
+}
+
+
+
 /*
-  PTS MAP FIRST 512 GB identity mapped: 
-  1 second level
-     512 entries
+  PTS MAP using 1 GB pages
+  n second levels pts, highest gva, highest address
   1 top level
-     1 entries
+
 
 OR
   
-  PTS MAP FIRST 1 GB identity mapped:
-  1 third level
-    512 entries
-  1 second level
-    1 entries
-  1 top level
-    1 entries
+  PTS MAP using 2 MB pages
+  n third level pts, highest gva, highest address
+  m second level pts, highest gva, highest address
+  1 top level pt
+
+OR
+
+  PTS MAP using 4 KB pages
+  n 4th level, highest gva, highest address
+  m 3rd level, highest gva, hihgest address
+  l second level, highest gva, highest address
+  1 top level pt
+
+OR
+  PTS MAP using 512 GB pages when this becomes available
+
 */
+
 
 static void get_pt_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-#ifdef HVM_MAP_1G_2M
-    *base = (void*)PAGE_ADDR(BOOT_STATE_END_ADDR-(5+2)*PAGE_SIZE);
-    *limit =  3*PAGE_SIZE;
-#else
-    *base = (void*)PAGE_ADDR(BOOT_STATE_END_ADDR-(5+1)*PAGE_SIZE);
-    *limit =  2*PAGE_SIZE;
-#endif
+    uint64_t l1,l2,l3,l4;
+    uint64_t num_pt;
+
+    compute_pts_4KB(vm,&l1,&l2,&l3,&l4);
+
+    if (vm->hvm_state.hrt_flags & MB_TAG_MB64_HRT_FLAG_MAP_512GB) { 
+	num_pt = l1;
+    } else if (vm->hvm_state.hrt_flags & MB_TAG_MB64_HRT_FLAG_MAP_1GB) { 
+	num_pt = l1 + l2;
+    } else if (vm->hvm_state.hrt_flags & MB_TAG_MB64_HRT_FLAG_MAP_2MB) {
+	num_pt = l1 + l2 + l3;
+    } else if (vm->hvm_state.hrt_flags & MB_TAG_MB64_HRT_FLAG_MAP_4KB) { 
+	num_pt = l1 + l2 + l3 + l4;
+    } else {
+	PrintError(vm,VCORE_NONE,"hvm: Cannot determine PT location flags=0x%llx memsize=0x%llx\n",vm->hvm_state.hrt_flags,(uint64_t)vm->mem_size);
+	return;
+    }
+
+    *base = (void*)PAGE_ADDR(boot_state_end_addr(vm)-(4+num_pt)*PAGE_SIZE);
+    *limit = num_pt*PAGE_SIZE;
 }
 
-#ifndef HVM_MAP_1G_2M
-static void write_pt_2level_512GB(struct v3_vm_info *vm)
+static void write_pts(struct v3_vm_info *vm)
 {
-    void *base;
     uint64_t size;
-    struct pml4e64 pml4e;
-    struct pdpe64 pdpe;
-    uint64_t i;
-
-    get_pt_loc(vm,&base, &size);
-    if (size!=2*PAGE_SIZE) { 
-	PrintError(vm,VCORE_NONE,"Cannot support pt request, defaulting\n");
-    }
-
-    if (vm->mem_size > 0x800000000ULL) { 
-	PrintError(vm,VCORE_NONE, "VM has more than 512 GB\n");
-    }
-
-    memset(&pdpe,0,sizeof(pdpe));
-    pdpe.present=1;
-    pdpe.writable=1;
-    pdpe.large_page=1;
-    
-    for (i=0;i<512;i++) {
-	pdpe.pd_base_addr = i*0x40000;  // 0x4000 = 256K pages = 1 GB
-	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+PAGE_SIZE+i*sizeof(pdpe)),sizeof(pdpe),(uint8_t*)&pdpe);
-    }
-
-    memset(&pml4e,0,sizeof(pml4e));
-    pml4e.present=1;
-    pml4e.writable=1;
-    pml4e.pdp_base_addr = PAGE_BASE_ADDR((addr_t)(base+PAGE_SIZE));
-
-    v3_write_gpa_memory(&vm->cores[0],(addr_t)base,sizeof(pml4e),(uint8_t*)&pml4e);    
-
-    for (i=1;i<512;i++) {
-	pml4e.present=0;
-	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+i*sizeof(pml4e)),sizeof(pml4e),(uint8_t*)&pml4e);
-    }
-
-    PrintDebug(vm,VCORE_NONE,"hvm: Wrote page tables (1 PML4, 1 PDPE) at %p (512 GB mapped)\n",base);
-}
-
-#else 
-
-static void write_pt_3level_1GB(struct v3_vm_info *vm)
-{
-    void *base;
-    uint64_t size;
-    struct pml4e64 pml4e;
-    struct pdpe64 pdpe;
-    struct pde64 pde;
-
-    uint64_t i;
-
-    get_pt_loc(vm,&base, &size);
-    if (size!=3*PAGE_SIZE) { 
-	PrintError(vm,VCORE_NONE,"Cannot support pt request, defaulting\n");
-    }
-
-    if (vm->mem_size > 0x40000000ULL) { 
-	PrintError(vm,VCORE_NONE, "VM has more than 1 GB\n");
-    }
-
-    memset(&pde,0,sizeof(pde));
-    pde.present=1;
-    pde.writable=1;
-    pde.large_page=1;
-    
-    for (i=0;i<512;i++) {
-	pde.pt_base_addr = i*0x200;  // 0x200 = 512 pages = 2 MB
-	v3_write_gpa_memory(&vm->cores[0],
-			    (addr_t)(base+2*PAGE_SIZE+i*sizeof(pde)),
-			    sizeof(pde),(uint8_t*)&pde);
-    }
-
-    memset(&pdpe,0,sizeof(pdpe));
-    pdpe.present=1;
-    pdpe.writable=1;
-    pdpe.large_page=0;
-
-    pdpe.pd_base_addr = PAGE_BASE_ADDR((addr_t)(base+2*PAGE_SIZE));
-
-    v3_write_gpa_memory(&vm->cores[0],(addr_t)base+PAGE_SIZE,sizeof(pdpe),(uint8_t*)&pdpe);    
-    
-    for (i=1;i<512;i++) {
-	pdpe.present = 0; 
-	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+PAGE_SIZE+i*sizeof(pdpe)),sizeof(pdpe),(uint8_t*)&pdpe);
-    }
-
-    memset(&pml4e,0,sizeof(pml4e));
-    pml4e.present=1;
-    pml4e.writable=1;
-    pml4e.pdp_base_addr = PAGE_BASE_ADDR((addr_t)(base+PAGE_SIZE));
-
-    v3_write_gpa_memory(&vm->cores[0],(addr_t)base,sizeof(pml4e),(uint8_t*)&pml4e);    
-
-    for (i=1;i<512;i++) {
-	pml4e.present=0;
-	v3_write_gpa_memory(&vm->cores[0],(addr_t)(base+i*sizeof(pml4e)),sizeof(pml4e),(uint8_t*)&pml4e);
-    }
-
-    PrintDebug(vm,VCORE_NONE,"hvm: Wrote page tables (1 PML4, 1 PDPE, 1 PDP) at %p (1 GB mapped)\n",base);
-}
-
+    uint64_t num_l1, num_l2, num_l3, num_l4;
+    void *start_l1, *start_l2, *start_l3, *start_l4;
+    uint64_t max_level;
+    void *cur_pt;
+    void *cur_gva;
+    void *cur_gpa;
+    void *min_gpa = 0;
+    void *max_gpa = (void*) vm->hvm_state.max_mem_mapped;
+    void *min_gva = (void*) vm->hvm_state.gva_offset;
+#ifdef V3_CONFIG_DEBUG_HVM
+    void *max_gva = min_gva+vm->hvm_state.max_mem_mapped;
 #endif
+    uint64_t i, pt;
+    uint64_t i_start,i_end;
+    
+    struct pml4e64 *pml4e;
+    struct pdpe64 *pdpe;
+    struct pde64 *pde;
+    struct pte64 *pte;
 
-static void write_pt(struct v3_vm_info *vm)
-{
-#ifdef HVM_MAP_1G_2M
-    write_pt_3level_1GB(vm);
-#else
-    write_pt_2level_512GB(vm);
-#endif
+    if (vm->hvm_state.hrt_flags & MB_TAG_MB64_HRT_FLAG_MAP_512GB) { 
+	PrintError(vm,VCORE_NONE,"hvm: Attempt to build 512 GB pages\n");
+	max_level = 1;
+    } else if (vm->hvm_state.hrt_flags & MB_TAG_MB64_HRT_FLAG_MAP_1GB) { 
+	max_level = 2;
+    } else if (vm->hvm_state.hrt_flags & MB_TAG_MB64_HRT_FLAG_MAP_2MB) {
+	max_level = 3;
+    } else if (vm->hvm_state.hrt_flags & MB_TAG_MB64_HRT_FLAG_MAP_4KB) { 
+	max_level = 4;
+    } else {
+	PrintError(vm,VCORE_NONE,"hvm: Cannot determine PT levels\n");
+	return;
+    }
+
+    get_pt_loc(vm,&start_l1,&size);
+    compute_pts_4KB(vm,&num_l1,&num_l2,&num_l3,&num_l4);
+
+    start_l2=start_l1+PAGE_SIZE*num_l1;
+    start_l3=start_l2+PAGE_SIZE*num_l2;
+    start_l4=start_l3+PAGE_SIZE*num_l3;
+
+    PrintDebug(vm,VCORE_NONE,"hvm: writing %llu levels of PTs start at address %p\n", max_level,start_l1);
+    PrintDebug(vm,VCORE_NONE,"hvm: min_gva=%p, max_gva=%p, min_gpa=%p, max_gpa=%p\n",min_gva,max_gva,min_gpa,max_gpa);
+    PrintDebug(vm,VCORE_NONE,"hvm: num_l1=%llu, num_l2=%llu, num_l3=%llu, num_l4=%llu\n", num_l1, num_l2, num_l3, num_l4);
+    PrintDebug(vm,VCORE_NONE,"hvm: start_l1=%p, start_l2=%p, start_l3=%p, start_l4=%p\n", start_l1, start_l2, start_l3, start_l4);
+
+    cur_pt=start_l1;
+
+    // build PML4 (only one)
+    if (v3_gpa_to_hva(&vm->cores[0],(addr_t)cur_pt,(addr_t*)&pml4e)) { 
+	PrintError(vm,VCORE_NONE,"hvm: Cannot translate pml4 location\n");
+	return;
+    }
+
+    memset(pml4e,0,PAGE_SIZE);
+
+    if (min_gva==0x0) { 
+	i_start=0; i_end = num_l2;
+    } else if (min_gva==(void*)TOP_HALF_START) { 
+	i_start=256; i_end=256+num_l2;
+    } else {
+	PrintError(vm,VCORE_NONE,"hvm: unsupported gva offset\n");
+	return;
+    }
+
+    for (i=i_start, cur_gva=min_gva, cur_gpa=min_gpa;
+	 (i<i_end);
+	 i++, cur_gva+=L1_UNIT, cur_gpa+=L1_UNIT) {
+
+	pml4e[i].present=1;
+	pml4e[i].writable=1;
+	
+	if (max_level==1) { 
+	    PrintError(vm,VCORE_NONE,"hvm: Intel has not yet defined a PML4E large page\n");
+	    pml4e[i].pdp_base_addr = PAGE_BASE_ADDR((addr_t)(cur_gpa));
+	    //PrintDebug(vm,VCORE_NONE,"hvm: pml4: gva %p to frame 0%llx\n", cur_gva, (uint64_t)pml4e[i].pdp_base_addr);
+	} else {
+	    pml4e[i].pdp_base_addr = PAGE_BASE_ADDR((addr_t)(start_l2+(i-i_start)*PAGE_SIZE));
+	    //PrintDebug(vm,VCORE_NONE,"hvm: pml4: gva %p to frame 0%llx\n", cur_gva, (uint64_t)pml4e[i].pdp_base_addr);
+	}
+    }
+
+    // 512 GB only
+    if (max_level==1) {
+	return;
+    }
+
+
+
+    for (cur_pt=start_l2, pt=0, cur_gpa=min_gpa, cur_gva=min_gva;
+	 pt<num_l2;
+	 cur_pt+=PAGE_SIZE, pt++) { 
+
+	// build PDPE
+	if (v3_gpa_to_hva(&vm->cores[0],(addr_t)cur_pt,(addr_t*)&pdpe)) { 
+	    PrintError(vm,VCORE_NONE,"hvm: Cannot translate pdpe location\n");
+	    return;
+	}
+	
+	memset(pdpe,0,PAGE_SIZE);
+	
+	for (i=0; 
+	     i<512 && cur_gpa<max_gpa; 
+	     i++, cur_gva+=L2_UNIT, cur_gpa+=L2_UNIT) {
+
+	    pdpe[i].present=1;
+	    pdpe[i].writable=1;
+	
+	    if (max_level==2) { 
+		pdpe[i].large_page=1;
+		pdpe[i].pd_base_addr = PAGE_BASE_ADDR((addr_t)(cur_gpa));
+		//PrintDebug(vm,VCORE_NONE,"hvm: pdpe: gva %p to frame 0%llx\n", cur_gva, (uint64_t)pdpe[i].pd_base_addr);
+	    } else {
+		pdpe[i].pd_base_addr = PAGE_BASE_ADDR((addr_t)(start_l3+(pt*512+i)*PAGE_SIZE));
+		//PrintDebug(vm,VCORE_NONE,"hvm: pdpe: gva %p to frame 0%llx\n", cur_gva, (uint64_t)pdpe[i].pd_base_addr);
+	    }
+	}
+    }
+	
+    //1 GB only
+    if (max_level==2) { 
+	return;
+    }
+
+    for (cur_pt=start_l3, pt=0, cur_gpa=min_gpa, cur_gva=min_gva;
+	 pt<num_l3;
+	 cur_pt+=PAGE_SIZE, pt++) { 
+
+	// build PDE
+	if (v3_gpa_to_hva(&vm->cores[0],(addr_t)cur_pt,(addr_t*)&pde)) { 
+	    PrintError(vm,VCORE_NONE,"hvm: Cannot translate pde location\n");
+	    return;
+	}
+	
+	memset(pde,0,PAGE_SIZE);
+	
+	for (i=0; 
+	     i<512 && cur_gpa<max_gpa; 
+	     i++, cur_gva+=L3_UNIT, cur_gpa+=L3_UNIT) {
+
+	    pde[i].present=1;
+	    pde[i].writable=1;
+	
+	    if (max_level==3) { 
+		pde[i].large_page=1;
+		pde[i].pt_base_addr = PAGE_BASE_ADDR((addr_t)(cur_gpa));
+		//PrintDebug(vm,VCORE_NONE,"hvm: pde: gva %p to frame 0%llx\n", cur_gva, (uint64_t) pde[i].pt_base_addr);
+	    } else {
+	        pde[i].pt_base_addr = PAGE_BASE_ADDR((addr_t)(start_l4+(pt*512+i)*PAGE_SIZE));
+	        //PrintDebug(vm,VCORE_NONE,"hvm: pde: gva %p to frame 0%llx\n", cur_gva, (uint64_t)pde[i].pt_base_addr);
+	    }
+	}
+    }
+
+    //2 MB only
+    if (max_level==3) { 
+	return;
+    }
+
+
+    // 4 KB
+    for (cur_pt=start_l4, pt=0, cur_gpa=min_gpa, cur_gva=min_gva;
+	 pt<num_l4;
+	 cur_pt+=PAGE_SIZE, pt++) { 
+
+	// build PTE
+	if (v3_gpa_to_hva(&vm->cores[0],(addr_t)cur_pt,(addr_t*)&pte)) { 
+	    PrintError(vm,VCORE_NONE,"hvm: Cannot translate pte location\n");
+	    return;
+	}
+	
+	memset(pte,0,PAGE_SIZE);
+	
+	for (i=0; 
+	     i<512 && cur_gpa<max_gpa; 
+	     i++, cur_gva+=L4_UNIT, cur_gpa+=L4_UNIT) {
+
+	    pte[i].present=1;
+	    pte[i].writable=1;
+	    pte[i].page_base_addr = PAGE_BASE_ADDR((addr_t)(cur_gpa));
+	    //PrintDebug(vm,VCORE_NONE,"hvm: pte: gva %p to frame 0%llx\n", cur_gva, (uint64_t)pte[i].page_base_addr);
+	}
+    }
+
+    return;
 }
+
 
 static void get_mb_info_loc(struct v3_vm_info *vm, void **base, uint64_t *limit)
 {
-#ifdef HVM_MAP_1G_2M
-    *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR-(6+2)*PAGE_SIZE);
-#else
-    *base = (void*) PAGE_ADDR(BOOT_STATE_END_ADDR-(6+1)*PAGE_SIZE);
-#endif
-    *limit =  PAGE_SIZE;
+    
+    get_pt_loc(vm,base, limit);
+    *base-=PAGE_SIZE;
+    *limit=PAGE_SIZE;
+}
+
+
+int v3_build_hrt_multiboot_tag(struct guest_info *core, mb_info_hrt_t *hrt)
+{
+    struct v3_vm_info *vm = core->vm_info;
+
+    hrt->tag.type = MB_INFO_HRT_TAG;
+    hrt->tag.size = sizeof(mb_info_hrt_t);
+
+    hrt->total_num_apics = vm->num_cores;
+    hrt->first_hrt_apic_id = vm->hvm_state.first_hrt_core;
+    hrt->have_hrt_ioapic=0;
+    hrt->first_hrt_ioapic_entry=0;
+
+    hrt->cpu_freq_khz = V3_CPU_KHZ();
+
+    hrt->hrt_flags = vm->hvm_state.hrt_flags;
+    hrt->max_mem_mapped = vm->hvm_state.max_mem_mapped;
+    hrt->first_hrt_gpa = vm->hvm_state.first_hrt_gpa;
+    hrt->gva_offset = vm->hvm_state.gva_offset;
+    hrt->comm_page_gpa = vm->hvm_state.comm_page_gpa;
+    hrt->hrt_int_vector = vm->hvm_state.hrt_int_vector;
+    
+    return 0;
 }
 
 static void write_mb_info(struct v3_vm_info *vm) 
@@ -753,25 +1132,125 @@ static mb_header_t *find_mb_header(uint8_t *data, uint64_t size)
 }
 
 
-// 
-// BROKEN - THIS DOES NOT DO WHAT YOU THINK
-//
-static int setup_elf(struct v3_vm_info *vm, void *base, uint64_t limit)
+static int configure_hrt(struct v3_vm_info *vm, mb_data_t *mb)
 {
-    v3_write_gpa_memory(&vm->cores[0],(addr_t)base,vm->hvm_state.hrt_file->size,vm->hvm_state.hrt_file->data);
-
-    vm->hvm_state.hrt_entry_addr = (uint64_t) (base+0x40);
-
-    PrintDebug(vm,VCORE_NONE,"hvm: wrote HRT ELF %s at %p\n", vm->hvm_state.hrt_file->tag,base);
-    PrintDebug(vm,VCORE_NONE,"hvm: set ELF entry to %p and hoping for the best...\n", (void*) vm->hvm_state.hrt_entry_addr);
+    struct v3_vm_hvm *h = &vm->hvm_state;
+    uint64_t f = mb->mb64_hrt->hrt_flags;
+    uint64_t maxmap = mb->mb64_hrt->max_mem_to_map;
+    uint64_t gvaoff = mb->mb64_hrt->gva_offset;
+    uint64_t gvaentry = mb->mb64_hrt->gva_entry;
+    uint64_t commgpa = mb->mb64_hrt->comm_page_gpa;
+    uint8_t  vec = mb->mb64_hrt->hrt_int_vector;
     
-    vm->hvm_state.hrt_type = HRT_ELF64;
 
+    PrintDebug(vm,VCORE_NONE,"hvm: HRT request: flags=0x%llx max_map=0x%llx gva_off=%llx gva_entry=%llx comm_page=0x%llx vector=0x%x\n",
+	       f, maxmap, gvaoff,gvaentry,commgpa, vec);
+
+    if (maxmap<0x100000000ULL) { 
+	PrintDebug(vm,VCORE_NONE,"hvm: revising request up to 4 GB max map\n");
+	maxmap=0x100000000ULL;
+    }
+
+    if (f & MB_TAG_MB64_HRT_FLAG_MAP_512GB) { 
+	PrintError(vm,VCORE_NONE,"hvm: support for 512 GB pages is not yet available in hardware\n");
+	return -1;
+    } else if (f & MB_TAG_MB64_HRT_FLAG_MAP_1GB) { 
+	f &= ~0x3c;
+	f |= MB_TAG_MB64_HRT_FLAG_MAP_1GB;
+	h->max_mem_mapped = maxmap;
+	PrintDebug(vm,VCORE_NONE,"hvm: 1 GB pages selected\n");
+    } else if (f & MB_TAG_MB64_HRT_FLAG_MAP_2MB) { 
+	f &= ~0x3c;
+	f |= MB_TAG_MB64_HRT_FLAG_MAP_2MB;
+	h->max_mem_mapped = maxmap;
+	PrintDebug(vm,VCORE_NONE,"hvm: 2 MB pages selected\n");
+    } else if (f & MB_TAG_MB64_HRT_FLAG_MAP_4KB) { 
+	f &= ~0x3c;
+	f |= MB_TAG_MB64_HRT_FLAG_MAP_4KB;
+	h->max_mem_mapped = maxmap;
+	PrintDebug(vm,VCORE_NONE,"hvm: 4 KB pages selected\n");
+    } else {
+	PrintError(vm,VCORE_NONE,"hvm: no page table model is requested\n");
+	return -1;
+    }
+
+    if (f & MB_TAG_MB64_HRT_FLAG_RELOC) {
+	PrintError(vm,VCORE_NONE,"hvm: relocatable hrt not currently supported\n");
+	return -1;
+    }
+
+    h->hrt_flags = f;
+
+    if (maxmap>h->max_mem_mapped) { 
+	PrintError(vm,VCORE_NONE,"hvm: requested 0x%llx bytes mapped, which is more than currently supported\n",maxmap);
+	return -1;
+    }
+
+    if (gvaoff!=0 && gvaoff!=TOP_HALF_START) { 
+	PrintError(vm,VCORE_NONE,"hvm: currently only GVA offsets of 0 and %llx are supported\n", TOP_HALF_START);
+	return -1;
+    }
+    
+    h->gva_offset = gvaoff;
+
+    h->gva_entry = gvaentry;
+
+    if (mb->addr->load_addr < h->first_hrt_gpa) { 
+	PrintError(vm,VCORE_NONE,"hvm: load start address of HRT is below first HRT GPA\n");
+	return -1;
+    }
+    
+    if (mb->addr->bss_end_addr > (vm->mem_size-(1024*1024*64))) {
+	PrintError(vm,VCORE_NONE,"hvm: bss end address of HRT above last allowed GPA\n");
+	return -1;
+    }
+    
+    if (vec<32) { 
+	PrintError(vm,VCORE_NONE,"hvm: cannot support vector %x\n",vec);
+	return -1;
+    }
+    
+    h->hrt_int_vector = vec;
+    
+    
+    if (commgpa < vm->mem_size) { 
+	PrintError(vm,VCORE_NONE,"hvm: cannot map comm page over physical memory\n");
+	return -1;
+    } 
+
+    h->comm_page_gpa = commgpa;
+
+    if (!h->comm_page_hpa) { 
+	if (!(h->comm_page_hpa=V3_AllocPages(1))) { 
+	    PrintError(vm,VCORE_NONE,"hvm: unable to allocate space for comm page\n");
+	    return -1;
+	}
+
+	h->comm_page_hva = V3_VAddr(h->comm_page_hpa);
+	
+	memset(h->comm_page_hva,0,PAGE_SIZE_4KB);
+	
+	if (v3_add_shadow_mem(vm,-1,h->comm_page_gpa,h->comm_page_gpa+PAGE_SIZE_4KB,(addr_t)h->comm_page_hpa)) { 
+	    PrintError(vm,VCORE_NONE,"hvm: unable to map communication page\n");
+	    V3_FreePages((void*)(h->comm_page_gpa),1);
+	    return -1;
+	}
+	
+	
+	PrintDebug(vm,VCORE_NONE,"hvm: added comm page for first time\n");
+    }
+
+    memset(h->comm_page_hva,0,PAGE_SIZE_4KB);
+    
+    
+    PrintDebug(vm,VCORE_NONE,"hvm: HRT configuration: flags=0x%llx max_mem_mapped=0x%llx gva_offset=0x%llx gva_entry=0x%llx comm_page=0x%llx vector=0x%x\n",
+ 	       h->hrt_flags,h->max_mem_mapped, h->gva_offset,h->gva_entry, h->comm_page_gpa, h->hrt_int_vector);
+    
     return 0;
 
 }
 
-static int setup_mb_kernel(struct v3_vm_info *vm, void *base, uint64_t limit)
+static int setup_mb_kernel_hrt(struct v3_vm_info *vm)
 {
     mb_data_t mb;
 
@@ -780,50 +1259,24 @@ static int setup_mb_kernel(struct v3_vm_info *vm, void *base, uint64_t limit)
 	return -1;
     }
 
-
-    if (v3_write_multiboot_kernel(vm,&mb,vm->hvm_state.hrt_file,base,limit)) {
+    if (configure_hrt(vm,&mb)) {
+	PrintError(vm,VCORE_NONE, "hvm: cannot configure HRT\n");
+	return -1;
+    }
+    
+    if (v3_write_multiboot_kernel(vm,&mb,vm->hvm_state.hrt_file,
+				  (void*)vm->hvm_state.first_hrt_gpa,
+				  vm->mem_size-vm->hvm_state.first_hrt_gpa)) {
 	PrintError(vm,VCORE_NONE, "hvm: failed to write multiboot kernel into memory\n");
 	return -1;
     }
 
-    /*
-    if (!mb.addr || !mb.entry) { 
-	PrintError(vm,VCORE_NONE, "hvm: kernel is missing address or entry point\n");
-	return -1;
+    if (vm->hvm_state.gva_entry) { 
+	vm->hvm_state.hrt_entry_addr = vm->hvm_state.gva_entry;
+    } else {
+	vm->hvm_state.hrt_entry_addr = (uint64_t) mb.entry->entry_addr + vm->hvm_state.gva_offset;
     }
 
-    if (((void*)(uint64_t)(mb.addr->header_addr) < base ) ||
-	((void*)(uint64_t)(mb.addr->load_end_addr) > base+limit) ||
-	((void*)(uint64_t)(mb.addr->bss_end_addr) > base+limit)) { 
-	PrintError(vm,VCORE_NONE, "hvm: kernel is not within the allowed portion of HVM\n");
-	return -1;
-    }
-
-    offset = mb.addr->load_addr - mb.addr->header_addr;
-
-    // Skip the ELF header - assume 1 page... weird.... 
-    // FIX ME TO CONFORM TO MULTIBOOT.C
-    v3_write_gpa_memory(&vm->cores[0],
-			(addr_t)(mb.addr->load_addr),
-			vm->hvm_state.hrt_file->size-PAGE_SIZE-offset,
-			vm->hvm_state.hrt_file->data+PAGE_SIZE+offset);
-
-	
-    // vm->hvm_state.hrt_entry_addr = (uint64_t) mb.entry->entry_addr + PAGE_SIZE; //HACK PAD
-
-
-    PrintDebug(vm,VCORE_NONE,
-	       "hvm: wrote 0x%llx bytes starting at offset 0x%llx to %p; set entry to %p\n",
-	       (uint64_t) vm->hvm_state.hrt_file->size-PAGE_SIZE-offset,
-	       (uint64_t) PAGE_SIZE+offset,
-	       (void*)(addr_t)(mb.addr->load_addr),
-	       (void*) vm->hvm_state.hrt_entry_addr);
-
-
-    */
-
-    vm->hvm_state.hrt_entry_addr = (uint64_t) mb.entry->entry_addr;
-    
     vm->hvm_state.hrt_type = HRT_MBOOT64;
 
     return 0;
@@ -833,37 +1286,17 @@ static int setup_mb_kernel(struct v3_vm_info *vm, void *base, uint64_t limit)
 
 static int setup_hrt(struct v3_vm_info *vm)
 {
-    void *base;
-    uint64_t limit;
+    if (is_elf(vm->hvm_state.hrt_file->data,vm->hvm_state.hrt_file->size) && 
+	find_mb_header(vm->hvm_state.hrt_file->data,vm->hvm_state.hrt_file->size)) { 
 
-    get_hrt_loc(vm,&base,&limit);
-
-    if (vm->hvm_state.hrt_file->size > limit) { 
-	PrintError(vm,VCORE_NONE,"hvm: Cannot map HRT because it is too big (%llu bytes, but only have %llu space\n", vm->hvm_state.hrt_file->size, (uint64_t)limit);
-	return -1;
-    }
-
-    if (!is_elf(vm->hvm_state.hrt_file->data,vm->hvm_state.hrt_file->size)) { 
-	PrintError(vm,VCORE_NONE,"hvm: supplied HRT is not an ELF but we are going to act like it is!\n");
-	if (setup_elf(vm,base,limit)) {
-	    PrintError(vm,VCORE_NONE,"hvm: Fake ELF setup failed\n");
+	PrintDebug(vm,VCORE_NONE,"hvm: appears to be a multiboot kernel\n");
+	if (setup_mb_kernel_hrt(vm)) { 
+	    PrintError(vm,VCORE_NONE,"hvm: multiboot kernel setup failed\n");
 	    return -1;
-	}
-	vm->hvm_state.hrt_type=HRT_BLOB;
+	} 
     } else {
-	if (find_mb_header(vm->hvm_state.hrt_file->data,vm->hvm_state.hrt_file->size)) { 
-	    PrintDebug(vm,VCORE_NONE,"hvm: appears to be a multiboot kernel\n");
-	    if (setup_mb_kernel(vm,base,limit)) { 
-		PrintError(vm,VCORE_NONE,"hvm: multiboot kernel setup failed\n");
-		return -1;
-	    } 
-	} else {
-	    PrintDebug(vm,VCORE_NONE,"hvm: supplied HRT is an ELF\n");
-	    if (setup_elf(vm,base,limit)) {
-		PrintError(vm,VCORE_NONE,"hvm: Fake ELF setup failed\n");
-		return -1;
-	    }
-	}
+	PrintError(vm,VCORE_NONE,"hvm: supplied HRT is not a multiboot kernel\n");
+	return -1;
     }
 
     return 0;
@@ -887,8 +1320,9 @@ static int setup_hrt(struct v3_vm_info *vm)
   GDT (1 page - page aligned)
   TSS (1 page - page asligned)
   PAGETABLES  (identy map of first N GB)
-     ROOT PT first, followed by 2nd level, etc.
-     Currently PML4 followed by 1 PDPE for 512 GB of mapping
+     ROOT PT first (lowest memory addr), followed by 2nd level PTs in order,
+     followed by 3rd level PTs in order, followed by 4th level
+     PTs in order.  
   MBINFO_PAGE
   SCRATCH_STACK_HRT_CORE0 
   SCRATCH_STACK_HRT_CORE1
@@ -898,7 +1332,8 @@ static int setup_hrt(struct v3_vm_info *vm)
   HRT (as many pages as needed, page-aligned, starting at first HRT address)
   ---
   ROS
-      
+
+
 */
 
 
@@ -911,20 +1346,22 @@ int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm)
 
     PrintDebug(vm,VCORE_NONE,"hvm: setup of HVM memory begins\n");
 
-    write_null_int_handler(vm);
-    write_idt(vm);
-    write_gdt(vm);
-    write_tss(vm);
-
-    write_pt(vm);
-
-    
     if (setup_hrt(vm)) {
 	PrintError(vm,VCORE_NONE,"hvm: failed to setup HRT\n");
 	return -1;
     } 
 
-    // need to parse HRT first
+    // the locations of all the other items are determined by
+    // the HRT setup, so these must happen after
+
+    write_null_int_handler(vm);
+    write_idt(vm);
+    write_gdt(vm);
+    write_tss(vm);
+
+    write_pts(vm);
+
+    // this must happen last
     write_mb_info(vm);
 
     PrintDebug(vm,VCORE_NONE,"hvm: setup of HVM memory done\n");
@@ -940,13 +1377,15 @@ int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm)
    TS   points to stub TSS
    CR3 points to root page table
    CR0 has PE and PG
-   EFER has LME AND LMA
+   EFER has LME AND LMA (and NX for compatibility with Linux)
    RSP is TOS of core's scratch stack (looks like a call)
 
    RAX = MB magic cookie
    RBX = address of multiboot info table
    RCX = this core id / apic id (0..N-1)
    RDX = this core id - first HRT core ID (==0 for the first HRT core)
+
+   All addresses are virtual addresses, offset as needed by gva_offset
 
    Other regs are zeroed
 
@@ -957,18 +1396,20 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
 {
     void *base;
     uint64_t limit;
+    uint64_t gva_offset;
 
     rdtscll(core->hvm_state.last_boot_start);
+    
 
     if (!core->hvm_state.is_hrt) { 
 	PrintDebug(core->vm_info,core,"hvm: skipping HRT setup for core %u as it is not an HRT core\n", core->vcpu_id);
 	return 0;
     }
 
+
     PrintDebug(core->vm_info, core, "hvm: setting up HRT core (%u) for boot\n", core->vcpu_id);
 
-    
-
+    gva_offset = core->vm_info->hvm_state.gva_offset;
     
     memset(&core->vm_regs,0,sizeof(core->vm_regs));
     memset(&core->ctrl_regs,0,sizeof(core->ctrl_regs));
@@ -990,7 +1431,7 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
 
     // multiboot info pointer
     get_mb_info_loc(core->vm_info, &base,&limit);
-    core->vm_regs.rbx = (uint64_t) base;  
+    core->vm_regs.rbx = (uint64_t) base + gva_offset;  
 
     // core number
     core->vm_regs.rcx = core->vcpu_id;
@@ -1001,6 +1442,7 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     // Now point to scratch stack for this core
     // it begins at an ofset relative to the MB info page
     get_mb_info_loc(core->vm_info, &base,&limit);
+    base = base + gva_offset;
     base -= core->vm_regs.rdx * SCRATCH_STACK_SIZE;
     core->vm_regs.rsp = (v3_reg_t) base;  
     core->vm_regs.rbp = (v3_reg_t) base-8; 
@@ -1008,14 +1450,19 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     // push onto the stack a bad rbp and bad return address
     core->vm_regs.rsp-=16;
     v3_set_gpa_memory(core,
-		      core->vm_regs.rsp,
+		      core->vm_regs.rsp-gva_offset,
 		      16,
 		      0xff);
 
 
     // HRT entry point
     get_hrt_loc(core->vm_info, &base,&limit);
-    core->rip = (uint64_t) core->vm_info->hvm_state.hrt_entry_addr ; 
+    if (core->vm_info->hvm_state.gva_entry) { 
+      core->rip = core->vm_info->hvm_state.gva_entry;
+    } else {
+      core->rip = (uint64_t) core->vm_info->hvm_state.hrt_entry_addr + gva_offset; 
+    }
+      
 
 
     PrintDebug(core->vm_info,core,"hvm: hrt core %u has rip=%p, rsp=%p, rbp=%p, rax=%p, rbx=%p, rcx=%p, rdx=%p\n",
@@ -1036,7 +1483,7 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     // CR2: don't care (output from #PF)
     // CE3: set to our PML4E, without setting PCD or PWT
     get_pt_loc(core->vm_info, &base,&limit);
-    core->ctrl_regs.cr3 = PAGE_ADDR((addr_t)base);
+    core->ctrl_regs.cr3 = PAGE_ADDR((addr_t)base);  // not offset as this is a GPA
     core->shdw_pg_state.guest_cr3 = core->ctrl_regs.cr3;
 
     // CR4: PGE, PAE, PSE (last byte: 1 0 1 1 0 0 0 0)
@@ -1044,8 +1491,8 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     core->shdw_pg_state.guest_cr4 = core->ctrl_regs.cr4;
     // CR8 as usual
     // RFLAGS zeroed is fine: come in with interrupts off
-    // EFER needs SVME LMA LME (last 16 bits: 0 0 0 1 0 1 0 1 0 0 0 0 0 0 0 0
-    core->ctrl_regs.efer = 0x1500;
+    // EFER needs SVME LMA LME (last 16 bits: 0 0 0 1 1 1 0 1 0 0 0 0 0 0 0 0
+    core->ctrl_regs.efer = 0x1d00;
     core->shdw_pg_state.guest_efer.value = core->ctrl_regs.efer;
 
 
@@ -1065,47 +1512,50 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     
     // Install our stub IDT
     get_idt_loc(core->vm_info, &base,&limit);
+    base += gva_offset;
     core->segments.idtr.selector = 0;  // entry 0 (NULL) of the GDT
-    core->segments.idtr.base = (addr_t) base;
+    core->segments.idtr.base = (addr_t) base;  // only base+limit are used
     core->segments.idtr.limit = limit-1;
-    core->segments.idtr.type = 0xe;
-    core->segments.idtr.system = 1; 
+    core->segments.idtr.type = 0x0;
+    core->segments.idtr.system = 0; 
     core->segments.idtr.dpl = 0;
-    core->segments.idtr.present = 1;
-    core->segments.idtr.long_mode = 1;
+    core->segments.idtr.present = 0;
+    core->segments.idtr.long_mode = 0;
 
     // Install our stub GDT
     get_gdt_loc(core->vm_info, &base,&limit);
-    core->segments.gdtr.selector = 0;
+    base += gva_offset;
+    core->segments.gdtr.selector = 0;  // entry 0 (NULL) of the GDT
     core->segments.gdtr.base = (addr_t) base;
-    core->segments.gdtr.limit = limit-1;
-    core->segments.gdtr.type = 0x6;
-    core->segments.gdtr.system = 1; 
+    core->segments.gdtr.limit = limit-1;   // only base+limit are used
+    core->segments.gdtr.type = 0x0;
+    core->segments.gdtr.system = 0; 
     core->segments.gdtr.dpl = 0;
-    core->segments.gdtr.present = 1;
-    core->segments.gdtr.long_mode = 1;
+    core->segments.gdtr.present = 0;
+    core->segments.gdtr.long_mode = 0;
     
     // And our TSS
     get_tss_loc(core->vm_info, &base,&limit);
+    base += gva_offset;  
     core->segments.tr.selector = 0;
     core->segments.tr.base = (addr_t) base;
     core->segments.tr.limit = limit-1;
-    core->segments.tr.type = 0x6;
-    core->segments.tr.system = 1; 
+    core->segments.tr.type = 0x9;
+    core->segments.tr.system = 0;   // available 64 bit TSS 
     core->segments.tr.dpl = 0;
     core->segments.tr.present = 1;
-    core->segments.tr.long_mode = 1;
+    core->segments.tr.long_mode = 0; // not used
     
-    base = 0x0;
+    base = 0x0; // these are not offset as we want to make all gvas visible
     limit = -1;
 
     // And CS
     core->segments.cs.selector = 0x8 ; // entry 1 of GDT (RPL=0)
-    core->segments.cs.base = (addr_t) base;
-    core->segments.cs.limit = limit;
-    core->segments.cs.type = 0xe;
-    core->segments.cs.system = 0; 
-    core->segments.cs.dpl = 0;
+    core->segments.cs.base = (addr_t) base;   // not used
+    core->segments.cs.limit = limit;          // not used
+    core->segments.cs.type = 0xe;             // only C is used
+    core->segments.cs.system = 1;             // not a system segment
+    core->segments.cs.dpl = 0;                       
     core->segments.cs.present = 1;
     core->segments.cs.long_mode = 1;
 
@@ -1113,8 +1563,8 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
     core->segments.ds.selector = 0x10; // entry 2 of GDT (RPL=0)
     core->segments.ds.base = (addr_t) base;
     core->segments.ds.limit = limit;
-    core->segments.ds.type = 0x6;
-    core->segments.ds.system = 0; 
+    core->segments.ds.type = 0x6;            // ignored
+    core->segments.ds.system = 1;            // not a system segment
     core->segments.ds.dpl = 0;
     core->segments.ds.present = 1;
     core->segments.ds.long_mode = 1;
@@ -1184,6 +1634,7 @@ int v3_handle_hvm_reset(struct guest_info *core)
 	if (core->vcpu_id==core->vm_info->hvm_state.first_hrt_core) { 
 	    // leader
 	    core->vm_info->run_state = VM_RUNNING;
+            core->vm_info->hvm_state.trans_state = HRT_IDLE;
 	}
 
 	v3_counting_barrier(&core->vm_info->reset_barrier);

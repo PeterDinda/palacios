@@ -144,94 +144,6 @@ int v3_deinit_multiboot_core(struct guest_info *core)
 #define INFO(fmt, args...) PrintDebug(VM_NONE,VCORE_NONE,"multiboot: " fmt,##args)
 
 
- 
-/******************************************************************
-     Data contained in the ELF file we will attempt to boot  
-******************************************************************/
-
-#define ELF_MAGIC    0x464c457f
-#define MB2_MAGIC    0xe85250d6
-
-
-/******************************************************************
-     Data we will pass to the kernel via rbx
-******************************************************************/
-
-#define MB2_INFO_MAGIC    0x36d76289
-
-typedef struct mb_info_header {
-    uint32_t  totalsize;
-    uint32_t  reserved;
-} __attribute__((packed)) mb_info_header_t;
-
-// A tag of type 0, size 8 indicates last value
-//
-typedef struct mb_info_tag {
-    uint32_t  type;
-    uint32_t  size;
-} __attribute__((packed)) mb_info_tag_t;
-
-
-#define MB_INFO_MEM_TAG  4
-typedef struct mb_info_mem {
-    mb_info_tag_t tag;
-    uint32_t  mem_lower; // 0..640K in KB 
-    uint32_t  mem_upper; // in KB to first hole - 1 MB
-} __attribute__((packed)) mb_info_mem_t;
-
-#define MB_INFO_CMDLINE_TAG  1
-// note alignment of 8 bytes required for each... 
-typedef struct mb_info_cmdline {
-    mb_info_tag_t tag;
-    uint32_t  size;      // includes zero termination
-    uint8_t   string[];  // zero terminated
-} __attribute__((packed)) mb_info_cmdline_t;
-
-
-#define MEM_RAM   1
-#define MEM_ACPI  3
-#define MEM_RESV  4
-
-typedef struct mb_info_memmap_entry {
-    uint64_t  base_addr;
-    uint64_t  length;
-    uint32_t  type;
-    uint32_t  reserved;
-} __attribute__((packed)) mb_info_memmap_entry_t;
-
-#define MB_INFO_MEMMAP_TAG  6
-// note alignment of 8 bytes required for each... 
-typedef struct mb_info_memmap {
-    mb_info_tag_t tag;
-    uint32_t  entry_size;     // multiple of 8
-    uint32_t  entry_version;  // 0
-    mb_info_memmap_entry_t  entries[];
-} __attribute__((packed)) mb_info_memmap_t;
-
-#define MB_INFO_HRT_TAG 0xf00df00d
-typedef struct mb_info_hrt {
-    mb_info_tag_t  tag;
-    // apic ids are 0..num_apics-1
-    // apic and ioapic addresses are the well known places
-    uint32_t       total_num_apics;
-    uint32_t       first_hrt_apic_id;
-    uint32_t       have_hrt_ioapic;
-    uint32_t       first_hrt_ioapic_entry;
-    uint64_t       first_hrt_addr;
-} __attribute__((packed)) mb_info_hrt_t;
-
-
-// We are not doing:
-//
-// - BIOS Boot Devie
-// - Modules
-// - ELF symbols
-// - Boot Loader name
-// - APM table
-// - VBE info
-// - Framebuffer info
-//
-
 static int is_elf(uint8_t *data, uint64_t size)
 {
     if (*((uint32_t*)data)==ELF_MAGIC) {
@@ -382,7 +294,7 @@ static int parse_multiboot_kernel(uint8_t *data, uint64_t size, mb_data_t *mb)
 		INFO("  size            =  0x%x\n", mb_modalign->size);
 	    }
 		break;
-#if 0
+#if 1
 	    case MB_TAG_MB64_HRT: {
 		if (mb_mb64_hrt) { 
 		    ERROR("Multiple mb64_hrt tags found!\n");
@@ -539,13 +451,7 @@ uint64_t v3_build_multiboot_table(struct guest_info *core, uint8_t *dest, uint64
 
 #ifdef V3_CONFIG_HVM
     if (core->vm_info->hvm_state.is_hvm && v3_is_hvm_hrt_core(core)) { 
-	hrt->tag.type = MB_INFO_HRT_TAG;
-	hrt->tag.size = sizeof(mb_info_hrt_t);
-	hrt->total_num_apics = vm->num_cores;
-	hrt->first_hrt_apic_id = vm->hvm_state.first_hrt_core;
-	hrt->have_hrt_ioapic=0;
-	hrt->first_hrt_ioapic_entry=0;
-	hrt->first_hrt_addr = vm->hvm_state.first_hrt_gpa;
+	v3_build_hrt_multiboot_tag(core,hrt);
     }
 #endif
 

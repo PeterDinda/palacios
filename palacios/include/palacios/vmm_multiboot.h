@@ -26,6 +26,13 @@
 #include <palacios/vmm_types.h>
 
 
+/******************************************************************
+     Data contained in the ELF file we will attempt to boot  
+******************************************************************/
+
+#define ELF_MAGIC    0x464c457f
+#define MB2_MAGIC    0xe85250d6
+
 typedef struct mb_header {
     uint32_t magic;
     uint32_t arch; 
@@ -89,10 +96,35 @@ typedef struct mb_modalign {
 // version of multiboot.  The existence of
 // this tag indicates that this special mode is
 // requested
-#define MB_TAG_MB64_HRT 0xf00d
+#define MB_TAG_MB64_HRT           0xf00d
 typedef struct mb_mb64_hrt {
     mb_tag_t       tag;
-    uint32_t       hrt_flags;
+    uint64_t       hrt_flags;
+    // whether this kernel is relocable
+#define MB_TAG_MB64_HRT_FLAG_RELOC      0x1
+    // How to map the memory in the initial PTs
+    // highest set bit wins
+#define MB_TAG_MB64_HRT_FLAG_MAP_4KB    0x100
+#define MB_TAG_MB64_HRT_FLAG_MAP_2MB    0x200
+#define MB_TAG_MB64_HRT_FLAG_MAP_1GB    0x400
+#define MB_TAG_MB64_HRT_FLAG_MAP_512GB  0x800
+
+    // How much physical address space to map in the
+    // initial page tables (bytes)
+    // 
+    uint64_t       max_mem_to_map;
+    // offset of the GVA->GPA mappings (GVA of GPA 0)
+    uint64_t       gva_offset;
+    // 64 bit entry address (=0 to use entry tag (which will be offset by gva_offset))
+    uint64_t       gva_entry;
+    // desired address of the page the VMM, HRT, and ROS share
+    // for communication.  "page" here a 4 KB quantity
+    uint64_t       comm_page_gpa;
+    // desired interrupt vector that should be used for upcalls
+    // the default for this is 255
+    uint8_t        hrt_int_vector;
+    uint8_t        reserved[7];
+    
 } __attribute__((packed)) mb_mb64_hrt_t;
 
 typedef struct mb_data {
@@ -106,6 +138,131 @@ typedef struct mb_data {
     mb_mb64_hrt_t *mb64_hrt;
 } mb_data_t;
 
+
+
+// We are not doing:
+//
+// - BIOS Boot Device
+// - Modules
+// - ELF symbols
+// - Boot Loader name
+// - APM table
+// - VBE info
+// - Framebuffer info
+//
+
+
+
+/******************************************************************
+     Data we will pass to the kernel via rbx
+******************************************************************/
+
+#define MB2_INFO_MAGIC    0x36d76289
+
+
+typedef struct mb_info_header {
+    uint32_t  totalsize;
+    uint32_t  reserved;
+} __attribute__((packed)) mb_info_header_t;
+
+// A tag of type 0, size 8 indicates last value
+//
+typedef struct mb_info_tag {
+    uint32_t  type;
+    uint32_t  size;
+} __attribute__((packed)) mb_info_tag_t;
+
+
+#define MB_INFO_MEM_TAG  4
+typedef struct mb_info_mem {
+    mb_info_tag_t tag;
+    uint32_t  mem_lower; // 0..640K in KB 
+    uint32_t  mem_upper; // in KB to first hole - 1 MB
+} __attribute__((packed)) mb_info_mem_t;
+
+#define MB_INFO_CMDLINE_TAG  1
+// note alignment of 8 bytes required for each... 
+typedef struct mb_info_cmdline {
+    mb_info_tag_t tag;
+    uint32_t  size;      // includes zero termination
+    uint8_t   string[];  // zero terminated
+} __attribute__((packed)) mb_info_cmdline_t;
+
+
+#define MEM_RAM   1
+#define MEM_ACPI  3
+#define MEM_RESV  4
+
+typedef struct mb_info_memmap_entry {
+    uint64_t  base_addr;
+    uint64_t  length;
+    uint32_t  type;
+    uint32_t  reserved;
+} __attribute__((packed)) mb_info_memmap_entry_t;
+
+#define MB_INFO_MEMMAP_TAG  6
+// note alignment of 8 bytes required for each... 
+typedef struct mb_info_memmap {
+    mb_info_tag_t tag;
+    uint32_t  entry_size;     // multiple of 8
+    uint32_t  entry_version;  // 0
+    mb_info_memmap_entry_t  entries[];
+} __attribute__((packed)) mb_info_memmap_t;
+
+#define MB_INFO_HRT_TAG 0xf00df00d
+typedef struct mb_info_hrt {
+    mb_info_tag_t  tag;
+    // apic ids are 0..num_apics-1
+    // ioapics follow
+    // apic and ioapic addresses are the well known places
+    uint32_t       total_num_apics;
+    // first apic the HRT owns (HRT core 0)
+    uint32_t       first_hrt_apic_id;
+    // can the HRT use an ioapic?
+    uint32_t       have_hrt_ioapic;
+    // if so, this is the first entry on the
+    // ioapic that can be used by the HRT
+    uint32_t       first_hrt_ioapic_entry;
+    // CPU speed
+    uint64_t       cpu_freq_khz;
+    // copy of the HRT flags from the kernel (indicating 
+    // page table mapping type, position independence, etc.
+    // these reflect how it has actually been mapped
+    uint64_t       hrt_flags;
+    // the amount of physical address space that has been mapped
+    // initially. 
+    uint64_t       max_mem_mapped; 
+    // The first physical address the HRT should
+    // (nominally) use.   Physical addresses below this are
+    // visible to the ROS
+    uint64_t       first_hrt_gpa;
+    // Where the intial boot state starts in the physical address
+    // space.   This includes INT HANDLER,IDT,GDT,TSS, PAGETABLES,
+    // and MBINFO, but not the scratch stacks
+    // This is essentially the content of CR3 - 1 page on boot
+    uint64_t       boot_state_gpa;
+    // Where GPA 0 is mapped in the virtual address space
+    uint64_t       gva_offset;   
+
+    // Typically:
+    //     first_hrt_vaddr==first_hrt_paddr => no address space coalescing
+    //     first_hrt_vaddr>first_hrt_paddr => address space coalescing
+    // For example, first_hrt_vaddr might be set to the start of linux kernel
+    // This then allows us to coalesce user portion of the address space of 
+    // a linux process and the HRT
+    // for communication.  "page" here a 4 KB quantity
+
+    // address of the page the VMM, HRT, and ROS share
+    uint64_t       comm_page_gpa;
+    // interrupt vector used to upcall to HRT (==0 if none)
+    // downcalls are done with HVM hypercall 0xf00df00d
+    uint8_t        hrt_int_vector;
+    uint8_t        reserved[7];
+} __attribute__((packed)) mb_info_hrt_t;
+
+
+
+
 struct v3_vm_multiboot {
     uint8_t   is_multiboot;
     struct v3_cfg_file *mb_file;
@@ -117,6 +274,7 @@ struct v3_vm_multiboot {
 
 // There is no core structure for
 // multiboot capability
+
 
 struct v3_xml;
 

@@ -1,7 +1,7 @@
 /* HVM environment code and data */
 
 /* This must match the number in vmm_hypercall.h */
-#define HVM_HCALL $0xf000
+#define HVM_HCALL $0xf00d
 	
 /*
 	The default installed interrupt handlers simply hcall
