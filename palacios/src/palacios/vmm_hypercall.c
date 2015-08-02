@@ -181,9 +181,10 @@ int v3_handle_hypercall(struct guest_info * info) {
     struct hypercall * hcall = get_hypercall(info->vm_info, hypercall_id);
 
     if (!hcall) {
-        PrintError(info->vm_info, info,  "Invalid Hypercall (%d(0x%x) not registered)\n", 
+        PrintError(info->vm_info, info,  "Invalid Hypercall (%d(0x%x) not registered) => ignored with rax=-1\n", 
 		   hypercall_id, hypercall_id);
-	return -1;
+	info->vm_regs.rax=-1;
+	return 0;
     }
 
     if (hcall->hcall_fn(info, hypercall_id, hcall->priv_data) != 0) {

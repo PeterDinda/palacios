@@ -56,7 +56,7 @@ typedef enum {
 
     VNET_HEADER_QUERY_HCALL  =   0xe000,        // Get the current header for a src/dest pair
 
-    HVM_HCALL = 0xf000, 
+    HVM_HCALL = 0xf00d, 
 } hcall_id_t;
 
 
