@@ -304,14 +304,10 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 	};
 
 
-	addr_t vmxassist_gdt = 0;
-
-	if (v3_gpa_to_hva(core, VMXASSIST_GDT, &vmxassist_gdt) == -1) {
-	    PrintError(core->vm_info, core, "Could not find VMXASSIST GDT destination\n");
+	if (v3_write_gpa_memory(core, VMXASSIST_GDT, sizeof(uint64_t)*5, (void*)gdt)!=sizeof(uint64_t)*5) { 
+	    PrintError(core->vm_info, core, "Could not write VMXASSIST GDT\n");
 	    return -1;
 	}
-
-	memcpy((void *)vmxassist_gdt, gdt, sizeof(uint64_t) * 5);
         
 	core->segments.gdtr.base = VMXASSIST_GDT;
 
@@ -366,14 +362,11 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
 
 	extern uint8_t v3_vmxassist_start[];
 	extern uint8_t v3_vmxassist_end[];
-	addr_t vmxassist_dst = 0;
 
-	if (v3_gpa_to_hva(core, VMXASSIST_START, &vmxassist_dst) == -1) {
-	    PrintError(core->vm_info, core, "Could not find VMXASSIST destination\n");
+	if (v3_write_gpa_memory(core, VMXASSIST_START, v3_vmxassist_end-v3_vmxassist_start,v3_vmxassist_start)!=v3_vmxassist_end-v3_vmxassist_start) { 
+	    PrintError(core->vm_info, core, "Could not write VMXASSIST\n");
 	    return -1;
 	}
-
-	memcpy((void *)vmxassist_dst, v3_vmxassist_start, v3_vmxassist_end - v3_vmxassist_start);
 
 
 	vmx_state->assist_state = VMXASSIST_OFF;
