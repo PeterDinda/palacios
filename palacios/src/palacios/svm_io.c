@@ -68,7 +68,9 @@ int v3_init_svm_io_map(struct v3_vm_info * vm) {
 }
 
 int v3_deinit_svm_io_map(struct v3_vm_info * vm) {
-    V3_FreePages(V3_PAddr(vm->io_map.arch_data), 3);
+    if (vm->io_map.arch_data) { 
+	V3_FreePages(V3_PAddr(vm->io_map.arch_data), 3);
+    }
     return 0;
 }
 

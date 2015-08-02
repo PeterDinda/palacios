@@ -104,6 +104,8 @@ int v3_init_svm_msr_map(struct v3_vm_info * vm) {
 }
 
 int v3_deinit_svm_msr_map(struct v3_vm_info * vm) {
-    V3_FreePages(V3_PAddr(vm->msr_map.arch_data), 2);
+    if (vm->msr_map.arch_data) { 
+	V3_FreePages(V3_PAddr(vm->msr_map.arch_data), 2);
+    }
     return 0;
 }

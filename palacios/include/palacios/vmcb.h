@@ -26,8 +26,11 @@
 #include <palacios/vm_guest.h>
 
 #define VMCB_CTRL_AREA_OFFSET                   0x0
+#define VMCB_CTRL_AREA_SIZE                     0x400
 #define VMCB_STATE_SAVE_AREA_OFFSET             0x400
-
+#define VMCB_STATE_SAVE_AREA_SIZE               0x298
+#define VMCB_END_OFFSET                         (VMCB_CTRL_AREA_SIZE+VMCB_STATE_SAVE_AREA_SIZE)
+#define VMCB_TOTAL_SIZE                         0x1000
 
 #define GET_VMCB_CTRL_AREA(page)         (page + VMCB_CTRL_AREA_OFFSET)
 #define GET_VMCB_SAVE_STATE_AREA(page)   (page + VMCB_STATE_SAVE_AREA_OFFSET)
@@ -162,7 +165,8 @@ struct SVM_Instr_Intercepts {
     uint_t MONITOR    : 1;
     uint_t MWAIT_always : 1;
     uint_t MWAIT_if_armed : 1;
-    uint_t reserved  : 19;  // Should be 0
+    uint_t XSETBV  : 1;
+    uint_t reserved  : 18;  // Should be 0
 } __attribute__((packed));
 
 
@@ -174,7 +178,8 @@ struct Guest_Control {
     uint_t V_IGN_TPR  : 1;
     uint_t rsvd2      : 3;  // Should be 0
     uint_t V_INTR_MASKING : 1;
-    uint_t rsvd3      : 7;  // Should be 0
+    uint_t rsvd3      : 6;  // Should be 0
+    uint_t AVIC_enable : 1;
     uchar_t V_INTR_VECTOR;
     uint_t rsvd4      : 24;  // Should be 0
 } __attribute__((packed));
@@ -196,72 +201,104 @@ struct Interrupt_Info {
 
 
 struct VMCB_Control_Area {
-    // offset 0x0
+    // offset 0x000
     struct Ctrl_Registers cr_reads;
     struct Ctrl_Registers cr_writes;
+    // offset 0x004
     struct Debug_Registers dr_reads;
     struct Debug_Registers dr_writes;
+    // offset 0x008
     struct Exception_Vectors exceptions;
+    // offset 0x00c
     struct Instr_Intercepts instrs;
+    // offset 0x010
     struct SVM_Instr_Intercepts svm_instrs;
 
-    uchar_t rsvd1[44];  // Should be 0
+    // offset 0x014
+    uchar_t rsvd1[40];  // Should be 0
+
+    // offset 0x03c
+    uint16_t pause_filter_threshold;
+    uint16_t pause_filter_count;
 
     // offset 0x040
     ullong_t IOPM_BASE_PA;
     ullong_t MSRPM_BASE_PA;
     ullong_t TSC_OFFSET;
-
+    
+    // offset 0x058
     uint_t guest_ASID;
     uchar_t TLB_CONTROL;
 
     uchar_t rsvd2[3];  // Should be 0
 
+    // offset 0x060
     struct Guest_Control guest_ctrl;
   
-    uint_t interrupt_shadow  : 1;
-    uint_t rsvd3             : 31;  // Should be 0
-    uint_t rsvd4;  // Should be 0
+    // offset 0x068
+    uint_t   interrupt_shadow  : 1;
+    uint64_t rsvd3             : 63;  // Should be 0
 
+    // offset 0x070
     ullong_t exit_code;
     ullong_t exit_info1;
     ullong_t exit_info2;
 
-    /* This could be a typo in the manual....
-     * It doesn't actually say that there is a reserved bit
-     * But it does say that the EXITINTINFO field is in bits 63-1
-     * ALL other occurances mention a 1 bit reserved field
-     */
-    //  uint_t rsvd5             : 1;
-    //ullong_t exit_int_info   : 63;
-    /* ** */
-
-    // AMD Manual 2, pg 391, sect: 15.19
+    // offset 0x088
     struct Interrupt_Info exit_int_info;
 
-    //  uint_t NP_ENABLE         : 1;
-    //ullong_t rsvd6           : 63;  // Should be 0 
-    ullong_t NP_ENABLE;
+    // offset 0x090
+    uint_t NP_ENABLE : 1;
+    uint64_t rsvd4 : 63;
 
-    uchar_t rsvd7[16];  // Should be 0
+    // offet 0x098
+    uint64_t AVIC_APIC_BAR: 52;
+    uint64_t rsvd5 : 12;
 
-    // Offset 0xA8
+    // offset 0x0a0
+    uchar_t rsvd6[8];  // Should be 0
+
+    // offset 0x0a8
     struct Interrupt_Info EVENTINJ;
 
-
-    /* This could be a typo in the manual....
-     * It doesn't actually say that there is a reserved bit
-     * But it does say that the EXITINTINFO field is in bits 63-1
-     * ALL other occurances mention a 1 bit reserved field
-     */
-    //  uint_t rsvd8              : 1;
-    //ullong_t N_CR3            : 63;
+    // offset 0x0b0
     ullong_t N_CR3;
-    /* ** */
 
-
+    // offset 0x0b8
     uint_t LBR_VIRTUALIZATION_ENABLE : 1;
-    ullong_t rsvd9            : 63;   // Should be 0
+    ullong_t rsvd7            : 63;   // Should be 0
+
+    // offset 0x0c0
+    uint32_t clean_bits;         // used for VMCB caching  
+    uint32_t rsvd8;
+    
+    // offset 0x0c8
+    uint64_t nrip;         
+
+    // offset 0x0d0
+    // fetch of instruction
+    uint8_t  num_ifetch_bytes; 
+    uint8_t  ifetch_bytes[15];
+    
+    // offset 0x0e0
+    uint64_t AVIC_APIC_backing_page : 52; // page-aligned
+    uint64_t rsvd9 : 12;
+    
+    // offset 0x0e8
+    uint64_t rsvd10;
+
+    // offset 0x0f0
+    uint64_t AVIC_logical_table : 52; // page-aligned
+    uint64_t rsvd11 : 12;
+    
+    // offset 0xf8
+    uint8_t AVIC_PHYSICAL_MAX_INDEX;
+    uint8_t rsvd12: 4;
+    uint64_t AVIC_PHYSICAL_TABLE_PTR: 40; // page-aligned
+    uint64_t rsvd13: 12; 
+
+    // offset 0x100 space from here to 0x3ff should be zero
+    uint8_t  rsvd_tail[VMCB_CTRL_AREA_SIZE-0x100];
 
 } __attribute__((packed));
 
@@ -371,6 +408,8 @@ struct VMCB_State_Save_Area {
     ullong_t lastexcpto; // Guest LastExceptionToIP MSR 
     //   -- only used if the LBR registers are virtualized
 
+    // offset 0x298
+    // Remainder to end of page is reserved and zero
 } __attribute__((packed));
 
 

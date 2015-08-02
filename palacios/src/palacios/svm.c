@@ -165,7 +165,7 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
     ctrl_area->svm_instrs.MONITOR = 1;
     ctrl_area->svm_instrs.MWAIT_always = 1;
     ctrl_area->svm_instrs.MWAIT_if_armed = 1;
-    ctrl_area->instrs.INVLPGA = 1;   // invalidate page in asid... why?
+    ctrl_area->instrs.INVLPGA = 1;   // invalidate page in asid... AMD ERRATA
     ctrl_area->instrs.CPUID = 1;
 
     ctrl_area->instrs.HLT = 1;
@@ -364,8 +364,6 @@ static void Init_VMCB_BIOS(vmcb_t * vmcb, struct guest_info * core) {
 	// Enable Nested Paging
 	ctrl_area->NP_ENABLE = 1;
 
-	PrintDebug(core->vm_info, core, "NP_Enable at 0x%p\n", (void *)&(ctrl_area->NP_ENABLE));
-
 	// Set the Nested Page Table pointer
 	if (core->core_run_state == CORE_INVALID) { 
 	    if (v3_init_passthrough_pts(core) == -1) {
@@ -439,7 +437,7 @@ int v3_init_svm_vmcb(struct guest_info * core, v3_vm_class_t vm_class) {
 
 
 int v3_deinit_svm_vmcb(struct guest_info * core) {
-    if (core->vmm_data) { 
+    if (core && core->vmm_data) { 
 	V3_FreePages(V3_PAddr(core->vmm_data), 1);
     }
     return 0;
@@ -625,6 +623,15 @@ static int update_irq_exit_state(struct guest_info * info) {
 static int update_irq_entry_state(struct guest_info * info) {
     vmcb_ctrl_t * guest_ctrl = GET_VMCB_CTRL_AREA((vmcb_t*)(info->vmm_data));
 
+    if (guest_ctrl->exit_int_info.valid) {
+	// We need to complete the previous injection
+	guest_ctrl->EVENTINJ = guest_ctrl->exit_int_info;
+
+	PrintDebug(info->vm_info,info,"Continuing injection of event - eventinj=0x%llx\n",*(uint64_t*)&guest_ctrl->EVENTINJ);
+
+	return 0;
+    }
+
 
     if (info->intr_core_state.irq_pending == 0) {
 	guest_ctrl->guest_ctrl.V_IRQ = 0;
@@ -632,20 +639,24 @@ static int update_irq_entry_state(struct guest_info * info) {
     }
     
     if (v3_excp_pending(info)) {
+
 	uint_t excp = v3_get_excp_number(info);
 	
 	guest_ctrl->EVENTINJ.type = SVM_INJECTION_EXCEPTION;
-	
+	guest_ctrl->EVENTINJ.vector = excp;
+
 	if (info->excp_state.excp_error_code_valid) {
 	    guest_ctrl->EVENTINJ.error_code = info->excp_state.excp_error_code;
 	    guest_ctrl->EVENTINJ.ev = 1;
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	    PrintDebug(info->vm_info, info, "Injecting exception %d with error code %x\n", excp, guest_ctrl->EVENTINJ.error_code);
 #endif
+	} else {
+	    guest_ctrl->EVENTINJ.error_code = 0;
+	    guest_ctrl->EVENTINJ.ev = 0;
 	}
-	
-	guest_ctrl->EVENTINJ.vector = excp;
-	
+
+	guest_ctrl->EVENTINJ.rsvd = 0;
 	guest_ctrl->EVENTINJ.valid = 1;
 
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
@@ -657,7 +668,9 @@ static int update_irq_entry_state(struct guest_info * info) {
 #endif
 
 	v3_injecting_excp(info, excp);
+
     } else if (info->intr_core_state.irq_started == 1) {
+
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
 	PrintDebug(info->vm_info, info, "IRQ pending from previous injection\n");
 #endif
@@ -699,20 +712,33 @@ static int update_irq_entry_state(struct guest_info * info) {
 		
 	    }
 	    case V3_NMI:
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+		PrintDebug(info->vm_info, info, "Injecting NMI\n");
+#endif
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_NMI;
+		guest_ctrl->EVENTINJ.ev = 0;
+		guest_ctrl->EVENTINJ.error_code = 0;
+		guest_ctrl->EVENTINJ.rsvd = 0;
+		guest_ctrl->EVENTINJ.valid = 1;
+
 		break;
+
 	    case V3_SOFTWARE_INTR:
-		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
 #ifdef V3_CONFIG_DEBUG_INTERRUPTS
 		PrintDebug(info->vm_info, info, "Injecting software interrupt --  type: %d, vector: %d\n", 
 			   SVM_INJECTION_SOFT_INTR, info->intr_core_state.swintr_vector);
 #endif
+		guest_ctrl->EVENTINJ.type = SVM_INJECTION_SOFT_INTR;
 		guest_ctrl->EVENTINJ.vector = info->intr_core_state.swintr_vector;
+		guest_ctrl->EVENTINJ.ev = 0;
+		guest_ctrl->EVENTINJ.error_code = 0;
+		guest_ctrl->EVENTINJ.rsvd = 0;
 		guest_ctrl->EVENTINJ.valid = 1;
             
 		/* reset swintr state */
 		info->intr_core_state.swintr_posted = 0;
 		info->intr_core_state.swintr_vector = 0;
+
 		break;
 	    case V3_VIRTUAL_IRQ:
 		guest_ctrl->EVENTINJ.type = SVM_INJECTION_IRQ;
@@ -870,6 +896,12 @@ int v3_svm_enter(struct guest_info * info) {
 	v3_pmu_telemetry_enter(info);
 #endif
 
+
+	if (guest_ctrl->EVENTINJ.valid && guest_ctrl->interrupt_shadow) { 
+#ifdef V3_CONFIG_DEBUG_INTERRUPTS
+	    PrintDebug(info->vm_info,info,"Event injection during an interrupt shadow\n");
+#endif
+	}
 
 	rdtscll(entry_tsc);
 
@@ -1132,6 +1164,7 @@ int v3_start_svm_guest(struct guest_info * info) {
 	
 
 	if (info->vm_info->run_state == VM_STOPPED) {
+	    PrintDebug(info->vm_info,info,"Stopping core as VM is stopped\n");
 	    info->core_run_state = CORE_STOPPED;
 	    break;
 	}
@@ -1228,6 +1261,10 @@ int v3_is_svm_capable() {
 	    PrintDebug(VM_NONE, VCORE_NONE, "CPUID_SVM_REV_AND_FEATURE_IDS_ebx=0x%x\n", ebx);
 	    PrintDebug(VM_NONE, VCORE_NONE, "CPUID_SVM_REV_AND_FEATURE_IDS_ecx=0x%x\n", ecx);
 	    PrintDebug(VM_NONE, VCORE_NONE, "CPUID_SVM_REV_AND_FEATURE_IDS_edx=0x%x\n", edx);
+
+	    if (!(edx & 0x8)) { 
+	      PrintError(VM_NONE,VCORE_NONE, "WARNING: NO SVM SUPPORT FOR NRIP - SW INTR INJECTION WILL LIKELY FAIL\n");
+	    }
 
 	    return 1;
 	}
