@@ -58,6 +58,7 @@ struct vm_device {
 
 
 struct vmm_dev_mgr {
+    int    inited;
     uint_t num_devs;
     struct list_head dev_list;
     struct hashtable * dev_table;

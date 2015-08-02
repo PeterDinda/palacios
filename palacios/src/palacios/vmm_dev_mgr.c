@@ -119,7 +119,9 @@ int v3_init_dev_mgr(struct v3_vm_info * vm) {
     mgr->net_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     mgr->char_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
     mgr->cons_table = v3_create_htable(0, dev_hash_fn, dev_eq_fn);
-    
+
+    mgr->inited = 1;
+
     return 0;
 }
 
@@ -328,8 +330,17 @@ int v3_load_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
 static int free_frontends(struct v3_vm_info * vm, struct vmm_dev_mgr * mgr);
 
 int v3_deinit_dev_mgr(struct v3_vm_info * vm) {
-    struct vmm_dev_mgr * mgr = &(vm->dev_mgr);
-    
+    struct vmm_dev_mgr * mgr=0;
+
+    if (vm) { 
+	mgr = &(vm->dev_mgr);
+	if (!mgr->inited) { 
+	    return 0;
+	}
+    } else {
+	return 0;
+    }
+
     // clear frontend lists
 
     free_frontends(vm, mgr);
@@ -866,7 +877,7 @@ static int free_frontends(struct v3_vm_info * vm, struct vmm_dev_mgr * mgr) {
     struct blk_frontend * tmp_blk = NULL;
 
 
-
+    
     list_for_each_entry_safe(chr, tmp_chr, &(mgr->char_list), char_node) {
 	list_del(&(chr->char_node));
 	V3_Free(chr);
