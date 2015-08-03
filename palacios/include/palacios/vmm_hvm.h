@@ -48,7 +48,7 @@ struct v3_vm_hvm {
     void     *comm_page_hpa;
     void     *comm_page_hva;
 
-    enum {HRT_IDLE=0, HRT_CALL, HRT_PARCALL, HRT_MERGE} trans_state;
+    enum {HRT_IDLE=0, HRT_CALL=1, HRT_PARCALL=2, HRT_SYNCSETUP=3, HRT_SYNC=4, HRT_SYNCTEARDOWN=5, HRT_MERGE=6} trans_state;
     uint64_t  trans_count;
 };
 

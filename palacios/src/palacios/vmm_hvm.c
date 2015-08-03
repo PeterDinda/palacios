@@ -228,21 +228,92 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 	    break;
 
 
-	case 0x2f: // function exec done
+	case 0x28: // setup for synchronous operation (ROS->HRT)
+	case 0x29: // teardown for synchronous operation (ROS->HRT)
+	    if (v3_is_hvm_hrt_core(core)) { 
+		PrintError(core->vm_info,core,"hvm: %ssynchronization invocation not supported from HRT core\n",a1==0x29 ? "de" : "");
+		core->vm_regs.rax = -1;
+	    } else {
+		if (ENFORCE_STATE_MACHINE && 
+		    ((a1==0x28 && h->trans_state!=HRT_IDLE) || (a1==0x29 && h->trans_state!=HRT_SYNC))) { 
+		    PrintError(core->vm_info,core, "hvm: cannot invoke %ssynchronization in state %d\n",a1==0x29 ? "de" : "", h->trans_state);
+		    core->vm_regs.rax = -1;
+		} else {
+		    uint64_t *page = (uint64_t *) h->comm_page_hva;
+		    uint64_t first, last, cur;
+
+		    PrintDebug(core->vm_info,core, "hvm: invoke %ssynchronization on address %p\n",a1==0x29 ? "de" : "",(void*)a2);
+		    page[0] = a1;
+		    page[1] = a2;
+
+		    first=last=h->first_hrt_core;  // initially we will sync only with BSP
+
+		    core->vm_regs.rax = 0;
+
+		    h->trans_count = last-first+1;
+
+		    for (cur=first;cur<=last;cur++) { 
+
+#if USE_UPCALL_MAGIC_PF
+			PrintDebug(core->vm_info,core,"hvm: injecting magic #PF into core %llu\n",cur);
+			core->vm_info->cores[cur].ctrl_regs.cr2 = UPCALL_MAGIC_ADDRESS;
+			if (v3_raise_exception_with_error(&core->vm_info->cores[cur],
+							  PF_EXCEPTION, 
+							  UPCALL_MAGIC_ERROR)) { 
+			    PrintError(core->vm_info,core, "hvm: cannot inject HRT #PF to core %llu\n",cur);
+			    core->vm_regs.rax = -1;
+			    break;
+			}
+#else
+			PrintDebug(core->vm_info,core,"hvm: injecting SW intr 0x%u into core %llu\n",h->hrt_int_vector,cur);
+			if (v3_raise_swintr(&core->vm_info->cores[cur],h->hrt_int_vector)) { 
+			    PrintError(core->vm_info,core, "hvm: cannot inject HRT interrupt to core %llu\n",cur);
+			    core->vm_regs.rax = -1;
+			    break;
+			}
+#endif
+			// Force core to exit now
+			v3_interrupt_cpu(core->vm_info,core->vm_info->cores[cur].pcpu_id,0);
+			  
+		    }
+		    if (core->vm_regs.rax==0) { 
+			if (a1==0x28) { 
+			    h->trans_state = HRT_SYNCSETUP;
+			} else {
+			    h->trans_state = HRT_SYNCTEARDOWN;			    
+			}
+		    }  else {
+			PrintError(core->vm_info,core,"hvm: in inconsistent state due to HRT call failure\n");
+			h->trans_state = HRT_IDLE;
+			h->trans_count = 0;
+		    }
+		}
+	    }
+	    break;
+
+	case 0x2f: // function exec or sync done
 	    if (v3_is_hvm_ros_core(core)) { 
-		PrintError(core->vm_info,core, "hvm: request for exec done from ROS core\n");
+		PrintError(core->vm_info,core, "hvm: request for exec or sync done from ROS core\n");
 		core->vm_regs.rax=-1;
 	    } else {
-		if (ENFORCE_STATE_MACHINE && h->trans_state!=HRT_CALL && h->trans_state!=HRT_PARCALL) {
-		    PrintError(core->vm_info,core,"hvm: function completion when not in HRT_CALL or HRT_PARCALL state\n");
+		if (ENFORCE_STATE_MACHINE && 
+		    h->trans_state!=HRT_CALL && 
+		    h->trans_state!=HRT_PARCALL && 
+		    h->trans_state!=HRT_SYNCSETUP &&
+		    h->trans_state!=HRT_SYNCTEARDOWN) {
+		    PrintError(core->vm_info,core,"hvm: function or sync completion when not in HRT_CALL, HRT_PARCALL, HRT_SYNCSETUP, or HRT_SYNCTEARDOWN state\n");
 		    core->vm_regs.rax=-1;
 		} else {
 		    uint64_t one=1;
-		    PrintDebug(core->vm_info,core, "hvm: function complete\n");
+		    PrintDebug(core->vm_info,core, "hvm: function or sync complete\n");
 		    if (__sync_fetch_and_sub(&h->trans_count,one)==1) {
 			// last one, switch state
-			h->trans_state=HRT_IDLE;
-			PrintDebug(core->vm_info,core, "hvm: function complete - back to idle\n");
+			if (h->trans_state==HRT_SYNCSETUP) { 
+			    h->trans_state=HRT_SYNC;
+			    PrintDebug(core->vm_info,core, "hvm: function complete - now synchronous\n");
+			} else {
+			    h->trans_state=HRT_IDLE;
+			}
 		    }
 		    core->vm_regs.rax=0;
 		}
