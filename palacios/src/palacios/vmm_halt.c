@@ -86,10 +86,6 @@ int v3_handle_halt(struct guest_info * info)
 	
 	info->rip += 1;
 	
-	if (info->vcpu_id==2) { 
-	  V3_Print(info->vm_info,info,"palacios: finishing halt with exppend=%d intrpend=%d\n", v3_excp_pending(info), v3_intr_pending(info));
-	}
-
     }
 
     return 0;
