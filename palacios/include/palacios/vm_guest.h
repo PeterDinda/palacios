@@ -78,7 +78,9 @@ struct v3_sym_core_state;
 #include <palacios/vmm_hvm.h>
 #endif
 
-
+#ifdef V3_CONFIG_CACHEPART
+#include <palacios/vmm_cachepart.h>
+#endif
 
 #include <palacios/vmm_config.h>
 
@@ -98,6 +100,9 @@ struct guest_info {
     struct vm_core_time time_state;
     struct v3_core_timeouts timeouts;
     void * sched_priv_data;
+
+    // Resource constraints/etc for the thread running this core
+    v3_resource_control_t  resource_control;
 
     v3_paging_mode_t shdw_pg_mode;
     // arch-independent state of shadow pager
@@ -202,6 +207,11 @@ struct v3_vm_info {
     char name[128];
 
     v3_vm_class_t vm_class;
+
+    // Resource control for whole VM - determined early and used
+    // when building the VM, then cloned to each core
+    v3_resource_control_t resource_control;
+
     struct v3_fw_cfg_state fw_cfg_state;
 
     // This is always the total RAM (addresses 0...mem_size)
@@ -279,6 +289,11 @@ struct v3_vm_info {
 
     // used to implement reset of regular VM and ROS
     v3_counting_barrier_t  reset_barrier;
+
+#ifdef V3_CONFIG_CACHEPART
+    v3_cachepart_t  cachepart_state;
+#endif
+
 
     uint64_t yield_cycle_period;  
 

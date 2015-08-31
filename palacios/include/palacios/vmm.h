@@ -210,11 +210,11 @@ int      v3_get_vcore(struct guest_info *);
 
 
 
-#define V3_CREATE_AND_START_THREAD(fn, arg, name)	({		\
+#define V3_CREATE_AND_START_THREAD(fn, arg, name, rctl)	({		\
 	    void * thread = NULL;					\
 	    extern struct v3_os_hooks * os_hooks;			\
 	    if ((os_hooks) && (os_hooks)->start_kernel_thread) {	\
-		thread = (os_hooks)->start_kernel_thread(fn, arg, name); \
+		thread = (os_hooks)->start_kernel_thread(fn, arg, name,rctl); \
 	    }								\
 	    thread;							\
 	})
@@ -232,11 +232,11 @@ int      v3_get_vcore(struct guest_info *);
 
 
 
-#define V3_CREATE_THREAD_ON_CPU(cpu, fn, arg, name) ({			\
+#define V3_CREATE_THREAD_ON_CPU(cpu, fn, arg, name, rctl) ({			\
 	    void * thread = NULL;					\
 	    extern struct v3_os_hooks * os_hooks;			\
 	    if ((os_hooks) && (os_hooks)->create_thread_on_cpu) {	\
-		thread = (os_hooks)->create_thread_on_cpu(cpu, fn, arg, name); \
+		thread = (os_hooks)->create_thread_on_cpu(cpu, fn, arg, name, rctl); \
 	    }								\
 	    thread;							\
 	})
@@ -248,8 +248,8 @@ int      v3_get_vcore(struct guest_info *);
        }								\
   })
 
-#define V3_CREATE_AND_START_THREAD_ON_CPU(cpu, fn, arg, name) ({        \
-	    void *thread = V3_CREATE_THREAD_ON_CPU(cpu,fn,arg,name);    \
+#define V3_CREATE_AND_START_THREAD_ON_CPU(cpu, fn, arg, name, rctl) ({	\
+	    void *thread = V3_CREATE_THREAD_ON_CPU(cpu,fn,arg,name,rctl);	\
 	    if (thread) {                                               \
 		V3_START_THREAD(thread);                                \
             }                                                           \
@@ -344,6 +344,16 @@ int v3_reset_vm_core(struct guest_info * core, addr_t rip);
 
 struct v3_vm_info;
 
+// Resource management constraints placed
+// on a thread
+typedef struct v3_resource_control {
+    // Page allocations, including for the thread stack
+    unsigned int pg_alignment;   // alignment e.g., large pages
+    int          pg_node_id;     // numa node
+    int         (*pg_filter_func)(void *paddr, void *filter_state);
+    void        *pg_filter_state;
+} v3_resource_control_t;
+
 /* This will contain function pointers that provide OS services */
 struct v3_os_hooks {
     // the vm pointer is the host os's "priv_data" from v3_create_vm
@@ -359,14 +369,20 @@ struct v3_os_hooks {
     // Allocates physically contiguous pages
     //   - with desired alignment
     //   - that the filter_func returns nonzero on (if filter_func is given)
+    // For any constraint that is not given, if a resource control struture
+    // exists for the thread, its fields are used.  This allows Palacios
+    // to manage resources using its internal knowledge of what the 
+    // purpose of thread is
     void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id, int (*filter_func)(void *paddr, void *filter_state), void *filter_state);
     void (*free_pages)(void * page, int num_pages);
 
     // Allocates virtually contiguous memory
+    // the resource control structure for the thread is used, if it exists
     void *(*vmalloc)(unsigned int size);
     void (*vfree)(void * addr);
 
     // Allocates virtually and physically contiguous memory
+    // the resource control structure for the thread is used, if it exists
     void *(*malloc)(unsigned int size);
     void (*free)(void * addr);
 
@@ -391,10 +407,14 @@ struct v3_os_hooks {
 
     unsigned int (*get_cpu)(void);
 
-    void * (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name); 
+    // Resource allocations to instantiate a thread obey the resource
+    // control structure, if it exists, and if it is possible.   
+    // The structure is then bound to the thread and used for subsequent
+    // allocations, etc.
+    void * (*start_kernel_thread)(int (*fn)(void * arg), void * arg, char * thread_name, v3_resource_control_t *rctl); 
     void (*interrupt_cpu)(struct v3_vm_info * vm, int logical_cpu, int vector);
     void (*call_on_cpu)(int logical_cpu, void (*fn)(void * arg), void * arg);
-    void * (*create_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name);
+    void * (*create_thread_on_cpu)(int cpu_id, int (*fn)(void * arg), void * arg, char * thread_name, v3_resource_control_t *rctl);
     void (*start_thread)(void * core_thread);
     int (*move_thread_to_cpu)(int cpu_id,  void * thread);
 };

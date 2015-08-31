@@ -32,7 +32,7 @@ struct vnet_thread * vnet_start_thread(int (*func)(void *), void *arg, char * na
 	    return NULL;
 	}
 
-    	thread->host_thread = host_hooks->thread_start(func, arg, name);
+    	thread->host_thread = host_hooks->thread_start(func, arg, name, 0);
 
     	if(thread->host_thread){
 	    return thread;

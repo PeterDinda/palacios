@@ -293,6 +293,7 @@ static inline uint32_t get_alignment(char * align_str) {
     if (alignment != PAGE_SIZE_4KB) {
 	PrintError(VM_NONE, VCORE_NONE, "Aligned page allocations are not supported in this host (requested alignment=%d)\n", alignment);
 	PrintError(VM_NONE, VCORE_NONE, "Ignoring alignment request\n");
+	alignment = PAGE_SIZE_4KB;
     }
 #endif 
 
@@ -324,6 +325,11 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
     // Amount of ram the Guest will have, always in MB
     vm->mem_size = (addr_t)atoi(memory_str) * 1024 * 1024;
     vm->mem_align = get_alignment(align_str);
+
+    // set up defaults for memory management for threads associated 
+    // with this VM
+    vm->resource_control.pg_alignment=vm->mem_align;
+    vm->resource_control.pg_node_id=-1;
     
 #ifdef V3_CONFIG_SWAPPING
     if (v3_init_swapping_vm(vm,vm_cfg)) {
@@ -585,6 +591,10 @@ static struct v3_vm_info * allocate_guest(int num_cores) {
     return vm;
 }
 
+/*
+   
+
+*/
 
 
 struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
@@ -596,6 +606,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     v3_cfg_tree_t * cores_cfg = NULL;
     v3_cfg_tree_t * per_core_cfg = NULL;
 
+
     if (v3_mach_type == V3_INVALID_CPU) {
 	PrintError(VM_NONE, VCORE_NONE, "Configuring guest on invalid CPU\n");
 	return NULL;
@@ -603,10 +614,12 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 
     cfg_data = parse_config(cfg_blob);
 
+
     if (!cfg_data) {
 	PrintError(VM_NONE, VCORE_NONE, "Could not parse configuration\n");
 	return NULL;
     }
+
 
     cores_cfg = v3_cfg_subtree(cfg_data->cfg, "cores");
 
@@ -629,6 +642,16 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
 	PrintError(VM_NONE, VCORE_NONE, "Could not allocate %d core guest\n", vm->num_cores);
 	return NULL;
     }
+
+#ifdef V3_CONFIG_CACHEPART
+    // Need to initialize cache management and resource control
+    // as early as possible so that allocations are done accordingly
+    if (v3_init_cachepart_vm(vm,cfg_data->cfg)) {
+	PrintError(VM_NONE, VCORE_NONE, "Could not initialize cache partioning\n");
+	V3_Free(vm);
+	return NULL;
+    }
+#endif
 
     vm->host_priv_data = priv_data;
 

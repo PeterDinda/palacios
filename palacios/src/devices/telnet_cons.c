@@ -555,7 +555,7 @@ static int cons_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     v3_console_register_cga(frontend, &cons_ops, state);
 
-    V3_CREATE_AND_START_THREAD(cons_server, state, "Telnet Console Network Server");
+    V3_CREATE_AND_START_THREAD(cons_server, state, "Telnet Console Network Server", 0);
 
     return 0;
 }

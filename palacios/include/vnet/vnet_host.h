@@ -38,7 +38,8 @@ typedef void *vnet_intr_flags_t;
 struct vnet_host_hooks {
     void *(*thread_start)(int (*fn)(void * arg), 
 			  void * arg, 
-			  char * thread_name);
+			  char * thread_name,
+                          v3_resource_control_t *resource_control);
 
     void (*thread_sleep)(long timeout);
     void (*thread_wakeup)(void * thread);
@@ -61,7 +62,7 @@ struct vnet_host_hooks {
     void (*print)(void *vm , int core, const char * format, ...)
   	__attribute__ ((format (printf, 3, 4)));
   
-    void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id, int constraints);
+    void *(*allocate_pages)(int num_pages, unsigned int alignment, int node_id);
     void (*free_pages)(void * page, int num_pages);
 
     void *(*malloc)(unsigned int size);
@@ -92,7 +93,7 @@ extern struct vnet_host_hooks * host_hooks;
 /* 4KB-aligned */
 static inline void * Vnet_AllocPages(int num_pages){
     if ((host_hooks) && host_hooks->allocate_pages) {
-	return host_hooks->allocate_pages(num_pages, PAGE_SIZE_4KB,-1,0); // any zone, no constraints
+	return host_hooks->allocate_pages(num_pages, PAGE_SIZE_4KB,-1); 
     }
 
     return NULL;

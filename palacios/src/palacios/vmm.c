@@ -44,7 +44,6 @@
 #include <palacios/vmm_checkpoint.h>
 #endif
 
-
 v3_cpu_arch_t v3_cpu_types[V3_CONFIG_MAX_CPUS];
 v3_cpu_arch_t v3_mach_type = V3_INVALID_CPU;
 
@@ -151,6 +150,10 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
 	v3_cpu_types[i] = V3_INVALID_CPU;
     }
 
+#ifdef V3_CONFIG_CACHEPART
+    v3_init_cachepart();
+#endif
+
     // Parse host-os defined options into an easily-accessed format.
     v3_parse_options(options);
 
@@ -161,6 +164,7 @@ void Init_V3(struct v3_os_hooks * hooks, char * cpu_mask, int num_cpus, char *op
 #ifdef V3_CONFIG_HVM
     v3_init_hvm();
 #endif
+
 
     // Memory manager initialization
     v3_init_mem();
@@ -273,6 +277,9 @@ void Shutdown_V3() {
 
     v3_deinit_options();
     
+#ifdef V3_CONFIG_CACHEPART
+    v3_deinit_cachepart();
+#endif
 
 }
 
@@ -364,7 +371,12 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name, unsi
         PrintDebug(vm, VCORE_NONE, "run: core=%u, func=0x%p, arg=0x%p, name=%s\n",
 		   core->pcpu_id, start_core, core, core->exec_name);
 
-	core->core_thread = V3_CREATE_THREAD_ON_CPU(core->pcpu_id, start_core, core, core->exec_name);
+
+	// Resource controls for cores can be independent, but
+	// currently are not, hence this copy.
+	core->resource_control = vm->resource_control;
+
+	core->core_thread = V3_CREATE_THREAD_ON_CPU(core->pcpu_id, start_core, core, core->exec_name, &core->resource_control);
 
 	if (core->core_thread == NULL) {
 	    PrintError(vm, VCORE_NONE, "Thread creation failed\n");
@@ -727,7 +739,8 @@ int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu) {
     new_hpa = V3_AllocPagesExtended(num_pages,
 				    PAGE_SIZE_4KB,
 				    new_node,
-				    0, 0);  // no constraints given new shadow pager impl
+				    vm->resource_control.pg_filter_func,
+				    vm->resource_control.pg_filter_state); 
 
     if (!new_hpa) { 
 	PrintError(vm, VCORE_NONE, "Cannot allocate memory for new base region...\n");
