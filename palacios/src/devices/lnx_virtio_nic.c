@@ -574,7 +574,7 @@ static int virtio_io_read(struct guest_info *core,
 			     virtio->pci_dev, 0);
 	    break;
 
-	case VIRTIO_NET_CONFIG ... VIRTIO_NET_CONFIG + ETH_ALEN:
+	case VIRTIO_NET_CONFIG ... VIRTIO_NET_CONFIG + ETH_ALEN - 1:
 	    *(uint8_t *)dst = virtio->net_cfg.mac[port_idx-VIRTIO_NET_CONFIG];
 	    break;
 

@@ -299,7 +299,12 @@ static inline int get_channel_index(ushort_t port) {
 
 static inline struct ide_channel * get_selected_channel(struct ide_internal * ide, ushort_t port) {
     int channel_idx = get_channel_index(port);    
-    return &(ide->channels[channel_idx]);
+    if (channel_idx >= 0) { 
+	return &(ide->channels[channel_idx]);
+    } else {
+	PrintError(VM_NONE,VCORE_NONE,"ide: Cannot Determine Selected Channel\n");
+	return 0;
+    }
 }
 
 static inline struct ide_drive * get_selected_drive(struct ide_channel * channel) {

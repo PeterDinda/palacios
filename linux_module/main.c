@@ -162,7 +162,7 @@ out_err:
 	    unsigned long vm_idx = arg;
             struct v3_guest * guest;
 
-            if (vm_idx > MAX_VMS) {
+            if (vm_idx >= MAX_VMS) {
                 ERROR("Invalid VM index: %ld\n", vm_idx);
                 return -1;
             }

@@ -1138,6 +1138,8 @@ int v3_vmx_enter(struct guest_info * info) {
 
     if (info->shdw_pg_mode == NESTED_PAGING) {
 	check_vmcs_read(VMCS_GUEST_PHYS_ADDR, &(exit_info.ept_fault_addr));
+    } else {
+	exit_info.ept_fault_addr = 0;
     }
 
     //PrintDebug(info->vm_info, info, "VMX Exit taken, id-qual: %u-%lu\n", exit_info.exit_reason, exit_info.exit_qual);

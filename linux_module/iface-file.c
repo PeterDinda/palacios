@@ -119,6 +119,9 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
     /* It only exists to provide version compatibility */
     struct path tmp_path; 
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,41)
+    struct nameidata nd;
+#endif
 
     struct path * path_ptr = NULL;
     struct dentry * dentry;
@@ -133,8 +136,6 @@ static int palacios_file_mkdir(const char * pathname, unsigned short perms, int 
     /* Before Linux 3.1 this was somewhat more difficult */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,41)
     {
-	struct nameidata nd;
-
 	// I'm not 100% sure about the version here, but it was around this time that the API changed
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,38) 
 	ret = kern_path_parent(pathname, &nd);

@@ -162,7 +162,7 @@ struct pic_internal {
     struct {
 	int (*ack)(struct guest_info * core, uint32_t irq, void * private_data);
 	void * private_data;
-    } irq_ack_cbs[15];
+    } irq_ack_cbs[16];
 
 
     void * router_handle;

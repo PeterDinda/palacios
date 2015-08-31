@@ -77,8 +77,10 @@ static int setup_hw_pci_dev(struct host_pci_device * host_dev) {
 	    if (flags & IORESOURCE_IO) {
 		bar->type = PT_BAR_IO;
 	    } else if (flags & IORESOURCE_MEM) {
-		if (flags & IORESOURCE_MEM_64) {
-		    struct v3_host_pci_bar * hi_bar = &(v3_dev->bars[i + 1]); 
+		if ((flags & IORESOURCE_MEM_64)) {
+		    // this should never happen with i==5, but it
+		    // is technically an OOB access without the modulo
+		    struct v3_host_pci_bar * hi_bar = &(v3_dev->bars[(i + 1) % 6]); 
 	    
 		    bar->type = PT_BAR_MEM64_LO;
 

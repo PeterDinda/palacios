@@ -190,7 +190,7 @@ static int ioapic_read(struct guest_info * core, addr_t guest_addr, void * dst, 
 		uint_t redir_index = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) >> 1;
 		uint_t hi_val = (ioapic->index_reg - IOAPIC_REDIR_BASE_REG) & 1;
 		
-		if (redir_index > 0x3f) {
+		if (redir_index > 23) {
 		    PrintError(core->vm_info, core, "ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
 		    return -1;
 		}
@@ -242,7 +242,7 @@ static int ioapic_write(struct guest_info * core, addr_t guest_addr, void * src,
 		    PrintDebug(core->vm_info, core, "ioapic %u: Writing value 0x%x to redirection entry %u (%s)\n",
 			       ioapic->ioapic_id.id, op_val, redir_index, hi_val ? "hi" : "low");
 
-		    if (redir_index > 0x3f) {
+		    if (redir_index > 23) {
 			PrintError(core->vm_info, core, "ioapic %u: Invalid redirection table entry %x\n", ioapic->ioapic_id.id, (uint32_t)redir_index);
 			return -1;
 		    }
@@ -279,7 +279,7 @@ static int ioapic_raise_irq(struct v3_vm_info * vm, void * private_data, struct 
       irq_num = 2;
     }
 
-    if (irq_num > 24) {
+    if (irq_num >= 24) {
 	PrintDebug(vm, VCORE_NONE, "ioapic %u: IRQ out of range of IO APIC\n", ioapic->ioapic_id.id);
 	return -1;
     }

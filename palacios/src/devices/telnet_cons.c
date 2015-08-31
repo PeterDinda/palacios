@@ -217,7 +217,7 @@ static const uint8_t bg_color_map[] = {
 static int send_update(struct cons_state * state, uint8_t  x, uint8_t  y, uint8_t attrib, uint8_t val) {
     uint8_t fg_color = fg_color_map[(attrib & 0x0f) % 16];
     uint8_t bg_color = bg_color_map[(attrib & 0xf0) % 16];
-    uint8_t buf[32];
+    uint8_t buf[64];
     int ret = 0;
     int i = 0;
 
@@ -264,7 +264,7 @@ static int send_update(struct cons_state * state, uint8_t  x, uint8_t  y, uint8_
 	uint64_t start, end;
 
 	rdtscll(start);
-	ret =  send_all(state->client_fd, buf, 32);
+	ret =  send_all(state->client_fd, buf, i);
 	rdtscll(end);
 
 	PrintDebug(VM_NONE, VCORE_NONE, "Sendall latency=%d cycles\n", (uint32_t)(end - start));

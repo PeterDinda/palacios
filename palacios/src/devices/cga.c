@@ -1083,7 +1083,8 @@ int v3_cons_get_fb_text(struct video_internal * state, uint8_t * dst, uint_t off
     len1 = min_uint(length, state->activefb_len - framebuf_offset);
     len2 = length - len1;
     if (len1 > 0) memcpy(dst, framebuf + framebuf_offset, len1);
-    if (len2 > 0) memcpy(dst + len1, framebuf, len2);
+    // the following is tagged as OOB access to dst but appears to be fine
+    if (len2 > 0) memcpy(dst + len1, framebuf, len2);  
 
     return 0;
 }

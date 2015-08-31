@@ -391,6 +391,7 @@ static int ne2k_rxbuf_full(struct ne2k_registers * regs) {
 // This needs to be completely redone...
 static int rx_one_pkt(struct ne2k_state * nic_state, const uchar_t * pkt,  uint32_t length) {
     struct ne2k_registers * regs = (struct ne2k_registers *)&(nic_state->context);
+    uchar_t buf[MIN_BUF_SIZE];
     uchar_t * p;
     uint32_t total_len;
     uint32_t next;
@@ -414,8 +415,6 @@ static int rx_one_pkt(struct ne2k_state * nic_state, const uchar_t * pkt,  uint3
 
     //packet too small, expand it
     if (length < MIN_BUF_SIZE) {
-        uchar_t buf[MIN_BUF_SIZE];
-
         memcpy(buf, pkt, length);
         memset(buf + length, 0, MIN_BUF_SIZE - length);
         pkt = buf;
