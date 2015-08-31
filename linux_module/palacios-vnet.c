@@ -140,10 +140,10 @@ host_del_timer(void * vnet_timer){
 
 
 static void *
-host_allocate_pages(int num_pages, unsigned int alignment, int node_id, int constraint)
+host_allocate_pages(int num_pages, unsigned int alignment, int node_id)
 {
     // allocates pages preferentially on the caller's node
-    return palacios_allocate_pages(num_pages, alignment, node_id, constraint);
+    return palacios_allocate_pages(num_pages, alignment, node_id, 0, 0);
 }
 
 

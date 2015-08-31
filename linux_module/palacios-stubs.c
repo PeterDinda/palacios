@@ -28,6 +28,8 @@
 
 #include "palacios.h"
 
+#include "util-hashtable.h"
+
 #include "mm.h"
 
 #include "memcheck.h"
@@ -56,6 +58,9 @@ extern unsigned int cpu_khz;
 
 extern int cpu_list[NR_CPUS];
 extern int cpu_list_len;
+
+
+extern struct hashtable *v3_thread_resource_map;
 
 
 static char *print_buffer[NR_CPUS];
@@ -177,12 +182,30 @@ void palacios_print_scoped(void * vm, int vcore, const char *fmt, ...) {
  */
 void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id, int (*filter_func)(void *paddr, void *filter_state), void *filter_state) {
     void * pg_addr = NULL;
+    v3_resource_control_t *r;
 
     if (num_pages<=0) { 
 	ERROR("ALERT ALERT Attempt to allocate zero or fewer pages (%d pages, alignment %d, node %d, filter_func %p, filter_state %p)\n",num_pages, alignment, node_id, filter_func, filter_state);
       return NULL;
     }
 
+    if ((r=(v3_resource_control_t *)palacios_htable_search(v3_thread_resource_map,(addr_t)current))) { 
+	// thread has a registered resource control structure
+	// these override any default values
+	//	INFO("Overridden page search: (pre) alignment=%x, node_id=%x, filter_func=%p, filter_state=%p\n",alignment,node_id,filter_func,filter_state);
+	if (alignment==4096) { 
+	    alignment = r->pg_alignment;
+	}
+	if (node_id==-1) { 
+	    node_id = r->pg_node_id;
+	}
+	if (!filter_func) {
+	    filter_func = r->pg_filter_func;
+	    filter_state = r->pg_filter_state;
+	}
+	//INFO("Overridden page search: (post) alignment=%x, node_id=%x, filter_func=%p, filter_state=%p\n",alignment,node_id,filter_func,filter_state);
+    }
+    
     pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment, node_id, filter_func, filter_state);
 
     if (!pg_addr) { 
@@ -379,6 +402,7 @@ palacios_xcall(
 struct lnx_thread_arg {
     int (*fn)(void * arg);
     void * arg;
+    v3_resource_control_t *resource_control;
     char name[MAX_THREAD_NAME];
 };
 
@@ -399,9 +423,13 @@ static int lnx_thread_target(void * arg) {
     fpu_alloc(&(current->thread.fpu));
 #endif
 
+    palacios_htable_insert(v3_thread_resource_map,(addr_t)current,(addr_t)thread_info->resource_control);
+
     ret = thread_info->fn(thread_info->arg);
 
     INFO("Palacios Thread (%s) EXITING\n", thread_info->name);
+
+    palacios_htable_remove(v3_thread_resource_map,(addr_t)current,0);
 
     palacios_free(thread_info);
     // handle cleanup 
@@ -421,7 +449,8 @@ void *
 palacios_create_and_start_kernel_thread(
 	int (*fn)		(void * arg),
 	void *			arg,
-	char *			thread_name) {
+	char *			thread_name,
+	v3_resource_control_t   *resource_control) {
 
     struct lnx_thread_arg * thread_info = palacios_alloc(sizeof(struct lnx_thread_arg));
 
@@ -434,6 +463,7 @@ palacios_create_and_start_kernel_thread(
     thread_info->arg = arg;
     strncpy(thread_info->name,thread_name,MAX_THREAD_NAME);
     thread_info->name[MAX_THREAD_NAME-1] =0;
+    thread_info->resource_control = resource_control;
 
     return kthread_run( lnx_thread_target, thread_info, thread_info->name );
 }
@@ -444,9 +474,10 @@ palacios_create_and_start_kernel_thread(
  */
 void * 
 palacios_create_thread_on_cpu(int cpu_id,
-			     int (*fn)(void * arg), 
-			     void * arg, 
-			     char * thread_name ) {
+			      int (*fn)(void * arg), 
+			      void * arg, 
+			      char * thread_name,
+			      v3_resource_control_t *resource_control) {
     struct task_struct * thread = NULL;
     struct lnx_thread_arg * thread_info = palacios_alloc(sizeof(struct lnx_thread_arg));
 
@@ -459,6 +490,7 @@ palacios_create_thread_on_cpu(int cpu_id,
     thread_info->arg = arg;
     strncpy(thread_info->name,thread_name,MAX_THREAD_NAME);
     thread_info->name[MAX_THREAD_NAME-1] =0;
+    thread_info->resource_control=resource_control;
 
     thread = kthread_create( lnx_thread_target, thread_info, thread_info->name );
 
@@ -493,9 +525,10 @@ void *
 palacios_create_and_start_thread_on_cpu(int cpu_id,
 					int (*fn)(void * arg), 
 					void * arg, 
-					char * thread_name ) {
+					char * thread_name, 
+					v3_resource_control_t *resource_control) {
 
-    void *t = palacios_create_thread_on_cpu(cpu_id, fn, arg, thread_name);
+    void *t = palacios_create_thread_on_cpu(cpu_id, fn, arg, thread_name, resource_control);
 
     if (t) { 
 	palacios_start_thread(t);

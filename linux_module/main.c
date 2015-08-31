@@ -34,6 +34,8 @@
 
 #include "linux-exts.h"
 
+#include "util-hashtable.h"
+
 MODULE_LICENSE("GPL");
 
 // Module parameter
@@ -62,6 +64,10 @@ static struct proc_dir_entry * palacios_proc_dir = NULL;
 
 struct class * v3_class = NULL;
 static struct cdev ctrl_dev;
+
+
+// mapping from thread ids to their resource control blocks
+struct hashtable *v3_thread_resource_map=0;
 
 static int register_vm(struct v3_guest * guest) {
     int i = 0;
@@ -265,26 +271,29 @@ struct proc_dir_entry *palacios_get_procdir(void)
 }
 
 
-#define MAX_VCORES  256
+#define MAX_CORES   1024
 #define MAX_REGIONS 1024
-
-
+#define MIN(x,y) ((x)<(y) ? (x) : (y))
 
 static int read_guests_details(struct seq_file *s, void *v)
 {
     unsigned int i = 0;
     unsigned int j = 0;
     uint64_t num_vcores, num_regions;
+    uint64_t alloc_num_vcores, alloc_num_regions;
     struct v3_vm_base_state *base=0;
     struct v3_vm_core_state *core=0;
     struct v3_vm_mem_state *mem=0;
 
-    base = palacios_alloc(sizeof(struct v3_vm_base_state));
+
+    base = palacios_valloc(sizeof(struct v3_vm_base_state));
     
+
     if (!base) { 
       ERROR("No space for base state structure\n");
       goto out;
     }
+
 
     for(i = 0; i < MAX_VMS; i++) {
 
@@ -292,14 +301,17 @@ static int read_guests_details(struct seq_file *s, void *v)
 	    
 	    v3_get_state_sizes_vm(guest_map[i]->v3_ctx,&num_vcores,&num_regions);
 
-	    core = palacios_alloc(sizeof(struct v3_vm_core_state) + num_vcores*sizeof(struct v3_vm_vcore_state));
+	    alloc_num_vcores = MIN(num_vcores,MAX_CORES);
+	    alloc_num_regions = MIN(num_regions,MAX_REGIONS);
+
+	    core = palacios_valloc(sizeof(struct v3_vm_core_state) + alloc_num_vcores*sizeof(struct v3_vm_vcore_state));
 	    
 	    if (!core) { 
 		ERROR("No space for core state structure\n");
 		goto out;
 	    }
     
-	    mem = palacios_alloc(sizeof(struct v3_vm_mem_state) + num_regions*sizeof(struct v3_vm_mem_region));
+	    mem = palacios_valloc(sizeof(struct v3_vm_mem_state) + alloc_num_regions*sizeof(struct v3_vm_mem_region));
     
 	    if (!mem) { 
 		ERROR("No space for memory state structure\n");
@@ -315,8 +327,8 @@ static int read_guests_details(struct seq_file *s, void *v)
 		       i,guest_map[i]->name, i);
 	    
 	    // Get extended data
-	    core->num_vcores=num_vcores;
-	    mem->num_regions=num_regions;
+	    core->num_vcores=alloc_num_vcores;
+	    mem->num_regions=alloc_num_regions;
 	    
 	    if (v3_get_state_vm(guest_map[i]->v3_ctx, base, core, mem)) {
 		ERROR("Cannot get VM info\n");
@@ -325,8 +337,8 @@ static int read_guests_details(struct seq_file *s, void *v)
 		seq_printf(s, 
 			   "Type:         %s\n"
 			   "State:        %s\n"
-			   "Cores:        %llu\n"
-			   "Regions:      %llu\n"
+			   "Cores:        %llu (%llu shown)\n"
+			   "Regions:      %llu (%llu shown)\n"
 			   "Memsize:      %llu (%llu ROS)\n\n",
 			   base->vm_type==V3_VM_GENERAL ? "general" :
 			   base->vm_type==V3_VM_HVM ? "HVM" : "UNKNOWN",
@@ -337,7 +349,9 @@ static int read_guests_details(struct seq_file *s, void *v)
 			   base->state==V3_VM_ERROR ? "ERROR" :
 			   base->state==V3_VM_SIMULATING ? "simulating" : 
 			   base->state==V3_VM_RESETTING ? "resetting"  : "UNKNOWN",
+			   num_vcores,
 			   core->num_vcores,
+			   num_regions,
 			   mem->num_regions,
 			   mem->mem_size,
 			   mem->ros_mem_size);
@@ -370,6 +384,7 @@ static int read_guests_details(struct seq_file *s, void *v)
 			       core->vcore[j].vcore_type==V3_VCORE_HRT ? "hrt" : "UNKNOWN");
 		}
 
+
 		seq_printf(s, "\nMemory Regions\n");
 		for (j=0;j<mem->num_regions;j++) { 
 		    seq_printf(s,"   region %u has HPAs 0x%016llx-0x%016llx (node %d) GPA 0x%016llx %s %s\n",
@@ -379,12 +394,13 @@ static int read_guests_details(struct seq_file *s, void *v)
 			       mem->region[j].swapped ? "swapped" : "",
 			       mem->region[j].pinned ? "pinned" : "");
 		}
+
 	    }
 	    seq_printf(s,
 		       "---------------------------------------------------------------------------------------\n");
 
-	    palacios_free(mem); mem=0;
-	    palacios_free(core); core=0;
+	    palacios_vfree(mem); mem=0;
+	    palacios_vfree(core); core=0;
 
 	}
 
@@ -392,9 +408,9 @@ static int read_guests_details(struct seq_file *s, void *v)
     
     
  out:
-    if (mem) { palacios_free(mem); }
-    if (core) { palacios_free(core); }
-    if (base) { palacios_free(base); }
+    if (mem) { palacios_vfree(mem); }
+    if (core) { palacios_vfree(core); }
+    if (base) { palacios_vfree(base); }
     
     return 0;
 }
@@ -405,34 +421,43 @@ static int read_guests(struct seq_file *s, void *v)
     struct v3_vm_base_state *base=0;
     struct v3_vm_core_state *core=0;
     struct v3_vm_mem_state *mem=0;
+    uint64_t num_vcores, num_regions;
+
+
+    INFO("READ GUEST\n");
     
-    base = palacios_alloc(sizeof(struct v3_vm_base_state));
+    base = palacios_valloc(sizeof(struct v3_vm_base_state));
     
     if (!base) { 
       ERROR("No space for base state structure\n");
       goto out;
     }
 
-    core = palacios_alloc(sizeof(struct v3_vm_core_state) + MAX_VCORES*sizeof(struct v3_vm_vcore_state));
+    core = palacios_valloc(sizeof(struct v3_vm_core_state));
     
     if (!core) { 
 	ERROR("No space for core state structure\n");
 	goto out;
     }
     
-    mem = palacios_alloc(sizeof(struct v3_vm_mem_state) + MAX_REGIONS*sizeof(struct v3_vm_mem_region));
+    mem = palacios_valloc(sizeof(struct v3_vm_mem_state));
     
     if (!mem) { 
 	ERROR("No space for memory state structure\n");
 	goto out;
     }
     
+
     for(i = 0; i < MAX_VMS; i++) {
 	if (guest_map[i] != NULL) {
+
+	    v3_get_state_sizes_vm(guest_map[i]->v3_ctx,&num_vcores,&num_regions);
+
 	    seq_printf(s,"%s\t/dev/v3-vm%d", guest_map[i]->name, i);
-	    // Get extended data
-	    core->num_vcores=MAX_VCORES; // max we can handle
-	    mem->num_regions=MAX_REGIONS; // max we can handle
+
+	    // Skip getting per core and per-region 
+	    core->num_vcores=0;
+	    mem->num_regions=0;
 	    
 	    if (v3_get_state_vm(guest_map[i]->v3_ctx, base, core, mem)) {
 		ERROR("Cannot get VM info\n");
@@ -445,8 +470,8 @@ static int read_guests(struct seq_file *s, void *v)
 			   base->state==V3_VM_PAUSED ? "paused" :
 			   base->state==V3_VM_ERROR ? "ERROR" :
 			   base->state==V3_VM_SIMULATING ? "simulating" : "UNKNOWN",
-			   core->num_vcores,
-			   mem->num_regions,
+			   num_vcores,
+			   num_regions,
 			   mem->mem_size,
 			   base->vm_type == V3_VM_GENERAL ? "general" :
 			   base->vm_type == V3_VM_HVM ? "hvm" : "UNKNOWN");
@@ -456,9 +481,9 @@ static int read_guests(struct seq_file *s, void *v)
 	
 	
  out:
-    if (mem) { palacios_free(mem); }
-    if (core) { palacios_free(core); }
-    if (base) { palacios_free(base); }
+    if (mem) { palacios_vfree(mem); }
+    if (core) { palacios_vfree(core); }
+    if (base) { palacios_vfree(base); }
     
     return 0;
 }
@@ -568,6 +593,16 @@ static struct file_operations info_proc_ops = {
 };
 
 
+static inline uint_t thr_hash_func(addr_t key)
+{
+    return palacios_hash_long((long)key,64);
+}
+
+static inline int thr_hash_comp(addr_t k1, addr_t k2)
+{
+    return k1==k2;
+}
+
 static int __init v3_init(void) {
 
     dev_t dev = MKDEV(0, 0); // We dynamicallly assign the major number
@@ -575,6 +610,13 @@ static int __init v3_init(void) {
 
     LOCKCHECK_INIT();
     MEMCHECK_INIT();
+
+
+    if (!(v3_thread_resource_map = palacios_create_htable(MAX_THREADS,thr_hash_func,thr_hash_comp))) { 
+	ERROR("Could not create thread/resource map\n");
+	ret = -1;
+	goto failure0;
+    }
 
     palacios_proc_dir = proc_mkdir("v3vee", NULL);
     if (!palacios_proc_dir) {
@@ -689,6 +731,8 @@ static int __init v3_init(void) {
  failure2:
     remove_proc_entry("v3vee", NULL);
  failure1:   
+    palacios_free_htable(v3_thread_resource_map,0,0);
+ failure0:   
     MEMCHECK_DEINIT();
     LOCKCHECK_DEINIT();
 
@@ -762,6 +806,8 @@ static void __exit v3_exit(void) {
 
     DEBUG("Palacios Module Mallocs = %d, Frees = %d\n", mod_allocs, mod_frees);
     
+    palacios_free_htable(v3_thread_resource_map,0,0);
+
     MEMCHECK_DEINIT();
     LOCKCHECK_DEINIT();
 }

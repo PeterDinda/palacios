@@ -152,7 +152,7 @@ struct v3_guest {
 // For now MAX_VMS must be a multiple of 8
 // This is due to the minor number bitmap
 #define MAX_VMS 32
-
+#define MAX_THREADS (MAX_VMS*64)
 
 
 int palacios_vmm_init( char *options );
@@ -161,6 +161,8 @@ int palacios_vmm_exit( void );
 
 // This is how a component finds the proc dir we are using for global state
 struct proc_dir_entry *palacios_get_procdir(void);
+
+struct v3_resource_control;
 
 // Selected exported stubs, for use in other palacios components, like vnet
 // The idea is that everything uses the same stubs
@@ -178,10 +180,10 @@ void  palacios_vfree(void *);             // use instead of vfree
 void *palacios_vaddr_to_paddr(void *vaddr);
 void *palacios_paddr_to_vaddr(void *paddr);
 void  palacios_xcall(int cpu_id, void (*fn)(void *arg), void *arg);
-void *palacios_create_and_start_kernel_thread(int (*fn)(void * arg), void *arg, char *thread_name);
-void *palacios_create_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name);
+void *palacios_create_and_start_kernel_thread(int (*fn)(void * arg), void *arg, char *thread_name, struct v3_resource_control *rc);
+void *palacios_create_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name, struct v3_resource_control *rc);
 void  palacios_start_thread(void *thread_ptr);
-void *palacios_creeate_and_start_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name);
+void *palacios_creeate_and_start_thread_on_cpu(int cpu_id, int (*fn)(void * arg), void *arg, char *thread_name, struct v3_resource_control *rc);
 int   palacios_move_thread_to_cpu(int new_cpu_id, void *thread_ptr);
 void  palacios_yield_cpu(void);
 void  palacios_sleep_cpu(unsigned int us);
