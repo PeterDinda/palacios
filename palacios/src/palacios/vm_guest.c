@@ -36,6 +36,9 @@
 #ifdef V3_CONFIG_MEM_TRACK
 #include <palacios/vmm_mem_track.h>
 #endif
+#ifdef V3_CONFIG_CACHEPART
+#include <palacios/vmm_cachepart.h>
+#endif
 
 
 v3_cpu_mode_t v3_get_vm_cpu_mode(struct guest_info * info) {
@@ -394,6 +397,9 @@ int v3_free_vm_internal(struct v3_vm_info * vm) {
 
     v3_fw_cfg_deinit(vm);
 
+#ifdef V3_CONFIG_CACHEPART
+    v3_deinit_cachepart_vm(vm);
+#endif
 
     return 0;
 }
@@ -408,6 +414,12 @@ int v3_init_core(struct guest_info * core) {
     /*
      * Initialize the subsystem data strutures
      */
+
+
+#ifdef V3_CONFIG_CACHEPART
+    v3_init_cachepart_core(core);
+#endif
+
 #ifdef V3_CONFIG_TELEMETRY
     v3_init_core_telemetry(core);
 #endif
@@ -502,6 +514,7 @@ int v3_free_core(struct guest_info * core) {
 #endif
 
 
+
     switch (v3_mach_type) {
 #ifdef V3_CONFIG_SVM
 	case V3_SVM_CPU:
@@ -526,6 +539,10 @@ int v3_free_core(struct guest_info * core) {
   	    PrintError(core->vm_info, core, "Invalid CPU Type 0x%x\n", v3_mach_type);
 	    return -1;
     }
+
+#ifdef V3_CONFIG_CACHEPART
+    v3_deinit_cachepart_core(core);
+#endif
 
     return 0;
 }

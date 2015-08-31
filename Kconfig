@@ -31,6 +31,9 @@ config LINUX
 	select BUILT_IN_STDLIB
 	select BUILT_IN_STRDUP
 	select BUILT_IN_ATOI
+        select BUILT_IN_STRTOX
+        select BUILT_IN_STRTOI
+        select BUILT_IN_ATOX
 	select FILE
 	select V3_DECODER
 	help
@@ -186,6 +189,26 @@ config LAZY_FP_SWITCH
           the floating point state is explicitly saved on each exit
           and restored on each entry---this save/restore is entirely
           done in Palacios.
+
+config CACHEPART
+        bool "Support last-level cache partitioning"
+        depends on CACHE_INFO && EXPERIMENTAL
+        default y
+        help 
+          When true, <cachepart> can be used to select which page colors
+          are allowed to be used by the VM, thus limiting it to a portion
+          of the last level shared cache. 
+          This is an experimental option and requires a lot of careful
+          configuration to work.  In particular, memory base regions must be
+          a page size, and initial allocation of the VM may take a long
+          time depending on the host's page allocator. 
+
+config DEBUG_CACHEPART
+	bool "Enable debugging of cache partitioning"
+	depends on CACHEPART
+	default n
+	help
+	  Generate output from the debugging statements in cache partitioning
           
 
 endmenu
