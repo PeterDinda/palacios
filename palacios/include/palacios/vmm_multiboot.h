@@ -190,8 +190,10 @@ typedef struct mb_info_cmdline {
 
 
 #define MEM_RAM   1
+#define MEM_RESV  2
 #define MEM_ACPI  3
-#define MEM_RESV  4
+#define MEM_NVS   4
+#define MEM_BAD   6
 
 typedef struct mb_info_memmap_entry {
     uint64_t  base_addr;
