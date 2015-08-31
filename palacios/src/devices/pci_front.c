@@ -1019,6 +1019,7 @@ static int pci_front_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg)
     
     state->pci_bus = bus;
     strncpy(state->name, dev_id, 32);
+    state->name[31] = 0;
     
     if (!(dev = v3_add_device(vm, dev_id, &dev_ops, state))) { 
 	PrintError(vm, VCORE_NONE, "pci_front (%s): unable to add device\n",state->name);

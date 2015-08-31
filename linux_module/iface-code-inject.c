@@ -74,7 +74,8 @@ static int vm_tophalf_inject (struct v3_guest * guest, unsigned int cmd, unsigne
 
     /* we have a binary name */
     if (top_arg.is_exec_hooked) {
-        strcpy(top->bin_file, top_arg.bin_file);
+        strncpy(top->bin_file, top_arg.bin_file,256);
+	top->bin_file[255] = 0;
         top->is_exec_hooked = 1;
         DEBUG("top->bin_file is %s\n", top->bin_file);
     } 

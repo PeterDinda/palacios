@@ -958,6 +958,7 @@ static int host_pci_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     
     state->pci_bus = pci;
     strncpy(state->name, dev_id, 32);
+    state->name[31] = 0;
 
 
     dev = v3_add_device(vm, dev_id, &dev_ops, state);

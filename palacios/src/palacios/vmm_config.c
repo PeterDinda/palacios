@@ -229,6 +229,7 @@ static struct v3_config * parse_config(void * cfg_blob) {
 	V3_Print(VM_NONE, VCORE_NONE, "File index=%d id=%s\n", idx, id);
 
 	strncpy(file->tag, id, V3_MAX_TAG_LEN);
+	file->tag[V3_MAX_TAG_LEN-1] = 0 ;
 
 	if (version==0) { 
 	    struct file_hdr_v0 * hdr = &(files_v0->hdrs[idx]);

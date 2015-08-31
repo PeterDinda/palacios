@@ -291,6 +291,7 @@ static int disk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     PrintDebug(vm, VCORE_NONE, "Registering Net disk at %s:%s disk=%s\n", ip_str, port_str, disk_tag);
 
     strncpy(disk->disk_name, disk_tag, sizeof(disk->disk_name));
+    disk->disk_name[sizeof(disk->disk_name)-1] = 0;
     disk->ip_addr = v3_inet_addr(ip_str);
     disk->port = atoi(port_str);
     disk->vm = vm;

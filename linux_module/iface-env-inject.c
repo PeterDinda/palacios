@@ -68,7 +68,8 @@ static int vm_env_inject (struct v3_guest * guest, unsigned int cmd, unsigned lo
 
     env->num_strings = env_arg.num_strings;
     
-    strcpy(env->bin_name, env_arg.bin_name);
+    strncpy(env->bin_name, env_arg.bin_name, MAX_STRING_LEN);
+    env->bin_name[MAX_STRING_LEN-1] = 0;
     DEBUG("Binary hooked on: %s\n", env->bin_name);
 
     //DEBUG("Palacios: Allocating space for %u env var string ptrs...\n", env->num_strings);

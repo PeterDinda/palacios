@@ -172,6 +172,7 @@ int v3_save_vm_devices(struct v3_vm_info * vm, struct v3_chkpt * chkpt) {
     list_for_each_entry(dev, &(mgr->dev_list), dev_link) {
         if (dev->ops->save) {
             strncpy(name_table + tbl_offset, dev->name, V3_MAX_DEVICE_NAME);
+	    *(name_table + tbl_offset + V3_MAX_DEVICE_NAME - 1) = 0;
             tbl_offset += V3_MAX_DEVICE_NAME;
             num_saved_devs++;
         }  else {
@@ -558,6 +559,7 @@ struct vm_device * v3_add_device(struct v3_vm_info * vm,
     INIT_LIST_HEAD(&(dev->res_hooks));
 
     strncpy(dev->name, name, 32);
+    dev->name[31] = 0;
     dev->ops = ops;
     dev->private_data = private_data;
 

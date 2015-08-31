@@ -785,6 +785,7 @@ static v3_host_dev_t palacios_host_dev_open_deferred(char *url,
     memset(dev,0,sizeof(struct palacios_host_device_user));
     
     strncpy(dev->url,url,MAX_URL);
+    dev->url[MAX_URL-1] = 0;
     
     dev->guestdev = gdev;
     

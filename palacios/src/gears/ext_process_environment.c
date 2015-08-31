@@ -238,7 +238,9 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         var_dump.argv[i] = tmpstr; 
 
         /* copy the string */
+	// this is guaranteed to alwys null terminate tmpstr
         strncpy(tmpstr, (char*)argvn, strlen((char*)argvn) + 1);
+
         i++;
         cursor += 4;
         bytes += strlen((char*)argvn) + 1;
@@ -254,6 +256,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
 	    return -1;
 	}
 
+	// will always null-terminate tmpstr
         strncpy(tmpstr, argstrs[i], strlen(argstrs[j]) + 1);
         var_dump.argv[i] = tmpstr;
         bytes += strlen(argstrs[j]) + 1;
@@ -304,6 +307,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
         var_dump.envp[i] = tmpstr;
 
         /* deepcopy the string */
+	// will always null-terminate tmpstr
         strncpy(tmpstr, (char*)envpn, strlen((char*)envpn) + 1);
         i++;    
         cursor += 4;
@@ -319,7 +323,7 @@ static int v3_copy_chunk_vmm32(struct guest_info * core, const char ** argstrs, 
 	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
-
+	// will always null-terminate tmpstr
         strncpy(tmpstr, envstrs[j], strlen(envstrs[j]) + 1);
         var_dump.envp[i] = tmpstr;
         bytes += strlen(envstrs[j]) + 1;
@@ -516,6 +520,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         var_dump.argv[i] = tmpstr; 
 
         /* copy the string */
+	// will always null-terminate tmpstr
         strncpy(tmpstr, (char*)argvn, strlen((char*)argvn) + 1);
         i++;
         cursor += 8;
@@ -532,6 +537,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
 	    return -1;
 	}
 
+	// will always null-terminate tmpstr
         strncpy(tmpstr, argstrs[j], strlen(argstrs[j]) + 1);
         var_dump.argv[i] = tmpstr;
         bytes += strlen(argstrs[j]) + 1;
@@ -583,6 +589,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
         var_dump.envp[i] = tmpstr;
 
         /* deepcopy the string */
+	// will always null-terminate tmpstr
         strncpy(tmpstr, (char*)envpn, strlen((char*)envpn) + 1);
         i++;    
         cursor += 8;
@@ -598,7 +605,7 @@ static int v3_copy_chunk_vmm64(struct guest_info * core, const char ** argstrs, 
 	    PrintError(core->vm_info, core, "Cannot allocate temp string\n");
 	    return -1;
 	}
-
+	// will always null-terminate tmpstr
         strncpy(tmpstr, envstrs[i], strlen(envstrs[j]) + 1);
         var_dump.envp[i] = tmpstr;
         bytes += strlen(envstrs[j]) + 1;

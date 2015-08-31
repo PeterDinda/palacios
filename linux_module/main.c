@@ -134,7 +134,8 @@ static long v3_dev_ioctl(struct file * filp,
 		goto out_err2;
 	    }	   
 
-	    strncpy(guest->name, user_image.name, 127);
+	    strncpy(guest->name, user_image.name, 128);
+	    guest->name[127] = 0;
 
 	    INIT_LIST_HEAD(&(guest->exts));
 

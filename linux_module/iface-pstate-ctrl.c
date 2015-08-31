@@ -876,6 +876,7 @@ static int get_current_governor(char **buf, unsigned int cpu)
     }
 
     strncpy(govname, policy->governor->name, MAX_GOV_NAME_LEN);
+    govname[MAX_GOV_NAME_LEN-1] = 0;
 
     get_cpu_var(core_state).linux_governor = govname;
     put_cpu_var(core_state);

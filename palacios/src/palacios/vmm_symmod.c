@@ -195,6 +195,7 @@ static int symbol_hcall_handler(struct guest_info * core, hcall_id_t hcall_id, v
 	}
 
 	strncpy(new_symbol->name, sym_name, 256);
+	new_symbol->name[255] = 0;
 	new_symbol->linkage = tmp_symbol->value;
 
 	list_add(&(new_symbol->sym_node), &(symmod_state->v3_sym_list));

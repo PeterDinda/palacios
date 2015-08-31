@@ -56,6 +56,7 @@ static int mkdir_recursive(const char * path, unsigned short perms) {
     }
 
     memset(tmp_str, 0, strlen(path) + 1);
+    // will terminate tmp_str
     strncpy(tmp_str, path, strlen(path));
 
     dirname_ptr = tmp_str;
@@ -226,7 +227,7 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
 	return NULL;
     }
 
-    pfile->path = palacios_alloc(strlen(path));
+    pfile->path = palacios_alloc(strlen(path) + 1);
     
     if (!pfile->path) { 
 	ERROR("Cannot allocate in file open\n");
@@ -234,7 +235,7 @@ static void * palacios_file_open(const char * path, int mode, void * private_dat
 	palacios_free(pfile);
 	return NULL;
     }
-    strncpy(pfile->path, path, strlen(path));
+    strncpy(pfile->path, path, strlen(path)); // will terminate pfile->path
     pfile->guest = guest;
     
     palacios_spinlock_init(&(pfile->lock));

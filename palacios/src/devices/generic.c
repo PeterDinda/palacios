@@ -691,6 +691,7 @@ static int generic_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     
     memset(state, 0, sizeof(struct generic_internal));
     strncpy(state->name,dev_id,MAX_NAME);
+    state->name[MAX_NAME-1] = 0;
 
     if (!forward) { 
 	state->forward_type=GENERIC_PHYSICAL;

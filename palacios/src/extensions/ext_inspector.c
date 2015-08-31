@@ -47,6 +47,7 @@ static int init_inspector(struct v3_vm_info * vm, v3_cfg_tree_t * cfg, void ** p
     memset(state, 0, sizeof(struct v3_inspector_state));
 
     strncpy(state->state_tree.name, "vm->name", 50);
+    state->state_tree.name[49] = 0;
     state->state_tree.subtree = 1;
 
     *priv_data = state;

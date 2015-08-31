@@ -1637,6 +1637,7 @@ struct pci_device * v3_pci_register_device(struct vm_device * pci,
     pci_dev->fn_num = fn_num;
 
     strncpy(pci_dev->name, name, sizeof(pci_dev->name));
+    pci_dev->name[sizeof(pci_dev->name)-1] = 0;
     pci_dev->vm = pci->vm;
     pci_dev->priv_data = priv_data;
 

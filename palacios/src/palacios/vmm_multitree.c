@@ -67,6 +67,7 @@ struct v3_mtree * v3_mtree_create_node(struct v3_mtree * root, char * name) {
 
     memset(node, 0, sizeof(struct v3_mtree));
     strncpy(node->name, name, V3_MTREE_NAME_LEN);
+    node->name[V3_MTREE_NAME_LEN-1] = 0;
 
     if ((ret = __insert_mtree_node(root, node))) {
 	PrintError(VM_NONE, VCORE_NONE, "Insertion failure\n");

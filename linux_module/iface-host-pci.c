@@ -184,6 +184,7 @@ static int register_pci_hw_dev(unsigned int cmd, unsigned long arg) {
 
     
     strncpy(host_dev->name, hw_dev_arg.name, 128);
+    host_dev->name[127] = 0;
     host_dev->v3_dev.host_data = host_dev;
     
 

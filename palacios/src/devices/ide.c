@@ -1990,7 +1990,8 @@ static int connect_fn(struct v3_vm_info * vm,
     }
 
     if (model_str != NULL) {
-	strncpy(drive->model, model_str, sizeof(drive->model) - 1);
+	strncpy(drive->model, model_str, sizeof(drive->model));
+	drive->model[sizeof(drive->model)-1] = 0;
     }
 
     if (strcasecmp(type_str, "cdrom") == 0) {

@@ -246,7 +246,8 @@ static void * palacios_stream_open(struct v3_stream * v3_stream, const char * na
     stream->guest = guest;
     stream->connected = 0;
 
-    strncpy(stream->name, name, STREAM_NAME_LEN - 1);
+    strncpy(stream->name, name, STREAM_NAME_LEN);
+    stream->name[STREAM_NAME_LEN-1] = 0;
 
     init_waitqueue_head(&(stream->user_poll_queue));
     palacios_spinlock_init(&(stream->lock));

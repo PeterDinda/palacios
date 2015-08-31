@@ -339,7 +339,9 @@ struct v3_vm_info * v3_create_vm(void * cfg, void * priv_data, char * name, unsi
     }
 
     memset(vm->name, 0, 128);
-    strncpy(vm->name, name, 127);
+    strncpy(vm->name, name, 128);
+    vm->name[127] = 0;
+    
 
     if(v3_cpu_mapper_register_vm(vm) == -1) {
 

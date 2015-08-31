@@ -310,7 +310,7 @@ static v3_keyed_stream_t open_stream_mem(char *url,
 		    return 0;
 		}
 
-		strcpy(mykey,url+4);
+		strcpy(mykey,url+4); // will fit
 		
 		mks = (struct mem_keyed_stream *) palacios_alloc(sizeof(struct mem_keyed_stream));
 
@@ -382,7 +382,7 @@ static v3_keyed_stream_key_t open_key_mem(v3_keyed_stream_t stream,
 	    return 0;
 	}
 
-	strcpy(mykey,key);
+	strcpy(mykey,key); // will fit
 
 	m = create_mem_stream();
 	
@@ -431,7 +431,7 @@ static void preallocate_hint_key_mem(v3_keyed_stream_t stream,
 	    return;
 	}
 	
-	strcpy(mykey,key);
+	strcpy(mykey,key); // will fit
        
 	m = create_mem_stream_internal(size);
 	
@@ -684,7 +684,7 @@ static v3_keyed_stream_t open_stream_file(char *url,
 	return 0;
     }
     
-    strcpy(fks->path,url+5);
+    strcpy(fks->path,url+5); // will fit
     
     fks->stype=STREAM_FILE;
 
@@ -796,6 +796,7 @@ static v3_keyed_stream_key_t open_key_file(v3_keyed_stream_t stream,
 	ERROR("cannot allocate file keyed stream for key %s\n",key);
 	return 0;
     }
+    // this sequence will fit and terminate with a zero
     strcpy(path,fks->path);
     strcat(path,"/");
     strcat(path,key);
@@ -2082,7 +2083,7 @@ static v3_keyed_stream_key_t open_key_user(v3_keyed_stream_t stream, char *key)
 
     s->op->type = PALACIOS_KSTREAM_OPEN_KEY;
     s->op->buf_len = len;
-    strncpy(s->op->buf,key,len);
+    strncpy(s->op->buf,key,len); // will terminate buffer
 
     // enter with it locked
     if (do_request_to_response(s,&flags)) { 
