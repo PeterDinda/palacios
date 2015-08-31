@@ -22,6 +22,7 @@ struct v3_guest_mem_map * v3_guest_mem_get_map(char *vmdev)
   uint64_t start, end, num;
   uint64_t guest_cur;
   uint64_t num_regions;
+  uint64_t num_regions_shown;
   
 
   if (!(f=fopen(GUEST_FILE,"r"))) { 
@@ -48,9 +49,14 @@ struct v3_guest_mem_map * v3_guest_mem_get_map(char *vmdev)
 	  fprintf(stderr,"Could not find number of regions for %s\n",vmdev);
 	  return 0;
       }
-      if (sscanf(buf,"Regions: %llu",&num_regions)==1) {
+      if (sscanf(buf,"Regions: %llu (%llu shown)",&num_regions,&num_regions_shown)==2) {
 	  break;
       }
+  }
+
+  if (num_regions != num_regions_shown) { 
+      fprintf(stderr,"Cannot see all regions for %s\n",vmdev);
+      return 0;
   }
  
   struct v3_guest_mem_map *m = 

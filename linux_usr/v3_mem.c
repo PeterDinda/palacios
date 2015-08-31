@@ -17,6 +17,12 @@
 
 #include "v3_ctrl.h"
 
+// set to zero to ignore, or set
+// to a level likely given the largest contiguous
+// page allocation outside of the base regions
+// note that the seed pools provide 2-4 MB chunks
+// to start
+#define PALACIOS_MIN_ALLOC (64*4096)
 
 #define SYS_PATH "/sys/devices/system/memory/"
 
@@ -153,24 +159,19 @@ int main(int argc, char * argv[]) {
     }
 
     if (op==ADD) {
-	mem_size_bytes = atoll(argv[optind]) * (1024 * 1024);
+	mem_size_bytes = (unsigned long long) (atof(argv[optind]) * (1024 * 1024));
 
-	if (mem_size_bytes > palacios_runtime_mem_block_size) { 
-	    EPRINTF("Trying to add a larger single chunk of memory than Palacios can manage\n"
+	if (mem_size_bytes < palacios_runtime_mem_block_size ||
+	    (PALACIOS_MIN_ALLOC!=0 && mem_size_bytes < PALACIOS_MIN_ALLOC)) {
+	    EPRINTF("Trying to add a smaller single chunk of memory than Palacios needs\n"
 		   "Your request:                        %llu bytes\n"
 		   "Palacios run-time memory block size: %llu bytes\n",
-		   mem_size_bytes, palacios_runtime_mem_block_size);
+		   "Palacios minimal contiguous alloc:   %llu bytes\n",
+		    mem_size_bytes, palacios_runtime_mem_block_size,
+		    PALACIOS_MIN_ALLOC);
 	    return -1;
 	}
 
-	if (mem_size_bytes < palacios_runtime_mem_block_size) { 
-	    EPRINTF("Trying to add a smaller single chunk of memory than Palacios can manage\n"
-		   "Your request:                        %llu bytes\n"
-		   "Palacios run-time memory block size: %llu bytes\n",
-		   mem_size_bytes, palacios_runtime_mem_block_size);
-	    return -1;
-	}
-	
 	if (request && mem_size_bytes > kernel_max_page_alloc_bytes) { 
 	    EPRINTF("Trying to request a larger single chunk of memory than the kernel can allocate\n"
 		   "Your request:                        %llu bytes\n"

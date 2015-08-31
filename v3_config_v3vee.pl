@@ -85,7 +85,7 @@ $compmemblocksize = $memblocksize;
 
 $maxalloc = 4194304;
 
-print "What is your kernel's maximum contiguous page allocation size in bytes (typicaly (MAX_ORDER-1)*4096) [$maxalloc] : ";
+print "What is your kernel's maximum contiguous page allocation size in bytes (typically 2^(MAX_ORDER-1)*4096) [$maxalloc] : ";
 
 $maxalloc = get_user($maxalloc);
 
@@ -110,6 +110,17 @@ if ($hotremove eq "n") {
      print "Desired memory block size? [$maxalloc or less, power of 2] : ";
      $memblocksize = get_user($maxalloc);
   } while ($memblocksize>$maxalloc && !powerof2($memblocksize));
+  do  { 
+     print "You are not using hot-remove, so we can adjust the allocation size\n";
+     print "Typically, you want this as large as possible (up to what your\n";
+     print "kernel allows, but for special purposes, for example cache\n";
+     print "partitioning, you want this to be as small as possible (just\n";
+     print "larger than the largest contiguous allocation your guests will need.)\n";
+     print "Desired allocation size? [$maxalloc or less, power of 2] : ";
+     $allocsize = get_user($maxalloc);
+  } while ($allocsize>$maxalloc && !powerof2($allocsize));
+} else {
+  $allocsize=$memblocksize;
 }
 
 $mem = 1024;
@@ -155,6 +166,7 @@ Parameters
    Compiled Memory Block Size:  $compmemblocksize
    Override Memory Block Size:  $override_memblocksize
    Actual Memory Block Size:    $memblocksize
+   Allocation Block Size:       $allocsize
    Allow Devmem:                $devmem
    Support QEMU devices:        $qemu
    QEMU directory:              $qemudir
@@ -219,7 +231,7 @@ if (defined($numa{numcores})) {
 
 
 
-$chunk = $memblocksize / (1024 * 1024) ;
+$chunk = $allocsize / (1024 * 1024) ;
 $numchunks = $mem / $chunk;
 $chunkspernode  = $numchunks / $numnodes;
 

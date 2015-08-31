@@ -92,25 +92,6 @@ int v3_deinit_cachepart()
     return 0;
 }
 
-/*
-static int bitcount(uint64_t x)
-{
-    int c=0;
-
-    while (x) {
-	c+=x&0x1;
-	x>>=1;
-    }
-    return c;
-}
-
-static int is_pow2(x)
-{
-    int c = bitcount(x);
-
-    return c==0 || c==1;
-}
-*/
 
 static uint64_t log2(uint64_t x)
 {
@@ -252,8 +233,6 @@ int v3_init_cachepart_vm(struct v3_vm_info *vm, struct v3_xml *config)
     vm->resource_control.pg_filter_state = &vm->cachepart_state;
 
 
-    //    V3_Sleep(50000000);
-
     return 0;
     
 }
@@ -276,7 +255,6 @@ int v3_deinit_cachepart_core(struct guest_info *core)
     return 0;
 }
 
-static unsigned count=0;
 
 int v3_cachepart_filter(void *paddr, v3_cachepart_t *c)
 {
@@ -284,13 +262,6 @@ int v3_cachepart_filter(void *paddr, v3_cachepart_t *c)
     uint64_t color = (a >> c->color_shift) & c->color_mask;
 
     PrintDebug(VM_NONE,VCORE_NONE,"cachepart: %p is color 0x%llx required colors: [0x%llx,0x%llx] %s\n",paddr,color,c->min_color,c->max_color, color>=c->min_color && color<=c->max_color ? "ACCEPT" : "REJECT");
-
-    /*
-    if (count<10) { 
-	V3_Sleep(5000000);
-	count++;
-    }
-    */
 
     return color>=c->min_color && color<=c->max_color;
 
