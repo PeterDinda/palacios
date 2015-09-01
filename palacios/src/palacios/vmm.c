@@ -750,6 +750,8 @@ int v3_move_vm_mem(struct v3_vm_info * vm, void *gpa, int target_cpu) {
     }
 
     // Note, assumes virtual contiguity in the host OS... 
+    // A null deref here can only happen if the host does not provide the
+    // physical_to_virtual functions or if they do not work
     memcpy(V3_VAddr((void*)new_hpa), V3_VAddr((void*)(reg->host_addr)), num_pages*PAGE_SIZE);
 
     old_hpa = (void*)(reg->host_addr);

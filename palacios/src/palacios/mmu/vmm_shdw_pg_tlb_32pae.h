@@ -73,7 +73,7 @@ static inline int handle_shadow_pagefault_32pae(struct guest_info * info, addr_t
     PrintDebug(info->vm_info, info, "32 bit PAE shadow paging page fault handler: %p\n", (void*)fault_addr);
     PrintDebug(info->vm_info, info, "Handling PDP fault\n");
     
-    if (v3_gpa_to_hva(info, guest_cr3, (addr_t*)guest_pdp) ==  -1) {
+    if (v3_gpa_to_hva(info, guest_cr3, (addr_t*)&guest_pdp) ==  -1) {
         PrintError(info->vm_info, info, "Invalid Guest PDPE Address: 0x%p\n", (void *)guest_cr3);
         return -1;
         

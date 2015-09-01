@@ -406,17 +406,21 @@ void v3_print_backtrace(struct guest_info * core) {
 		tmp_ptr += 3; // pass over symbol type
 
 		if (sym_offset > rip_val) {
-		    char * end_ptr = strchr(sym_ptr, '\n');
-
-		    if (end_ptr) {
-			*end_ptr = 0; // null terminate symbol...
+		    if (sym_ptr) {
+			char * end_ptr = strchr(sym_ptr, '\n');
+			
+			if (end_ptr) {
+			    *end_ptr = 0; // null terminate symbol...
+			}
+			sym_name = sym_ptr;
+		    } else {
+			sym_name = NULL;
 		    }
-
-		    sym_name = sym_ptr;
 		    break;
 		}
 
 		sym_ptr = tmp_ptr;
+
 		{ 
 		    char * end_ptr2 = strchr(tmp_ptr, '\n');
 

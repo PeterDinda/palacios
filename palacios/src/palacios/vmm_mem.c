@@ -524,7 +524,7 @@ static struct v3_mem_region * get_next_mem_region( struct v3_vm_info * vm, uint1
     }
 
 
-    if (parent->guest_start > guest_addr) {
+    if (!parent || parent->guest_start > guest_addr) {
 	return parent;
     } else if (parent->guest_end < guest_addr) {
 	struct rb_node * node = &(parent->tree_node);
