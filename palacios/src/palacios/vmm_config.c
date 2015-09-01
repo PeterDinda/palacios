@@ -386,6 +386,10 @@ static int pre_config_vm(struct v3_vm_info * vm, v3_cfg_tree_t * vm_cfg) {
 
    if (schedule_hz_str) {
 	sched_hz = atoi(schedule_hz_str);
+	if (sched_hz==0) { 
+	    PrintError(vm,VCORE_NONE,"Cannot set sched Hz to 0\n");
+	    return -1;
+	}
     }
 
     PrintDebug(VM_NONE, VCORE_NONE, "CPU_KHZ = %d, schedule_freq=%p\n", V3_CPU_KHZ(), 

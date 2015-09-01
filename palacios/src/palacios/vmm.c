@@ -1226,18 +1226,6 @@ v3_cpu_mode_t v3_get_host_cpu_mode() {
 
 #endif 
 
-void v3_print_cond(const char * fmt, ...) {
-    if (v3_dbg_enable == 1) {
-	char buf[2048];
-	va_list ap;
-
-	va_start(ap, fmt);
-	vsnprintf(buf, 2048, fmt, ap);
-	va_end(ap);
-
-	V3_Print(VM_NONE, VCORE_NONE,"%s", buf);
-    }    
-}
 
 
 

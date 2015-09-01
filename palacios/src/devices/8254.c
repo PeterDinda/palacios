@@ -294,7 +294,7 @@ static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullo
 	    //	 (void *)(addr_t)state->pit_reload);
 
 	    // How do we check for a one shot....
-	    if (state->pit_reload == 0) {
+	    if (reload_val == 0) {
 		reload_val = 1;
 	    }
 
@@ -302,10 +302,10 @@ static void pit_update_timer(struct guest_info * info, ullong_t cpu_cycles, ullo
 
       
 #ifdef __V3_64BIT__
-	    cpu_cycles = tmp_cycles % state->pit_reload;
-	    tmp_cycles = tmp_cycles / state->pit_reload;
+	    cpu_cycles = tmp_cycles % reload_val;
+	    tmp_cycles = tmp_cycles / reload_val;
 #else
-	    cpu_cycles = do_divll(tmp_cycles, state->pit_reload);
+	    cpu_cycles = do_divll(tmp_cycles, reload_val);
 #endif
 	
 	    oscillations += tmp_cycles;
@@ -871,7 +871,7 @@ static int pit_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
 
     // Get cpu frequency and calculate the global pit oscilattor counter/cycle
 
-    do_divll(reload_val, OSC_HZ);
+    do_divll(reload_val, OSC_HZ);   // this is a floor, but will be >=1 for any machine faster than 1.2 MHz
     pit_state->pit_counter = reload_val;
     pit_state->pit_reload = reload_val;
 

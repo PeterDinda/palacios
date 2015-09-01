@@ -54,7 +54,6 @@ struct v3_xml_root {       // additional data for the root tag
     char *tmp_start;              // start of work area
     char *tmp_end;              // end of work area
     short standalone;     // non-zero if <?xml standalone="yes"?>
-    char err[V3_XML_ERRL]; // error string
 };
 
 static char * empty_attrib_list[] = { NULL }; // empty, null terminated array of strings
@@ -80,11 +79,9 @@ static void * tmp_realloc(void * old_ptr, size_t old_size, size_t new_size) {
 }
 
 // set an error string and return root
-static void v3_xml_err(struct v3_xml_root * root, char * xml_str, const char * err, ...) {
-    va_list ap;
+static void v3_xml_err(struct v3_xml_root * root, char * xml_str, const char * err, const char *arg) {
     int line = 1;
     char * tmp;
-    char fmt[V3_XML_ERRL];
     
     for (tmp = root->tmp_start; tmp < xml_str; tmp++) {
 	if (*tmp == '\n') {
@@ -92,14 +89,8 @@ static void v3_xml_err(struct v3_xml_root * root, char * xml_str, const char * e
 	}
     }
 
-    snprintf(fmt, V3_XML_ERRL, "[error near line %d]: %s", line, err);
-
-    va_start(ap, err);
-    vsnprintf(root->err, V3_XML_ERRL, fmt, ap);
-    va_end(ap);
-
-    PrintError(VM_NONE, VCORE_NONE, "XML Error: %s\n", root->err);
-
+    PrintError(VM_NONE, VCORE_NONE, "XML Error: [error near line %d]: %s (%s)", line, err ,arg ? arg : "");
+    
     // free memory
     v3_xml_free(&(root->xml));
 
@@ -152,33 +143,7 @@ const char * v3_xml_attr(struct v3_xml * xml, const char * attr) {
     return NULL; // found default
 }
 
-// same as v3_xml_get but takes an already initialized va_list
-static struct v3_xml * v3_xml_vget(struct v3_xml * xml, va_list ap) {
-    char * name = va_arg(ap, char *);
-    int idx = -1;
 
-    if ((name != NULL) && (*name != 0)) {
-        idx = va_arg(ap, int);    
-        xml = v3_xml_child(xml, name);
-    }
-    return (idx < 0) ? xml : v3_xml_vget(v3_xml_idx(xml, idx), ap);
-}
-
-// Traverses the xml tree to retrieve a specific subtag. Takes a variable
-// length list of tag names and indexes. The argument list must be terminated
-// by either an index of -1 or an empty string tag name. Example: 
-// title = v3_xml_get(library, "shelf", 0, "book", 2, "title", -1);
-// This retrieves the title of the 3rd book on the 1st shelf of library.
-// Returns NULL if not found.
-struct v3_xml * v3_xml_get(struct v3_xml * xml, ...) {
-    va_list ap;
-    struct v3_xml * r;
-
-    va_start(ap, xml);
-    r = v3_xml_vget(xml, ap);
-    va_end(ap);
-    return r;
-}
 
 
 // sets a flag for the given tag and returns the tag
@@ -330,7 +295,7 @@ static int v3_xml_close_tag(struct v3_xml_root * root, char * name, char * s) {
     if ( (root->cur == NULL) || 
 	 (root->cur->name == NULL) || 
 	 (strcasecmp(name, root->cur->name))) {
-	v3_xml_err(root, s, "unexpected closing tag </%s>", name);
+	v3_xml_err(root, s, "unexpected closing tag", name);
 	return -1;
     }
 
@@ -380,7 +345,6 @@ static struct v3_xml * v3_xml_new(const char * name) {
     root->xml.name = (char *)name;
     root->cur = &root->xml;
     root->xml.txt = "";
-    memset(root->err, 0, V3_XML_ERRL);
 
 
     return &root->xml;
@@ -523,7 +487,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
     root->str_ptr = buf;
 
     if (len == 0) {
-	v3_xml_err(root, NULL, "Empty XML String\n");
+	v3_xml_err(root, NULL, "Empty XML String", 0);
 	return NULL;
     }
 
@@ -539,7 +503,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
     }
 
     if (*buf == '\0') {
-	v3_xml_err(root, buf, "root tag missing");
+	v3_xml_err(root, buf, "root tag missing", 0);
 	return NULL;
     }
 
@@ -551,7 +515,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 	    // new tag
 
             if (root->cur == NULL) {
-                v3_xml_err(root, tag_ptr, "markup outside of root element");
+                v3_xml_err(root, tag_ptr, "markup outside of root element", 0);
 		return NULL;
 	    }
 
@@ -642,8 +606,10 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 			    // null terminate attribute val
 			    *(buf++) = '\0';
 			} else {
+			    char err_buf[2] = {quote_char,0};
+
                             v3_xml_free_attr(attr);
-                            v3_xml_err(root, tag_ptr, "missing %c", quote_char);
+                            v3_xml_err(root, tag_ptr, "missing quote char", err_buf);
 			    return NULL;
                         }
 
@@ -666,7 +632,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
                     if (attr_idx > 0) {
 			v3_xml_free_attr(attr);
 		    }
-		    v3_xml_err(root, tag_ptr, "missing >");
+		    v3_xml_err(root, tag_ptr, "missing >", 0);
 		    return NULL;
                 }
                 v3_xml_open_tag(root, tag_ptr, attr);
@@ -681,7 +647,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
                 if (attr_idx > 0) {
 		    v3_xml_free_attr(attr);
 		}
-		v3_xml_err(root, tag_ptr, "missing >"); 
+		v3_xml_err(root, tag_ptr, "missing >", 0); 
 		return NULL;
             }
         } else if (*buf == '/') { 
@@ -691,7 +657,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
             
 	    quote_char = *buf;
 	    if ((*buf == '\0') && (last_char != '>')) {
-		v3_xml_err(root, tag_ptr, "missing >");
+		v3_xml_err(root, tag_ptr, "missing >", 0);
 		return NULL;
             }
 
@@ -710,7 +676,7 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
             if ( ((buf = strstr(buf + 3, "--")) == 0) || 
 		 ((*(buf += 2) != '>') && (*buf)) ||
 		 ((!*buf) && (last_char != '>'))) {
-		v3_xml_err(root, tag_ptr, "unclosed <!--");
+		v3_xml_err(root, tag_ptr, "unclosed <!--", 0);
 		return NULL;
 	    }
         } else if (! strncmp(buf, "![CDATA[", 8)) { 
@@ -718,11 +684,11 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
             if ((buf = strstr(buf, "]]>"))) {
                 v3_xml_char_content(root, tag_ptr + 8, (buf += 2) - tag_ptr - 10, 'c');
 	    } else {
-		v3_xml_err(root, tag_ptr, "unclosed <![CDATA[");
+		v3_xml_err(root, tag_ptr, "unclosed <![CDATA[", 0);
 		return NULL;
 	    }
 	} else {
-	    v3_xml_err(root, tag_ptr, "unexpected <");
+	    v3_xml_err(root, tag_ptr, "unexpected <",0);
 	    return NULL;
         }
 
@@ -757,10 +723,10 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
     if (root->cur == NULL) {
 	return &root->xml;
     } else if (root->cur->name == NULL) {
-	v3_xml_err(root, tag_ptr, "root tag missing");
+	v3_xml_err(root, tag_ptr, "root tag missing",0);
 	return NULL;
     } else {
-	v3_xml_err(root, tag_ptr, "unclosed tag <%s>", root->cur->name);
+	v3_xml_err(root, tag_ptr, "unclosed tag", root->cur->name);
 	return NULL;
     }
 }

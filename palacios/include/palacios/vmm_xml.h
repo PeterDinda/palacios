@@ -78,14 +78,6 @@ const char *v3_xml_attr(struct v3_xml * xml, const char * attr);
 
 
 
-// Traverses the v3_xml sturcture to retrieve a specific subtag. Takes a
-// variable length list of tag names and indexes. The argument list must be
-// terminated by either an index of -1 or an empty string tag name. Example: 
-// title = v3_xml_get(library, "shelf", 0, "book", 2, "title", -1);
-// This retrieves the title of the 3rd book on the 1st shelf of library.
-// Returns NULL if not found.
-struct v3_xml * v3_xml_get(struct v3_xml * xml, ...);
-
 
 // frees the memory allocated for an v3_xml structure
 void v3_xml_free(struct v3_xml * xml);

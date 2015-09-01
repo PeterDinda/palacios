@@ -325,7 +325,6 @@ v3_cpu_mode_t v3_get_host_cpu_mode();
 
 void v3_yield(struct guest_info * info, int usec);
 void v3_yield_cond(struct guest_info * info, int usec);
-void v3_print_cond(const char * fmt, ...);
 
 void v3_interrupt_cpu(struct v3_vm_info * vm, int logical_cpu, int vector);
 

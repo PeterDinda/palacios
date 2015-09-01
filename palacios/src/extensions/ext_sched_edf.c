@@ -451,6 +451,9 @@ activate_core(struct vm_core_edf_sched * core, struct vm_edf_rq *runqueue){
 }
 
 
+#define CEIL_DIV(x,y) (((x)/(y)) + !!((x)%(y)))
+#define MAX(x,y) ((x)>(y) ? (x) : (y))
+
 /*
  * edf_sched_core_init: Initializes per core data structure and
  * calls activate function.
@@ -516,6 +519,7 @@ edf_sched_core_init(struct guest_info * info){
 
             if(slice){
                 core_edf->slice = atoi(slice);
+		core_edf->slice = MAX(MIN_SLICE,core_edf->slice);
             }
 	    else{
 	        core_edf->slice = MIN_SLICE;
@@ -523,10 +527,13 @@ edf_sched_core_init(struct guest_info * info){
 
 	    if(period){
 	        core_edf->period = atoi(period);
+		core_edf->period = MAX(MIN_PERIOD,core_edf->period);
             }
 	    else{
 	        core_edf->period = (core_edf->slice * cpu_khz * tdf)/speed_khz;
-	        core_edf->period += 0.3*(100*core_edf->slice/core_edf->period); // Give faster vcores a little more bigger periods.
+		// WTF is this floating point doing here?!
+	        // core_edf->period += 0.3*(100*core_edf->slice/core_edf->period); // Give faster vcores a little more bigger periods.
+		core_edf->period += CEIL_DIV(100*core_edf->slice/core_edf->period,3); // Give faster vcores a little more bigger periods.
             }
 
 	    PrintDebug(info->vm_info,info,"EDF_SCHED. Vcore %d, Pcore %d, cpu_khz %u, Period %llu Speed %d, Utilization %d, tdf %d %llu \n",

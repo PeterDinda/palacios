@@ -204,6 +204,10 @@ int host_sched_vm_init(struct v3_vm_info *vm)
 
     if (schedule_hz_str) {
 	sched_hz = atoi(schedule_hz_str);
+	if (sched_hz==0) { 
+	    PrintError(vm, VCORE_NONE,"Cannot set Sched Hz to 0\n");
+	    return -1;
+	}
     }
 
     PrintDebug(vm, VCORE_NONE,"CPU_KHZ = %d, schedule_freq=%p\n", V3_CPU_KHZ(),
