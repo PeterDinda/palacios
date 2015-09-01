@@ -194,14 +194,19 @@ static int generic_read_port_print_and_passthrough(struct guest_info * core, uin
 
     rc=generic_read_port_passthrough(core,port,src,length,priv_data);
 
-    PrintDebug(core->vm_info, core, " done ... read 0x");
-
-    for (i = 0; i < rc; i++) { 
-	PrintDebug(core->vm_info, core, "%x", ((uint8_t *)src)[i]);
+    if (rc<0) { 
+	PrintError(core->vm_info, core, "FAILED\n");
+	return rc;
+    } else {
+	PrintDebug(core->vm_info, core, " done ... read 0x");
+	
+	for (i = 0; i < rc; i++) { 
+	    PrintDebug(core->vm_info, core, "%x", ((uint8_t *)src)[i]);
+	}
+	
+	PrintDebug(core->vm_info, core, "\n");
     }
-
-    PrintDebug(core->vm_info, core, "\n");
-
+    
     return rc;
 }
 

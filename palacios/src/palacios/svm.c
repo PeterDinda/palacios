@@ -1239,7 +1239,7 @@ int v3_is_svm_capable() {
 	
 	PrintDebug(VM_NONE, VCORE_NONE, "SVM_VM_CR_MSR = 0x%x 0x%x\n", vm_cr_high, vm_cr_low);
 	
-	if ((vm_cr_low & SVM_VM_CR_MSR_svmdis) == 1) {
+	if (vm_cr_low & SVM_VM_CR_MSR_svmdis) {
 	    V3_Print(VM_NONE, VCORE_NONE, "SVM is available but is disabled.\n");
 	    
 	    v3_cpuid(CPUID_SVM_REV_AND_FEATURE_IDS, &eax, &ebx, &ecx, &edx);

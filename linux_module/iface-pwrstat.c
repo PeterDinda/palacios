@@ -109,7 +109,7 @@ static int rapl_check_unit (void)
 	power_unit_divisor = 1 << value;
 
 	/* time unit: 1/time_unit_divisor Seconds */
-	value =(output & TIME_UNIT_MASK) >> TIME_UNIT_OFFSET;
+	value = (output & TIME_UNIT_MASK) >> TIME_UNIT_OFFSET;
 	time_unit_divisor = 1 << value;
 
 	return 0;

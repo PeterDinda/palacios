@@ -1043,6 +1043,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 	{
 	    case PT_ENTRY_NOT_PRESENT:
 		return -1;
+		break; 
 	    case PT_ENTRY_PAGE:
 		{
 		    pde32pae_t * guest_pde = NULL;
@@ -1062,6 +1063,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 			{
 			    case PT_ENTRY_NOT_PRESENT:
 				return -1;
+				break;
 			    case PT_ENTRY_LARGE_PAGE:
 				{
 				    addr_t large_page_pa = (addr_t)guest_pte_pa;
@@ -1076,6 +1078,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 				    }
 				    return 0;
 				}
+				break;
 			    case PT_ENTRY_PAGE:
 				{
 				    pte32pae_t * guest_pte = NULL;
@@ -1106,8 +1109,10 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 					return 0;
 				    }
 				}
+				break;
 			}
 		}
+		break;
 	    default:
 		PrintError(info->vm_info, info, "Invalid page type for PD32PAE\n");
 		return -1;

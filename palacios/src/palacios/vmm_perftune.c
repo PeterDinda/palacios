@@ -37,6 +37,7 @@ void     v3_strategy_driven_yield(struct guest_info *core, uint64_t time_since_l
 	    } else {
 		v3_yield(core,-1);
 	    }
+	    break;
 	default:
 	    PrintError(core->vm_info, core, "Unknown yield strategy (%d) using GREEDY\n",core->vm_info->perf_options.yield_strategy.strategy);
 	    v3_yield(core,-1);

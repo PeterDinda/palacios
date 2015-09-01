@@ -41,6 +41,6 @@
 #define ENERGY_UNIT_MASK	0x1F00
 
 #define TIME_UNIT_OFFSET	0x10
-#define TIME_UNIT_MASK		0xF000
+#define TIME_UNIT_MASK		0xF0000
 
 #endif
