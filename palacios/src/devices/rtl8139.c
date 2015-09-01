@@ -895,7 +895,10 @@ static void rtl8139_rxbuf_write(struct rtl8139_state * nic_state,
     addr_t guestpa, host_rxbuf;
 
     guestpa = (addr_t)regs->rbstart;
-    v3_gpa_to_hva(&(nic_state->vm->cores[0]), guestpa, &host_rxbuf);   
+    if (v3_gpa_to_hva(&(nic_state->vm->cores[0]), guestpa, &host_rxbuf)) { 
+	PrintError(VM_NONE, VCORE_NONE, "RTL8139: cannot translate address\n");
+	return;
+    }
 
     //wrap to the front of rx buffer
     if (regs->cbr + size > nic_state->rx_bufsize){
@@ -1173,7 +1176,11 @@ static int tx_one_packet(struct rtl8139_state * nic_state, int descriptor){
 
     PrintDebug(VM_NONE, VCORE_NONE, "RTL8139: sending %d bytes from guest memory at 0x%08x\n", txsize, regs->tsad[descriptor]);
 	
-    v3_gpa_to_hva(&(nic_state->vm->cores[0]), (addr_t)pkt_gpa, &hostva);
+    if (v3_gpa_to_hva(&(nic_state->vm->cores[0]), (addr_t)pkt_gpa, &hostva)) {	    
+	PrintError(VM_NONE, VCORE_NONE, "RTL8139: Cannot translate address\n");
+	return -1;
+    }
+
     pkt = (uchar_t *)hostva;
 
 #ifdef V3_CONFIG_DEBUG_RTL8139

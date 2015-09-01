@@ -710,7 +710,6 @@ static void render_graphics(struct vga_internal *vga, void *fb)
 			    db[2] <<= 2;
 			    db[0] <<= 2;
 			}
-			break;
 			
 			// next 4 pixels use planes 1 and 3
 			for (p=4;p<8;p++) { 

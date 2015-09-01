@@ -487,14 +487,20 @@ void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
 	
 
     if (core->mem_mode == PHYSICAL_MEM) {
-        v3_gpa_to_hva(core, 
-                      get_addr_linear(core, idtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gpa_to_hva(core, 
+			  get_addr_linear(core, idtr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
         PrintError(core->vm_info, core, "Kind of weird that we got here.... physical mem?\n");
     } else if (core->mem_mode == VIRTUAL_MEM) {
-        v3_gva_to_hva(core, 
-                      get_addr_linear(core, idtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gva_to_hva(core, 
+			  get_addr_linear(core, idtr_base, &(core->segments.cs)),
+			  &base_hva)) { 
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     }
 
     // SANITY CHECK
@@ -537,14 +543,20 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     }
 
     if (core->mem_mode == PHYSICAL_MEM) {
-        v3_gpa_to_hva(core, 
-                      get_addr_linear(core, gdtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gpa_to_hva(core, 
+			  get_addr_linear(core, gdtr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
         PrintError(core->vm_info, core, "Kind of weird that we got here.... physical mem?\n");
     } else if (core->mem_mode == VIRTUAL_MEM) {
-        v3_gva_to_hva(core, 
-                      get_addr_linear(core, gdtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gva_to_hva(core, 
+			  get_addr_linear(core, gdtr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     }
 
     // SANITY CHECK
@@ -610,13 +622,19 @@ void v3_print_idt(struct guest_info * core, addr_t idtr_base) {
     }
 
     if (core->mem_mode == PHYSICAL_MEM) {
-        v3_gpa_to_hva(core, 
-                      get_addr_linear(core, idtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gpa_to_hva(core, 
+			  get_addr_linear(core, idtr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     } else if (core->mem_mode == VIRTUAL_MEM) {
-        v3_gva_to_hva(core, 
-                      get_addr_linear(core, idtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gva_to_hva(core, 
+			  get_addr_linear(core, idtr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     }
 
     // SANITY CHECK
@@ -660,13 +678,19 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     }
 
     if (core->mem_mode == PHYSICAL_MEM) {
-        v3_gpa_to_hva(core, 
-                      get_addr_linear(core, gdtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gpa_to_hva(core,
+			  get_addr_linear(core, gdtr_base, &(core->segments.cs)),
+			  &base_hva)) { 
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     } else if (core->mem_mode == VIRTUAL_MEM) {
-        v3_gva_to_hva(core, 
-                      get_addr_linear(core, gdtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gva_to_hva(core, 
+			  get_addr_linear(core, gdtr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     }
 
     // SANITY CHECK
@@ -713,13 +737,19 @@ void v3_print_ldt(struct guest_info * core, addr_t ldtr_base) {
     } 
 
     if (core->mem_mode == PHYSICAL_MEM) {
-        v3_gpa_to_hva(core, 
-                      get_addr_linear(core, ldtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gpa_to_hva(core, 
+			  get_addr_linear(core, ldtr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     } else if (core->mem_mode == VIRTUAL_MEM) {
-        v3_gva_to_hva(core, 
-                      get_addr_linear(core, ldtr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gva_to_hva(core, 
+			  get_addr_linear(core, ldtr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     }
 
     // SANITY CHECK
@@ -766,13 +796,19 @@ void v3_print_tss(struct guest_info * core, addr_t tr_base) {
     } 
 
     if (core->mem_mode == PHYSICAL_MEM) {
-        v3_gpa_to_hva(core, 
-                      get_addr_linear(core, tr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gpa_to_hva(core, 
+			  get_addr_linear(core, tr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     } else if (core->mem_mode == VIRTUAL_MEM) {
-        v3_gva_to_hva(core, 
-                      get_addr_linear(core, tr_base, &(core->segments.cs)),
-                      &base_hva);
+        if (v3_gva_to_hva(core, 
+			  get_addr_linear(core, tr_base, &(core->segments.cs)),
+			  &base_hva)) {
+	    PrintError(core->vm_info, core, "Cannot translate address\n");
+	    return;
+	}
     }
 
     // SANITY CHECK

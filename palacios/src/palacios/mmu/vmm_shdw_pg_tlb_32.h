@@ -745,9 +745,6 @@ static int invalidation_cb32_64(struct guest_info * info, page_type_t type,
 			if (pdpe->vmm_info == V3_LARGE_PG) {
 				PrintError(info->vm_info, info, "1 Gigabyte pages not supported\n");
 				return -1;
-
-				pdpe->present = 0;
-				return 1;
 			}
 
 			return 0;

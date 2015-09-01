@@ -1306,9 +1306,15 @@ int v3_start_vmx_guest(struct guest_info * info) {
             linear_addr = get_addr_linear(info, info->rip, &(info->segments.cs));
             
             if (info->mem_mode == PHYSICAL_MEM) {
-                v3_gpa_to_hva(info, linear_addr, &host_addr);
+                if (v3_gpa_to_hva(info, linear_addr, &host_addr)) {
+		    PrintError(info->vm_info, info, "Cannot translate address\n");
+		    return -1;
+		}
             } else if (info->mem_mode == VIRTUAL_MEM) {
-                v3_gva_to_hva(info, linear_addr, &host_addr);
+                if (v3_gva_to_hva(info, linear_addr, &host_addr)) {
+		    PrintError(info->vm_info, info, "Cannot translate address\n");
+		    return -1;
+		}
             }
             
             V3_Print(info->vm_info, info, "VMX core %u: Host Address of rip = 0x%p\n", info->vcpu_id, (void *)host_addr);
