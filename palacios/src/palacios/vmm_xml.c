@@ -516,6 +516,10 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
     char ** attr; 
     int attr_idx;
 
+    if (!buf) {
+	return NULL;
+    }
+
     root->str_ptr = buf;
 
     if (len == 0) {

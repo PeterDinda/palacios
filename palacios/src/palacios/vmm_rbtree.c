@@ -287,7 +287,10 @@ void v3_rb_erase(struct rb_node *node, struct rb_root *root)
 	root->rb_node = child;
 
  color:
-    if (color == RB_BLACK)
+    // parent check here is because a possible
+    // codepath here has parent=null, which would
+    // be a disaster in kernel
+    if (color == RB_BLACK && parent) 
 	__rb_erase_color(child, parent, root);
 }
 

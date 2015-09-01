@@ -640,7 +640,7 @@ struct v3_vm_info * v3_config_guest(void * cfg_blob, void * priv_data) {
     vm = allocate_guest(num_cores);    
 
     if (!vm) {
-	PrintError(VM_NONE, VCORE_NONE, "Could not allocate %d core guest\n", vm->num_cores);
+	PrintError(VM_NONE, VCORE_NONE, "Could not allocate %d core guest\n", num_cores);
 	return NULL;
     }
 

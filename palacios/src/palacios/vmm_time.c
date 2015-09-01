@@ -346,7 +346,7 @@ handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
 	} else {
 	    PrintDebug(vm, VCORE_NONE,"VM time slaved to host TSC.\n");
 	}
-    }
+    } 	
 
     // Should we make a separate TSC device that handles this sort of thing?
     tsc = v3_cfg_val(cfg, "tsc");
@@ -356,7 +356,7 @@ handle_time_configuration(struct v3_vm_info * vm, v3_cfg_tree_t *cfg) {
 		PrintError(vm, VCORE_NONE, "WARNING: Guest TSC set to passthrough host TSC, but guest time not slaved to host time.");
 	    }
 	    vm->time_state.flags |= V3_TIME_TSC_PASSTHROUGH;
-	} else if (strcasecmp(source, "guest") != 0) {
+	} else if (!source || (strcasecmp(source, "guest") != 0)) {
 	    PrintError(vm, VCORE_NONE, "ERROR: Unknown TSC configuration in time configuration.\n");
 	}
     }

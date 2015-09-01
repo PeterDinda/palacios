@@ -58,6 +58,12 @@ int V3_init_extensions() {
     ext_table = v3_create_htable(0, ext_hash_fn, ext_eq_fn);
 
     while (tmp_ext != __stop__v3_extensions) {
+
+        if ((*tmp_ext) && (*tmp_ext)->init && ((*tmp_ext)->init() != 0)) {
+	    PrintError(VM_NONE, VCORE_NONE, "Could not initialize extension (%s)\n", (*tmp_ext)->name);
+	    return -1;
+	} 
+
         V3_Print(VM_NONE, VCORE_NONE, "Registering Extension (%s)\n", (*tmp_ext)->name);
 
 	if (v3_htable_search(ext_table, (addr_t)((*tmp_ext)->name))) {
@@ -69,11 +75,6 @@ int V3_init_extensions() {
 	    PrintError(VM_NONE, VCORE_NONE, "Could not register Extension (%s)\n", (*tmp_ext)->name);
 	    return -1;
 	}
-
-        if ((*tmp_ext) && (*tmp_ext)->init && ((*tmp_ext)->init() != 0)) {
-	    PrintError(VM_NONE, VCORE_NONE, "Could not initialize extension (%s)\n", (*tmp_ext)->name);
-	    return -1;
-	} 
 
 	tmp_ext = &(__start__v3_extensions[++i]);
     }
@@ -115,22 +116,24 @@ int v3_deinit_ext_manager(struct v3_vm_info * vm)  {
     list_for_each_entry_safe(ext, tmp, &(ext_state->extensions), node) {
         
 	V3_Print(vm, VCORE_NONE, "Cleaning up Extension (%s)\n", ext->impl->name);
-	if ((ext->impl) && (ext->impl->vm_deinit)) {
-	    if (ext->impl->vm_deinit(vm, ext->priv_data) == -1) {
-		PrintError(vm, VCORE_NONE, "Error cleaning up extension (%s)\n", ext->impl->name);
-		return -1;
+	if (ext->impl) { 
+	    if (ext->impl->vm_deinit) {
+		if (ext->impl->vm_deinit(vm, ext->priv_data) == -1) {
+		    PrintError(vm, VCORE_NONE, "Error cleaning up extension (%s)\n", ext->impl->name);
+		    return -1;
+		}
 	    }
+
+	    if (ext->impl->on_exit)
+		list_del(&ext->exit_node);
+	    
+	    if (ext->impl->on_entry)
+		list_del(&ext->entry_node);
 	}
-
-        if (ext->impl->on_exit)
-            list_del(&ext->exit_node);
-
-        if (ext->impl->on_entry)
-            list_del(&ext->entry_node);
-
-        list_del(&ext->node);
-        V3_Free(ext);
-
+	    
+	list_del(&ext->node);
+	V3_Free(ext);
+	    
     }
 
     return 0;

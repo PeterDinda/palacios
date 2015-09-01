@@ -2780,7 +2780,7 @@ static sint64_t write_key_net(v3_keyed_stream_t stream, v3_keyed_stream_key_t ke
 	    ERROR("Could not send tag length in write_key_net\n");
 	    return -1;
 	} 
-	if (send_msg(nks->ns,tag,taglen)!=len) { 
+	if (send_msg(nks->ns,tag,taglen)!=taglen) { 
 	    ERROR("Could not send tag in write_key_net\n");
 	    return -1;
 	}

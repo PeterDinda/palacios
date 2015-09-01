@@ -894,6 +894,11 @@ static int deliver_ipi(struct apic_state * src_apic,
 	    }
 
 
+	    if (!src_apic) { 
+		PrintError(VM_NONE, VCORE_NONE, "Attempting to INIT from somewhere other than an APIC...  Ignoring\n");
+		break;
+	    }
+
 	    if (dst_apic->ipi_state != INIT_ST) { 
 		v3_raise_barrier(dst_core->vm_info, src_apic->core);
 		dst_core->core_run_state = CORE_STOPPED;

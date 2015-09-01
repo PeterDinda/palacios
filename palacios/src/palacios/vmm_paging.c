@@ -357,7 +357,7 @@ static int check_pt_32_cb(struct guest_info * info, page_type_t type, addr_t vad
 	    return -1;
     }
 
-    if (chk_data->access_status != PT_ACCESS_OK) {
+    if (*(chk_data->access_status) != PT_ACCESS_OK) {
 	return 1;
     }
 
@@ -386,7 +386,7 @@ static int check_pt_32pae_cb(struct guest_info * info, page_type_t type, addr_t 
 	    return -1;
     }
 
-    if (chk_data->access_status != PT_ACCESS_OK) {
+    if (*(chk_data->access_status) != PT_ACCESS_OK) {
 	return 1;
     }
 
@@ -419,7 +419,7 @@ static int check_pt_64_cb(struct guest_info * info, page_type_t type, addr_t vad
 	    return -1;
     }
 
-    if (chk_data->access_status != PT_ACCESS_OK) {
+    if (*(chk_data->access_status) != PT_ACCESS_OK) {
 	return 1;
     }
 
