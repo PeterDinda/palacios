@@ -305,7 +305,6 @@ int palacios_init_mm( void ) {
 		    INFO("Could not allocate initial memory block for node %d below 4GB\n", node_id);
 		    if (!pgs) {
 			ERROR("Could not allocate initial memory block for node %d without restrictions\n", node_id);
-			BUG_ON(!pgs);
 			palacios_deinit_mm();
 			return -1;
 		    }

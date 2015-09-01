@@ -413,16 +413,8 @@ static struct v3_device_ops dev_ops = {
 static int key_handler( struct cons_state * state, uint8_t ascii) {
     PrintDebug(VM_NONE, VCORE_NONE, "Character recieved: 0x%x\n", ascii);
 
-    // printable
-    if (ascii < 0x80) {
-	const struct key_code * key = &(ascii_to_key_code[ascii]);
 
-	if (deliver_scan_code(state, (struct key_code *)key) == -1) {
-	    PrintError(VM_NONE, VCORE_NONE, "Could not deliver scan code to vm\n");
-	    return -1;
-	}
-
-    } else if (ascii == ESC_CHAR) { // Escape Key
+    if (ascii == ESC_CHAR) { // Escape Key
 	// This means that another 2 characters are pending
 	// receive it and deliver accordingly
 	char esc_seq[2] = {0, 0};
@@ -457,7 +449,16 @@ static int key_handler( struct cons_state * state, uint8_t ascii) {
 	} else if (esc_seq[1] == 'D') {	        // LEFT ARROW
 	    struct key_code left = { 0x4B, 0 };
 	    deliver_scan_code(state, &left);
+	}   
+
+    } else if (ascii < 0x80) { // printable
+	const struct key_code * key = &(ascii_to_key_code[ascii]);
+
+	if (deliver_scan_code(state, (struct key_code *)key) == -1) {
+	    PrintError(VM_NONE, VCORE_NONE, "Could not deliver scan code to vm\n");
+	    return -1;
 	}
+
     } else {
 	PrintError(VM_NONE, VCORE_NONE, "Invalid character received from network (%c) (code=%d)\n",
 		   ascii, ascii);

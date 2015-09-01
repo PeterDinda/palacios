@@ -369,6 +369,7 @@ static long host_dev_ioctl(struct file * fp, unsigned int val, unsigned long arg
 	    
 	    switch (op.type) { 
 		case PALACIOS_HOST_DEV_USER_REQUEST_READ_GUEST: {
+		    // possible overflow here, but only if user is asking for too much...
 		    void *temp = palacios_alloc(op.len);
 
 		    DEEP_DEBUG_PRINT("palacios: hostdev: read guest\n");

@@ -163,7 +163,7 @@ int v3_init_swapping_vm(struct v3_vm_info *vm, struct v3_xml *config)
 
     // Can we allocate the file?
 
-    if ((vm->swap_state.swapfd = v3_file_open(vm,file, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE | FILE_OPEN_MODE_CREATE))<0) {
+    if (!(vm->swap_state.swapfd = v3_file_open(vm,file, FILE_OPEN_MODE_READ | FILE_OPEN_MODE_WRITE | FILE_OPEN_MODE_CREATE))) {
 	PrintError(vm,VCORE_NONE,"swapper: cannot open or create swap file\n");
 	return -1;
     } else {
@@ -196,7 +196,7 @@ int v3_init_swapping_vm(struct v3_vm_info *vm, struct v3_xml *config)
 	!strcasecmp(strategy,"next_fit") ? V3_SWAP_NEXT_FIT :
 	!strcasecmp(strategy,"random") ? V3_SWAP_RANDOM :
 	!strcasecmp(strategy,"lru") ? V3_SWAP_LRU :
-	!strcasecmp(strategy,"default") ? V3_SWAP_RANDOM :
+	!strcasecmp(strategy,"default") ? V3_SWAP_RANDOM :  // identical branches for clarity
 	V3_SWAP_RANDOM;
 
     vm->swap_state.host_mem_size=alloc;

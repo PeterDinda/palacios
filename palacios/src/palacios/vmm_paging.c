@@ -792,7 +792,7 @@ int v3_drill_host_pt_32(struct guest_info * info, v3_reg_t host_cr3, addr_t vadd
 	case PT_ENTRY_NOT_PRESENT:
 	    return -1;
 	case PT_ENTRY_LARGE_PAGE:
-	    if ((ret == callback(info, PAGE_4MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
+	    if ((ret = callback(info, PAGE_4MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
 		return (ret == -1) ? -1 : PAGE_4MB;
 	    }
 	    return 0;
@@ -842,7 +842,7 @@ int v3_drill_host_pt_32pae(struct guest_info * info, v3_reg_t host_cr3, addr_t v
 		case PT_ENTRY_NOT_PRESENT:
 		    return -1;
 		case PT_ENTRY_LARGE_PAGE:
-		    if ((ret == callback(info, PAGE_2MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
+		    if ((ret = callback(info, PAGE_2MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
 			return (ret == -1) ? -1 : PAGE_2MB;
 		    }
 		    return 0;
@@ -897,7 +897,7 @@ int v3_drill_host_pt_64(struct guest_info * info, v3_reg_t host_cr3, addr_t vadd
 		case PT_ENTRY_NOT_PRESENT:
 		    return -1;
 		case PT_ENTRY_LARGE_PAGE:
-		    if ((ret == callback(info, PAGE_1GB, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data)) != 0) {
+		    if ((ret = callback(info, PAGE_1GB, vaddr, (addr_t)V3_VAddr((void *)host_pde_pa), host_pde_pa, private_data)) != 0) {
 			return (ret == -1) ? -1 : PAGE_1GB;
 		    }
 		    PrintError(info->vm_info, info, "1 Gigabyte Pages not supported\n");
@@ -912,7 +912,7 @@ int v3_drill_host_pt_64(struct guest_info * info, v3_reg_t host_cr3, addr_t vadd
 			case PT_ENTRY_NOT_PRESENT:
 			    return -1;
 			case PT_ENTRY_LARGE_PAGE:
-			    if ((ret == callback(info, PAGE_2MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
+			    if ((ret = callback(info, PAGE_2MB, vaddr, (addr_t)V3_VAddr((void *)host_pte_pa), host_pte_pa, private_data)) != 0) {
 				return (ret == -1) ? -1 : PAGE_2MB;
 			    }
 			    return 0;
@@ -977,7 +977,7 @@ int v3_drill_guest_pt_32(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 		}
 
 
-		if ((ret == callback(info, PAGE_4MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
+		if ((ret = callback(info, PAGE_4MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
 		    return (ret == -1) ? -1 : PAGE_4MB;
 		}
 		return 0;
@@ -1071,7 +1071,7 @@ int v3_drill_guest_pt_32pae(struct guest_info * info, v3_reg_t guest_cr3, addr_t
 					large_page_va = 0;
 				    }
 	      
-				    if ((ret == callback(info, PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
+				    if ((ret = callback(info, PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
 					return (ret == -1) ? -1 : PAGE_2MB;
 				    }
 				    return 0;
@@ -1166,7 +1166,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 				large_page_va = 0;
 			    }
 	  
-			    if ((ret == callback(info, PAGE_1GB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
+			    if ((ret = callback(info, PAGE_1GB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
 				return (ret == -1) ? -1 : PAGE_1GB;
 			    }
 			    PrintError(info->vm_info, info, "1 Gigabyte Pages not supported\n");
@@ -1199,7 +1199,7 @@ int v3_drill_guest_pt_64(struct guest_info * info, v3_reg_t guest_cr3, addr_t va
 					    large_page_va = 0;
 					}
 	      
-					if ((ret == callback(info, PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
+					if ((ret = callback(info, PAGE_2MB, vaddr, large_page_va, large_page_pa, private_data)) != 0) {
 					    return (ret == -1) ? -1 : PAGE_2MB;
 					}
 					return 0;

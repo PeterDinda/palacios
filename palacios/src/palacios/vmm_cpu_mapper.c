@@ -224,7 +224,7 @@ int default_mapper_admit(struct v3_vm_info *vm, unsigned int cpu_mask){
     vcore_id--;
     }
 
-    if (vcore_id >= 0) {
+    if (vcore_id >= 0) { // dead code...
 	v3_stop_vm(vm);
 	return -1;
     }

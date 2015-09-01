@@ -35,6 +35,7 @@ int v3_init_events(struct v3_vm_info * vm) {
 	return -1;
     }
 
+    // dead code if there are no events, but this is correct
     for (i = 0; i < V3_EVENT_INVALID; i++) {
 	INIT_LIST_HEAD(&(map->events[i]));
     }
@@ -46,6 +47,8 @@ int v3_deinit_events(struct v3_vm_info * vm) {
     struct v3_event_map * map = &(vm->event_map);
     int i = 0;
 
+
+    // dead code if there are no events, but this is correct
     for (i = 0; i < V3_EVENT_INVALID; i++) {
 	if (!list_empty(&(map->events[i]))) {
 	    struct v3_notifier * tmp_notifier = NULL;

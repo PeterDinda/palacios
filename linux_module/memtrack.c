@@ -99,6 +99,7 @@ static int memtrack_snap(struct v3_guest *guest,
     
     //INFO("num_cores=%u",num_cores);
 
+    // overflow possible here, but only for an insane number of cores
     if (!(user_snap=palacios_alloc(sizeof(v3_mem_track_snapshot) + num_cores * sizeof(struct v3_core_mem_track)))) {
 	ERROR("palacios: cannot allocate memory for copying user snapshot\n");
 	goto fail;

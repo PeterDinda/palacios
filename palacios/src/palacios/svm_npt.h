@@ -63,6 +63,8 @@ static int handle_svm_invalidate_nested_addr(struct guest_info * info, addr_t in
 #endif
 
     switch(mode) {
+	// Note that the dead code here (for other than LONG and PROTECTED
+	// is kept here for clarity and parallelism with other impls
 	case REAL:
 	case PROTECTED:
 	  return invalidate_addr_32(info, inv_addr, actual_start, actual_end);
@@ -95,6 +97,8 @@ static int handle_svm_invalidate_nested_addr_range(struct guest_info * info,
 #endif
 
     switch(mode) {
+	// dead code except for LONG and PROTECTED cases
+	// this is kept for clarity and parallelism with other implementations
 	case REAL:
 	case PROTECTED:
 	  return invalidate_addr_32_range(info, inv_addr_start, inv_addr_end, actual_start, actual_end);

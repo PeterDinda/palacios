@@ -1853,6 +1853,7 @@ static long keyed_stream_ioctl_user(struct file * filp, unsigned int ioctl, unsi
             return -EFAULT;
         }
 
+	// overflow possible here for very large request
 	if (resize_op(&(s->op),size-sizeof(struct palacios_user_keyed_stream_op))) {
 	    ERROR("unable to resize op in user key push response\n");
             palacios_spinlock_unlock_irqrestore(&(s->lock), flags);
@@ -1934,6 +1935,7 @@ int keyed_stream_connect_user(struct v3_guest *guest, unsigned int cmd, unsigned
 	return -1;
     }
 
+    // overflow possible here, but only if this is a huge guest request (>4GB)
     url = palacios_alloc(len);
     
     if (!url) { 

@@ -275,7 +275,7 @@ static v3_qcow2_t *v3_qcow2_open(struct v3_vm_info* vm, char *path, int flags)
   
   res->fd = v3_file_open(vm, path, flags);
 	
-  if (res->fd < 0) {
+  if (!res->fd) {
     ERROR("failed to open underlying file\n");
     goto clean_mem;
   }

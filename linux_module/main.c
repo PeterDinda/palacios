@@ -122,6 +122,7 @@ static long v3_dev_ioctl(struct file * filp,
 	    guest->img_size = user_image.size;
 
 	    DEBUG("Palacios: Allocating kernel memory for guest image (%llu bytes)\n", user_image.size);
+	    // overflow possible here, but only if guest image is probably to large for kernel anyway...
 	    guest->img = palacios_valloc(guest->img_size);
 
 	    if (!guest->img) {
@@ -409,7 +410,7 @@ static int read_guests_details(struct seq_file *s, void *v)
     
     
  out:
-    if (mem) { palacios_vfree(mem); }
+    if (mem) { palacios_vfree(mem); } // dead code but kept for clarity
     if (core) { palacios_vfree(core); }
     if (base) { palacios_vfree(base); }
     
