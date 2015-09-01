@@ -37,6 +37,7 @@
 
 
 static int get_bitmap_index(uint_t msr) {
+    // unsigend cmoparison with zero intentional for clarity
     if ((msr >= PENTIUM_MSRS_START) && 
 	(msr <= PENTIUM_MSRS_END)) {
 	return (PENTIUM_MSRS_INDEX + (msr - PENTIUM_MSRS_START));

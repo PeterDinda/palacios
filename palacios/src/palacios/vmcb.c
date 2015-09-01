@@ -262,7 +262,7 @@ void PrintDebugVMCB(vmcb_t * vmcb) {
 		}
 	}
 
-	for (i=0;i<4;i++) { 
+	for (i=0;i<3;i++) { 
 		if (ctrl_area->rsvd2[i]) {
 			PrintDebug(VM_NONE, VCORE_NONE, "control rsvd2[%d] has value 0x%x\n", i, ctrl_area->rsvd2[i]);
 		}

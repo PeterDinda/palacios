@@ -59,8 +59,8 @@ int V3_init_extensions() {
 
     while (tmp_ext != __stop__v3_extensions) {
 
-        if ((*tmp_ext) && (*tmp_ext)->init && ((*tmp_ext)->init() != 0)) {
-	    PrintError(VM_NONE, VCORE_NONE, "Could not initialize extension (%s)\n", (*tmp_ext)->name);
+        if (!(*tmp_ext) || !(*tmp_ext)->init || ((*tmp_ext)->init() != 0)) {
+	    PrintError(VM_NONE, VCORE_NONE, "Could not initialize extension (%s)\n", (*tmp_ext) ? (*tmp_ext)->name : "UNKNOWN");
 	    return -1;
 	} 
 
