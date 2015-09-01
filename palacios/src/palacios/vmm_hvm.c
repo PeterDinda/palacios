@@ -563,7 +563,7 @@ uint32_t v3_get_hvm_hrt_cores(struct v3_vm_info *vm)
 int v3_is_hvm_ros_mem_gpa(struct v3_vm_info *vm, addr_t gpa)
 {
     if (vm->hvm_state.is_hvm) { 
-	return gpa>=0 && gpa<vm->hvm_state.first_hrt_gpa;
+	return gpa<vm->hvm_state.first_hrt_gpa;
     } else {
 	return 1;
     }

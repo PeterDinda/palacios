@@ -66,8 +66,6 @@ static int cursor_update(uint_t x, uint_t y, void *private_data)
     PrintDebug(VM_NONE, VCORE_NONE, "cursor_update(%d, %d, %p)\n", x, y, private_data);
 
     /* avoid out-of-range coordinates */
-    if (x < 0) x = 0;
-    if (y < 0) y = 0;
     if (x >= state->cols) x = state->cols - 1;
     if (y >= state->rows) y = state->rows - 1;
     offset = (x + y * state->cols) * BYTES_PER_COL;

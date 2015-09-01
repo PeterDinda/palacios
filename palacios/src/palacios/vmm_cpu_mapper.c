@@ -194,6 +194,7 @@ int default_mapper_admit(struct v3_vm_info *vm, unsigned int cpu_mask){
 	if (specified_cpu != NULL) {
 	    core_idx = atoi(specified_cpu);
 
+	    // unsigned comparison with 0
 	    if (core_idx < 0) {
 		PrintError(vm, VCORE_NONE, "Target CPU out of bounds (%d) \n", core_idx);
 	    }

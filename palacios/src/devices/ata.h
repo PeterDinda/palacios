@@ -215,7 +215,7 @@ static int ata_get_lba_and_size(struct ide_internal * ide, struct ide_channel * 
 	    // we are in CHS mode....
 	    
 	    *lba = 
-		(drive->cylinder * drive->num_heads + 
+		((uint64_t)drive->cylinder * drive->num_heads + 
 		 channel->drive_head.head_num) * drive->num_sectors +
 		// sector number is 1 based
 		(drive->sector_num - 1);

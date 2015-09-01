@@ -499,7 +499,7 @@ void v3_init_time_core(struct guest_info * info) {
 	(time_state->clock_ratio_num != 1) ||
 	(info->vm_info->time_state.td_num != 1) || 
 	(info->vm_info->time_state.td_denom != 1)) { 
-	if (time_state->flags | VM_TIME_TSC_PASSTHROUGH) {
+	if (time_state->flags & VM_TIME_TSC_PASSTHROUGH) {
 	    PrintError(info->vm_info, info, "WARNING: Cannot use reqested passthrough TSC with clock or time modification also requested.\n");
 	    time_state->flags &= ~VM_TIME_TSC_PASSTHROUGH;
 	}

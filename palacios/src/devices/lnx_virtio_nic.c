@@ -612,7 +612,8 @@ static int virtio_rx(uint8_t * buf, uint32_t size, void * private_data) {
     if (q->cur_avail_idx != q->avail->index){
 	uint16_t buf_idx;
 	struct vring_desc * buf_desc;
-	uint32_t hdr_len, len;
+	uint32_t hdr_len;
+	int len;
 	uint32_t offset = 0;
 
 	hdr_len = (virtio->mergeable_rx_bufs)?

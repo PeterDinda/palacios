@@ -247,7 +247,7 @@ static int register_dev(struct paragraph_state *state)
     target_size = state->mem_size;
     break;
   case GCONS_DIRECT:
-    target_size = state->target_spec.height*state->target_spec.width*state->target_spec.bytes_per_pixel;
+      target_size = (uint64_t)state->target_spec.height*state->target_spec.width*state->target_spec.bytes_per_pixel;
     break;
   default:
     PrintError(state->vm, VCORE_NONE, "paragraph: Unknown mode\n");
@@ -344,7 +344,7 @@ static int render_callback(v3_graphics_console_t cons,
     PrintDebug(state->vm, VCORE_NONE, "paragraph: render callback GCONS_MEM\n");
 
     void *fb = v3_graphics_console_get_frame_buffer_data_rw(state->host_cons,&(state->target_spec));
-    uint64_t target_size = state->target_spec.height*state->target_spec.width*state->target_spec.bytes_per_pixel;
+    uint64_t target_size = (uint64_t)state->target_spec.height*state->target_spec.width*state->target_spec.bytes_per_pixel;
     
     // must be smaller than the memory we have allocated
     target_size = target_size<state->mem_size ? target_size : state->mem_size;

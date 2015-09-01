@@ -31,6 +31,7 @@
 
 static int get_bitmap_index(uint_t msr)
 {
+    // unsigned comparison with 0 here for clarity
     if( (msr >= LOW_MSR_START) && msr <= LOW_MSR_END) {
         return LOW_MSR_INDEX + msr;
     } else if (( msr >= HIGH_MSR_START ) && (msr <= HIGH_MSR_END)) {

@@ -101,7 +101,7 @@ static int blk_init(struct v3_vm_info * vm, v3_cfg_tree_t * cfg) {
     struct blk_state * blk = NULL;
     v3_cfg_tree_t * frontend_cfg = v3_cfg_subtree(cfg, "frontend");
     char * dev_id = v3_cfg_val(cfg, "ID");
-    uint64_t capacity = atoi(v3_cfg_val(cfg, "size")) * 1024 * 1024;
+    uint64_t capacity = atoi(v3_cfg_val(cfg, "size")) * 1024ULL * 1024ULL;
     
     if (!frontend_cfg) {
 	PrintError(vm, VCORE_NONE, "Frontend Configuration not present\n");
