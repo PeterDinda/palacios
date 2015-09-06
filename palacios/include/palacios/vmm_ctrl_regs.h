@@ -119,9 +119,13 @@ struct cr4_32 {
     uint_t mce               : 1;
     uint_t pge               : 1;
     uint_t pce               : 1;
-    uint_t osf_xsr           : 1;
-    uint_t osx               : 1;
-    uint_t rsvd1             : 21;
+    uint_t os_fxsr           : 1;
+    uint_t osxmmexcpt        : 1;
+    uint_t rsvd0             : 5;
+    uint_t fsgsbase          : 1;
+    uint_t rsvd1             : 1;
+    uint_t osxsave           : 1;
+    uint_t rsvd2             : 13;
 } __attribute__((packed));
 
 struct cr4_64 {
@@ -134,10 +138,14 @@ struct cr4_64 {
     uint_t mce               : 1;
     uint_t pge               : 1;
     uint_t pce               : 1;
-    uint_t osf_xsr           : 1;
-    uint_t osx               : 1;
-    uint_t rsvd1             : 21;
-    uint_t rsvd2             : 32;
+    uint_t os_fxsr           : 1;
+    uint_t osxmmexcpt        : 1;
+    uint_t rsvd0             : 5;
+    uint_t fsgsbase          : 1;
+    uint_t rsvd1             : 1;
+    uint_t osxsave           : 1;
+    uint_t rsvd2             : 13;
+    uint_t rsvd3             : 32;
 } __attribute__((packed));
 
 
