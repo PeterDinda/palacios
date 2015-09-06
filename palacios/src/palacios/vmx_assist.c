@@ -331,7 +331,7 @@ int v3_vmxassist_init(struct guest_info * core, struct vmx_data * vmx_state) {
  
     if (core->shdw_pg_mode == NESTED_PAGING) {
 	// setup 1to1 page table internally.
-	int i = 0;
+	unsigned long i = 0;
 	pde32_4MB_t * pde = NULL;
 
 	V3_Print(core->vm_info, core, "Setting up internal VMXASSIST page tables\n");
