@@ -157,7 +157,32 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 	    
 	case 0xf: // get HRT state
 	    core->vm_regs.rax = h->trans_state;
+	    if (v3_write_gva_memory(core, a2, sizeof(h->ros_event), (uint8_t*) &h->ros_event)!=sizeof(h->ros_event)) { 
+		PrintError(core->vm_info, core, "hvm: cannot write back ROS event state to %p - continuing\n",(void*)a2);
+	    }
 	    //PrintDebug(core->vm_info,core,"hvm: get HRT transaction state 0x%llx\n",core->vm_regs.rax);
+	    break;
+
+	case 0x10:
+	    PrintDebug(core->vm_info, core, "hvm: ROS event request\n");
+	    if (h->ros_event.event_type!=ROS_NONE) { 
+		PrintError(core->vm_info, core, "hvm: ROS event is already in progress\n");
+		core->vm_regs.rax = -1;
+	    } else {
+		if (v3_read_gva_memory(core, a2, sizeof(h->ros_event), (uint8_t*)&h->ros_event)!=sizeof(h->ros_event)) { 
+		    PrintError(core->vm_info, core, "hvm: cannot read ROS event from %p\n",(void*)a2);
+		    core->vm_regs.rax = -1;
+		} else {
+		    core->vm_regs.rax = 0;
+		}
+	    }
+
+	    break;
+
+	case 0x1f:
+	    PrintDebug(core->vm_info, core, "hvm: completion of ROS event (rc=0x%llx)\n",a2);
+	    h->ros_event.event_type=ROS_NONE;
+	    h->ros_event.last_ros_event_result = a2;
 	    break;
 
 	case 0x20: // invoke function (ROS->HRT)

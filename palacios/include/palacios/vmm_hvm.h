@@ -26,6 +26,21 @@
 #include <palacios/vmm_types.h>
 #include <palacios/vmm_multiboot.h>
 
+struct v3_ros_event {
+    enum { ROS_NONE=0, ROS_PAGE_FAULT=1, ROS_SYSCALL=2 } event_type;
+    uint64_t       last_ros_event_result; // valid when ROS_NONE
+    union {
+	struct {   // valid when ROS_PAGE_FAULT
+	    uint64_t rip;
+	    uint64_t cr2;
+	    enum {ROS_READ, ROS_WRITE} action;
+	} page_fault;
+	struct { // valid when ROS_SYSCALL
+	    uint64_t args[8];
+	} syscall;
+    };
+};
+
 struct v3_vm_hvm {
     uint8_t   is_hvm;
     uint32_t  first_hrt_core;
@@ -50,6 +65,10 @@ struct v3_vm_hvm {
 
     enum {HRT_IDLE=0, HRT_CALL=1, HRT_PARCALL=2, HRT_SYNCSETUP=3, HRT_SYNC=4, HRT_SYNCTEARDOWN=5, HRT_MERGE=6} trans_state;
     uint64_t  trans_count;
+
+    // the ROS event to be handed back
+    struct v3_ros_event ros_event;
+
 };
 
 struct v3_core_hvm {
@@ -173,7 +192,14 @@ int v3_handle_hvm_reset(struct guest_info *core);
    0x1  =>  Reboot ROS
    0x2  =>  Reboot HRT
    0x3  =>  Reboot Both
-   0xf  =>  Get HRT transaction state
+   0xf  =>  Get HRT transaction state and current ROS event
+            first argument is pointer to the ROS event state 
+	    to be filled out
+
+   0x10 =>  ROS event request (HRT->ROS)
+            first argument is pointer where to write the ROS event state
+   0x1f =>  ROS event completion (ROS->HRT)
+            first argument is the result code
 
    0x20 =>  Invoke function (ROS->HRT)
             first argument is pointer to structure describing call
