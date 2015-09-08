@@ -42,6 +42,8 @@ struct v3_mem_hooks {
     /* We track memory hooks via a hash table */
     /* keyed to the memory region pointer */
     struct hashtable * reg_table; 
+
+    int inited; // structure needs to be deinited
 };
 
 

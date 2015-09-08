@@ -81,6 +81,8 @@ int v3_init_mem_hooks(struct v3_vm_info * vm) {
 
     hooks->reg_table = v3_create_htable(0, mem_hash_fn, mem_eq_fn);
 
+    hooks->inited=1;
+
     return 0;
 }
 
@@ -92,6 +94,10 @@ int v3_deinit_mem_hooks(struct v3_vm_info * vm) {
     struct mem_hook * hook = NULL;
     struct mem_hook * tmp = NULL;
 
+
+    if (!hooks->inited) { 
+	return 0;
+    }
 
     // This is nasty...
     // We delete the hook info but leave its memory region intact

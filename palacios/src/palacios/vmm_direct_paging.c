@@ -407,6 +407,7 @@ int v3_init_passthrough_paging(struct v3_vm_info *vm)
 {
   INIT_LIST_HEAD(&(vm->passthrough_impl.event_callback_list));
   v3_rw_lock_init(&(vm->passthrough_impl.event_callback_lock));
+  vm->passthrough_impl.inited=1;
   return 0;
 }
 
@@ -415,6 +416,10 @@ int v3_deinit_passthrough_paging(struct v3_vm_info *vm)
   struct passthrough_event_callback *cb,*temp;
   addr_t flags;
   
+  if (!vm->passthrough_impl.inited) { 
+      return 0;
+  }
+
   flags=v3_write_lock_irqsave(&(vm->passthrough_impl.event_callback_lock));
   
   list_for_each_entry_safe(cb,
