@@ -1,0 +1,44 @@
+This is a library that encapsulates interaction between
+a ROS Linux application and an HRT that are both running
+in the same HVM.   A test application is included.
+
+ROS/HRT interaction is done via Palacios's HVM component
+and there is a detailed technical description in 
+palacios/include/palacios/vmm_hvm.h.  
+
+When the HVM is started, both the ROS (Linux) and the HRT
+(for example, Nautilus) are booted simultaneously.   
+
+A Linux application running in the ROS has control over the
+HRT and the ROS..  Specifically, it can:
+
+- reboot the HRT
+- reboot the ROS
+- reboot the whole HVM
+
+- merge/unmerge its address space with the HRT's address
+  space (provided the HRT can do so (e.g. Nautilus))
+
+- asynchronously invoke functions with the HRT
+  functions can be invoked on the HRT's first core 
+  or simultaneously on all cores of the HRT
+
+- synchronize with the HRT to decide on a common memory
+  location to use for future, synchronous communication
+  via that memory.   And teardown when this is done.
+
+The HRT can in turn call back to the ROS application
+for the following reasons, which are really only sensical
+for a merged address space.  These callbacks currently include:
+
+- system call forwarding
+
+- page fault forwarding (for the ROS user portion of 
+  the address space)
+
+Because on the ROS side, we do everything within user
+space, the ROS currently needs to poll.  It polls both 
+to determine completion of a request, and get event
+callbacks from the HRT.
+
+
