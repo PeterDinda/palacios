@@ -239,6 +239,35 @@ static void wait_for_completion()
   }
 }
 
+int v3_hvm_ros_reset(reset_type what)
+{
+    unsigned long long num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+    unsigned long long rc;
+    
+    num=0xf00d;
+    switch (what) { 
+	case RESET_ROS:
+	    a1 = 0x1;
+	    break;
+	case RESET_HRT:
+	    a1 = 0x2;
+	    break;
+	case RESET_BOTH:
+	    a1 = 0x3;
+	    break;
+    }
+    
+    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+    
+    if (rc) {
+	INFO("Error in request to reset rc=0x%llx\n",rc);
+	return -1;
+    } else {
+	// no waiting for completion here
+	return 0;
+    }
+}
+
 
 int v3_hvm_ros_merge_address_spaces()
 {
