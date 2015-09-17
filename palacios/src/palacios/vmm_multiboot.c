@@ -181,7 +181,7 @@ static int checksum4_ok(uint32_t *data, uint64_t size)
     return sum==0;
 }
 
-static int parse_multiboot_kernel(uint8_t *data, uint64_t size, mb_data_t *mb)
+int v3_parse_multiboot_header(void *data, uint64_t size, mb_data_t *mb)
 {
     uint64_t i;
 
@@ -326,11 +326,6 @@ static int parse_multiboot_kernel(uint8_t *data, uint64_t size, mb_data_t *mb)
     return 0;
 }
 
-
-int v3_parse_multiboot_header(struct v3_cfg_file *file, mb_data_t *result)
-{
-    return parse_multiboot_kernel(file->data,file->size,result);
-}
 
 
 #define APIC_BASE     0xfee00000
@@ -541,11 +536,11 @@ uint64_t v3_build_multiboot_table(struct guest_info *core, uint8_t *dest, uint64
 }
 
 
-int v3_write_multiboot_kernel(struct v3_vm_info *vm, mb_data_t *mb, struct v3_cfg_file *file,
+int v3_write_multiboot_kernel(struct v3_vm_info *vm, mb_data_t *mb, void *data, uint64_t len,
 			      void *base, uint64_t limit)
 {
     uint32_t offset=0;
-    uint32_t header_offset = (uint32_t) ((uint64_t)(mb->header) - (uint64_t)(file->data));
+    uint32_t header_offset = (uint32_t) ((uint64_t)(mb->header) - (uint64_t)(data));
     uint32_t size;
 
     if (!mb->addr || !mb->entry) { 
@@ -563,15 +558,15 @@ int v3_write_multiboot_kernel(struct v3_vm_info *vm, mb_data_t *mb, struct v3_cf
     offset = header_offset - (mb->addr->header_addr - mb->addr->load_addr);
     size = mb->addr->load_end_addr - mb->addr->load_addr;
     
-    if (size != file->size-offset) { 
-	V3_Print(vm,VCORE_NONE,"multiboot: strange: size computed as %u, but file->size-offset = %llu\n",size,file->size-offset);
+    if (size != len-offset) { 
+	V3_Print(vm,VCORE_NONE,"multiboot: strange: size computed as %u, but len-offset = %llu\n",size,len-offset);
     }
 
     // We are trying to do as little ELF loading here as humanly possible
     v3_write_gpa_memory(&vm->cores[0],
 			(addr_t)(mb->addr->load_addr),
 			size,
-			file->data+offset);
+			data+offset);
 
     PrintDebug(vm,VCORE_NONE,
 	       "multiboot: wrote 0x%llx bytes starting at offset 0x%llx to %p\n",
@@ -615,11 +610,11 @@ static int setup_multiboot_kernel(struct v3_vm_info *vm)
     } else {
 	if (find_mb_header(vm->mb_state.mb_file->data,vm->mb_state.mb_file->size)) { 
 	    PrintDebug(vm,VCORE_NONE,"multiboot: appears to be a multiboot kernel\n");
-	    if (v3_parse_multiboot_header(vm->mb_state.mb_file,&vm->mb_state.mb_data)) { 
+	    if (v3_parse_multiboot_header(vm->mb_state.mb_file->data,vm->mb_state.mb_file->size,&vm->mb_state.mb_data)) { 
 		PrintError(vm,VCORE_NONE,"multiboot: cannot parse multiboot kernel header\n");
 		return -1;
 	    }
-	    if (v3_write_multiboot_kernel(vm, &(vm->mb_state.mb_data),vm->mb_state.mb_file,base,limit)) { 
+	    if (v3_write_multiboot_kernel(vm, &(vm->mb_state.mb_data),vm->mb_state.mb_file->data,vm->mb_state.mb_file->size,base,limit)) { 
 		PrintError(vm,VCORE_NONE,"multiboot: multiboot kernel setup failed\n");
 		return -1;
 	    } 

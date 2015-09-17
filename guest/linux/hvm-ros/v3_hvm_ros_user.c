@@ -239,6 +239,32 @@ static void wait_for_completion()
   }
 }
 
+
+int v3_hvm_ros_install_hrt_image(void *image, uint64_t size)
+{
+    unsigned long long rc, num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+    unsigned long long i;
+    volatile long long sum=0;
+
+    num = 0xf00d;
+    a1 = 0x8; // install image
+    a2 = (unsigned long long) image;
+    a3 = size;
+
+    // touch the whoel image to make it has ptes
+    for (i=0;i<size;i++) { 
+	sum+=((char*)image)[i];
+    }
+
+    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+
+    if (rc) { 
+	return -1;
+    } else {
+	return 0;
+    }
+}
+
 int v3_hvm_ros_reset(reset_type what)
 {
     unsigned long long num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;

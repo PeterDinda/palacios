@@ -45,7 +45,9 @@ struct v3_vm_hvm {
     uint8_t   is_hvm;
     uint32_t  first_hrt_core;
     uint64_t  first_hrt_gpa;
-    struct v3_cfg_file *hrt_file;
+    struct v3_cfg_file *hrt_file;  // image provided via PAL file, if any
+    void      *hrt_image;          // image provided by ROS, if any
+    uint64_t  hrt_image_size;      //   size of this image
     uint64_t  hrt_entry_addr;
     enum { HRT_BLOB, HRT_ELF64, HRT_MBOOT2, HRT_MBOOT64 } hrt_type;
 
@@ -192,6 +194,10 @@ int v3_handle_hvm_reset(struct guest_info *core);
    0x1  =>  Reboot ROS
    0x2  =>  Reboot HRT
    0x3  =>  Reboot Both
+
+   0x8  =>  Replace HRT image
+            pass in pointer (gva) and length of new image
+
    0xf  =>  Get HRT transaction state and current ROS event
             first argument is pointer to the ROS event state 
 	    to be filled out

@@ -13,6 +13,11 @@ int v3_hvm_ros_user_init();
 int v3_hvm_ros_user_deinit();
 
 
+// Replace the existing HRT with a new one
+//  - this does not boot the new HRT
+//  - the intial image is the one given in the .pal config
+int v3_hvm_ros_install_hrt_image(void *image, uint64_t size);
+
 typedef enum {RESET_HRT, RESET_ROS, RESET_BOTH} reset_type;
 
 int v3_hvm_ros_reset(reset_type what);

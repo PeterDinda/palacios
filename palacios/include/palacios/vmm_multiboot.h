@@ -295,8 +295,8 @@ int v3_setup_multiboot_core_for_boot(struct guest_info *core);
 int v3_handle_multiboot_reset(struct guest_info *core);
 
 // The following are utility functions that HVM builds on
-int      v3_parse_multiboot_header(struct v3_cfg_file *file, mb_data_t *result);
-int      v3_write_multiboot_kernel(struct v3_vm_info *vm, mb_data_t *mb, struct v3_cfg_file *file, 
+int      v3_parse_multiboot_header(void *data, uint64_t len, mb_data_t *result);
+int      v3_write_multiboot_kernel(struct v3_vm_info *vm, mb_data_t *mb, void *data, uint64_t len,
 				   void *base, uint64_t limit);
 // The multiboot table is prepared from the perspective of the given
 // core - this allows it to be generated appropriately for ROS and HRT cores

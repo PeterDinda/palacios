@@ -104,6 +104,7 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
     uint64_t bitness = core->vm_regs.rbx;
     uint64_t a1 = core->vm_regs.rcx;
     uint64_t a2 = core->vm_regs.rdx;
+    uint64_t a3 = core->vm_regs.rsi;
     struct v3_vm_hvm *h = &core->vm_info->hvm_state;
 
 
@@ -155,6 +156,40 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 	    }
 	    break;
 	    
+	case 0x8: // replace HRT image
+	    // a2 = gva of image
+	    // a3 = size of image
+	    PrintDebug(core->vm_info,core,"hvm: request replacement HRT image addr=0x%llx size=0x%llx\n",a2,a3);
+
+	    if (h->hrt_image) { 
+		// delete old
+		V3_VFree(h->hrt_image);
+		h->hrt_image = 0;
+	    }
+
+	    h->hrt_image = V3_VMalloc(a3);
+
+	    if (!(h->hrt_image)) {
+		PrintError(core->vm_info,core, "hvm: failed to allocate space for replacement image\n");
+		core->vm_regs.rax = -1;
+	    } else {
+		if (v3_read_gva_memory(core, a2, a3, (uint8_t*) h->hrt_image)!=a3) { 
+		    PrintError(core->vm_info, core, "hvm: cannot read replacement image\n");
+		    core->vm_regs.rax = -1;
+		} else {
+		    h->hrt_image_size = a3; 
+		    core->vm_regs.rax = 0;
+		}
+	    }
+
+	    if (core->vm_regs.rax) { 
+		PrintError(core->vm_info,core,"hvm: Failed to replace HRT image\n");
+	    } else {
+		PrintDebug(core->vm_info,core,"hvm: HRT image successfully replaced\n");
+	    }
+
+	    break;
+
 	case 0xf: // get HRT state
 	    core->vm_regs.rax = h->trans_state;
 	    if (v3_write_gva_memory(core, a2, sizeof(h->ros_event), (uint8_t*) &h->ros_event)!=sizeof(h->ros_event)) { 
@@ -519,6 +554,12 @@ int v3_init_hvm_vm(struct v3_vm_info *vm, struct v3_xml *config)
 int v3_deinit_hvm_vm(struct v3_vm_info *vm)
 {
     PrintDebug(vm, VCORE_NONE, "hvm: HVM VM deinit\n");
+
+    if (vm->hvm_state.hrt_image) { 
+	V3_VFree(vm->hvm_state.hrt_image);
+	vm->hvm_state.hrt_image=0;
+	vm->hvm_state.hrt_image_size=0;
+    }
 
     v3_remove_hypercall(vm,HVM_HCALL);
 
@@ -1346,12 +1387,17 @@ static int configure_hrt(struct v3_vm_info *vm, mb_data_t *mb)
 
 }
 
-static int setup_mb_kernel_hrt(struct v3_vm_info *vm)
+static int setup_mb_kernel_hrt(struct v3_vm_info *vm, void *data, uint64_t size)
 {
     mb_data_t mb;
 
-    if (v3_parse_multiboot_header(vm->hvm_state.hrt_file,&mb)) { 
+    if (v3_parse_multiboot_header(data, size, &mb)) { 
 	PrintError(vm,VCORE_NONE, "hvm: failed to parse multiboot kernel header\n");
+	return -1;
+    }
+
+    if (!mb.mb64_hrt) { 
+	PrintError(vm,VCORE_NONE,"hvm: invalid HRT - there is no MB64_HRT tag\n");
 	return -1;
     }
 
@@ -1360,7 +1406,7 @@ static int setup_mb_kernel_hrt(struct v3_vm_info *vm)
 	return -1;
     }
     
-    if (v3_write_multiboot_kernel(vm,&mb,vm->hvm_state.hrt_file,
+    if (v3_write_multiboot_kernel(vm,&mb,data,size,
 				  (void*)vm->hvm_state.first_hrt_gpa,
 				  vm->mem_size-vm->hvm_state.first_hrt_gpa)) {
 	PrintError(vm,VCORE_NONE, "hvm: failed to write multiboot kernel into memory\n");
@@ -1382,11 +1428,23 @@ static int setup_mb_kernel_hrt(struct v3_vm_info *vm)
 
 static int setup_hrt(struct v3_vm_info *vm)
 {
-    if (is_elf(vm->hvm_state.hrt_file->data,vm->hvm_state.hrt_file->size) && 
-	find_mb_header(vm->hvm_state.hrt_file->data,vm->hvm_state.hrt_file->size)) { 
+    void *data;
+    uint64_t size;
+
+    // If the ROS has installed an image, it takes priority
+    if (vm->hvm_state.hrt_image) { 
+	data = vm->hvm_state.hrt_image;
+	size = vm->hvm_state.hrt_image_size;
+    } else {
+	data = vm->hvm_state.hrt_file->data;
+	size = vm->hvm_state.hrt_file->size;
+    }
+	
+    if (is_elf(data,size) &&
+	find_mb_header(data,size)) {
 
 	PrintDebug(vm,VCORE_NONE,"hvm: appears to be a multiboot kernel\n");
-	if (setup_mb_kernel_hrt(vm)) { 
+	if (setup_mb_kernel_hrt(vm,data,size)) { 
 	    PrintError(vm,VCORE_NONE,"hvm: multiboot kernel setup failed\n");
 	    return -1;
 	} 
