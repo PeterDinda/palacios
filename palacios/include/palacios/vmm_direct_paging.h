@@ -111,6 +111,7 @@ struct v3_nested_impl_state {
     // The externally visible state is just the callbacks
     v3_rw_lock_t     event_callback_lock;
     struct list_head event_callback_list;
+    int              inited; 
 };
 
 int v3_init_nested_paging(struct v3_vm_info *vm);

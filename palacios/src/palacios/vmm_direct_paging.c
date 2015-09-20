@@ -624,6 +624,7 @@ int v3_init_nested_paging(struct v3_vm_info *vm)
 {
   INIT_LIST_HEAD(&(vm->nested_impl.event_callback_list));
   v3_rw_lock_init(&(vm->nested_impl.event_callback_lock));
+  vm->nested_impl.inited=1;
   return 0;
 }
 
@@ -644,6 +645,10 @@ int v3_deinit_nested_paging(struct v3_vm_info *vm)
   struct nested_event_callback *cb,*temp;
   addr_t flags;
   
+  if (!vm->nested_impl.inited) { 
+      return 0;
+  }
+
   flags=v3_write_lock_irqsave(&(vm->nested_impl.event_callback_lock));
     
   list_for_each_entry_safe(cb,
