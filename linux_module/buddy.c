@@ -534,9 +534,9 @@ zone_mem_show(struct seq_file * s, void * v) {
 
 
 static int zone_proc_open(struct inode * inode, struct file * filp) {
-    struct proc_dir_entry * proc_entry = PDE(inode);
-    INFO("proc_entry at %p, data at %p\n", proc_entry, proc_entry->data);
-    return single_open(filp, zone_mem_show, proc_entry->data);
+    struct proc_dir_entry * proc_entry = PAL_PDE(inode);
+    INFO("proc_entry at %p, data at %p\n", proc_entry, PAL_PROC_GETDATA(inode));
+    return single_open(filp, zone_mem_show, PAL_PROC_GETDATA(inode));
 }
 
 
@@ -655,6 +655,8 @@ buddy_init(
 {
     struct buddy_memzone * zone = NULL;
     unsigned long i;
+	struct proc_dir_entry * zone_entry = NULL;
+	char proc_file_name[128];
 
     DEBUG("Initializing Memory zone with up to %lu bit blocks on Node %d\n", max_order, node_id);
 
@@ -705,23 +707,17 @@ buddy_init(
 
     INFO("Allocated zone at %p\n", zone);
 
-    {
-	struct proc_dir_entry * zone_entry = NULL;
-	char proc_file_name[128];
 
 	memset(proc_file_name, 0, 128);
 	snprintf(proc_file_name, 128, "v3-mem%u", zone->node_id);
 
-	zone_entry = create_proc_entry(proc_file_name, 0444, palacios_get_procdir());
-	if (zone_entry) {
-	    zone_entry->proc_fops = &zone_proc_ops;
-	    zone_entry->data = zone;
+    PAL_PROC_CREATE_DATA(zone_entry, proc_file_name, 0444, palacios_get_procdir(), &zone_proc_ops, zone);
+    if (zone_entry) {
 	    INFO("Successfully created /proc/v3vee/v3-mem%d\n", zone->node_id);
 	} else {
 	    ERROR("Cannot create /proc/v3vee/v3-mem%d\n", zone->node_id);
 	}
 
-    }
 
     return zone;
 }

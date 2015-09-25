@@ -493,14 +493,12 @@ static int read_guests(struct seq_file *s, void *v)
 
 static int guests_short_proc_open(struct inode * inode, struct file * filp) 
 {
-    struct proc_dir_entry * proc_entry = PDE(inode);
-    return single_open(filp, read_guests, proc_entry->data);
+    return single_open(filp, read_guests, PAL_PROC_GETDATA(inode));
 }
 
 static int guests_full_proc_open(struct inode * inode, struct file * filp) 
 {
-    struct proc_dir_entry * proc_entry = PDE(inode);
-    return single_open(filp, read_guests_details, proc_entry->data);
+    return single_open(filp, read_guests_details, PAL_PROC_GETDATA(inode));
 }
 
 
@@ -580,8 +578,7 @@ static int read_info(struct seq_file *s, void *v)
 
 static int info_proc_open(struct inode * inode, struct file * filp) 
 {
-    struct proc_dir_entry * proc_entry = PDE(inode);
-    return single_open(filp, read_info, proc_entry->data);
+    return single_open(filp, read_info, PAL_PROC_GETDATA(inode));
 }
 
 
@@ -684,31 +681,26 @@ static int __init v3_init(void) {
     {
 	struct proc_dir_entry *entry;
 
-	entry = create_proc_entry("v3-guests", 0444, palacios_proc_dir);
-        if (entry) {
-	    entry->proc_fops = &guest_short_proc_ops;
-	    INFO("/proc/v3vee/v3-guests successfully created\n");
-	} else {
-	    ERROR("Could not create proc entry\n");
-	    goto failure6;
-	}
-	entry = create_proc_entry("v3-guests-details", 0444, palacios_proc_dir);
-        if (entry) {
-	    entry->proc_fops = &guest_full_proc_ops;
-	    INFO("/proc/v3vee/v3-guests-details successfully created\n");
-	} else {
-	    ERROR("Could not create proc entry\n");
-	    goto failure7;
-	}
+#define PALPROC(ent, success, error, out_target, fname, perm, parent, fops) \
+    PAL_PROC_CREATE(ent, fname, perm, parent, fops); \
+    if (ent) {                                    \
+        INFO(success);                            \
+    } else {                                      \
+        ERROR(error);                             \
+        goto out_target;                          \
+    }
 
-	entry = create_proc_entry("v3-info", 0444, palacios_proc_dir);
-        if (entry) {
-	    entry->proc_fops = &info_proc_ops;
-	    INFO("/proc/v3vee/v3-info successfully created\n");
-	} else {
-	    ERROR("Could not create proc entry\n");
-	    goto failure8;
-	}
+    PALPROC(entry, "/proc/v3vee/v3-guests succesfully created\n", 
+            "Could not create proc entry\n", failure6,
+            "v3-guests", 0444, palacios_proc_dir, &guest_short_proc_ops);
+
+    PALPROC(entry, "/proc/v3vee/v3-guests-details successfully created\n",
+            "Could not create proc entry\n", failure7, 
+            "v3-guests-details", 0444, palacios_proc_dir, &guest_full_proc_ops);
+
+    PALPROC(entry, "/proc/v3vee/v3-info successfully created\n", 
+            "Could not create proc entry\n", failure8, 
+            "v3-info", 0444, palacios_proc_dir, &info_proc_ops);
 
 
     }

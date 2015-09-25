@@ -10,6 +10,15 @@
 
 #define PCI_HDR_SIZE 256
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 43)
+#define IOMMU_FOUND()        iommu_present(&pci_bus_type)
+#define IOMMU_DOMAIN_ALLOC() iommu_domain_alloc(&pci_bus_type)
+#else
+#define IOMMU_FOUND()        iommu_found()
+#define IOMMU_DOMAIN_ALLOC() iommu_domain_alloc()
+#endif
+
+
 
 static int setup_hw_pci_dev(struct host_pci_device * host_dev) {
     int ret = 0;
@@ -136,7 +145,7 @@ static int setup_hw_pci_dev(struct host_pci_device * host_dev) {
 
 
     /* HARDCODED for now but this will need to depend on IOMMU support detection */
-    if (iommu_found()) {
+    if (IOMMU_FOUND()) {
 	printk("Setting host PCI device (%s) as IOMMU\n", host_dev->name);
 	v3_dev->iface = IOMMU;
     } else {
@@ -345,7 +354,7 @@ static int reserve_hw_pci_dev(struct host_pci_device * host_dev, void * v3_ctx) 
 	int flags = 0;
 	uintptr_t gpa = 0;
 
-	host_dev->hw_dev.iommu_domain = iommu_domain_alloc();
+	host_dev->hw_dev.iommu_domain = IOMMU_DOMAIN_ALLOC();
 
 	while (V3_get_guest_mem_region(v3_ctx, &region, gpa)) {
 	

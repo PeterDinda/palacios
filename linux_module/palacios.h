@@ -5,6 +5,7 @@
 #include <linux/list.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 
 
 /* Global Control IOCTLs */
@@ -229,6 +230,36 @@ void  palacios_mutex_unlock_irqrestore(void *mutex, void *flags);
 #define NOTICE(fmt, args...) printk((KERN_NOTICE "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
 #define INFO(fmt, args...) printk((KERN_INFO "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
 #define DEBUG(fmt, args...) printk((KERN_DEBUG "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
+
+/* Linux proc versioning */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+
+#define PAL_PROC_CREATE(ent, fname, perm, parent, fops) \
+    ent = proc_create(fname, perm, parent, fops); 
+
+#define PAL_PROC_CREATE_DATA(ent, fname, perm, parent, fops, data) \
+    ent = proc_create_data(fname, perm, parent, fops, data);
+
+#define PAL_PDE(inode) NULL
+#define PAL_PROC_GETDATA(inode) PDE_DATA((inode))
+
+#else
+
+#define PAL_PROC_CREATE(ent, fname, perm, parent, fops) \
+    ent = create_proc_entry(fname, perm, parent); \
+    if (ent) { \
+        ent->proc_fops = fops; \
+    }
+
+#define PAL_PROC_CREATE_DATA(ent, fname, perm, parent, fops, data) \
+    ent = proc_create_data(fname, perm, parent, fops, data);
+
+#define PAL_PDE(inode)          PDE((inode))
+#define PAL_PROC_GETDATA(inode) PDE((inode))->data
+
+#endif
+
+
 
 
 #endif
