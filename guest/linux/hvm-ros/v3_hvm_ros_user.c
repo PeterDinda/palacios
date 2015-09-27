@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sys/mman.h>
 
 #include "v3_hvm_ros_user.h"
 
@@ -480,3 +481,87 @@ int v3_hvm_ros_invoke_hrt_sync(void *buf, int ros)
     return 0;
 }
 
+extern void *__v3_hvm_ros_signal_handler_stub;
+
+void (*__v3_hvm_ros_signal_handler)(uint64_t) = 0;
+static void *__v3_hvm_ros_signal_handler_stack = 0;
+static uint64_t __v3_hvm_ros_signal_handler_stack_size=0;
+
+int v3_hvm_ros_register_signal(void (*h)(uint64_t), void *stack, uint64_t stack_size )
+{
+    unsigned long long rc, num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+
+    if (mlock(stack,stack_size)) { 
+	INFO("Can't pin stack - proceeding\n");
+    }
+
+    // clear it and touch it
+    memset(stack,0,stack_size);
+
+    __v3_hvm_ros_signal_handler_stack = stack;
+    __v3_hvm_ros_signal_handler_stack_size = stack_size;
+    __v3_hvm_ros_signal_handler = h;
+
+    // Attempt to install
+    
+    num = 0xf00d;
+    a1 = 0x40;
+    a2 = (unsigned long long) &__v3_hvm_ros_signal_handler_stub;
+    a3 = (unsigned long long) stack + stack_size - 8; // put us at the top of the stack
+
+    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+    if (rc) {
+	INFO("Failed to install HVM signal handler\n");
+	return -1;
+    } 
+
+    return 0;
+}
+
+int v3_hvm_ros_unregister_signal()
+{
+    unsigned long long rc, num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+
+    // an unregister boils down to setting handler to null
+    num = 0xf00d;
+    a1 = 0x40;
+    a2 = (unsigned long long) 0;
+    a3 = (unsigned long long) 0; 
+
+    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+
+    if (rc) {
+	INFO("Failed to uninstall HVM signal handler\n");
+    } 
+
+    // and now do user space cleanup
+
+    __v3_hvm_ros_signal_handler = 0;
+
+    if (__v3_hvm_ros_signal_handler_stack) { 
+	munlock(__v3_hvm_ros_signal_handler_stack,__v3_hvm_ros_signal_handler_stack_size);
+	__v3_hvm_ros_signal_handler_stack = 0;
+	__v3_hvm_ros_signal_handler_stack_size = 0;
+    }
+    
+    if (rc) { 
+	return -1;
+    } else {
+	return 0;
+    }
+}
+
+
+int  v3_hvm_hrt_signal_ros(uint64_t code)
+{
+    unsigned long long rc, num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+
+    num = 0xf00d;
+    a1 = 0x41;
+    a2 = (unsigned long long) code;
+
+    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+
+    return rc ? -1 : rc;
+
+}

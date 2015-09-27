@@ -444,6 +444,40 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 	    }
 		    
 	    break;
+	    
+	case 0x40: // install or remove signal handler
+	    if (v3_is_hvm_hrt_core(core)) { 
+		PrintError(core->vm_info,core, "hvm: HRT cannot install signal handler...\n");
+		core->vm_regs.rax=-1;
+	    } else {
+		PrintDebug(core->vm_info,core,"hvm: install signal handler for CR3=%p, handler=%p, stack=%p\n",(void*)core->ctrl_regs.cr3, (void*)a2, (void*)a3);
+		if (h->ros_signal.code) { 
+		    PrintError(core->vm_info,core,"hvm: signal is pending...\n");
+		    core->vm_regs.rax=-1;
+		} else {
+		    if ((a2 || a3) && (h->ros_signal.handler || h->ros_signal.stack)) { 
+			PrintError(core->vm_info,core,"hvm: attempt to replace existing handler without removing it first\n");
+			core->vm_regs.rax=-1;
+		    } else {
+			// actually make the change
+			h->ros_signal.handler=a2;
+			h->ros_signal.stack=a3;
+			h->ros_signal.cr3=core->ctrl_regs.cr3;
+			core->vm_regs.rax=0;
+
+			// test by signalling back a hello 
+			// if (a2 && a3) { 
+			//    v3_hvm_signal_ros(core->vm_info,0xf00d);
+			//}
+		    }
+		}
+	    }
+	    break;
+
+	case 0x41: // raise signal in the ROS from HRT or ROS
+	    PrintDebug(core->vm_info,core,"hvm: HRT raises signal code=0x%llx\n", a2);
+	    core->vm_regs.rax = v3_hvm_signal_ros(core->vm_info,a2);
+	    break;
 
 	default:
 	    PrintError(core->vm_info,core,"hvm: unknown hypercall %llx\n",a1);
@@ -1805,3 +1839,111 @@ int v3_handle_hvm_reset(struct guest_info *core)
 	return 0;
     }
 }
+
+
+int v3_handle_hvm_entry(struct guest_info *core)
+{
+    if (!core->vm_info->hvm_state.is_hvm        // not relevant to non-HVM
+	|| core->hvm_state.is_hrt              // not relevant to an HRT in an HVM
+	|| !core->vm_info->hvm_state.ros_signal.code) { // not relevant if there is no code to inject
+
+	// Note that above check for code could race with a writer, but
+	// if that happens, we'll simply inject at the next opportunity instead of 
+	// this one (see below for atomic update)
+	return 0;
+    } else {
+	struct v3_ros_signal *s = &core->vm_info->hvm_state.ros_signal;
+
+	// HVM ROS
+	if (! (s->handler && // handler installed
+	       s->cr3 &&     // process installed
+	       s->stack &&   // stack installed
+	       core->cpl == 3 &&  // user mode
+	       core->ctrl_regs.cr3 == s->cr3) // right process active
+	    ) {
+	    // Cannot inject at this time
+	    return 0;
+	} else {
+	    // We can inject now, let's atomically see if we have something
+	    // and commit to doing it if we do
+	    uint64_t code;
+
+	    // Get code, reset to allow next one
+	    code = __sync_fetch_and_and(&(s->code), 0);
+
+	    if (!code) { 
+		// nothing to do after all
+		return 0;
+	    } else {
+
+		// actually do inject
+
+		uint64_t rsp;
+		uint64_t frame[6];
+		
+		PrintDebug(core->vm_info,core,"hvm: ROS interrupt starting with rip=%p rsp=%p\n", (void*) core->rip, (void*) core->vm_regs.rsp);
+		// build interrupt frame
+		frame[0] = code;
+		frame[1] = core->rip;
+		frame[2] = core->segments.cs.selector; // return cs
+		frame[3] = core->ctrl_regs.rflags;
+		frame[4] = core->vm_regs.rsp;
+		frame[5] = core->segments.ss.selector; // return ss
+		
+		rsp = (s->stack - 8) & (~0x7); // make sure we are aligned
+		rsp -= sizeof(frame);
+		
+
+		if (v3_write_gva_memory(core,(addr_t)rsp,sizeof(frame),(uint8_t*)frame)!=sizeof(frame)) { 
+		    PrintError(core->vm_info,core,"hvm: failed to write interrupt frame\n");
+		    // we just lost this inject
+		    return -1;
+		}
+		
+		// now make us look like we are jumping to the entry
+		core->rip = s->handler;
+		core->vm_regs.rsp = rsp;
+
+		PrintDebug(core->vm_info,core,"hvm: ROS frame is 0x%llx|0x%llx|0x%llx|0x%llx|0x%llx|0x%llx and and on entry rip=%p and rsp=%p\n", frame[0],frame[1],frame[2],frame[3],frame[4],frame[5],(void*) core->rip, (void*) core->vm_regs.rsp);
+		
+		// and we should be good to go
+		return 0;
+	    } 
+	}
+    }
+}
+
+int v3_handle_hvm_exit(struct guest_info *core)
+{
+    // currently nothing
+    return 0;
+}
+
+int v3_hvm_signal_ros(struct v3_vm_info *vm, uint64_t code)
+{
+    struct v3_ros_signal *s = &vm->hvm_state.ros_signal;
+
+    if (!code) { 
+	PrintError(vm,VCORE_NONE,"hvm: cannot signal ros with code zero\n");
+	return -1;
+    }
+
+    // handler, etc, must exist
+    if (!s->handler || !s->stack) { 
+	PrintError(vm,VCORE_NONE,"hvm: cannot signal ros with no installed handler\n");
+	return -1;
+    } else {
+	// we set the code only if we are idle (code 0), 
+	// and we do so only 
+	if (!__sync_bool_compare_and_swap(&(s->code), 0, code)) {
+	    PrintError(vm,VCORE_NONE,"hvm: signal was already asserted\n");
+	    return -1;
+	} else {
+	    PrintDebug(vm,VCORE_NONE,"hvm: raised signal 0x%llx to the ROS\n",code);
+	    return 0;
+	}
+    }
+}
+
+
+	

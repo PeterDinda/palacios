@@ -799,6 +799,10 @@ int v3_svm_enter(struct guest_info * info) {
     v3_mem_track_entry(info);
 #endif 
 
+#ifdef V3_CONFIG_HVM
+    v3_handle_hvm_entry(info);
+#endif
+
     // Update timer devices after being in the VM before doing 
     // IRQ updates, so that any interrupts they raise get seen 
     // immediately.
@@ -1004,6 +1008,10 @@ int v3_svm_enter(struct guest_info * info) {
 	/* Check to see if any timeouts have expired */
 	v3_handle_timeouts(info, guest_cycles);
     }
+
+#ifdef V3_CONFIG_HVM
+    v3_handle_hvm_exit(info);
+#endif 
 
 #ifdef V3_CONFIG_MEM_TRACK
     v3_mem_track_exit(info);

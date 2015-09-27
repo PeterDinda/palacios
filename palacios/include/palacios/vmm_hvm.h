@@ -41,6 +41,21 @@ struct v3_ros_event {
     };
 };
 
+struct v3_ros_signal { 
+    // swapped atomically at entry check (xchg)
+    // so only one core does entry
+    // code = 0 => no signal is pending
+    uint64_t code;
+
+    // ROS process context we inject to
+    // if any of these are zero, no injection happens
+    // it must be the case that the ROS is at CPL 3
+    // and in user-mode for injection to occur
+    uint64_t cr3;
+    uint64_t handler;
+    uint64_t stack;
+};
+
 struct v3_vm_hvm {
     uint8_t   is_hvm;
     uint32_t  first_hrt_core;
@@ -49,6 +64,7 @@ struct v3_vm_hvm {
     void      *hrt_image;          // image provided by ROS, if any
     uint64_t  hrt_image_size;      //   size of this image
     uint64_t  hrt_entry_addr;
+
     enum { HRT_BLOB, HRT_ELF64, HRT_MBOOT2, HRT_MBOOT64 } hrt_type;
 
     // The following parallel the content of mb_info_hrt_t in
@@ -70,6 +86,9 @@ struct v3_vm_hvm {
 
     // the ROS event to be handed back
     struct v3_ros_event ros_event;
+
+    // user-level interrupt injection state for ROS
+    struct v3_ros_signal ros_signal;
 
 };
 
@@ -114,7 +133,13 @@ int v3_build_hrt_multiboot_tag(struct guest_info *core, mb_info_hrt_t *hrt);
 int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm);
 int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core);
 
+// 0 is not a valid code
+int v3_hvm_signal_ros(struct v3_vm_info *vm, uint64_t code);
+
 int v3_handle_hvm_reset(struct guest_info *core);
+
+int v3_handle_hvm_entry(struct guest_info *core);
+int v3_handle_hvm_exit(struct guest_info *core);
 
 /*
   HVM/HRT interaction is as follows:
@@ -152,13 +177,19 @@ int v3_handle_hvm_reset(struct guest_info *core);
          - flags copied from the HRT's HRT tag (position independence, 
            page table model, offset, etc)
   4. Downcalls:
-         hypercall 0xf00df00d with arguments depending on operation
-         with examples described below.
+         hypercall 0xf00d with arguments depending on operation
+         with examples described below.  Some requests are only
+         allowed from an HRT core (or ROS core).   rax is set to -1
+         on error.
   5. Upcalls
-         interrupt injected by VMM or a magic #PF
-         communication via a shared memory page, contents below
+         (To HRT) interrupt injected by VMM or a magic #PF
+                  info via a shared memory page, contents below
+         (To ROS) ROS *app* can set itself up to receive a 
+	          *user-level* "interrupt" manufactured by the VMM
+                  our user library automates this, making it look
+                  sort of like a signal handler
 
-  Upcalls
+  Upcalls to HRT
 
    Type of upcall is determined by the first 64 bits in the commm page
 
@@ -184,7 +215,7 @@ int v3_handle_hvm_reset(struct guest_info *core);
    0x31 =>  Unmerge address space
             return the ROS memory mapping to normal (physical/virtual identity)
 
-  Downcalls
+  Downcalls from ROS or HRT
 
    HVM_HCALL is the general hypercall number used to talk to the HVM
      The first argument is the request number (below).   The other arguments
@@ -219,6 +250,16 @@ int v3_handle_hvm_reset(struct guest_info *core);
    0x31 =>  Unmerge address apce (ROS->HRT)
             release any address space merger and restore identity mapping
    0x3f =>  Merge request complete (HRT->ROS)
+
+   0x40 =>  Install user-mode interrupt/signal handler (ROS)
+            arg1 = handler, arg2 = stack
+
+   0x41 =>  Signal ROS handler (HRT->ROS)
+            arg1 = number (must != 0)
+
+   Upcalls to ROS
+   
+   (Currently all are application/HRT dependent)
 
 */     
      

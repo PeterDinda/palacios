@@ -12,6 +12,13 @@
 int v3_hvm_ros_user_init();
 int v3_hvm_ros_user_deinit();
 
+// Establish function to be invoked by the VMM
+// to signal activity (basically an interrupt handler)
+// The handler can use the GPRs, but must save/restore
+// any other registers it needs itself.  If it goes
+// out of its stack, it's out of luck
+int v3_hvm_ros_register_signal(void (*handler)(uint64_t), void *stack, uint64_t stack_size); 
+int v3_hvm_ros_unregister_signal();
 
 // Replace the existing HRT with a new one
 //  - this does not boot the new HRT
@@ -43,5 +50,8 @@ int  v3_hvm_ros_synchronize();
 int  v3_hvm_ros_invoke_hrt_sync(void *p, int handle_ros_events);
 int  v3_hvm_ros_desynchronize();
 
+// Signal the HRT from the ROS
+// The ROS can call this too, but it shouldn't be necesary
+int  v3_hvm_hrt_signal_ros(uint64_t code);
 
 #endif

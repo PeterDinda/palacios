@@ -188,6 +188,14 @@ int timing_test_async(uint64_t num_merge, uint64_t num_call)
     return 0;
 }
 
+#define HVM_SIG_STACK_SIZE 8192
+static char hvm_sig_stack[HVM_SIG_STACK_SIZE] __attribute__((aligned(4096)));
+
+static void my_hvm_sig_handler(uint64_t code)
+{
+    printf("HVM Signal Handler Invoked: code=0x%lx\n",code);
+}
+
 int main(int argc, char *argv[]) 
 {
     int rc;
@@ -198,7 +206,10 @@ int main(int argc, char *argv[])
     }
     
     v3_hvm_ros_user_init();
-    
+
+    v3_hvm_ros_unregister_signal(); // remove any existing signal handler
+    v3_hvm_ros_register_signal(my_hvm_sig_handler,hvm_sig_stack,HVM_SIG_STACK_SIZE);
+
     if (argv[1][0]=='s') {
 	if (argv[2][0]=='s') { 
 	    rc=simple_test_sync();
@@ -222,6 +233,8 @@ int main(int argc, char *argv[])
 	rc=-1;
     }
     
+    v3_hvm_ros_unregister_signal();
+
     v3_hvm_ros_user_deinit();
 
     return rc;
