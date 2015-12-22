@@ -162,7 +162,12 @@ static uint32_t _create_link(struct vnet_link * link) {
     if (link->sock_proto == UDP) { 
 	// no UDP checksumming
 	lock_sock(link->sock->sk);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
 	link->sock->sk->sk_no_check = 1;
+#else
+	link->sock->sk->sk_no_check_tx = 1;
+	link->sock->sk->sk_no_check_rx = 1;
+#endif
 	release_sock(link->sock->sk);
     }
 
@@ -258,8 +263,12 @@ _udp_send(struct socket * sock,
     msg.msg_namelen = sizeof(struct sockaddr_in);
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
+#else
+    iov_iter_init(&(msg.msg_iter),WRITE,&iov,1,0);
+#endif
     msg.msg_control = NULL;
 
     oldfs = get_fs();
@@ -293,8 +302,12 @@ _udp_recv(struct socket * sock,
     msg.msg_namelen = sizeof(struct sockaddr_in);
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
+#else
+    iov_iter_init(&(msg.msg_iter),READ,&iov,1,0);
+#endif
     msg.msg_control = NULL;
     
     oldfs = get_fs();
@@ -403,7 +416,12 @@ static int init_vnet_serv(void) {
     if (vnet_brg_s.serv_proto == UDP) { 
 	// No UDP checksumming is done
 	lock_sock(vnet_brg_s.serv_sock->sk);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
 	vnet_brg_s.serv_sock->sk->sk_no_check = 1;
+#else
+	vnet_brg_s.serv_sock->sk->sk_no_check_tx = 1;
+	vnet_brg_s.serv_sock->sk->sk_no_check_rx = 1;
+#endif
 	release_sock(vnet_brg_s.serv_sock->sk);
     }
 

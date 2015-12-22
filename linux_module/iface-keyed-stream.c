@@ -657,12 +657,157 @@ struct file_stream {
     struct file *f;   // the opened file
 };
 
+/* lookup directory, see if it is writeable, and if so, create it if asked*/
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,41)
+
+static int lookup_check_mkdir(const char *path, int need_write, int create, unsigned short perms)
+{
+  struct nameidata nd;
+
+  if (path_lookup(path,LOOKUP_DIRECTORY|LOOKUP_FOLLOW,&nd)) { 
+    
+    // directory does does not exist.  
+    
+    if (!create) { 
+      // we are not being asked to create it
+      ERROR("attempt to open %s, which does not exist\n",path);
+      return -1;
+    } else {
+      // We are being asked to create it
+
+      struct dentry *de;
+      int err;
+      
+      // Find its parent
+      if (path_lookup(path,LOOKUP_PARENT|LOOKUP_FOLLOW,&nd)) { 
+	ERROR("attempt to create %s failed because its parent cannot be looked up\n",path);
+	return -1;
+      }
+      
+      // Can we write to the parent?
+      
+      if (inode_permission(nd.path.dentry->d_inode, MAY_WRITE | MAY_EXEC)) { 
+	ERROR("attempt to open %s, which has the wrong permissions for directory creation\n",path);
+	return -1;
+      }
+
+      // OK, we can, so let's create it
+      
+      de = lookup_create(&nd,1);
+      
+      if (!de || IS_ERR(de)) { 
+	ERROR("cannot allocate dentry\n");
+	return -1;
+      }
+
+      err = vfs_mkdir(nd.path.dentry->d_inode, de, perms);
+      
+      // lookup_create locks this for us!
+      
+      mutex_unlock(&(nd.path.dentry->d_inode->i_mutex));
+
+      if (err) {
+	ERROR("attempt to create %s failed because mkdir failed\n",path);
+	return -1;
+      }
+
+      // successfully created it. 
+      return 0;
+
+    }
+
+  } else {
+    
+    // it exists, can we read (and write, if needed) to it?
+    
+    if (inode_permission(nd.path.dentry->d_inode, MAY_EXEC | MAY_READ | need_write ? MAY_WRITE : 0 )) {
+      ERROR("attempt to open %s, which has the wrong permissions\n",path);
+      return -1;
+    }
+    
+    return 0;
+  }
+}
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,41)
+static int lookup_check_mkdir(const char *path, int need_write, int create, unsigned short perms)
+{
+  struct path p; 
+
+  if (kern_path(path, LOOKUP_DIRECTORY|LOOKUP_FOLLOW, &p)) { 
+    
+    // directory does does not exist.  
+    
+    if (!create) { 
+      // we are not being asked to create it
+      ERROR("attempt to open %s, which does not exist\n",path);
+      return -1;
+    } else {
+      // We are being asked to create it
+
+      struct dentry *de;
+      int err;
+      
+      // Find its parent
+      if (kern_path(path,LOOKUP_PARENT|LOOKUP_FOLLOW,&p)) { 
+	ERROR("attempt to create %s failed because its parent cannot be looked up\n",path);
+	return -1;
+      }
+      
+      // Can we write to the parent?
+      
+      if (inode_permission(p.dentry->d_inode, MAY_WRITE | MAY_EXEC)) { 
+	ERROR("attempt to open %s, which has the wrong permissions for directory creation\n",path);
+	return -1;
+      }
+
+      // OK, we can, so let's create it
+      
+      de = kern_path_create(AT_FDCWD,path,&p,1);
+      
+      if (!de || IS_ERR(de)) { 
+	ERROR("cannot allocate dentry\n");
+	return -1;
+      }
+
+      err = vfs_mkdir(p.dentry->d_inode, de, perms);
+      
+      // lookup_create locks this for us!
+      
+      mutex_unlock(&(p.dentry->d_inode->i_mutex));
+
+      if (err) {
+	ERROR("attempt to create %s failed because mkdir failed\n",path);
+	return -1;
+      }
+
+      // successfully created it. 
+      return 0;
+
+    }
+    
+  } else {
+    
+    // it exists, can we read (and write, if needed) to it?
+    
+    if (inode_permission(p.dentry->d_inode, MAY_EXEC | MAY_READ | need_write ? MAY_WRITE : 0 )) {
+      ERROR("attempt to open %s, which has the wrong permissions\n",path);
+      return -1;
+    }
+    
+    return 0;
+  }
+}
+
+#endif
+
 
 static v3_keyed_stream_t open_stream_file(char *url,
 					  v3_keyed_stream_open_t ot)
 {
     struct file_keyed_stream *fks;
-    struct nameidata nd;
 
     if (strncasecmp(url,"file:",5)) { 
 	WARNING("illegitimate attempt to open file stream \"%s\"\n",url);
@@ -690,74 +835,12 @@ static v3_keyed_stream_t open_stream_file(char *url,
 
     fks->ot= ot==V3_KS_WR_ONLY_CREATE ? V3_KS_WR_ONLY : ot;
 
-    // Does the directory exist, and can we read/write it?
-   
-    if (path_lookup(fks->path,LOOKUP_DIRECTORY|LOOKUP_FOLLOW,&nd)) { 
-
-	// directory does does not exist.  
-
-	if (ot==V3_KS_RD_ONLY || ot==V3_KS_WR_ONLY) { 
-
-	    // we are not being asked to create it
-	    ERROR("attempt to open %s, which does not exist\n",fks->path);
-	    goto fail_out;
-
-	} else {
-
-	    // We are being asked to create it
-
-	    struct dentry *de;
-	    int err;
-
-	    // Find its parent
-	    if (path_lookup(fks->path,LOOKUP_PARENT|LOOKUP_FOLLOW,&nd)) { 
-		ERROR("attempt to create %s failed because its parent cannot be looked up\n",fks->path);
-		goto fail_out;
-	    }
-
-	    // Can we write to the parent?
-
-	    if (inode_permission(nd.path.dentry->d_inode, MAY_WRITE | MAY_EXEC)) { 
-		ERROR("attempt to open %s, which has the wrong permissions for directory creation\n",fks->path);
-		goto fail_out;
-	    }
-
-	    // OK, we can, so let's create it
-
-	    de = lookup_create(&nd,1);
-
-	    if (!de || IS_ERR(de)) { 
-		ERROR("cannot allocate dentry\n");
-		goto fail_out;
-	    }
-
-	    err = vfs_mkdir(nd.path.dentry->d_inode, de, 0700);
-
-	    // lookup_create locks this for us!
-
-	    mutex_unlock(&(nd.path.dentry->d_inode->i_mutex));
-
-	    if (err) {
-		ERROR("attempt to create %s failed because mkdir failed\n",fks->path);
-		goto fail_out;
-	    }
-
- 	    // now the directory should exist and have reasonable permissions
-	    return (v3_keyed_stream_t) fks;
-	}
-    } 
-
-    
-    // we must be in V3_KS_RD_ONLY or V3_KS_WR_ONLY, 
-    // and the directory exists, so we must check the permissions
-
-    if (inode_permission(nd.path.dentry->d_inode, MAY_EXEC | (ot==V3_KS_RD_ONLY ? MAY_READ : MAY_WRITE))) {
-	ERROR("attempt to open %s, which has the wrong permissions\n",fks->path);
-	goto fail_out;
-    } else {
-	return (v3_keyed_stream_t) fks;
+    if (lookup_check_mkdir(fks->path,ot!=V3_KS_RD_ONLY,ot==V3_KS_WR_ONLY_CREATE,0700)) { 
+      ERROR("cannot find or create directory for stream\n");
+      goto fail_out;
     }
 
+    return fks;
 
  fail_out:
     palacios_free(fks->path);
@@ -2352,8 +2435,12 @@ static int send_msg(struct net_stream *ns,  char * buf, int len)
 	msg.msg_namelen = 0;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
+#else
+	iov_iter_init(&(msg.msg_iter),WRITE,&iov,1,0);
+#endif
 
 	iov.iov_base = (char *)&(buf[len-left]);
 	iov.iov_len = (size_t)left;
@@ -2406,8 +2493,12 @@ static int recv_msg(struct net_stream *ns, char * buf, int len)
 	msg.msg_namelen = 0;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
+#else
+	iov_iter_init(&(msg.msg_iter),READ,&iov,1,0);
+#endif
 	
 	iov.iov_base = (void *)&(buf[len-left]);
 	iov.iov_len = (size_t)left;

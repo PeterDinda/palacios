@@ -939,8 +939,22 @@ static int governor_switch(char * s, unsigned int cpu)
     argv[3] = NULL;
 
     /* KCH: we can't wait here to actually see if we succeeded, we're in interrupt context */
-    return call_usermodehelper_fns("/bin/sh", argv, envp, UMH_NO_WAIT, NULL, gov_switch_cleanup, NULL);
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(3,9,0)
+    return call_usermodehelper_fns("/bin/sh", argv, envp, UMH_NO_WAIT, NULL, gov_switch_cleanup, NULL);
+#else
+    {
+      struct subprocess_info *sp;
+      
+      sp = call_usermodehelper_setup("/bin/sh", argv, envp, GFP_ATOMIC, NULL, gov_switch_cleanup, NULL);
+      if (!sp) { 
+	goto out_freeargv;
+      }
+      
+      return call_usermodehelper_exec(sp,0);
+    }
+#endif
+      
 out_freeargv:
     palacios_free(argv);
     return -1;
@@ -1740,26 +1754,21 @@ int pstate_proc_setup(void)
     struct proc_dir_entry *proc;
     struct proc_dir_entry *prochw;
 
-    proc = create_proc_entry("v3-dvfs",0444, palacios_get_procdir());
+    PAL_PROC_CREATE(proc,"v3-dvfs",0444,palacios_get_procdir(),&pstate_fops);
 
     if (!proc) { 
         ERROR("Failed to create proc entry for p-state control\n");
         return -1;
     }
 
-    proc->proc_fops = &pstate_fops;
-
     INFO("/proc/v3vee/v3-dvfs successfully created\n");
 
-    prochw = create_proc_entry("v3-dvfs-hw",0444,palacios_get_procdir());
-
+    PAL_PROC_CREATE(prochw,"v3-dvfs-hw",0444,palacios_get_procdir(),&pstate_hw_fops);
 
     if (!prochw) { 
         ERROR("Failed to create proc entry for p-state hw info\n");
         return -1;
     }
-
-    prochw->proc_fops = &pstate_hw_fops;
 
     INFO("/proc/v3vee/v3-dvfs-hw successfully created\n");
 

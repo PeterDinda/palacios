@@ -21,7 +21,7 @@ static struct list_head global_files;
 #define isprint(a) ((a >= ' ') && (a <= '~'))
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,9,0)
-#define PAL_VFS_GETATTR(path, kstat) vfs_getattr(path.mnt, path.dentry, kstat)
+#define PAL_VFS_GETATTR(path, kstat) vfs_getattr((path)->mnt, (path)->dentry, kstat)
 #else
 #define PAL_VFS_GETATTR(path, kstat) vfs_getattr(path, kstat)
 #endif
@@ -282,7 +282,7 @@ static unsigned long long palacios_file_size(void * file_ptr) {
     struct kstat s;
     int ret;
     
-    ret = PAL_VFS_GETATTR(filp->f_path, &s);
+    ret = PAL_VFS_GETATTR(&(filp->f_path), &s);
 
     if (ret != 0) {
 	ERROR("Failed to fstat file\n");

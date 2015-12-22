@@ -301,8 +301,12 @@ palacios_send(
 	msg.msg_namelen = 0;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
+#else
+	iov_iter_init(&(msg.msg_iter),WRITE,&iov,1,0);
+#endif
 
 	iov.iov_base = (char *)buf;
 	iov.iov_len = (size_t)len;
@@ -340,8 +344,12 @@ palacios_recv(
 	msg.msg_namelen = 0;
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
+#else
+	iov_iter_init(&(msg.msg_iter),READ,&iov,1,0);
+#endif
 
 	iov.iov_base = (void *)&buf[0];
 	iov.iov_len = (size_t)len;
@@ -385,8 +393,12 @@ palacios_sendto_ip(
 	msg.msg_namelen = sizeof(struct sockaddr_in);
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
+#else
+	iov_iter_init(&(msg.msg_iter),WRITE,&iov,1,0);
+#endif
 
 	iov.iov_base = (char *)buf;
 	iov.iov_len = (size_t)len;
@@ -433,8 +445,12 @@ palacios_recvfrom_ip(
 	msg.msg_namelen = sizeof(struct sockaddr_in);
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
+#else
+	iov_iter_init(&(msg.msg_iter),READ,&iov,1,0);
+#endif
 
 	iov.iov_base = (void *)&buf[0];
 	iov.iov_len = (size_t)len;

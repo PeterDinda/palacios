@@ -133,6 +133,7 @@ int v3_syscall_handler (struct guest_info * core, uint8_t vector, void * priv_da
         if (list_empty(&(injects->code_inject_list))) {
             return 0;
         } else {
+	    int ret;
 
             inject = (struct v3_code_inject_info*) list_first_entry(
                         &(injects->code_inject_list), 

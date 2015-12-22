@@ -47,7 +47,7 @@ static struct rapl_domain rapl_domains[] = {
 	[RAPL_DOMAIN_PKG] = {
 		.domain_id = RAPL_DOMAIN_PKG,
 		.msrs	= {
-			.limit	= MSR_PKG_RAPL_POWER_LIMIT,
+			.limit	= MSR_PKG_POWER_LIMIT,
 			.status	= MSR_PKG_ENERGY_STATUS,
 		},
 		.valid	= 1,

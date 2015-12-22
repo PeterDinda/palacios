@@ -9,9 +9,14 @@
 /* WARNING WARNING: this is speculation... */
 #define HASWELL_MODEL_NO 0x4A
 
-#define MSR_RAPL_POWER_UNIT		0x606
+#ifdef MSR_RAPL_POWER_UNIT
+// assume the rest are also defined by the kernel's msr include
+// except for special ones here
 
-#define MSR_PKG_RAPL_POWER_LIMIT	0x610
+#else
+// assume none are defined by the kernel's msr include
+#define MSR_RAPL_POWER_UNIT		0x606
+#define MSR_PKG_POWER_LIMIT	        0x610
 #define MSR_PKG_ENERGY_STATUS		0x611
 #define MSR_PKG_PERF_STATUS		0x613
 #define MSR_PKG_POWER_INFO		0x614
@@ -33,6 +38,8 @@
 #define MSR_DRAM_PERF_STATUS		0x61B
 #define MSR_DRAM_POWER_INFO		0x61C
 
+#endif
+
 /* RAPL UNIT BITMASK */
 #define POWER_UNIT_OFFSET	0
 #define POWER_UNIT_MASK		0x0F
@@ -42,5 +49,6 @@
 
 #define TIME_UNIT_OFFSET	0x10
 #define TIME_UNIT_MASK		0xF0000
+
 
 #endif

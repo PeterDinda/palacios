@@ -9,6 +9,11 @@
 #include <asm/irq_vectors.h>
 #include <asm/io.h>
 #include <asm/thread_info.h>
+#include <asm/i387.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+#include <asm/fpu-internal.h>
+#endif
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -420,6 +425,7 @@ static int lnx_thread_target(void * arg) {
     // We are a kernel thread that needs FPU save/restore state
     // vcores definitely need this, all the other threads get it too, 
     // but they just won't use it
+
     fpu_alloc(&(current->thread.fpu));
 #endif
 

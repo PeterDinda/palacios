@@ -260,6 +260,10 @@ void  palacios_mutex_unlock_irqrestore(void *mutex, void *flags);
 #endif
 
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3,9,0)
+#define strict_strtoull(s,b,r) kstrtoull(s,b,r)
+#endif
+
 
 
 #endif
