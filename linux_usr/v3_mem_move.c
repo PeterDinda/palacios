@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     cmd.gpa = strtoll(argv[2],0,16);
     cmd.pcore_id = atoi(argv[3]);
 
-    printf("Migrating memory region of %p to memory with affinity for physical CPU %d\n", cmd.gpa, cmd.pcore_id);
+    printf("Migrating memory region of %p to memory with affinity for physical CPU %d\n", (void*)cmd.gpa, cmd.pcore_id);
 
     vm_fd = open(vm_dev, O_RDONLY);
 

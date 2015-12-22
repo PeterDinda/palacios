@@ -49,7 +49,7 @@ struct v3_guest_mem_map * v3_guest_mem_get_map(char *vmdev)
 	  fprintf(stderr,"Could not find number of regions for %s\n",vmdev);
 	  return 0;
       }
-      if (sscanf(buf,"Regions: %llu (%llu shown)",&num_regions,&num_regions_shown)==2) {
+      if (sscanf(buf,"Regions: %lu (%lu shown)",&num_regions,&num_regions_shown)==2) {
 	  break;
       }
   }
@@ -80,7 +80,7 @@ struct v3_guest_mem_map * v3_guest_mem_get_map(char *vmdev)
 	  free(m);
 	  return 0;
       }
-      if (sscanf(buf," region %d has HPAs %llx-%llx",&num,&start,&end)==3) { 
+      if (sscanf(buf," region %lu has HPAs %lx-%lx",&num,&start,&end)==3) { 
 	  m->block[i].gpa = (void*)guest_cur;
 	  m->block[i].hpa = (void*)start;
 	  m->block[i].numpages = (end-start) / 4096 + !!((end-start) % 4096);
@@ -127,7 +127,7 @@ int v3_map_guest_mem(struct v3_guest_mem_map *map)
 			     (off_t) (map->block[i].hpa));
 
     if (map->block[i].uva == MAP_FAILED) { 
-      fprintf(stderr, "Failed to map block %llu\n",i);
+      fprintf(stderr, "Failed to map block %lu\n",i);
       map->block[i].uva=0;
       v3_unmap_guest_mem(map);
       return -1;

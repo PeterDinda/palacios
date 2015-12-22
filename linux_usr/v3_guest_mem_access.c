@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
       return -1;
   }
   
-  if (sscanf(argv[3],"%llx",&gpa)!=1) { 
+  if (sscanf(argv[3],"%lx",&gpa)!=1) { 
     fprintf(stderr,"Don't understand address %s\n",argv[3]);
     return -1;
   }
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 	      return -1;
 	  }
 
-	  fprintf(stderr, "Write complete (%llu bytes)\n", numbytes);
+	  fprintf(stderr, "Write complete (%lu bytes)\n", numbytes);
 
 	  free(data);
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 	      }
 	  }
 	  
-	  fprintf(stderr, "Read complete (%llu bytes)\n", numbytes);
+	  fprintf(stderr, "Read complete (%lu bytes)\n", numbytes);
 	  
 	  free(data);
 
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 	      return -1;
 	  }
 	  
-	  fprintf(stderr, "Hash complete (%llu bytes), result is 0x%llx\n", numbytes, hash);
+	  fprintf(stderr, "Hash complete (%lu bytes), result is 0x%lx\n", numbytes, hash);
 	  
 	  break;
 	  

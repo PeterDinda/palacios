@@ -177,7 +177,7 @@ int handle_write_key(struct palacios_user_keyed_stream_op *req,
     sint64_t datalen = req->buf_len - req->data_off;
 
     if (datalen != req->xfer) { 
-      fprintf(stderr,"Odd, xfer=%lld but datalen computed is %lld\n",req->xfer,datalen);
+      fprintf(stderr,"Odd, xfer=%ld but datalen computed is %ld\n",req->xfer,datalen);
       if (datalen > req->xfer) { 
 	datalen = req->xfer;
       }
@@ -190,13 +190,13 @@ int handle_write_key(struct palacios_user_keyed_stream_op *req,
     
     if (rc!=taglen) { 
       // failed to write tag, lets report as negative error
-      fprintf(stderr,"Failed to write tag (taglen=%lld, rc=%d)\n",taglen,rc);
+      fprintf(stderr,"Failed to write tag (taglen=%ld, rc=%d)\n",taglen,rc);
       rc = -1;
     } else {
       // Write data
       rc = write_all(fd,req->buf+taglen,datalen);
       if (rc!=datalen) {
-	fprintf(stderr,"Failed to write data (datalen=%lld, rc=%d)\n",datalen,rc);
+	fprintf(stderr,"Failed to write data (datalen=%ld, rc=%d)\n",datalen,rc);
       }
     }
 
@@ -240,7 +240,7 @@ int handle_read_key(struct palacios_user_keyed_stream_op *req,
     
     if (rc!=taglen) { 
       // Error
-      fprintf(stderr,"Failed to read tag (taglen=%lld, rc=%d)\n",taglen,rc);
+      fprintf(stderr,"Failed to read tag (taglen=%ld, rc=%d)\n",taglen,rc);
       rc = -1;
     } else {
       // tag check

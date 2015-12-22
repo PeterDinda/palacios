@@ -99,8 +99,9 @@ libv3_io_chan.so: v3_io_chan.c v3_io_chan.h v3_user_host_dev.c v3_user_host_dev.
 	$(CC) $(CFLAGS) -I../linux_module -fPIC -c v3_io_chan.c
 	$(CC) $(CFLAGS) -I../linux_module -fPIC -c v3_user_host_dev.c
 	$(CC) -shared -o $@ v3_io_chan.o v3_user_host_dev.o
-	cp $@ /usr/lib64/
-	cp v3_io_chan.h /usr/include/
+	-echo "Attempting install into system paths"
+	-cp $@ /usr/lib64/
+	-cp v3_io_chan.h /usr/include/
 #
 # JSON library for use in some tools
 #
@@ -155,7 +156,7 @@ v3_os_debug : v3_os_debug.c libv3_user_host_dev.a
 # Guarded module registration for GEARS
 #
 v3_register_gm: v3_register_gm.c libjson.a libv3_ctrl.a v3_ctrl.h
-	$(CC) $(CFLAGS) $< -L. -lm -lv3_ctrl -ljson -o $@
+	$(CC) $(CFLAGS) $< -L. -lv3_ctrl -ljson -lm -o $@
 
 #
 # User keyed stream support includes a library and examples
@@ -220,7 +221,7 @@ libv3_fb.a : v3_fb.c v3_fb.h
 # VNC support is compiled separately
 #
 v3_x0vncserver : 
-	@if [ -a x0vncserver ] ; \
+	@if [ -e x0vncserver ] ; \
 	then \
 		cp x0vncserver v3_x0vncserver ; \
 	else \
@@ -233,7 +234,7 @@ v3_x0vncserver :
 # GUI is compiled separately
 #
 v3_x0gui : 
-	@if [ -a gui/Palacios ] ; \
+	@if [ -e gui/Palacios ] ; \
 	then \
 		cp gui/Palacios v3_x0gui ; \
 	else \

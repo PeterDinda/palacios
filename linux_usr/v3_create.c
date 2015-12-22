@@ -330,7 +330,7 @@ int build_image(char * vm_name, char * filename, struct cfg_value * cfg_vals, in
 
             /* store a hash of the file blob for integrity checking later */
             hdrs[i].file_hash = v3_hash_buffer(faddr, files[i].size);
-            printf("File Hash: %llx\n", hdrs[i].file_hash);
+            printf("File Hash: %lx\n", hdrs[i].file_hash);
 
 	    close(fd);
 

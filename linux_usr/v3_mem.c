@@ -22,7 +22,7 @@
 // page allocation outside of the base regions
 // note that the seed pools provide 2-4 MB chunks
 // to start
-#define PALACIOS_MIN_ALLOC (64*4096)
+#define PALACIOS_MIN_ALLOC (64*4096ULL)
 
 #define SYS_PATH "/sys/devices/system/memory/"
 
@@ -165,7 +165,7 @@ int main(int argc, char * argv[]) {
 	    (PALACIOS_MIN_ALLOC!=0 && mem_size_bytes < PALACIOS_MIN_ALLOC)) {
 	    EPRINTF("Trying to add a smaller single chunk of memory than Palacios needs\n"
 		   "Your request:                        %llu bytes\n"
-		   "Palacios run-time memory block size: %llu bytes\n",
+		   "Palacios run-time memory block size: %llu bytes\n"
 		   "Palacios minimal contiguous alloc:   %llu bytes\n",
 		    mem_size_bytes, palacios_runtime_mem_block_size,
 		    PALACIOS_MIN_ALLOC);
@@ -392,7 +392,7 @@ static int offline_memory(unsigned long long mem_size_bytes,
     
     
 
-    VPRINTF("Trying to find %dMB (%d bytes) of memory above %llu with limit32=%d\n", mem_size_bytes/(1024*1024), mem_size_bytes, mem_min_start, limit32);
+    VPRINTF("Trying to find %lluMB (%llu bytes) of memory above %llu with limit32=%d\n", mem_size_bytes/(1024*1024), mem_size_bytes, mem_min_start, limit32);
 	
     /* Figure out the block size */
     {
@@ -706,7 +706,7 @@ static int online_memory(unsigned long long base_addr,
     unsigned int block_size_bytes = 0;
     int bitmap_entries = 0;
     unsigned char * bitmap = NULL;
-    int num_blocks = 0;    
+    unsigned int num_blocks = 0;    
     int reg_start = 0;
     int mem_ready = 0;
     
@@ -744,7 +744,7 @@ static int online_memory(unsigned long long base_addr,
 
     reg_start = base_addr / block_size_bytes;
 
-    VPRINTF("That is %lu blocks of size %llu starting at block %d\n", num_blocks, block_size_bytes, reg_start);
+    VPRINTF("That is %u blocks of size %u starting at block %d\n", num_blocks, block_size_bytes, reg_start);
    
     
 	

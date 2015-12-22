@@ -74,24 +74,24 @@ int text_out(char *vm, char *target, v3_mem_track_snapshot *s)
   fprintf(fd,"Reset:\t%s\n", 
 	  s->reset_type==V3_MEM_TRACK_ONESHOT ? "oneshot" :
 	  s->reset_type==V3_MEM_TRACK_PERIODIC ? "periodic" : "UNKNOWN");
-  fprintf(fd,"Interval:\t%llu cycles\n", s->period);
+  fprintf(fd,"Interval:\t%lu cycles\n", s->period);
   fprintf(fd,"Access:\t%s%s%s\n",
 	  s->access_type&V3_MEM_TRACK_READ ? "r" : "",
 	  s->access_type&V3_MEM_TRACK_WRITE ? "w" : "",
 	  s->access_type&V3_MEM_TRACK_EXEC ? "x" : "");
 	  
-  fprintf(fd,"Cores:\t%llu\n",s->num_cores);
-  fprintf(fd,"Pages:\t%llu\n\n",s->core[0].num_pages);
+  fprintf(fd,"Cores:\t%u\n",s->num_cores);
+  fprintf(fd,"Pages:\t%lu\n\n",s->core[0].num_pages);
 
   
   for (i=0;i<s->num_cores;i++) { 
-    fprintf(fd,"Core %llu (%llu to %llu, ",
+    fprintf(fd,"Core %lu (%lu to %lu, ",
 	    i, s->core[i].start_time, s->core[i].end_time);
     count=0;
     for (j=0;j<s->core[i].num_pages;j++) {
 	count+=GET_BIT(s->core[i].access_bitmap,j);
     }
-    fprintf(fd," %llu pages touched) : ", count);
+    fprintf(fd," %lu pages touched) : ", count);
     for (j=0;j<s->core[i].num_pages;j++) {
       if (GET_BIT(s->core[i].access_bitmap,j)) { 
 	fprintf(fd,"X");

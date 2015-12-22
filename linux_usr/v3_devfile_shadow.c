@@ -52,7 +52,7 @@ static inline uint64_t get_uva_from_gpa(struct v3_guest_mem_map *map, uint64_t g
     for (i=0; i< map->numblocks; i++) { 
         if(gpa < (uint64_t)map->block[i].gpa){
             offset = gpa - prev_gpa;
-            DEBUG_PRINT("gpa %llx, prev_gpa %llx, offset %llx, res %llx\n",gpa,prev_gpa,offset,prev_uva+offset);
+            DEBUG_PRINT("gpa %lx, prev_gpa %lx, offset %lx, res %lx\n",gpa,prev_gpa,offset,prev_uva+offset);
             return prev_uva+offset;
         }
         prev_uva = (uint64_t)map->block[i].uva;
@@ -142,7 +142,7 @@ static uint64_t vtop(uint64_t vaddr)
     uint64_t e;
     char addr[80];
     sprintf(addr,"/proc/%d/pagemap", getpid());
-    DEBUG_PRINT("Page size : %d, Offset: %d, In vtop",sysconf(_SC_PAGESIZE),offset);
+    DEBUG_PRINT("Page size : %ld, Offset: %lu, In vtop",sysconf(_SC_PAGESIZE),offset);
     // https://www.kernel.org/doc/Documentation/vm/pagemap.txt
     if ((pagemap = fopen(addr, "r"))) {
         if (lseek(fileno(pagemap), offset, SEEK_SET) == offset) {
@@ -214,7 +214,7 @@ int main(int argc, char** argv)
      }
 
      for (i=0; i< map->numblocks; i++) { 
-         DEBUG_PRINT("Region %llu: gpa=%p, hpa=%p, uva=%p, numpages=%llu\n", 
+         DEBUG_PRINT("Region %d: gpa=%p, hpa=%p, uva=%p, numpages=%lu\n", 
                  i, map->block[i].gpa, map->block[i].hpa,map->block[i].uva, map->block[i].numpages);
 
      }  
@@ -235,7 +235,7 @@ int main(int argc, char** argv)
      sprintf(unbacked_region,"helloworldhelloworldhelloworld");
 
      DEBUG_PRINT("unbacked_region ptr: %p contents: %s\n",unbacked_region,(char*)unbacked_region);
-     DEBUG_PRINT("Vaddr : %p ; Paddr : %p\n", unbacked_region, vtop((uint64_t)unbacked_region));
+     DEBUG_PRINT("Vaddr : %p ; Paddr : %p\n", (void*)unbacked_region, (void*)vtop((uint64_t)unbacked_region));
      DEBUG_PRINT("Persisting as a userspace for VM %s with address %p\n",argv[1], unbacked_region);
 
      if (ioctl(host_mod_fd,INIT_IOCTL,vtop((uint64_t)unbacked_region))) {
@@ -264,12 +264,12 @@ int main(int argc, char** argv)
          load_args_from_shared_page((uint64_t*)unbacked_region,&sys_code,&a1,&a2,&a3,&a4,&a5,&a6,&bit_vec);
 
          //Extract Guest pointer arguments and map them to current userspace
-         DEBUG_PRINT("About to deref args\nsys_code: %016llu, a1: %016llu, a2: %016llu,\na3: %016llu,a4: %016llu,a5: %016llu,a6: %016llu,bit_vec: %016llu\n", sys_code, a1, a2, a3,a4,a5,a6,bit_vec);
+         DEBUG_PRINT("About to deref args\nsys_code: %016lu, a1: %016lu, a2: %016lu,\na3: %016lu,a4: %016lu,a5: %016lu,a6: %016lu,bit_vec: %016lu\n", sys_code, a1, a2, a3,a4,a5,a6,bit_vec);
 
 	 // swizzle pointers from their GPAs to their HVAs
          deref_args(map,&a1,&a2,&a3,&a4,&a5,&a6,bit_vec);
 
-         DEBUG_PRINT("Derefed args\nsys_code: %016llu, a1: %016llu, a2: %016llu,\na3: %016llu,a4: %016llu,a5: %016llu,a6: %016llu,bit_vec: %016llu\n", sys_code, a1, a2, a3,a4,a5,a6,bit_vec);
+         DEBUG_PRINT("Derefed args\nsys_code: %016lu, a1: %016lu, a2: %016lu,\na3: %016lu,a4: %016lu,a5: %016lu,a6: %016lu,bit_vec: %016lu\n", sys_code, a1, a2, a3,a4,a5,a6,bit_vec);
 
          sys_rc = syscall(sys_code,a1,a2,a3,a4,a5,a6);            
 	 sys_errno = errno;
@@ -278,7 +278,7 @@ int main(int argc, char** argv)
              perror("Failed Syscall: ");
          }
 
-         DEBUG_PRINT("Device File: System call rc %d, errno %d\n",(int)sys_rc,sys_errno);
+         DEBUG_PRINT("Device File: System call rc %d, errno %lu\n",(int)sys_rc,sys_errno);
 
          //put return value into shared region
          store_args_to_shared_page((uint64_t*)unbacked_region, &sys_rc, &sys_errno); 

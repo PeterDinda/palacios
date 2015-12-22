@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
 	return -1;
     }
 
-    printf("Simulating VM for %lu msecs\n", msecs);
+    printf("Simulating VM for %u msecs\n", msecs);
     
     vm_fd = open(filename, O_RDONLY);
 
