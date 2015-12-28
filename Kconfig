@@ -50,7 +50,24 @@ config LINUX_KERN
 config MINIX
 	bool "MINIX 3"
 	help
-	  This enables the necesary options to compile Palacios with Kitten
+	  This enables the necesary options to compile Palacios with Minix
+
+config NAUTILUS
+	bool "Nautilus"
+	select V3_DECODER
+        select FRAME_POINTER
+	help
+	  This enables the necessary options to compile Palacios 
+          for inclusion in the Nautilus kernel
+
+config NAUTILUS_KERN
+	depends on NAUTILUS
+	string "Nautilus Kernel Source directory" 
+	default "../nautilus"
+	help 
+	  This is the directory containing the 
+          Nautilus sources
+
 
 config OTHER_OS
 	bool "Other OS"

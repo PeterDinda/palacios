@@ -483,6 +483,13 @@ else
 DEFAULT_EXTRA_TARGETS=
 endif
 
+ifdef V3_CONFIG_NAUTILUS
+DEFAULT_EXTRA_TARGETS=nautilus
+else
+DEFAULT_EXTRA_TARGETS=
+endif
+
+
 # The all: target is the default when no target is given on the
 # command line.
 # This allow a user to issue only 'make' to build a kernel including modules
@@ -493,7 +500,18 @@ all: palacios $(DEFAULT_EXTRA_TARGETS)
 ifdef V3_CONFIG_LINUX
 CFLAGS          += -mcmodel=kernel 
 else
+ifdef V3_CONFIG_NAUTILUS
+CFLAGS          += -O2 \
+	 	   -fno-omit-frame-pointer \
+		   -ffreestanding \
+		   -fno-stack-protector \
+		   -fno-strict-aliasing \
+		   -mno-red-zone \
+		   -mcmodel=large 
+LDFLAGS         += -z max-page-size=0x1000
+else
 CFLAGS          += -fPIC
+endif
 endif
 
 ifdef V3_CONFIG_FRAME_POINTER
@@ -639,6 +657,11 @@ linux_module/v3vee.ko: linux_module/*.c linux_module/*.h libv3vee.a
 
 linux_module: linux_module/v3vee.ko 
 
+nautilus/libnautilus.a: nautilus/*.c nautilus/*.h libv3vee.a
+	cd nautilus/ && make 
+	cp nautilus/libnautilus.a .
+
+nautilus: nautilus/libnautilus.a
 
 
 palacios.asm: palacios
