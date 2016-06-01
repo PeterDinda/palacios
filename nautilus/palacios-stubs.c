@@ -1,15 +1,15 @@
 #include <nautilus/nautilus.h>
-#include <nautilus/printk.h>
 #include <nautilus/thread.h>
+#include <nautilus/printk.h>
 #include <nautilus/cpu.h>
 #include <nautilus/mm.h>
+#include <nautilus/vc.h>
 #include <dev/timer.h>
 #include <dev/apic.h>
 
 #include <palacios/vmm.h>
 
 #include "palacios.h"
-#include "palacios-nautilus-mm.h"
 #include "console.h"
 
 
@@ -20,12 +20,9 @@
 
   - Nautilus currently has a grand-unified allocator designed to help
     support parallel run-time integration.   All of alloc/valloc/page 
-    allocation are built on top of that. See palacios-nautilus-mm.c
-    for how this works for page allocation.
+    allocation are built on top of that. 
   - For page allocation, constraints, NUMA, and filter expressions are
     ignored.
-  - To make this work, you also need updates on the Nautilus side.
-    (these will eventually get into the Nautilus repo)
   - thread migration is not supported currently
   - hooking of host interrupts is not supported currently.
   - Palacios can sleep, yield, wakeup, etc, but be aware
@@ -36,11 +33,26 @@
   - Do Nautilus regular startup to bring all cores to idle
   - From a kernel thread, ideally the init thread on core 0, 
     do palacios_vmm_init(memory_size_bytes,options)
-  - Create, launch, etc, VMs using the Palacios v3_* functions
-    (note that these are NOT wrapped here)
-  - Console assumes void *the_vm is defined in the host, and it
-    is whatever a v3_create_vm() returned.    This is the VM that
-    has console access (keyboard and screen).
+  - You can now use the Palacios v3_* functions, which are
+    not wrapped here.
+  - You need to keep the Nautilus VM state in sync with
+    the Palacios VM state.   The protocol for this is:
+        1. before doing a VM creation, call 
+              palacios_inform_new_vm_pre(name)
+           this will also select the new vm for
+           the creation and going forward
+           then, once v3_create is done, call
+              palacios_inform_new_vm_post(name, vm)
+        2. during execution, whenever you want to
+           manage a different VM, call 
+              palacios_inform_select_vm(vm) 
+           or 
+              palacios_inform_select_vm_by_name(name)
+           It is OK to to select repeatedly, etc.
+        3. after doing a VM free, call
+              palacios_inform_free_vm(name)
+           or
+              palacios_inform_free_selected_vm()
   - After you are done, do a palacios_vmm_deinit();
 
 */
@@ -52,8 +64,11 @@
 #define ALLOC_PAD       0
 #define MAX_THREAD_NAME 32
 
-
 int run_nk_thread = 0;
+
+static struct nk_vm_state vms[NR_VMS];
+
+static struct nk_vm_state *selected_vm;
 
 static struct v3_vm_info * irq_to_guest_map[256];
 
@@ -78,7 +93,6 @@ static int init_print_buffers(void)
     int i;
     
     memset(print_buffer,0,sizeof(char*)*NR_CPUS);
-
 
     for (i=0;i<NR_CPUS;i++) { 
 	print_buffer[i] = palacios_alloc(V3_PRINTK_BUF_SIZE);
@@ -107,9 +121,8 @@ void palacios_print_scoped(void * vm, int vcore, const char *fmt, ...)
   unsigned int cpu = palacios_get_cpu();
   char *buf = cpu < NR_CPUS ? print_buffer[cpu] : 0;
 
-
   if (!buf) { 
-      printk("palacios (pcore %u): output skipped - no allocated buffer\n",cpu);
+      INFO_PRINT("palacios (pcore %u): output skipped - no allocated buffer\n",cpu);
       return;
   } 
 
@@ -120,21 +133,21 @@ void palacios_print_scoped(void * vm, int vcore, const char *fmt, ...)
 
   if (vm) {
     if (vcore>=0) { 
-      printk(KERN_INFO "palacios (pcore %u vm %s vcore %u): %s",
-	     cpu,
-	     "some_guest",
-	     vcore,
-	     buf);
+      INFO_PRINT("palacios (pcore %u vm %s vcore %u): %s",
+		 cpu,
+		 "some_guest",
+		 vcore,
+		 buf);
     } else {
-       printk(KERN_INFO "palacios (pcore %u vm %s): %s",
-	     cpu,
-	     "some_guest",
-	     buf);
+      INFO_PRINT(KERN_INFO "palacios (pcore %u vm %s): %s",
+		 cpu,
+		 "some_guest",
+		 buf);
     }
   } else {
-    printk(KERN_INFO "palacios (pcore %u): %s",
-	   cpu,
-	   buf);
+    INFO_PRINT(KERN_INFO "palacios (pcore %u): %s",
+	       cpu,
+	       buf);
   }
     
   return;
@@ -155,18 +168,25 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id
 	return NULL;
     }
 
-    pg_addr = (void *)alloc_palacios_pgs(num_pages, alignment, node_id, filter_func, filter_state);
+    // malloc currently guarantees alignment to the size of 
+    // the allocation
+    pg_addr = (void *)malloc(num_pages*4096);
 
     if (!pg_addr) { 
 	ERROR("ALERT ALERT  Page allocation has FAILED Warning (%d pages, alignment %d, node %d, filter_func %p, filter_state %p)\n",num_pages, alignment, node_id, filter_func, filter_state);
 	return NULL;
+    }
+    
+    if ((uint64_t)pg_addr & 0xfff) { 
+      ERROR("ALERT ALERT Page allocation has surprise offset\n");
+      return NULL;
     }
 
 #if ALLOC_ZERO_MEM
     memset(pg_addr,0,num_pages*4096);
 #endif
 
-    //    INFO("allocpages: %p (%llu pages) alignment=%u\n", pg_addr, num_pages, alignment);
+    //INFO("allocpages: %p (%llu pages) alignment=%u\n", pg_addr, num_pages, alignment);
 
     return pg_addr;
 }
@@ -183,9 +203,9 @@ void palacios_free_pages(void * page_paddr, int num_pages) {
 	ERROR("Ignoring free pages: 0x%p (0x%lx)for %d pages\n", page_paddr, (uintptr_t)page_paddr, num_pages);
 	return;
     }
-    free_palacios_pgs((uintptr_t)page_paddr, num_pages);
+    free(page_paddr);
 
-    //    INFO("freepages: %p (%llu pages) alignment=%u\n", page_paddr, num_pages);
+    INFO("freepages: %p (%llu pages) alignment=%u\n", page_paddr, num_pages);
 }
 
 
@@ -710,9 +730,7 @@ static struct v3_os_hooks palacios_os_hooks = {
 };
 
 
-
-
-int palacios_vmm_init(uint64_t memsize, char * options)
+int palacios_vmm_init(char * options)
 {
     int num_cpus = nautilus_info.sys.num_cpus;
     char * cpu_mask = NULL;
@@ -740,14 +758,10 @@ int palacios_vmm_init(uint64_t memsize, char * options)
         }
     }
 
-    INFO("calling palacios-mm init\n");
-    if (init_palacios_nautilus_mm(memsize)) { 
-	ERROR("Failted to initialize memory management\n");
-	return -1;
-    }
-    INFO("palacios-mm init done\n");
-    
+
     memset(irq_to_guest_map, 0, sizeof(struct v3_vm_info *) * 256);
+
+    memset(vms,0,sizeof(vms));
 
     if (init_print_buffers()) {
 	INFO("Cannot initialize print buffers\n");
@@ -756,8 +770,6 @@ int palacios_vmm_init(uint64_t memsize, char * options)
     }
     
     INFO("printbuffer init done\n");
-
-    //palacios_print_scoped(0, 0, "Hi%llu\n", 134217728);
 
     INFO("NR_CPU: %d\n", NR_CPUS);
 
@@ -795,7 +807,105 @@ int palacios_vmm_exit( void )
 
     deinit_print_buffers();
 
-    deinit_palacios_nautilus_mm(); // free memory from the allocator
-
     return 0;
 }
+
+
+void palacios_inform_new_vm_pre(char *name)
+{
+  int i;
+  for (i=0;i<NR_VMS;i++) { 
+    if (!vms[i].name[0]) {
+      strncpy(vms[i].name,name,MAX_VM_NAME);
+      selected_vm = &vms[i];
+      return;
+    }
+  }
+}
+
+void palacios_inform_new_vm_post(char *name, struct v3_vm_info *vm)
+{
+  struct nk_vm_state *n = palacios_find_vm_by_name(name);
+
+  if (n) { 
+    n->vm = vm;
+    INFO("Registered VM %p with name %s, node=%p, selected VM=%p\n",
+	 vm, n->name, n, selected_vm);
+  } else {
+    ERROR("Cannot find VM with name \"%s\"\n",name);
+  }
+}
+
+void palacios_inform_free_vm(char *name) 
+{
+  struct nk_vm_state *n = palacios_find_vm_by_name(name);
+
+  if (n==selected_vm) { 
+    selected_vm = 0;
+  }
+
+  if (n) { 
+    n->vm = 0;
+    n->vc = 0;
+    n->name[0] = 0;
+  }
+  
+}
+
+void palacios_inform_free_selected_vm()
+{
+  struct nk_vm_state *n = selected_vm;
+
+  selected_vm = 0;
+
+  if (n) { 
+    n->vm = 0;
+    n->vc = 0;
+    n->name[0] = 0;
+  }
+}
+
+
+struct nk_vm_state *palacios_find_vm_by_name(char *name)
+{
+  int i;
+  for (i=0;i<NR_VMS;i++) { 
+    if (!strncmp(vms[i].name,name,MAX_VM_NAME)) {
+      return &vms[i];
+    }
+  }
+  return 0;
+}
+
+struct nk_vm_state *palacios_find_vm(struct v3_vm_info *vm)
+{
+  int i;
+  for (i=0;i<NR_VMS;i++) { 
+    if (vms[i].vm == vm) { 
+      return &vms[i];
+    }
+  }
+  return 0;
+}
+
+void palacios_select_vm(struct v3_vm_info *vm)
+{
+  struct nk_vm_state *n = palacios_find_vm(vm);
+  if (n) {
+    selected_vm = n;
+  }
+}
+
+void palacios_select_vm_by_name(char *name)
+{
+  struct nk_vm_state *n = palacios_find_vm_by_name(name);
+  if (n) {
+    selected_vm = n;
+  }
+}
+
+struct nk_vm_state *palacios_get_selected_vm()
+{
+  return selected_vm;
+}
+

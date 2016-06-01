@@ -21,10 +21,30 @@ typedef int *intptr_t;
 
 #define NR_CPUS 64
 
+#define NR_VMS  32
+
+#define MAX_VM_NAME 32
+
+struct nk_vm_state {
+  char   name[MAX_VM_NAME];
+  struct v3_vm_info *vm;
+  struct nk_virtual_console *vc;
+};
 
 
+int palacios_vmm_init( char * options );
 
-int palacios_vmm_init( uint64_t memsize, char * options );
+void palacios_inform_new_vm_pre(char *name);
+void palacios_inform_new_vm_post(char *name, struct v3_vm_info *vm);
+void palacios_inform_free_vm(char *name);
+void palacios_inform_free_selected_vm();
+void palacios_inform_select_vm(struct v3_vm_info *vm);
+void palacios_inform_select_vm_by_name(char *name);
+
+struct nk_vm_state *palacios_find_vm(struct v3_vm_info *vm);
+struct nk_vm_state *palacios_find_vm_by_name(char *name);
+struct nk_vm_state *palacios_get_selected_vm();
+
 int palacios_vmm_exit( void );
 
 
@@ -87,19 +107,19 @@ void  palacios_mutex_unlock_irqrestore(void *mutex, void *flags);
 #define V3_PRINTK_CHECK_7BIT 1
 
 //
-// The following macros are for printing in the linux module itself, even before
+// The following macros are for printing in nautilus itself, even before
 // Palacios is initialized and after it it deinitialized
-// All printk's in linux_module use these macros, for easier control
+// All printk's in nautilus use these macros, for easier control
 #define KERN_ERR ""
 #define KERN_WARNING ""
 #define KERN_NOTICE ""
 #define KERN_INFO ""
 #define KERN_DEBUG ""
-#define ERROR(fmt, args...) printk((KERN_ERR "palacios (pcore %u) %s(%d): " fmt), palacios_get_cpu(), __FILE__, __LINE__, ##args)
-#define WARNING(fmt, args...) printk((KERN_WARNING "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
-#define NOTICE(fmt, args...) printk((KERN_NOTICE "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
-#define INFO(fmt, args...) printk((KERN_INFO "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
-#define DEBUG(fmt, args...) printk((KERN_DEBUG "palacios (pcore %u): " fmt), palacios_get_cpu(), ##args)
+#define ERROR(fmt, args...) ERROR_PRINT(KERN_ERR "palacios (pcore %u) %s(%d): " fmt, palacios_get_cpu(), __FILE__, __LINE__, ##args)
+#define WARNING(fmt, args...) WARN_PRINT(KERN_WARNING "palacios (pcore %u): " fmt, palacios_get_cpu(), ##args)
+#define NOTICE(fmt, args...) INFO_PRINT(KERN_NOTICE "palacios (pcore %u): " fmt, palacios_get_cpu(), ##args)
+#define INFO(fmt, args...) INFO_PRINT(KERN_INFO "palacios (pcore %u): " fmt, palacios_get_cpu(), ##args)
+#define DEBUG(fmt, args...) DEBUG_PRINT(KERN_DEBUG "palacios (pcore %u): " fmt, palacios_get_cpu(), ##args)
 
 
 #endif
