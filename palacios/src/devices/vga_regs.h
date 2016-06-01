@@ -754,7 +754,7 @@ struct vga_attribute_mode_control_reg {
 	    uint8_t enable_line_graphics_char_code:1;
 	    // 1 => enable special line graphics characters
 	    //      and force 9th dot to be same as 8th dot of char
-	    uint8_t enable_blink;
+	    uint8_t enable_blink:1;
 	    // 1 => MSB of the attribute means blink (8 colors + blink)
 	    // 0 => MSB of the attribute means intensity (16 colors)
 	    uint8_t reserved:1;
