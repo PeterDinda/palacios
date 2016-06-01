@@ -198,7 +198,7 @@ static int handle_vmx_nested_pagefault(struct guest_info * core, addr_t fault_ad
     
     ept_exit_qual_to_pf_error(ept_qual, &error_code);
 
-    PrintDebug(info->vm_info, info, "Nested PageFault: fault_addr=%p, error_code=%u, exit_qual=0x%llx\n", (void *)fault_addr, *(uint_t *)&error_code, qual->value);
+    PrintDebug(core->vm_info, core, "Nested PageFault: fault_addr=%p, error_code=%u, exit_qual=0x%llx\n", (void *)fault_addr, *(uint_t *)&error_code, ept_qual->value);
 
     
     if (region == NULL) {
