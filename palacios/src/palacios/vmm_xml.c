@@ -480,8 +480,12 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
     char ** attr; 
     int attr_idx;
 
-    if (!buf) {
-	return NULL;
+    if (buf==NULL) {
+      return NULL;
+    }
+
+    if (root==NULL) {
+      return NULL;
     }
 
     root->str_ptr = buf;
@@ -692,7 +696,8 @@ static struct v3_xml * parse_str(char * buf, size_t len) {
 	    return NULL;
         }
 
-        if (! buf || ! *buf) {
+	// at this point, buf cannot be NULL
+        if (!*buf) {
 	    break;
 	}
 

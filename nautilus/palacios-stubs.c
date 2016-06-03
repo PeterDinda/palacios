@@ -198,14 +198,17 @@ void *palacios_allocate_pages(int num_pages, unsigned int alignment, int node_id
  * a single call while palacios_free_page() only frees a single page.
  */
 
-void palacios_free_pages(void * page_paddr, int num_pages) {
+void palacios_free_pages(void * page_paddr, int num_pages) 
+{
+    //INFO("freepages: %p (%llu pages) alignment=%u\n", page_paddr, num_pages);
+
     if (!page_paddr) { 
 	ERROR("Ignoring free pages: 0x%p (0x%lx)for %d pages\n", page_paddr, (uintptr_t)page_paddr, num_pages);
 	return;
     }
+
     free(page_paddr);
 
-    INFO("freepages: %p (%llu pages) alignment=%u\n", page_paddr, num_pages);
 }
 
 
@@ -244,6 +247,7 @@ palacios_valloc(unsigned int size)
 {
     void * addr = NULL;
 
+
     if (size==0) { 
       ERROR("ALERT ALERT attempt to vmalloc zero bytes rejected\n");
       return NULL;
@@ -268,14 +272,15 @@ palacios_valloc(unsigned int size)
 
 void palacios_vfree(void *p)
 {
+  //INFO("vfree: 0x%p\n",p);
+
   if (!p) { 
       ERROR("Ignoring vfree: 0x%p\n",p);
       return;
   }
-  // no vfree currently
+
   free(p);
 
-  //INFO("vfree: 0x%p\n",p);
 }
 
 /**
@@ -294,14 +299,14 @@ palacios_alloc(unsigned int size)
 void
 palacios_free(void *addr)
 {
-    return;
+    //INFO("free: %p\n",addr-ALLOC_PAD);
+
     if (!addr) {
 	ERROR("Ignoring free : 0x%p\n", addr);
 	return;
     }
-    // no kfree
+
     free(addr-ALLOC_PAD);
-    //INFO("free: %p\n",addr-ALLOC_PAD);
 }
 
 /**
@@ -312,8 +317,11 @@ palacios_vaddr_to_paddr(
 	void *			vaddr
 )
 {
-    return vaddr; // our memory mapping is identity
-
+  // our memory mapping is identity
+  // this currently does not include Nautilus PA offsetting
+  // as in Multiverse, but we don't envision running a VM
+  // within an HRT either, so we should be fine
+  return vaddr; 
 }
 
 /**
@@ -324,7 +332,7 @@ palacios_paddr_to_vaddr(
 	void *			paddr
 )
 {
-    return paddr; // our memory mapping is identity
+    return paddr; // our memory mapping is identity, see v->p comment
 }
 
 /**
@@ -756,6 +764,9 @@ int palacios_vmm_init(char * options)
     
             *(cpu_mask + major) |= (0x1 << minor);
         }
+    } else {
+      ERROR("Must initialize at least one CPU\n");
+      return -1;
     }
 
 
@@ -788,6 +799,8 @@ int palacios_vmm_init(char * options)
     nautilus_console_init();
 #endif
 
+    palacios_free(cpu_mask);
+
 
     return 0;
 
@@ -817,6 +830,7 @@ void palacios_inform_new_vm_pre(char *name)
   for (i=0;i<NR_VMS;i++) { 
     if (!vms[i].name[0]) {
       strncpy(vms[i].name,name,MAX_VM_NAME);
+      vms[i].name[MAX_VM_NAME-1]=0;
       selected_vm = &vms[i];
       return;
     }

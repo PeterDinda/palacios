@@ -221,14 +221,14 @@ int default_mapper_admit(struct v3_vm_info *vm, unsigned int cpu_mask){
 
 	}
 
-    core->pcpu_id = core_idx;
-    vcore_id--;
+	core->pcpu_id = core_idx;
+	vcore_id--;
     }
 
-    if (vcore_id >= 0) { // dead code...
-	v3_stop_vm(vm);
-	return -1;
-    }
+    //    if (vcore_id >= 0) { // dead code...
+    //v3_stop_vm(vm);
+    //return -1;
+    //}
 
     return 0;
 }
