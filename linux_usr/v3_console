@@ -1,11 +1,22 @@
 #!/usr/bin/perl -w
 
 if ($#ARGV!=0) { 
-	print "v3_console /dev/v3-vmXXX\n";
-	print "Use '\\' to escape terminal\n\n";
-	print "Use v3_cons if you are on a raw PC console\n";
-	print "Use v3_vncclient if you are trying to connect to a v3_vncserver\n";
-	exit;
+  print "v3_console /dev/v3-vmXXX\n";
+  print "Use '\\' to escape terminal\n\n";
+  print "Use v3_console if you are on a terminal and\n";
+  print "   want to connect to the VM's screen+keybaord\n";
+  print "   in text mode.\n";
+  print "Use v3_cons if you are on a raw PC console and\n";
+  print "   want to connnect to the VM's screen+keyboard\n";
+  print "   in text mode.\n";
+  print "Use v3_vncclient if you want to connect to the\n";
+  print "   VM's screen+keyboard in graphical mode.\n";
+  print "   This requires a v3_vncserver and an correctly\n";
+  print "   configured VM.\n";
+  print "Use v3_stream if you are on a terminal and\n";
+  print "   want to connect to a stream on the VM, \n";
+  print "   for example a serial port.\n";
+  exit;
 }
 
 

@@ -55,7 +55,9 @@ EXPERIMENTAL_EXECS = 	v3_simulate  \
                         v3_env_inject \
 			v3_syscall \
 			v3_register_gm \
-			v3_devfile_shadow
+			v3_devfile_shadow \
+
+NONDEFAULT_EXECS = v3_cons_tc  # needs to have termkey installed
 
 
 
@@ -132,6 +134,10 @@ v3_cons: v3_cons.c
 
 v3_cons_sc: v3_cons_sc.c
 	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< $(CURSES_LIBS) -o $@
+
+v3_cons_tc: v3_cons_tc.c
+	$(CC) $(CFLAGS) $(CURSES_CFLAGS) $< $(CURSES_LIBS) -L. -ltermkey -lcurses -o $@
+
 
 v3_create: v3_create.c ezxml.c libv3_ctrl.a 
 	$(CC) $(CFLAGS) $^ -lv3_ctrl -L. -o $@

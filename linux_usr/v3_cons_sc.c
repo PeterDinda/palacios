@@ -117,7 +117,9 @@ static int handle_char_set(struct character_msg * msg) {
 	    return -1;
 	}
 
+        wattron(console.win, COLOR_PAIR(msg->style));
 	mvwaddch(console.win, msg->y, msg->x, c);
+        wattroff(console.win, COLOR_PAIR(msg->style));
 
     } else {
 	//stdout text display
@@ -285,8 +287,8 @@ struct key_code {
 };
 
 static const struct key_code ascii_to_key_code[] = {             // ASCII Value Serves as Index
-    NO_KEY,         NO_KEY,         NO_KEY,         NO_KEY,      // 0x00 - 0x03
-    NO_KEY,         NO_KEY,         NO_KEY,         { 0x0E, 0 }, // 0x04 - 0x07
+    NO_KEY,         NO_KEY,         {0x50, 0},         {0x48, 0},      // 0x00 - 0x03
+    {0x4B, 0},         {0x4D, 0},         NO_KEY,         { 0x0E, 0 }, // 0x04 - 0x07
     { 0x0E, 0 },    { 0x0F, 0 },    { 0x1C, 0 },    NO_KEY,      // 0x08 - 0x0B
     NO_KEY,         { 0x1C, 0 },    NO_KEY,         NO_KEY,      // 0x0C - 0x0F
     NO_KEY,         NO_KEY,         NO_KEY,         NO_KEY,      // 0x10 - 0x13
@@ -397,6 +399,18 @@ int check_terminal_size (void)
 }
 
 
+
+static void
+init_colors (void)
+{
+    start_color();
+    int i;
+    for (i = 0; i < 0x100; i++) {
+        init_pair(i, i & 0xf, (i >> 4) & 0xf);
+    }
+}
+
+
 int main(int argc, char* argv[]) {
     int vm_fd;
     int cons_fd;
@@ -454,6 +468,7 @@ int main(int argc, char* argv[]) {
 	scrollok(console.win, 1);
 
 	erase();
+    init_colors();
     }
 
     /*
@@ -508,32 +523,32 @@ int main(int argc, char* argv[]) {
 	    }
 	}
 
-	if (FD_ISSET(STDIN_FILENO, &rset)) {
-	    unsigned char key = getch();
+    if (FD_ISSET(STDIN_FILENO, &rset)) {
+        unsigned char key = getch();
 
-	    if (key == '\\') { // ESC
-		break;
-	    } else if (key == '`') {
-		unsigned char sc = 0x44; // F10
-		writeit(cons_fd,sc);
-		sc |= 0x80;
-		writeit(cons_fd,sc);
-            } else if (key == '~') {  // CTRL-C 
-                unsigned char sc;
-                sc = 0x1d;  // left ctrl down
-                writeit(cons_fd,sc);
-                sc = 0x2e; // c down
-		writeit(cons_fd,sc);
-		sc = 0x2e | 0x80;   // c up
-                writeit(cons_fd,sc);
-                sc = 0x1d | 0x80;   // left ctrl up
-                writeit(cons_fd,sc);
-            } else {
-		if (send_char_to_palacios_as_scancodes(cons_fd,key)) {
-		    printf("Error sending key to console\n");
-		    return -1;
-		}
-	    }
+        if (key == '\\') { // ESC
+            break;
+        } else if (key == '`') {
+            unsigned char sc = 0x44; // F10
+            writeit(cons_fd,sc);
+            sc |= 0x80;
+            writeit(cons_fd,sc);
+        } else if (key == '~') {  // CTRL-C 
+            unsigned char sc;
+            sc = 0x1d;  // left ctrl down
+            writeit(cons_fd,sc);
+            sc = 0x2e; // c down
+            writeit(cons_fd,sc);
+            sc = 0x2e | 0x80;   // c up
+            writeit(cons_fd,sc);
+            sc = 0x1d | 0x80;   // left ctrl up
+            writeit(cons_fd,sc);
+        } else {
+            if (send_char_to_palacios_as_scancodes(cons_fd,key)) {
+                printf("Error sending key to console\n");
+                return -1;
+            }
+        }
 	    
 	}
     } 
