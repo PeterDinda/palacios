@@ -571,18 +571,42 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
 
     int i;
     char* cd[2] = {"data","code"};
-    // TODO: handle possibility of gate/segment descriptor
+    char * sys_types[16] = {"rsvd",
+                      "rsvd",
+                      "64bit LDT",
+                      "rsvd",
+                      "rsvd",
+                      "rsvd",
+                      "rsvd",
+                      "rsvd",
+                      "rsvd",
+                      "avail 64bit TSS",
+                      "rsvd",
+                      "busy 64bit TSS",
+                      "64bit call gate",
+                      "rsvd",
+                      "64bit int gate",
+                      "64bit trap gate"};
 
-    struct code_desc_lgcy * entry;
+    struct code_desc_long * entry;
     entry = (struct code_desc_long *)base_hva;
     V3_Print(core->vm_info, core, "= GDT ========\n");
     V3_Print(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
-    for (i = 0; i < NUM_GDT_ENTRIES; i++) {
-        V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
-                entry->limit_hi, entry->limit_lo,
-                entry->base_hi, entry->base_mid, entry->base_lo,
-                cd[entry->one1], entry->dpl, entry->p);
-        entry++;
+    for (i = 0; i < (core->segments.gdtr.limit+1)/8; i++) {
+        if (entry->one2 == 0) { // this is a system descriptor
+            struct system_desc_long* sys = (struct system_desc_long*)entry;
+            V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %08x%02x%02x%04x | %20s |   %x | %x\n", i, i,
+                    entry->limit_hi, entry->limit_lo,
+                    sys->base_hi, entry->base_hi, entry->base_mid, entry->base_lo,
+                    sys_types[sys->type], entry->dpl, entry->p);
+            entry += 2;
+        } else {
+            V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %08x%02x%02x%04x | %20s |   %x | %x\n", i, i,
+                    entry->limit_hi, entry->limit_lo,
+                    0, entry->base_hi, entry->base_mid, entry->base_lo,
+                    cd[entry->one1], entry->dpl, entry->p);
+            entry++;
+        }
     }
 }
 
@@ -704,19 +728,31 @@ void v3_print_gdt(struct guest_info * core, addr_t gdtr_base) {
     }
 
     int i;
-    char* cd[2] = {"data","code"};
+    char* cd[2] = {"  data","  code"};
     // TODO: handle possibility of gate/segment descriptor
+    char *types[16] = {"  ILGL","  ILGL"," LDT64","  ILGL","  ILGL","  ILGL","  ILGL","  ILGL",
+        "  ILGL","aTSS64","  ILGL","bTSS64","call64","  ILGL","intr64","trap64"};
 
     struct code_desc_long * entry;
     entry = (struct code_desc_long *)base_hva;
     V3_Print(core->vm_info, core, "= GDT ========\n");
     V3_Print(core->vm_info, core, "  # | hex | limit |     base |  c/d | dpl | p\n");
-    for (i = 0; i < NUM_GDT_ENTRIES; i++) {
-        V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %02x%02x%04x | %s |   %x | %x\n", i, i,
-                entry->limit_hi, entry->limit_lo,
-                entry->base_hi, entry->base_mid, entry->base_lo,
-                cd[entry->one1], entry->dpl, entry->p);
-        entry++;
+    for (i = 0; i < (core->segments.gdtr.limit+1)/8; i++) {
+        if (entry->one2 == 0 && *(uint64_t*)entry != 0) { // this is a system descriptor
+            struct system_desc_long* sys = (struct system_desc_long*)entry;
+            V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %08x%02x%02x%04x | %s |   %x | %x\n", i, i,
+                    entry->limit_hi, entry->limit_lo,
+                    sys->base_hi, entry->base_hi, entry->base_mid, entry->base_lo,
+                    types[sys->type], entry->dpl, entry->p);
+            entry += 2;
+            i++;
+        } else {
+            V3_Print(core->vm_info, core, "%3d | %3x | %x%04x | %08x%02x%02x%04x | %s |   %x | %x\n", i, i,
+                    entry->limit_hi, entry->limit_lo,
+                    0, entry->base_hi, entry->base_mid, entry->base_lo,
+                    cd[entry->one1], entry->dpl, entry->p);
+            entry++;
+        }
     }
 }
 
