@@ -57,6 +57,9 @@
    we can be interrupted, and deliverable interrupts
    automatically prioritize over us.
 
+   The start of the stack (before the VMM pushes the fake
+   interrupt frame is  16 byte aligned
+
         48bitsblank | return SS (16 bits)
 	Return RSP
 	Return RFLAGS
@@ -67,22 +70,43 @@
 	We then need simply to do this:
 
 	save regs
+	arrange 16 byte alignment at entry of call
 	call the handler (if installed)
 	restore regs
 	iret
 	
 */
 
-.global __v3_hvm_ros_signal_handler_stub
-__v3_hvm_ros_signal_handler_stub:
-	GPR_SAVE()
-	movabs __v3_hvm_ros_signal_handler, %rax
-	testq %rax, %rax
-	jz skip_handler
-	movq 120(%rsp), %rdi /* error code becomes argument */
-	callq *%rax	
-skip_handler:	
-	GPR_LOAD()
-	addq $8, %rsp /* nuke the error code */
-	iretq
+#define DEBUG_ENTRY 0
 	
+.global __v3_hvm_ros_signal_handler_stub
+__v3_hvm_ros_signal_handler_stub:   /* we are 16 byte aligned on entry 16 + 6*8 for interrupt frame */
+	GPR_SAVE()                  /* push 15 words, all but rsp, now not aligned - need 1 more word  */
+        subq $8, %rsp               /* make us 16 byte aligned */
+
+#if DEBUG_ENTRY                     /* print out something if we are debugging - Note this is danerous code */
+	pushq %rdi
+	pushq %rax
+	movabsq $printf, %rax
+	movabsq $string, %rdi
+	callq *%rax
+	popq %rax
+	popq %rdi
+#endif
+	movq %rsp, %rbp             /* give us a stack frame for any callee that needs it */
+	movabs __v3_hvm_ros_signal_handler, %rax  /* find the user-level handler */
+	testq %rax, %rax                          /* return immediately if it doesn't exist */
+	jz skip_handler                           /* " */
+	movq 128(%rsp), %rdi        /* error code becomes argument for user-level handler */
+	callq *%rax                 /* call handelr - 16 byte aligned at call */
+	jmp done
+skip_handler:
+done:
+	addq $8, %rsp               /* get rid of stack alignment pad */
+	GPR_LOAD()                  /* rbp is restored here */
+	addq $8, %rsp               /* nuke the error code */
+	iretq                       /* restore rip, rsp, and rflags */
+	
+
+string:
+    .asciz "Got to signal handler stub\12"

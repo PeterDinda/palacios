@@ -2,10 +2,11 @@
   Copyright (c) 2015 Peter Dinda
 */
 
-#include <sys/syscall.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <syscall.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -14,17 +15,21 @@
 #include "v3_hvm_ros_user.h"
 
 
-#define DEBUG_OUTPUT 0
-#define INFO_OUTPUT 0
+#define HRT_FAIL_VEC 0x1d
 
-#if DEBUG_OUTPUT
-#define DEBUG(...) fprintf(stderr,__VA_ARGS__)
+static FILE *log = NULL;
+
+
+#if DEBUG_ENABLE==1
+#define DEBUG(fmt, args...) if (log) { fprintf(log, "DEBUG: " fmt, ##args); }
 #else
 #define DEBUG(...)
 #endif
 
-#if INFO_OUTPUT
-#define INFO(...) fprintf(stdout,__VA_ARGS__)
+#if INFO_ENABLE==1
+#define INFO(fmt, args...) if (log) {  fprintf(log, fmt, ##args); }
+        fprintf(stdout, fmt, ##args); \
+    }
 #else
 #define INFO(...)
 #endif
@@ -119,10 +124,37 @@ typedef unsigned char uchar_t;
 #define HCALL(rc,id,a,b,c,d,e,f,g,h)  HCALL32(rc,id,a,b,c,d,e,f,g,h)   
 #endif
 
+static inline uint64_t 
+Syscall (uint64_t num, 
+		 uint64_t a1,
+		 uint64_t a2,
+		 uint64_t a3,
+		 uint64_t a4,
+		 uint64_t a5,
+		 uint64_t a6)
+{
+    uint64_t rc;
+
+    __asm__ __volatile__ ("movq %1, %%rax; "
+			  "movq %2, %%rdi; "
+			  "movq %3, %%rsi; "
+			  "movq %4, %%rdx; "
+			  "movq %5, %%r10; "
+			  "movq %6, %%r8; "
+			  "movq %7, %%r9; "
+			  "syscall; "
+			  "movq %%rax, %0; "
+			  : "=m"(rc)
+			  : "m"(num), "m"(a1), "m"(a2), "m"(a3), "m"(a4), "m"(a5), "m"(a6)
+			  : "%rax", "%rdi", "%rcx", "%rsi", "%rdx", "%r10", "%r8", "%r9", "%r11", "memory");
+
+    return rc;
+}
+
 
 /* This must match the definition in palacios/include/palacios/vmm_hvm.h" */
 struct v3_ros_event {
-    enum { ROS_NONE=0, ROS_PAGE_FAULT=1, ROS_SYSCALL=2 } event_type;
+    enum { ROS_NONE=0, ROS_PAGE_FAULT=1, ROS_SYSCALL=2, HRT_EXCEPTION=3, HRT_THREAD_EXIT=4, ROS_DONE=5} event_type;
     uint64_t       last_ros_event_result; // valid when ROS_NONE
     union {
 	struct {   // valid when ROS_PAGE_FAULT
@@ -133,23 +165,130 @@ struct v3_ros_event {
 	struct { // valid when ROS_SYSCALL
 	    uint64_t args[8];
 	} syscall;
+    struct { // valid when HRT_EXCEPTION
+        uint64_t rip;
+        uint64_t vector;
+    } excp;
+    struct { // valid when HRT_THREAD_EXIT
+        uint64_t nktid;
+    } thread_exit;
     };
 };
 
 
 int v3_hvm_ros_user_init()
 {
-    // currently nothing to do
+    log = stderr;
+    return 0;
+}
+
+
+int v3_hvm_ros_user_set_log(FILE *l)
+{
+    log = l;
     return 0;
 }
 
 int v3_hvm_ros_user_deinit()
 {
-    // currently nothing to do
+    log = NULL;
     return 0;
 }
 
-static void handle_ros_event(struct v3_ros_event *event)
+
+int v3_hvm_handle_ros_event_nohcall(struct v3_ros_event *event)
+{
+    uint64_t rc;
+    char t;
+    
+    switch (event->event_type) { 
+	case ROS_PAGE_FAULT: 
+	    // force the ros kernel to the PTE
+	    if (event->page_fault.action==ROS_READ) { 
+		DEBUG("EVENT [PF READ] : %p\n", (volatile char*)(event->page_fault.cr2));
+		t=*(volatile char*)(event->page_fault.cr2);
+		t=t; // avoid wanting for this throwaway
+	    } else if (event->page_fault.action==ROS_WRITE) { 
+		DEBUG("EVENT [PF WRITE] : %p\n", (volatile char*)(event->page_fault.cr2));
+		
+		// stash the old contents
+		char tmp = *((volatile char *)event->page_fault.cr2);
+		
+		// force a write
+		*((volatile char*)event->page_fault.cr2) = 0xa;
+		
+		// put the old value back
+		*((volatile char*)event->page_fault.cr2) = tmp;
+		
+	    } else {
+		INFO("Huh?\n");
+	    }
+	    
+	    DEBUG("Done.");
+	    event->last_ros_event_result = 0;
+	    //event->event_type            = ROS_DONE;
+	    event->event_type            = ROS_NONE;
+	    // completed
+	    DEBUG("[OK]\n");
+	    
+	    break;
+	    
+	case ROS_SYSCALL:
+	    DEBUG("EVENT [SYSCALL] : syscall(0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx)\n",
+		  event->syscall.args[0],
+		  event->syscall.args[1],
+		  event->syscall.args[2],
+		  event->syscall.args[3],
+		  event->syscall.args[4],
+		  event->syscall.args[5],
+		  event->syscall.args[6],
+		  event->syscall.args[7]);
+	    
+	    rc = Syscall(event->syscall.args[0],
+			 event->syscall.args[1],
+			 event->syscall.args[2],
+			 event->syscall.args[3],
+			 event->syscall.args[4],
+			 event->syscall.args[5],
+			 event->syscall.args[6]);
+	    
+	    if ((long int)rc<0) {
+		DEBUG("Syscall (num=0x%llx) failed (rc=0x%llx)\n", (unsigned long long)event->syscall.args[0], (unsigned long long)rc);
+	    }
+	    
+	    DEBUG("Return = 0x%lx...", rc);
+	    event->last_ros_event_result = rc;
+	    //event->event_type            = ROS_DONE;
+	    event->event_type            = ROS_NONE;
+	    DEBUG("[OK]\n");
+	    
+	    break;
+	    
+	case HRT_EXCEPTION:
+	    DEBUG("EVENT [EXCEPTION] : (tid=%lx) at %p vector=0x%lx...", syscall(SYS_gettid), (void*)event->excp.rip, event->excp.vector);
+	    if (event->excp.vector == HRT_FAIL_VEC) {
+		INFO("HRT execution failed due to exception in HRT\n");
+	    } else {
+		INFO("HRT execution failed due to exception in ROS (vec=0x%lx)\n", event->excp.vector);
+	    }
+	    
+	    event->last_ros_event_result = 0;
+	    //event->event_type            = ROS_DONE;
+	    event->event_type            = ROS_NONE;
+	    DEBUG("[OK]\n");
+	    exit(EXIT_FAILURE);
+	    break;
+
+	default:
+	    DEBUG( "Unknown ROS event 0x%x\n", event->event_type);
+	    break;
+    }
+    
+    return 0;
+}
+
+
+int v3_hvm_handle_ros_event(struct v3_ros_event *event)
 {
     unsigned long long rc, num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
     char t;
@@ -162,60 +301,105 @@ static void handle_ros_event(struct v3_ros_event *event)
 		t=*(volatile char*)(event->page_fault.cr2);
 		t=t; // avoid wanting for this throwaway
 	    } else if (event->page_fault.action==ROS_WRITE) { 
-		DEBUG("Handling page fault writefor %p\n", (volatile char*)(event->page_fault.cr2));
-		*(volatile char*)(event->page_fault.cr2) = *(volatile char *)(event->page_fault.cr2);
+		DEBUG("Handling page fault write for %p\n", (volatile char*)(event->page_fault.cr2));
+		
+		// stash the old contents
+		char tmp = *((volatile char *)event->page_fault.cr2);
+		
+		// force a write
+		*((volatile char*)event->page_fault.cr2) = 0xa;
+		
+		// put the old value back
+		*((volatile char*)event->page_fault.cr2) = tmp;
+		
 	    } else {
 		INFO("Huh?\n");
 	    }
-	    DEBUG("Done - doing hypercall\n");
+	    
+	    DEBUG("Done - doing hypercall...");
 	    num = 0xf00d;
 	    a1 = 0x1f;
 	    a2 = 0; // success
 	    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
 	    // completed
-	    DEBUG("Completed.\n");
-
+	    DEBUG("[OK]\n");
+	    
 	    break;
 	    
 	case ROS_SYSCALL:
 	    DEBUG("Doing system call: syscall(0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx, 0x%lx)\n",
-		    event->syscall.args[0],
-		    event->syscall.args[1],
-		    event->syscall.args[2],
-		    event->syscall.args[3],
-		    event->syscall.args[4],
-		    event->syscall.args[5],
-		    event->syscall.args[6],
-		    event->syscall.args[7]);
-
-	    rc = syscall(event->syscall.args[0],
+		  event->syscall.args[0],
+		  event->syscall.args[1],
+		  event->syscall.args[2],
+		  event->syscall.args[3],
+		  event->syscall.args[4],
+		  event->syscall.args[5],
+		  event->syscall.args[6],
+		  event->syscall.args[7]);
+	    
+	    rc = Syscall(event->syscall.args[0],
 			 event->syscall.args[1],
 			 event->syscall.args[2],
 			 event->syscall.args[3],
 			 event->syscall.args[4],
 			 event->syscall.args[5],
-			 event->syscall.args[6],
-			 event->syscall.args[7]);
-
-	    if ((int)rc<0) {
-		DEBUG("syscall failed");
+			 event->syscall.args[6]);
+	    
+	    if ((long int)rc<0) {
+		DEBUG("Syscall (num=0x%llx) failed (rc=0x%llx)\n", (unsigned long long)event->syscall.args[0], (unsigned long long)rc);
 	    }
-
-	    DEBUG("Return = 0x%llx, doing hypercall\n", rc);
+	    
+	    DEBUG("Return = 0x%llx, doing hypercall...", rc);
 	    num = 0xf00d;
 	    a1 = 0x1f;
 	    a2 = rc;
 	    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
-	    DEBUG("Completed\n");
-
+	    DEBUG("[OK]\n");
+	    
 	    break;
+
+	case HRT_EXCEPTION:
+	    DEBUG("Handling exception (tid=%lx) at %p vector=0x%lx...", syscall(SYS_gettid), (void*)event->excp.rip, event->excp.vector);
+	    if (event->excp.vector == HRT_FAIL_VEC) {
+		INFO("HRT execution failed due to exception in HRT\n");
+	    } else {
+		INFO("HRT execution failed due to exception in ROS (vec=0x%lx)\n", event->excp.vector);
+	    }
+	    
+	    num = 0xf00d;
+	    a1 = 0x1f;
+	    a2 = rc;
+	    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+	    DEBUG("[OK]\n");
+	    exit(EXIT_FAILURE);
+	    break;
+	    
 	default:
 	    DEBUG( "Unknown ROS event 0x%x\n", event->event_type);
 	    break;
     }
+    
+    return 0;
 }
+
+static void wait_for_merge_completion()
+{
+    unsigned long long rc, num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+    struct v3_ros_event event;
     
+    memset(&event, 1, sizeof(event));
     
+    rc = 1;
+    
+    while (rc) { 
+	num = 0xf00d;
+	a1 = 0xf;
+	a2 = (unsigned long long) &event;
+	HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+    }
+    
+}
+
 
 static void wait_for_completion()
 {
@@ -234,7 +418,7 @@ static void wait_for_completion()
     if (rc) { 
 	//      usleep(100);
 	if (event.event_type != ROS_NONE) { 
-	    handle_ros_event(&event);
+	    v3_hvm_handle_ros_event(&event);
 	}
     }
   }
@@ -308,7 +492,7 @@ int v3_hvm_ros_merge_address_spaces()
       INFO("Error in request to merge address spaces rc=0x%llx\n",rc);
       return -1;
     } else {
-      wait_for_completion();
+      wait_for_merge_completion();
       return 0;
     }
 }
@@ -323,6 +507,44 @@ int v3_hvm_ros_unmerge_address_spaces()
     HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
     if (rc) {
       INFO("Error in request to unmerge address spaces rc=0x%llx\n",rc);
+      return -1;
+    } else {
+      wait_for_completion();
+      return 0;
+    }
+}
+
+
+int v3_hvm_ros_mirror_gdt(uint64_t fsbase, uint64_t cpu)
+{
+    unsigned long long num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+    unsigned long long rc;
+
+    num=0xf00d;
+    a1 = 0x51; // mirror the ROS FS and GS on the HRT side
+    a2 = fsbase;
+    a3 = cpu;
+    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+    if (rc) {
+      INFO("Error in request to mirror GDT (rc=0x%llx)\n", rc);
+      return -1;
+    } else {
+      wait_for_completion();
+      return 0;
+    }
+
+}
+
+int v3_hvm_ros_unmirror_gdt()
+{
+    unsigned long long num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+    unsigned long long rc;
+
+    num=0xf00d;
+    a1 = 0x53; // unmirror GDT and the rest
+    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+    if (rc) {
+      INFO("Error in request to unmirror GDT (rc=0x%llx)\n", rc);
       return -1;
     } else {
       wait_for_completion();
@@ -351,6 +573,22 @@ int v3_hvm_ros_invoke_hrt_async(void *buf, int par)
 	wait_for_completion();
 	return 0;
     }
+}
+
+int v3_hvm_ros_invoke_hrt_async_nowait(void *buf, int par)
+{
+    unsigned long long num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
+    unsigned long long rc;
+
+    num=0xf00d;
+    if (par) { 
+	a1 = 0x21; // issue "function" in parallel
+    } else {
+	a1 = 0x20; // issue "function" sequentially
+    }
+    a2 = (unsigned long long) buf;
+    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
+    return 0;
 }
 
 
@@ -402,7 +640,7 @@ static void wait_for_sync()
     if (rc!=4) { 
 	//      usleep(100);
 	if (event.event_type != ROS_NONE) { 
-	    handle_ros_event(&event);
+	    v3_hvm_handle_ros_event(&event);
 	}
     }
   }
@@ -474,7 +712,7 @@ int v3_hvm_ros_invoke_hrt_sync(void *buf, int ros)
 	    a2 = (unsigned long long) &event;
 	    HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
 	    if (event.event_type != ROS_NONE) { 
-		handle_ros_event(&event);
+		v3_hvm_handle_ros_event(&event);
 	    }
 	}
     }   
@@ -487,7 +725,7 @@ void (*__v3_hvm_ros_signal_handler)(uint64_t) = 0;
 static void *__v3_hvm_ros_signal_handler_stack = 0;
 static uint64_t __v3_hvm_ros_signal_handler_stack_size=0;
 
-int v3_hvm_ros_register_signal(void (*h)(uint64_t), void *stack, uint64_t stack_size )
+int v3_hvm_ros_register_signal(void (*h)(uint64_t), void *stack, uint64_t stack_size)
 {
     unsigned long long rc, num, a1=0, a2=0, a3=0, a4=0, a5=0, a6=0, a7=0, a8=0;
 
@@ -507,7 +745,7 @@ int v3_hvm_ros_register_signal(void (*h)(uint64_t), void *stack, uint64_t stack_
     num = 0xf00d;
     a1 = 0x40;
     a2 = (unsigned long long) &__v3_hvm_ros_signal_handler_stub;
-    a3 = (unsigned long long) stack + stack_size - 8; // put us at the top of the stack
+    a3 = (unsigned long long) stack + stack_size - 16; // put us at the top of the stack, and 16 byte aligned
 
     HCALL(rc,num,a1,a2,a3,a4,a5,a6,a7,a8);
     if (rc) {
@@ -565,3 +803,5 @@ int  v3_hvm_hrt_signal_ros(uint64_t code)
     return rc ? -1 : rc;
 
 }
+
+    

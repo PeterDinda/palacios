@@ -199,7 +199,7 @@ static void my_hvm_sig_handler(uint64_t code)
 int main(int argc, char *argv[]) 
 {
     int rc;
-    
+
     if (argc!=3 && argc!=5) { 
 	printf("usage: test simple|time sync|async num_merges num_calls\n");
 	return -1;
