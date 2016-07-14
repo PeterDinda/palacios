@@ -31,6 +31,24 @@
 #include <palacios/vmm_debug.h>
 
 
+struct gdt_area {
+    struct {
+        uint16_t limit;
+        uint64_t base;
+    } __attribute__((packed)) gdtr;
+
+    uint64_t fsbase;
+    uint16_t cs;
+    uint16_t ds;
+    uint16_t es;
+    uint16_t fs;
+    uint16_t gs;
+    uint16_t ss;
+
+    uint64_t gdt[0];
+} __attribute__((packed));
+
+
 /*
 
   MEM     = Total size of memory in the GPA (in MB)
@@ -84,11 +102,51 @@ int v3_deinit_hvm()
 // ignore requests from when we are in the wrong state
 #define ENFORCE_STATE_MACHINE 1
 
-// invoke the HRT using a page fault instead of
-// the SWINTR mechanism
-#define USE_UPCALL_MAGIC_PF  1
+// invoke the HRT using one of the followng mechanisms
 #define UPCALL_MAGIC_ADDRESS 0x0000800df00df00dULL
 #define UPCALL_MAGIC_ERROR   0xf00df00d
+
+
+static int magic_upcall(struct guest_info *core, uint64_t num)
+{
+#ifdef V3_CONFIG_HVM_UPCALL_MAGIC_GPF
+    PrintDebug(core->vm_info, core, "hvm: injecting magic #GP into core %llu\n",num);
+    if (v3_raise_exception_with_error(&core->vm_info->cores[num],
+				      GPF_EXCEPTION, 
+				      UPCALL_MAGIC_ERROR)) { 
+	PrintError(core->vm_info, core,"hvm: cannot inject HRT #GP to core %llu\n",num);
+	return -1;
+    } else {
+	return 0;
+    }
+#endif
+
+#ifdef V3_CONFIG_HVM_UPCALL_MAGIC_PF
+    PrintDebug(core->vm_info,core,"hvm: injecting magic #GP into core %llu\n",num);
+    core->vm_info->cores[num].ctrl_regs.cr2 = UPCALL_MAGIC_ADDRESS;
+    if (v3_raise_exception_with_error(&core->vm_info->cores[num],
+				      PF_EXCEPTION, 
+				      UPCALL_MAGIC_ERROR)) { 
+	PrintError(core->vm_info,core, "hvm: cannot inject HRT #PF to core %llu\n",num);
+	return -1;
+    } else {
+	return 0;
+    }
+#endif
+#ifdef V3_CONFIG_HVM_UPCALL_MAGIC_SWIN
+    PrintDebug(core->vm_info,core,"hvm: injecting SW intr 0x%u into core %llu\n",core->vm_info->hvm_info.hrt_int_vector,num);
+    if (v3_raise_swintr(&core->vm_info->cores[cur],core->vm_info->hvm_info-->hrt_int_vector)) { 
+	PrintError(core->vm_info,core, "hvm: cannot inject HRT interrupt to core %llu\n",cur);
+	return -1;
+    } else {
+	return 0;
+    }
+#endif
+
+    PrintError(core->vm_info,core,"hvm: no upcall mechanism is enabled!\n");
+    return -1;
+}
+
 
 /*
   64 bit only hypercall:
@@ -106,11 +164,15 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
     uint64_t a2 = core->vm_regs.rdx;
     uint64_t a3 = core->vm_regs.rsi;
     struct v3_vm_hvm *h = &core->vm_info->hvm_state;
+    addr_t irq_state;
 
+    // Let's be paranoid here
+    irq_state = v3_lock_irqsave(h->hypercall_lock);
 
     if (bitness!=0x6464646464646464) { 
 	PrintError(core->vm_info,core,"hvm: unable to handle non-64 bit hypercall\n");
 	core->vm_regs.rax = -1;
+	v3_unlock_irqrestore(h->hypercall_lock,irq_state);
 	return 0;
     }
 
@@ -190,6 +252,7 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 
 	    break;
 
+
 	case 0xf: // get HRT state
 	    core->vm_regs.rax = h->trans_state;
 	    if (v3_write_gva_memory(core, a2, sizeof(h->ros_event), (uint8_t*) &h->ros_event)!=sizeof(h->ros_event)) { 
@@ -209,14 +272,29 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 		    core->vm_regs.rax = -1;
 		} else {
 		    core->vm_regs.rax = 0;
+		    PrintDebug(core->vm_info, core, "hvm: copied new ROS event (type=%s)\n",
+			       h->ros_event.event_type == ROS_PAGE_FAULT ? "page fault" : 
+			       (h->ros_event.event_type == ROS_SYSCALL ? "syscall" : "none"));
+		    
 		}
 	    }
 
 	    break;
 
+	case 0x1e: // ack result (HRT has read the result of the finished event)
+	    if (h->ros_event.event_type != ROS_DONE) {
+		PrintError(core->vm_info, core, "hvm: cannot ack event result when not in ROS_DONE state\n");
+		core->vm_regs.rax = -1;
+	    } else {
+		h->ros_event.event_type=ROS_NONE;
+		PrintDebug(core->vm_info, core, "hvm: HRT core acks event result\n");
+		core->vm_regs.rax = 0;
+	    }
+	    break;
+
 	case 0x1f:
 	    PrintDebug(core->vm_info, core, "hvm: completion of ROS event (rc=0x%llx)\n",a2);
-	    h->ros_event.event_type=ROS_NONE;
+	    h->ros_event.event_type=ROS_DONE;
 	    h->ros_event.last_ros_event_result = a2;
 	    break;
 
@@ -249,28 +327,12 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 		    h->trans_count = last-first+1;
 
 		    for (cur=first;cur<=last;cur++) { 
-
-#if USE_UPCALL_MAGIC_PF
-			PrintDebug(core->vm_info,core,"hvm: injecting magic #PF into core %llu\n",cur);
-			core->vm_info->cores[cur].ctrl_regs.cr2 = UPCALL_MAGIC_ADDRESS;
-			if (v3_raise_exception_with_error(&core->vm_info->cores[cur],
-							  PF_EXCEPTION, 
-							  UPCALL_MAGIC_ERROR)) { 
-			    PrintError(core->vm_info,core, "hvm: cannot inject HRT #PF to core %llu\n",cur);
+			if (magic_upcall(core,cur)) {
 			    core->vm_regs.rax = -1;
 			    break;
 			}
-#else
-			PrintDebug(core->vm_info,core,"hvm: injecting SW intr 0x%u into core %llu\n",h->hrt_int_vector,cur);
-			if (v3_raise_swintr(&core->vm_info->cores[cur],h->hrt_int_vector)) { 
-			    PrintError(core->vm_info,core, "hvm: cannot inject HRT interrupt to core %llu\n",cur);
-			    core->vm_regs.rax = -1;
-			    break;
-			}
-#endif
 			// Force core to exit now
 			v3_interrupt_cpu(core->vm_info,core->vm_info->cores[cur].pcpu_id,0);
-			  
 		    }
 		    if (core->vm_regs.rax==0) { 
 			if (a1==0x20) { 
@@ -313,25 +375,11 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 		    h->trans_count = last-first+1;
 
 		    for (cur=first;cur<=last;cur++) { 
-
-#if USE_UPCALL_MAGIC_PF
-			PrintDebug(core->vm_info,core,"hvm: injecting magic #PF into core %llu\n",cur);
-			core->vm_info->cores[cur].ctrl_regs.cr2 = UPCALL_MAGIC_ADDRESS;
-			if (v3_raise_exception_with_error(&core->vm_info->cores[cur],
-							  PF_EXCEPTION, 
-							  UPCALL_MAGIC_ERROR)) { 
-			    PrintError(core->vm_info,core, "hvm: cannot inject HRT #PF to core %llu\n",cur);
+			
+			if (magic_upcall(core,cur)) { 
 			    core->vm_regs.rax = -1;
 			    break;
 			}
-#else
-			PrintDebug(core->vm_info,core,"hvm: injecting SW intr 0x%u into core %llu\n",h->hrt_int_vector,cur);
-			if (v3_raise_swintr(&core->vm_info->cores[cur],h->hrt_int_vector)) { 
-			    PrintError(core->vm_info,core, "hvm: cannot inject HRT interrupt to core %llu\n",cur);
-			    core->vm_regs.rax = -1;
-			    break;
-			}
-#endif
 			// Force core to exit now
 			v3_interrupt_cpu(core->vm_info,core->vm_info->cores[cur].pcpu_id,0);
 			  
@@ -388,7 +436,7 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 		core->vm_regs.rax=-1;
 	    } else {
 		if (ENFORCE_STATE_MACHINE && h->trans_state!=HRT_IDLE) { 
-		    PrintError(core->vm_info,core,"hvm: request to %smerge address space in non-idle state\n",a1==0x30 ? "" : "un");
+		    PrintError(core->vm_info,core,"hvm: request to %smerge address space in non-idle state (%d)\n",a1==0x30 ? "" : "un", h->trans_state);
 		    core->vm_regs.rax=-1;
 		} else {
 		    uint64_t *page = (uint64_t *) h->comm_page_hva;
@@ -400,27 +448,17 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 		    page[1] = core->ctrl_regs.cr3;  // this is a do-not-care for an unmerge
 
 		    core->vm_regs.rax = 0;
-#if USE_UPCALL_MAGIC_PF
-		    PrintDebug(core->vm_info,core,"hvm: injecting magic #PF into core %u\n",h->first_hrt_core);
-		    core->vm_info->cores[h->first_hrt_core].ctrl_regs.cr2 = UPCALL_MAGIC_ADDRESS;
-		    if (v3_raise_exception_with_error(&core->vm_info->cores[h->first_hrt_core],
-						      PF_EXCEPTION,  
-						      UPCALL_MAGIC_ERROR)) { 
-		      PrintError(core->vm_info,core, "hvm: cannot inject HRT #PF to core %u\n",h->first_hrt_core);
-		      core->vm_regs.rax = -1;
-		      break;
-		    }
-#else
-		    PrintDebug(core->vm_info,core,"hvm: injecting SW intr 0x%u into core %u\n",h->hrt_int_vector,h->first_hrt_core);
-		    if (v3_raise_swintr(&core->vm_info->cores[h->first_hrt_core],h->hrt_int_vector)) { 
-			PrintError(core->vm_info,core, "hvm: cannot inject HRT interrupt to core %u\n",h->first_hrt_core);
+
+		    h->trans_state = HRT_MERGE;
+
+		    if (magic_upcall(core,h->first_hrt_core)) {
 			core->vm_regs.rax = -1;
-		    } 
-#endif		
+			break;
+		    }
+
 		    // Force core to exit now
 		    v3_interrupt_cpu(core->vm_info,core->vm_info->cores[h->first_hrt_core].pcpu_id,0);
 
-		    h->trans_state = HRT_MERGE;
 		}
 		
 	    }
@@ -479,14 +517,201 @@ static int hvm_hcall_handler(struct guest_info * core , hcall_id_t hcall_id, voi
 	    core->vm_regs.rax = v3_hvm_signal_ros(core->vm_info,a2);
 	    break;
 
+	case 0x51: // fill GDT area (HRT only)
+	    if (v3_is_hvm_hrt_core(core)) {
+		PrintError(core->vm_info, core, "hvm: HRT cannot request a GDT area fill\n");
+		core->vm_regs.rax = -1;
+	    } else {
+		struct guest_info * hrt_core = &core->vm_info->cores[h->first_hrt_core];
+		struct gdt_area * area = V3_Malloc(sizeof(struct gdt_area) + core->segments.gdtr.limit);
+		if (!area) {
+		    PrintError(core->vm_info, core, "hvm: could not allocate GDT area\n");
+		    core->vm_regs.rax = -1;
+		    break;
+		}
+
+		PrintDebug(core->vm_info, core, "hvm: ROS requests to fill GDT area with fsbase=%p\n", (void*)a2);
+
+		if (!h->hrt_gdt_gva) {
+		    PrintError(core->vm_info, core, "hvm: HRT has not registered a GDT state save area\n");
+		    core->vm_regs.rax = -1;
+		    V3_Free(area);
+		    break;
+		}
+
+		area->gdtr.base  = h->hrt_gdt_gva + sizeof(struct gdt_area);
+		area->gdtr.limit = core->segments.gdtr.limit;
+		area->fsbase     = a2;
+		area->cs         = core->segments.cs.selector;
+		area->ds         = core->segments.ds.selector;
+		area->es         = core->segments.es.selector;
+		area->fs         = core->segments.fs.selector;
+		area->gs         = core->segments.gs.selector;
+		area->ss         = core->segments.ss.selector;
+		
+		if (v3_read_gva_memory(core, 
+				       core->segments.gdtr.base,
+				       core->segments.gdtr.limit,
+				       (uint8_t*)area->gdt) != core->segments.gdtr.limit) {
+		    PrintError(core->vm_info, core, "hvm: could not copy GDT from ROS\n");
+		    core->vm_regs.rax = -1;
+		    V3_Free(area);
+		    break;
+		}
+					
+		uint_t area_size = sizeof(struct gdt_area) + core->segments.gdtr.limit;
+
+		// copy the entire area over
+		PrintDebug(core->vm_info, core, "hvm: copying %u bytes into GDT area\n", area_size);
+
+		if (v3_write_gva_memory(hrt_core, h->hrt_gdt_gva, area_size, (uchar_t*)area) != area_size) {
+		    PrintError(core->vm_info, core, "hvm: could not copy GDT area\n");
+		    core->vm_regs.rax = -1;
+		    V3_Free(area);
+		    break;
+		}
+
+		if (ENFORCE_STATE_MACHINE && h->trans_state!=HRT_IDLE) { 
+		    PrintError(core->vm_info,core, "hvm: cannot sync GDT in state %d\n", h->trans_state);
+		    core->vm_regs.rax = -1;
+		    V3_Free(area);
+		    break;
+		} else {
+		    uint64_t *page = (uint64_t *) h->comm_page_hva;
+		    uint64_t first, last, cur;
+
+		    PrintDebug(core->vm_info,core, "hvm: sync GDT\n");
+		    page[0] = a1;
+		    page[1] = h->hrt_gdt_gva;
+		    page[2] = a3;
+
+		    first=last=h->first_hrt_core;
+		    
+		    core->vm_regs.rax = 0;
+		    
+		    h->trans_count = last-first+1;
+
+		    for (cur=first;cur<=last;cur++) { 
+			if (magic_upcall(core,cur)) {
+			    core->vm_regs.rax = -1;
+			    break;
+			}
+			// Force core to exit now
+			v3_interrupt_cpu(core->vm_info,core->vm_info->cores[cur].pcpu_id,0);
+		    }
+		    
+		    if (core->vm_regs.rax==0) { 
+			h->trans_state = HRT_GDTSYNC;
+		    }  else {
+			PrintError(core->vm_info,core,"hvm: in inconsistent state due to HRT GDT SYNC failure\n");
+			h->trans_state = HRT_IDLE;
+			h->trans_count = 0;
+		    }
+
+		    V3_Free(area);
+
+		}
+		
+	    }
+	    
+	    break;
+        
+	case 0x52: // register HRT GDT area
+	    if (!v3_is_hvm_hrt_core(core)) {
+		PrintError(core->vm_info, core, "hvm: ROS cannot install a GDT area\n"); 
+		core->vm_regs.rax = -1;
+	    } else {
+		PrintDebug(core->vm_info, core, "hvm: HRT registers GDT save area at gva=%p\n", (void*)a2);
+		h->hrt_gdt_gva = a2;
+		core->vm_regs.rax = 0;
+	    }
+
+        PrintDebug(core->vm_info, core, "hvm: Printing current HRT GDT...\n");
+#ifdef V3_CONFIG_DEBUG_HVM
+        v3_print_gdt(core, core->segments.gdtr.base);
+#endif
+	
+        break;
+	
+	case 0x53: // restore GDT
+
+	    if (v3_is_hvm_hrt_core(core)) {
+		PrintError(core->vm_info, core, "hvm: HRT cannot request GDT restoration\n");
+		core->vm_regs.rax = -1;
+		break;
+	    } else {
+		PrintDebug(core->vm_info, core, "hvm: ROS requesting to restore original GDT\n");
+		core->vm_regs.rax = 0;
+	    }
+	    
+	    if (ENFORCE_STATE_MACHINE && h->trans_state!=HRT_IDLE) { 
+		PrintError(core->vm_info,core, "hvm: cannot sync GDT in state %d\n", h->trans_state);
+		core->vm_regs.rax = -1;
+		break;
+	    } else {
+		uint64_t *page = (uint64_t *) h->comm_page_hva;
+		uint64_t first, last, cur;
+		
+		PrintDebug(core->vm_info,core, "hvm: restore GDT\n");
+		page[0] = a1;
+		
+		first=last=h->first_hrt_core;
+		
+		core->vm_regs.rax = 0;
+		
+		h->trans_count = last-first+1;
+		
+		for (cur=first;cur<=last;cur++) { 
+		    if (magic_upcall(core,cur)) {
+			core->vm_regs.rax = -1;
+			break;
+		    }
+		    // Force core to exit now
+		    v3_interrupt_cpu(core->vm_info,core->vm_info->cores[cur].pcpu_id,0);
+		}
+		
+		if (core->vm_regs.rax==0) { 
+		    h->trans_state = HRT_GDTSYNC;
+		}  else {
+		    PrintError(core->vm_info,core,"hvm: in inconsistent state due to HRT GDT SYNC failure\n");
+		    h->trans_state = HRT_IDLE;
+		    h->trans_count = 0;
+		}
+	    }
+	    
+	    break;
+	    
+	case 0x5f: // GDT sync operation done
+	    if (v3_is_hvm_ros_core(core)) { 
+		PrintError(core->vm_info,core, "hvm: invalid request for GDT sync done from ROS core\n");
+		core->vm_regs.rax=-1;
+	    } else {
+		if (ENFORCE_STATE_MACHINE && h->trans_state != HRT_GDTSYNC) {
+		    PrintError(core->vm_info,core,"hvm: GDT sync done when in incorrect state (%d)\n", h->trans_state);
+		    core->vm_regs.rax=-1;
+		} else {
+		    PrintDebug(core->vm_info,core, "hvm: GDT sync complete - back to idle\n");
+		    PrintDebug(core->vm_info, core, "hvm: Dumping new HRT GDT...\n");
+#ifdef V3_CONFIG_DEBUG_HVM
+		    v3_print_gdt(core, core->segments.gdtr.base);
+#endif
+		    h->trans_state=HRT_IDLE;
+		    core->vm_regs.rax=0;
+		}
+		
+	    }
+	    break;
+
 	default:
 	    PrintError(core->vm_info,core,"hvm: unknown hypercall %llx\n",a1);
 	    core->vm_regs.rax=-1;
 	    break;
     }
 		
+    v3_unlock_irqrestore(h->hypercall_lock,irq_state);
     return 0;
 }
+
 
 #define CEIL_DIV(x,y) (((x)/(y)) + !!((x)%(y)))
 
@@ -562,6 +787,8 @@ int v3_init_hvm_vm(struct v3_vm_info *vm, struct v3_xml *config)
 	return -1;
     }
 
+    v3_lock_init(&(vm->hvm_state.hypercall_lock));
+
     // XXX sanity check config here
 
     vm->hvm_state.is_hvm=1;
@@ -589,6 +816,7 @@ int v3_deinit_hvm_vm(struct v3_vm_info *vm)
 {
     PrintDebug(vm, VCORE_NONE, "hvm: HVM VM deinit\n");
 
+
     if (vm->hvm_state.hrt_image) { 
 	V3_VFree(vm->hvm_state.hrt_image);
 	vm->hvm_state.hrt_image=0;
@@ -596,6 +824,8 @@ int v3_deinit_hvm_vm(struct v3_vm_info *vm)
     }
 
     v3_remove_hypercall(vm,HVM_HCALL);
+
+    v3_lock_deinit(&(vm->hvm_state.hypercall_lock));
 
     if (vm->hvm_state.comm_page_hpa) { 
 	struct v3_mem_region *r = v3_get_mem_region(vm,-1,(addr_t)vm->hvm_state.comm_page_hpa);
@@ -1564,7 +1794,7 @@ int v3_setup_hvm_vm_for_boot(struct v3_vm_info *vm)
    GDTR points to stub GDT
    TS   points to stub TSS
    CR3 points to root page table
-   CR0 has PE and PG
+   CR0 has PE, PG, and WP
    EFER has LME AND LMA (and NX for compatibility with Linux)
    RSP is TOS of core's scratch stack (looks like a call)
 
@@ -1664,8 +1894,8 @@ int v3_setup_hvm_hrt_core_for_boot(struct guest_info *core)
 	       (void*)(core->vm_regs.rdx));
 
     // Setup CRs for long mode and our stub page table
-    // CR0: PG, PE
-    core->ctrl_regs.cr0 = 0x80000001;
+    // CR0: PG, PE, and WP for catching COW faults in kernel-mode (which is not default behavior)
+    core->ctrl_regs.cr0 = 0x80010001;
     core->shdw_pg_state.guest_cr0 = core->ctrl_regs.cr0;
 
     // CR2: don't care (output from #PF)
@@ -1840,7 +2070,6 @@ int v3_handle_hvm_reset(struct guest_info *core)
     }
 }
 
-
 int v3_handle_hvm_entry(struct guest_info *core)
 {
     if (!core->vm_info->hvm_state.is_hvm        // not relevant to non-HVM
@@ -1890,7 +2119,7 @@ int v3_handle_hvm_entry(struct guest_info *core)
 		frame[4] = core->vm_regs.rsp;
 		frame[5] = core->segments.ss.selector; // return ss
 		
-		rsp = (s->stack - 8) & (~0x7); // make sure we are aligned
+		rsp = (s->stack - 16) & (~0xf); // We should be 16 byte aligned to start
 		rsp -= sizeof(frame);
 		
 
@@ -1918,6 +2147,7 @@ int v3_handle_hvm_exit(struct guest_info *core)
     // currently nothing
     return 0;
 }
+
 
 int v3_hvm_signal_ros(struct v3_vm_info *vm, uint64_t code)
 {

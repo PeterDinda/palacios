@@ -27,7 +27,7 @@
 #include <palacios/vmm_multiboot.h>
 
 struct v3_ros_event {
-    enum { ROS_NONE=0, ROS_PAGE_FAULT=1, ROS_SYSCALL=2 } event_type;
+    enum { ROS_NONE=0, ROS_PAGE_FAULT=1, ROS_SYSCALL=2, HRT_EXCEPTION=3, HRT_THREAD_EXIT=4, ROS_DONE=5} event_type;
     uint64_t       last_ros_event_result; // valid when ROS_NONE
     union {
 	struct {   // valid when ROS_PAGE_FAULT
@@ -38,6 +38,13 @@ struct v3_ros_event {
 	struct { // valid when ROS_SYSCALL
 	    uint64_t args[8];
 	} syscall;
+	struct { // valid when HRT_EXCEPTION
+	    uint64_t rip;
+	    uint64_t vector;
+	} excp;
+	struct { // valid when HRT_THREAD_EXIT
+	    uint64_t nktid;
+	} thread_exit;
     };
 };
 
@@ -57,6 +64,9 @@ struct v3_ros_signal {
 };
 
 struct v3_vm_hvm {
+    // used to serialize hypercalls across cores (hopefully temporary)
+    v3_lock_t hypercall_lock; 
+
     uint8_t   is_hvm;
     uint32_t  first_hrt_core;
     uint64_t  first_hrt_gpa;
@@ -81,7 +91,7 @@ struct v3_vm_hvm {
     void     *comm_page_hpa;
     void     *comm_page_hva;
 
-    enum {HRT_IDLE=0, HRT_CALL=1, HRT_PARCALL=2, HRT_SYNCSETUP=3, HRT_SYNC=4, HRT_SYNCTEARDOWN=5, HRT_MERGE=6} trans_state;
+    enum {HRT_IDLE=0, HRT_CALL=1, HRT_PARCALL=2, HRT_SYNCSETUP=3, HRT_SYNC=4, HRT_SYNCTEARDOWN=5, HRT_MERGE=6, HRT_GDTSYNC=7} trans_state;
     uint64_t  trans_count;
 
     // the ROS event to be handed back
@@ -90,6 +100,8 @@ struct v3_vm_hvm {
     // user-level interrupt injection state for ROS
     struct v3_ros_signal ros_signal;
 
+    uint64_t hrt_gdt_gva;
+    uint64_t ros_fsbase;
 };
 
 struct v3_core_hvm {
@@ -235,6 +247,10 @@ int v3_handle_hvm_exit(struct guest_info *core);
 
    0x10 =>  ROS event request (HRT->ROS)
             first argument is pointer where to write the ROS event state
+
+   0x1e =>  HRT event ack (HRT->ROS) 
+            the HRT has read the result of the previous event
+
    0x1f =>  ROS event completion (ROS->HRT)
             first argument is the result code
 
@@ -242,7 +258,12 @@ int v3_handle_hvm_exit(struct guest_info *core);
             first argument is pointer to structure describing call
    0x21 =>  Invoke function in parallel (ROS->HRT)
             same as above, but simultaneously on all HRT cores
+
+   0x28 =>  Set up for synchronous operation (ROS->HRT)
+   0x29 =>  Tear down synchronous operation (ROS->HRT)
+
    0x2f =>  Function execution complete (HRT->ROS, once per core)
+
    0x30 =>  Merge address space (ROS->HRT)
             no arguments (CR3 implicit).   Merge the current
             address space in the ROS with the address space on 
@@ -256,6 +277,16 @@ int v3_handle_hvm_exit(struct guest_info *core);
 
    0x41 =>  Signal ROS handler (HRT->ROS)
             arg1 = number (must != 0)
+
+   0x51 =>  Synchronize GDT (ROS->HRT)
+            ROS updates HRT's GDT area with its own 
+	    and then informs HRT
+   
+   0x52 =>  Register HRT GDT area to support GDT synchronization (HRT only)
+  
+   0x53 =>  Restore GDT (ROS->HRT)
+
+   0x5f =>  GDT Synchronization done (HRT->ROS)
 
    Upcalls to ROS
    

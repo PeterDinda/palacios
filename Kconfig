@@ -3,7 +3,7 @@ mainmenu "Palacios VMM Configuration"
 menu "Target Configuration"
 
 
-choice
+choice 
 	prompt "Target Host OS"
 	default KITTEN
 
@@ -725,6 +725,29 @@ config HVM
           a part ("the ROS") that supports normal VM operation and
           a part ("the HRT") that supports Hybrid Run-Times,
           for example Nautilus-based HRTs for parallel languages.
+
+choice 
+	prompt "HVM Magic Upcall Mechanism"
+	default HVM_UPCALL_MAGIC_GPF
+
+config HVM_UPCALL_MAGIC_GPF
+	bool "GPF"
+	help
+	 Upcall using a #GP with a well-known magic error code
+
+config HVM_UPCALL_MAGIC_PF
+	bool "Page Fault"
+	help
+	 Upcall using a #PF with a well-known magic address and error code
+
+config HVM_UPCALL_MAGIC_SWINT
+	bool "Software interrupt"
+	help
+	 Upcall using a software interrupt with a vector specified by 
+         the VM's configuration
+endchoice
+
+	
 
 config DEBUG_HVM
         depends on HVM
