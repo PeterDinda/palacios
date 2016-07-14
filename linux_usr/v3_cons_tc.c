@@ -22,9 +22,14 @@
 #include "v3_ctrl.h"
 #include "termkey.h"
 
+static int in_color = 0;
+static int color8 = 0;
+#define TRANS_STYLE(x) ( !color8 ? (x) : ((x)&0x7)|(((x)&0x70)>>1))
+
 static int use_curses = 0;
 static int debug_enable = 0;
 
+static int ctrlc_count = 0;
 
 #define VCONS_EXIT  2
 #define VCONS_CTRLC 3
@@ -123,9 +128,9 @@ static int handle_char_set(struct character_msg * msg) {
 	    return -1;
 	}
 
-    wattron(console.win, COLOR_PAIR(msg->style));
+	if (in_color) {wattron(console.win,  COLOR_PAIR(TRANS_STYLE(msg->style)));}
 	mvwaddch(console.win, msg->y, msg->x, c);
-    wattroff(console.win, COLOR_PAIR(msg->style));
+	if (in_color) {wattroff(console.win, COLOR_PAIR(TRANS_STYLE(msg->style)));}
 
     } else {
 	//stdout text display
@@ -263,12 +268,6 @@ int handle_console_msg(int cons_fd) {
 }
 
 
-int send_key(int cons_fd, char can_code) {
-
-    return 0;
-}
-
-
 
 void handle_exit(void) {
     if ( debug_enable ) {
@@ -332,7 +331,59 @@ static const struct key_code ascii_to_key_code[] = {             // ASCII Value 
 
 #define writeit(fd,c)  do { if (debug_enable) { fprintf(stderr,"scancode 0x%x\n",(c));} if (write((fd),&(c),1)!=1) { return -1; } } while (0)
 
-int send_char_to_palacios_as_scancodes(int fd, TermKeyKey * kc)
+
+int send_scancode_group_to_palacios(int fd, TermKeyKey * kc, struct key_code *k)
+{
+  unsigned char sc;
+
+  if (kc->modifiers & TERMKEY_KEYMOD_CTRL) {
+    // left ctrl down
+    sc = 0x1d;
+    writeit(fd, sc);
+  }
+
+  if (kc->modifiers & TERMKEY_KEYMOD_ALT) {
+    // left alt down
+    sc = 0x38;
+    writeit(fd, sc);
+  }
+
+  if (k->capital) { 
+    // left shift down
+    sc = 0x2a ; 
+    writeit(fd,sc);
+  }
+
+  sc = k->scan_code;
+  
+  writeit(fd,sc);  // key down
+
+  sc |= 0x80;      // key up
+
+  writeit(fd,sc);
+
+  if (k->capital) { 
+    // left shift up
+    sc = 0x2a | 0x80;
+    writeit(fd,sc);
+  }
+  
+  if (kc->modifiers & TERMKEY_KEYMOD_CTRL) {
+    // left ctrl up
+    sc = 0x1d | 0x80;   
+    writeit(fd,sc);
+  }
+  
+  if (kc->modifiers & TERMKEY_KEYMOD_ALT) {
+    // left alt up
+    sc = 0x38 | 0x80; 
+    writeit(fd, sc);
+  }
+
+  return 0;
+}
+
+int handle_key(int fd, TermKeyKey * kc)
 {
     unsigned char sc;
 
@@ -340,15 +391,6 @@ int send_char_to_palacios_as_scancodes(int fd, TermKeyKey * kc)
         fprintf(stderr,"key '%c'\n",kc->code.number);
     }
 
-    if (kc->code.number == 'x' && 
-        kc->modifiers & TERMKEY_KEYMOD_CTRL && 
-        kc->modifiers & TERMKEY_KEYMOD_ALT) {
-        return VCONS_EXIT;
-    } else if (kc->code.number == 'c' && 
-               //kc->modifiers & TERMKEY_KEYMOD_CTRL && 
-               kc->modifiers & TERMKEY_KEYMOD_ALT) {
-        return VCONS_CTRLC;
-    }
 
     if (kc->code.number<0x80) { 
         struct key_code k = ascii_to_key_code[kc->code.number];
@@ -357,58 +399,16 @@ int send_char_to_palacios_as_scancodes(int fd, TermKeyKey * kc)
             if (debug_enable) { 
                 fprintf(stderr,"Cannot send key '%c' to palacios as it maps to no scancode\n",kc->code.number);
             }
+	    return 0;
         } else {
-
-            if (kc->modifiers & TERMKEY_KEYMOD_CTRL) {
-                sc = 0x1d;
-                writeit(fd, sc);
-            }
-
-            if (kc->modifiers & TERMKEY_KEYMOD_ALT) {
-                sc = 0x38;
-                writeit(fd, sc);
-            }
-
-            if (k.capital) { 
-                //shift down
-                sc = 0x2a ; // left shift down
-                writeit(fd,sc);
-            }
-
-            sc = k.scan_code;
-
-            writeit(fd,sc);  // key down
-
-            sc |= 0x80;      // key up
-
-            writeit(fd,sc);
-
-            if (k.capital) { 
-                sc = 0x2a | 0x80;
-                writeit(fd,sc);
-            }
-
-            if (kc->modifiers & TERMKEY_KEYMOD_CTRL) {
-                sc = 0x1d | 0x80;   // left ctrl up
-                writeit(fd,sc);
-            }
-
-            if (kc->modifiers & TERMKEY_KEYMOD_ALT) {
-                sc = 0x38 | 0x80; // left alt up
-                writeit(fd, sc);
-            }
-        }
-
+	  return send_scancode_group_to_palacios(fd,kc,&k);
+	}
     } else {
-
-
         if (debug_enable) { 
             fprintf(stderr,"Cannot send key '%c' to palacios because it is >=0x80\n",kc->code.number);
         }
-
-
+	return 0;
     }
-    return 0;
 }
 
 
@@ -448,17 +448,9 @@ static int handle_fnkey (int fd, TermKeyKey * kc) {
             sc = 0x44;
             break;
         case 0xb:
-            // this is a ctrl+c sequence
-            if (kc->modifiers & TERMKEY_KEYMOD_CTRL) {
-                return VCONS_CTRLC;
-            }
             sc = 0x57;
             break;
         case 0xc:
-            // this is an exit sequence
-            if (kc->modifiers & TERMKEY_KEYMOD_CTRL) {
-                return VCONS_EXIT;
-            }
             sc = 0x58;
             break;
         default:
@@ -466,13 +458,10 @@ static int handle_fnkey (int fd, TermKeyKey * kc) {
             break;
     }
 
-    writeit(fd, sc);
+    struct key_code k = { sc,  kc->modifiers & TERMKEY_KEYMOD_SHIFT };
 
-    sc |= 0x80;
+    return send_scancode_group_to_palacios(fd,kc,&k);
 
-    writeit(fd, sc);
-
-    return 0;
 }
 
 static int handle_symkey (int fd, TermKeyKey * kc) {
@@ -571,16 +560,14 @@ static int handle_symkey (int fd, TermKeyKey * kc) {
             break;
         default:
             fprintf(stderr, "Unknown sym key\n");
-            return;
+            return -1;
     }
+    
 
-    writeit(fd, sc);
+    struct key_code k = { sc,  kc->modifiers & TERMKEY_KEYMOD_SHIFT };
 
-    sc |= 0x80;
+    return send_scancode_group_to_palacios(fd,kc,&k);
 
-    writeit(fd, sc);
-
-    return 0;
 
 }
 
@@ -613,13 +600,61 @@ int check_terminal_size (void)
 static void
 init_colors (void)
 {
+    unsigned short i;
+
+    if (!has_colors()) {
+      fprintf(stderr,"No color support\n");
+      in_color=0;
+      color8=0;
+      return;
+    }
+    
     start_color();
-    int i;
-    for (i = 0; i < 0x100; i++) {
-        init_pair(i, i & 0xf, (i >> 4) & 0xf);
+
+    if (can_change_color() && COLORS>=16 && COLOR_PAIRS>=256) {
+      fprintf(stderr, "Modifyable color support with enough colors available\n");
+      // initialize first 16 colors to be the PC colors
+      // then create all the pairings
+      for (i=0;i<16;i++) {
+	unsigned short red, green, blue, intens;
+	// i = IRGB (4 bits)
+	intens = i>>3 & 0x1;
+	red = i>>2 & 0x1;
+	green = i>>1 & 0x1;
+	blue = i>>0 & 0x1;
+	init_color(i, 500*(red+intens), 500*(blue+intens), 500*(green+intens));
+      }
+      for (i=0;i<256;i++) {
+	init_pair(i, i & 0xf, (i >> 4) & 0xf);
+      }
+      in_color = 1;
+      color8 = 0;
+      return;
+    } else {
+      if (COLORS!=8 || COLOR_PAIRS<64) {
+	fprintf(stderr,"Insufficient number of fixed colors (%d) or color pairs (%d)\n",COLORS,COLOR_PAIRS);
+	in_color = 0;
+	color8 = 0;
+	return;
+      } 
+      // We have only the low-intensity colors available, so
+      // map just to these
+      fprintf(stderr,"Only 8 color standard palette available\n");
+      for (i=0;i<64;i++) {
+	// VGA color order:     black, blue, green, cyan, red, magenta, brown, gray
+	// curses color order:  black, red, green, yellow, blue, magenta, cyan, white
+	short map[] = { 0, 4, 2, 6, 1, 5, 3, 7 };
+	unsigned short fg, bg;
+	// discard intensity bit
+	bg = (i>>3 & 0x7);
+	fg = i & 0x7; 
+	init_pair(i, map[fg], map[bg]);
+      }
+      in_color = 1;
+      color8 = 1;
+      return;
     }
 }
-
 
 
 int main(int argc, char* argv[]) {
@@ -661,9 +696,8 @@ int main(int argc, char* argv[]) {
     use_curses = 1;
 
     if (argc < 2) {
-        printf("usage: v3_cons_sc <vm_device>\n\n"
-               "NOTE: to use CTRL-C within the terminal, use Alt-C\n"
-               "      to exit the terminal, use CTRL-ALT-x\n\n");
+        printf("usage: v3_cons_tc <vm_device>\n\n"
+               "NOTE: to exit the terminal, use CTRL-ALT-\\\n\n");
         goto exit_err;
     }
 
@@ -716,9 +750,9 @@ int main(int argc, char* argv[]) {
 
 
     raw();
-    cbreak();
     noecho();
     keypad(console.win, TRUE);
+
 
     while (1) {
 
@@ -757,28 +791,19 @@ int main(int argc, char* argv[]) {
                 switch (key.type) {
 
                     case TERMKEY_TYPE_UNICODE: {
-
-                           int ret = send_char_to_palacios_as_scancodes(cons_fd, &key);
-
-                           if (ret < 0) {
-                               printf("Error sending key to console\n");
-                               return -1;
-                           } else if (ret == VCONS_CTRLC) {
-
-                               unsigned char sc;
-                               sc = 0x1d;  // left ctrl down
-                               writeit(cons_fd,sc);
-                               sc = 0x2e; // c down
-                               writeit(cons_fd,sc);
-                               sc = 0x2e | 0x80;   // c up
-                               writeit(cons_fd,sc);
-                               sc = 0x1d | 0x80;   // left ctrl up
-                               writeit(cons_fd,sc);
-
-                           } else if (ret == VCONS_EXIT) {
-                               exit(1);
-                           }
-
+		      // should we quit ?
+		      if (key.code.number == '\\' && 
+			  key.modifiers & TERMKEY_KEYMOD_CTRL && 
+			  key.modifiers & TERMKEY_KEYMOD_ALT) {
+			exit(1);
+		      } else {
+			int ret = handle_key(cons_fd, &key);
+			
+			if (ret < 0) {
+			  printf("Error sending key to console\n");
+			  return -1;
+			} 
+		      }
                            break;
                                                }
                     case TERMKEY_TYPE_FUNCTION:

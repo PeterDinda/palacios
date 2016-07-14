@@ -1,11 +1,13 @@
 #!/usr/bin/perl -w
 
+use IPC::Cmd qw/can_run/;
+
 if ($#ARGV!=0) { 
   print "v3_console /dev/v3-vmXXX\n";
-  print "Use '\\' to escape terminal\n\n";
   print "Use v3_console if you are on a terminal and\n";
   print "   want to connect to the VM's screen+keybaord\n";
   print "   in text mode.\n";
+  print "   Use '\\' or 'CTRL-ALT-\\' to escape\n";
   print "Use v3_cons if you are on a raw PC console and\n";
   print "   want to connnect to the VM's screen+keyboard\n";
   print "   in text mode.\n";
@@ -22,5 +24,11 @@ if ($#ARGV!=0) {
 
 $vm=shift;
 
-system "v3_cons_sc $vm 2>/dev/null";
+if (can_run('v3_cons_tc')) {
+    system "v3_cons_tc $vm 2>/dev/null";
+} elsif (can_run('v3_cons_sc')) {
+    system "v3_cons_sc $vm 2>/dev/null";
+} else {
+    print "You have no console program on your path\n";
+}
 

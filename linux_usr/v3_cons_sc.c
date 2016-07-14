@@ -21,6 +21,10 @@
 
 #include "v3_ctrl.h"
 
+static int in_color = 0;
+static int color8 = 0;
+#define TRANS_STYLE(x) ( !color8 ? (x) : ((x)&0x7)|(((x)&0x70)>>1))
+
 static int use_curses = 0;
 static int debug_enable = 0;
 
@@ -117,9 +121,9 @@ static int handle_char_set(struct character_msg * msg) {
 	    return -1;
 	}
 
-        wattron(console.win, COLOR_PAIR(msg->style));
+	if (in_color) {wattron(console.win,  COLOR_PAIR(TRANS_STYLE(msg->style)));}
 	mvwaddch(console.win, msg->y, msg->x, c);
-        wattroff(console.win, COLOR_PAIR(msg->style));
+	if (in_color) {wattroff(console.win, COLOR_PAIR(TRANS_STYLE(msg->style)));}
 
     } else {
 	//stdout text display
@@ -403,10 +407,59 @@ int check_terminal_size (void)
 static void
 init_colors (void)
 {
+    unsigned short i;
+
+    if (!has_colors()) {
+      fprintf(stderr,"No color support\n");
+      in_color=0;
+      color8=0;
+      return;
+    }
+    
     start_color();
-    int i;
-    for (i = 0; i < 0x100; i++) {
-        init_pair(i, i & 0xf, (i >> 4) & 0xf);
+
+    if (can_change_color() && COLORS>=16 && COLOR_PAIRS>=256) {
+      fprintf(stderr, "Modifyable color support with enough colors available\n");
+      // initialize first 16 colors to be the PC colors
+      // then create all the pairings
+      for (i=0;i<16;i++) {
+	unsigned short red, green, blue, intens;
+	// i = IRGB (4 bits)
+	intens = i>>3 & 0x1;
+	red = i>>2 & 0x1;
+	green = i>>1 & 0x1;
+	blue = i>>0 & 0x1;
+	init_color(i, 500*(red+intens), 500*(blue+intens), 500*(green+intens));
+      }
+      for (i=0;i<256;i++) {
+	init_pair(i, i & 0xf, (i >> 4) & 0xf);
+      }
+      in_color = 1;
+      color8 = 0;
+      return;
+    } else {
+      if (COLORS!=8 || COLOR_PAIRS<64) {
+	fprintf(stderr,"Insufficient number of fixed colors (%d) or color pairs (%d)\n",COLORS,COLOR_PAIRS);
+	in_color = 0;
+	color8 = 0;
+	return;
+      } 
+      // We have only the low-intensity colors available, so
+      // map just to these
+      fprintf(stderr,"Only 8 color standard palette available\n");
+      for (i=0;i<64;i++) {
+	// VGA color order:     black, blue, green, cyan, red, magenta, brown, gray
+	// curses color order:  black, red, green, yellow, blue, magenta, cyan, white
+	short map[] = { 0, 4, 2, 6, 1, 5, 3, 7 };
+	unsigned short fg, bg;
+	// discard intensity bit
+	bg = (i>>3 & 0x7);
+	fg = i & 0x7; 
+	init_pair(i, map[fg], map[bg]);
+      }
+      in_color = 1;
+      color8 = 1;
+      return;
     }
 }
 
@@ -468,7 +521,8 @@ int main(int argc, char* argv[]) {
 	scrollok(console.win, 1);
 
 	erase();
-    init_colors();
+	init_colors();
+	//abort();
     }
 
     /*
