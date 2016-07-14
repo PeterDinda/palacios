@@ -480,15 +480,12 @@ endif
 ifdef V3_CONFIG_LINUX
 DEFAULT_EXTRA_TARGETS=linux_module
 else
-DEFAULT_EXTRA_TARGETS=
-endif
-
 ifdef V3_CONFIG_NAUTILUS
 DEFAULT_EXTRA_TARGETS=nautilus
 else
 DEFAULT_EXTRA_TARGETS=
 endif
-
+endif
 
 # The all: target is the default when no target is given on the
 # command line.
@@ -654,13 +651,14 @@ linux_module/v3vee.ko: linux_module/*.c linux_module/*.h libv3vee.a
 	cd linux_module/ && make -j 8
 	cp linux_module/v3vee.ko v3vee.ko
 
-
+.PHONY: linux_module
 linux_module: linux_module/v3vee.ko 
 
 nautilus/libnautilus.a: nautilus/*.c nautilus/*.h libv3vee.a
 	cd nautilus/ && make 
 	cp nautilus/libnautilus.a .
 
+.PHONY: nautilus
 nautilus: nautilus/libnautilus.a
 
 

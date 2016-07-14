@@ -78,8 +78,12 @@ recv_pkt(struct socket * raw_sock, unsigned char * pkt, unsigned int len) {
     msg.msg_namelen = 0;
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
+#else
+    iov_iter_init(&(msg.msg_iter),WRITE,&iov,1,0);
+#endif
     msg.msg_control = NULL;
     
     oldfs = get_fs();
@@ -308,8 +312,12 @@ palacios_packet_send(struct v3_packet * packet,
     iov.iov_base = (void *)pkt;
     iov.iov_len = (__kernel_size_t)len;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,19,0)
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
+#else
+    iov_iter_init(&(msg.msg_iter),WRITE,&iov,1,0);
+#endif
     msg.msg_control = NULL;
     msg.msg_controllen = 0;
     msg.msg_name = NULL;
