@@ -4,7 +4,7 @@
 #include <nautilus/cpu.h>
 #include <nautilus/mm.h>
 #include <nautilus/vc.h>
-#include <dev/timer.h>
+#include <nautilus/timer.h>
 #include <dev/apic.h>
 
 #include <palacios/vmm.h>
