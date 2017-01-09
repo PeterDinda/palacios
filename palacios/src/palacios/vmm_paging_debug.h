@@ -222,7 +222,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 		pdpe64_t * pdp = (pdpe64_t *)page_ptr;
 		PrintDebug(info->vm_info, info, "PDPE64 Page\n");
 		for (i = 0; i < MAX_PDPE64_ENTRIES; i++) {
-		    tmp_vaddr = 4096 * MAX_PTE64_ENTRIES * MAX_PDE64_ENTRIES * i; 
+		    tmp_vaddr = 4096UL * MAX_PTE64_ENTRIES * MAX_PDE64_ENTRIES * i; 
 		    tmp_vaddr += vaddr;
 		    if (pdp[i].present)
 			PrintPDPE64(tmp_vaddr, &(pdp[i]));
@@ -261,7 +261,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 		pdpe32pae_t * pdp = (pdpe32pae_t *)page_ptr;
 		PrintDebug(info->vm_info, info, "PDPE32PAE Page\n");
 		for (i = 0; i < MAX_PDPE32PAE_ENTRIES; i++) {
-		    tmp_vaddr = 4096 * MAX_PTE32PAE_ENTRIES * MAX_PDE32PAE_ENTRIES * i; 
+		    tmp_vaddr = 4096UL * MAX_PTE32PAE_ENTRIES * MAX_PDE32PAE_ENTRIES * i; 
 		    tmp_vaddr += vaddr;
 		    if (pdp[i].present) 
 			PrintPDPE32PAE(tmp_vaddr, &(pdp[i]));
@@ -300,7 +300,7 @@ static int print_page_walk_cb(struct guest_info * info, page_type_t type, addr_t
 		pde32_t * pd = (pde32_t *)page_ptr;
 		PrintDebug(info->vm_info, info, "PDE32 Page\n");
 		for (i = 0; i < MAX_PTE32_ENTRIES; i++) {
-		    tmp_vaddr = 4096 * MAX_PTE32_ENTRIES * i; 
+		    tmp_vaddr = 4096UL * MAX_PTE32_ENTRIES * i; 
 		    tmp_vaddr += vaddr;
 		    if (pd[i].present)
 			PrintPDE32(tmp_vaddr, &(pd[i]));
